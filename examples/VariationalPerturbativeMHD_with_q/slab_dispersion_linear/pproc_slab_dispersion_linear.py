@@ -1,6 +1,6 @@
 """Post-process and plot the MHD slab dispersion.
 
-Run as ``python pproc_slab_dispersion.py [sim_folder] [flags of params_slab_dispersion.py] [--show]``; the flags
+Run as ``python pproc_slab_dispersion_linear.py [sim_folder] [flags of params_slab_dispersion_linear.py] [--show]``; the flags
 must be those of the run. The figures are written into ``<sim_folder>/results`` (``--show`` shows them instead):
 the space-time power spectra of u_x (Alfvén branch) and of the pressure perturbation (slow and fast branches) with
 the fitted and exact phase speeds, and the energies against time.
@@ -20,7 +20,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 
 # The setup of the run (parsed from the same command line).
 sys.path.insert(0, str(SCRIPT_DIR))
-import params_slab_dispersion as params  # noqa: E402
+import params_slab_dispersion_linear as params  # noqa: E402
 
 DEFAULT_OUTPUT = Path(params.args.out_folder) / params.args.sim_folder
 
@@ -175,7 +175,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
 
 
 if __name__ == "__main__":
-    # the flags of the run are parsed by params_slab_dispersion.py, the rest here
+    # the flags of the run are parsed by params_slab_dispersion_linear.py, the rest here
     _, other_flags = params.parser.parse_known_args()
     parser = argparse.ArgumentParser(description="Plot a saved simulation run.")
     parser.add_argument(

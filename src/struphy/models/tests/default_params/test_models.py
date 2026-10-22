@@ -96,6 +96,28 @@ def test_variational_mhd_with_p_default_options(tmp_path):
         assert getattr(propagators, name).options.model == "full_p", name
 
 
+@pytest.mark.models
+@pytest.mark.fluid
+@pytest.mark.parametrize("perturbative_model", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
+def test_variational_perturbative_linear(perturbative_model: str, tmp_path, test_profiling: bool = True):
+    """The linear version (linear=True) of the perturbative models: the default parameter file keeps the flag and
+    sets the linear variants of the propagators, and the generic model test passes."""
+    from struphy.io.setup import import_parameters_py
+
+    model_class = models_utils.get_model_by_name(model_name=perturbative_model)
+    model = model_class(linear=True)
+
+    path = os.path.join(tmp_path, f"params_{perturbative_model}.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params_model = import_parameters_py(path).model
+    assert params_model.params["linear"]
+    assert not hasattr(params_model.propagators, "variat_mom")
+    for name, variant in model.propagator_variants.items():
+        assert getattr(params_model.propagators, name).options.model == variant, name
+
+    ut.call_test(model=model, test_profiling=test_profiling)
+
+
 @pytest.mark.single
 def test_single_model(
     model_name: str,

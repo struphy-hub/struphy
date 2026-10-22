@@ -1,15 +1,15 @@
 """MHD waves in a homogeneous slab with the ideal linear perturbative MHD model in q = sqrt(p)
-(ViscoResistiveLinearPerturbativeMHD_with_q without viscosity and resistivity): Alfvén, slow and fast magnetosonic
+(VariationalPerturbativeMHD_with_q with linear=True, without viscosity and resistivity): Alfvén, slow and fast magnetosonic
 speeds from the space-time spectrum."""
 
 # -----------------------------
 # Description of the simulation
 # -----------------------------
 
-name = "Slab MHD dispersion (ViscoResistiveLinearPerturbativeMHD_with_q)"
+name = "Slab MHD dispersion (VariationalPerturbativeMHD_with_q, linear)"
 description = """
 MHD waves in a homogeneous slab, computed with the linear variational MHD model
-ViscoResistiveLinearPerturbativeMHD_with_q (here without viscosity and resistivity, i.e. ideal linear MHD). Its
+VariationalPerturbativeMHD_with_q with linear=True (here without viscosity and resistivity, i.e. ideal linear MHD). Its
 unknowns are the perturbations of the density, of q = sqrt(p) and of the magnetic field with respect to the
 equilibrium, and the velocity. The linearized pressure perturbation is p - p0 = 2 q0 q~.
 
@@ -30,8 +30,8 @@ Expected result. The space-time Fourier transform of u_x (Alfvén) and of the pr
 shows the three branches omega = v k. The pproc fits the speeds and prints them with the exact values
 v_A |cos theta| = 1.195, v_slow = 1.074, v_fast = 2.974; a run gave 1.192, 1.072 and 2.927 (within about one
 frequency bin 2 pi / Tend; the fast branch bends down at large k by numerical dispersion). The nonlinear model
-ViscoResistivePerturbativeMHD_with_q agrees within a frequency bin for this small amplitude
-(examples/ViscoResistivePerturbativeMHD_with_q/slab_dispersion). en_tot changed by 2e-6 (relative, nonlinear solver
+(linear=False) agrees within a frequency bin for this small amplitude
+(examples/VariationalPerturbativeMHD_with_q/slab_dispersion). en_tot changed by 2e-6 (relative, nonlinear solver
 tolerance) over the run.
 The run takes about 7 minutes on one process.
 """
@@ -78,7 +78,7 @@ from struphy import (
     grids,
     perturbations,
 )
-from struphy.models import ViscoResistiveLinearPerturbativeMHD_with_q
+from struphy.models import VariationalPerturbativeMHD_with_q
 
 # ---------------------
 # Physical parameters (also used by the pproc)
@@ -95,7 +95,9 @@ Lz = 60.0
 # ---------------------
 
 base_units = BaseUnits()
-model = ViscoResistiveLinearPerturbativeMHD_with_q(base_units=base_units, with_viscosity=False, with_resistivity=False)
+model = VariationalPerturbativeMHD_with_q(
+    base_units=base_units, linear=True, with_viscosity=False, with_resistivity=False
+)
 
 model.em_fields.b_field.save_data = True
 model.mhd.density.save_data = True

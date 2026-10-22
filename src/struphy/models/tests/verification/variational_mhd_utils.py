@@ -2,6 +2,8 @@
 equilibria of a sheared and a homogeneous slab: allocation of the ideal models, initial perturbations, energy and
 coefficient diagnostics, and the frequency of a standing wave."""
 
+import functools
+
 import cunumpy as xp
 from maybempi import MPI
 
@@ -17,13 +19,7 @@ from struphy import (
     perturbations,
 )
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
-from struphy.models import (
-    VariationalMHD_with_q,
-    ViscoResistiveLinearPerturbativeMHD,
-    ViscoResistiveLinearPerturbativeMHD_with_q,
-    ViscoResistivePerturbativeMHD,
-    ViscoResistivePerturbativeMHD_with_q,
-)
+from struphy.models import VariationalMHD_with_q
 from struphy.propagators.base import Propagator
 
 GAMMA = 5.0 / 3.0
@@ -33,14 +29,19 @@ GAMMA = 5.0 / 3.0
 SOLVER = SolverParameters()
 NONLIN = NonlinearSolverParameters()
 
-# variational propagator option `model` for each model class
-VARIANTS = {
-    ViscoResistivePerturbativeMHD_with_q: "perturbative_q",
-    VariationalMHD_with_q: "full_q",
-    ViscoResistiveLinearPerturbativeMHD_with_q: "linear_q",
-    ViscoResistivePerturbativeMHD: "perturbative",
-    ViscoResistiveLinearPerturbativeMHD: "linear",
-}
+
+def linear(model_class):
+    """The linear version of a perturbative model class (a constructor with ``linear=True``)."""
+    constructor = functools.partial(model_class, linear=True)
+    constructor.__name__ = f"{model_class.__name__}_linear"
+    return constructor
+
+
+def _variant(model):
+    """The option `model` of the variational density and pb/qb propagators for this model."""
+    if isinstance(model, VariationalMHD_with_q):
+        return "full_q"
+    return model.propagator_variants["variat_dens"]
 
 
 def sheared_slab(num_elements=16):
@@ -66,7 +67,7 @@ def allocate_ideal(tmp_path, name, model_class, setup, dt, perturb=None, implici
     allocated and run one after the other, since they share the class attributes of Propagator (derham, ...)."""
     equil, domain, num_elements, degree = setup
     model = model_class(with_viscosity=False, with_resistivity=False)
-    variant = VARIANTS[model_class]
+    variant = _variant(model)
 
     model.propagators.variat_dens.options = model.propagators.variat_dens.Options(
         model=variant, solver_params=SOLVER, nonlin_solver=NONLIN

@@ -15,14 +15,15 @@ from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
+from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
 from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
-    """Linear perturbative visco-resistive MHD equations, with the q variable (square root of the pressure),
-    discretized with a variational method.
+class VariationalPerturbativeMHD_with_q(StruphyModel):
+    """Perturbative (delta-f) or linear visco-resistive MHD equations, with the q variable (square root of the
+    pressure), discretized with a variational method.
 
     Parameters
     ----------
@@ -30,6 +31,9 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
         Base units for normalization (default: BaseUnits())
     mass_number: float
         Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    linear: bool
+        Whether to solve the linearized equations, i.e. to drop the terms that are nonlinear in the perturbations
+        (default: False)
     with_viscosity: bool
         Whether to include viscous dissipation (default: True)
     with_resistivity: bool
@@ -72,10 +76,13 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
             qt3: FEECVariable = None,
             bt2: FEECVariable = None,
             rho: FEECVariable = None,
+            linear: bool = False,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
         ):
             self.variat_dens = VariationalDensityEvolve()
+            if not linear:
+                self.variat_mom = VariationalMomentumAdvection()
             self.variat_qb = VariationalQBEvolve(div_u=div_u, u2=u2, qt3=qt3, bt2=bt2)
             if with_viscosity:
                 self.variat_viscous = VariationalViscosity(rho=rho, pt3=qt3)
@@ -88,6 +95,7 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
         self,
         base_units: BaseUnits = BaseUnits(),
         mass_number: float = 1.0,
+        linear: bool = False,
         with_viscosity: bool = True,
         with_resistivity: bool = True,
     ):
@@ -110,6 +118,7 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
             qt3=self.diagnostics.qt3,
             bt2=self.diagnostics.bt2,
             rho=self.mhd.density,
+            linear=linear,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
         )
@@ -117,6 +126,8 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
         # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.mhd.density
         self.propagators.variat_dens.variables.u = self.mhd.velocity
+        if not linear:
+            self.propagators.variat_mom.variables.u = self.mhd.velocity
         self.propagators.variat_qb.variables.u = self.mhd.velocity
         self.propagators.variat_qb.variables.q = self.mhd.sqrt_p
         self.propagators.variat_qb.variables.b = self.em_fields.b_field
@@ -150,7 +161,22 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
+    @property
+    def propagator_variants(self) -> dict:
+        """The values of the option ``model`` of the variational propagators that match ``linear``."""
+        variant = "linear_q" if self.params["linear"] else "perturbative_q"
+        return {name: variant for name in ("variat_dens", "variat_qb", "variat_viscous", "variat_resist")}
+
     def post_allocate(self):
+        # the propagator options must match the flag `linear`
+        for name, variant in self.propagator_variants.items():
+            prop = getattr(self.propagators, name, None)
+            if prop is not None and prop.options.model != variant:
+                raise ValueError(
+                    f"{self.__class__.__name__}(linear={self.params['linear']}) needs "
+                    f"{name}.Options(model='{variant}'), got model='{prop.options.model}'."
+                )
+
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
         def f(e1, e2, e3):
@@ -180,26 +206,30 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        variant = self.propagator_variants["variat_qb"]
+        linear = self.params["linear"]
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "variat_dens.Options" in line:
+                if line.startswith("model = ") and linear:
+                    new_file += [line.replace("(base_units=base_units)", "(base_units=base_units, linear=True)")]
+                elif "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='linear_q')\n",
+                        f"model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='{variant}')\n",
                     ]
                 elif "variat_qb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='linear_q')\n",
+                        f"model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='{variant}')\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_q')\n",
+                        f"model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='{variant}')\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_q')\n",
+                        f"model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='{variant}')\n",
                     ]
-                elif "sqrt_p.add_background" in line:
+                elif "sqrt_p.add_background" in line and linear:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
                 else:
@@ -213,52 +243,67 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
     def doc_pde(cls):
         r"""**PDEs solved by model:**
 
-        Linear MHD for the perturbations :math:`(\tilde\rho, \tilde q, \tilde{\mathbf B})` of a zero-flow MHD
-        equilibrium :math:`(\rho_0, q_0, \mathbf B_0)` with :math:`q_0 = \sqrt{p_0}`, and the velocity
-        :math:`\mathbf u`. It is the linearization of
-        :class:`~struphy.models.visco_resistive_perturbative_mhd_with_q.ViscoResistivePerturbativeMHD_with_q`.
+        The unknowns are the perturbations :math:`(\tilde\rho, \tilde q, \tilde{\mathbf B})` with respect to a
+        zero-flow MHD equilibrium :math:`(\rho_0, q_0, \mathbf B_0)` with :math:`q_0 = \sqrt{p_0}`, and the
+        velocity :math:`\mathbf u`. The total quantities are :math:`\rho = \rho_0 + \tilde\rho`,
+        :math:`q = q_0 + \tilde q = \sqrt{p}` and :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}`.
 
         Continuity:
 
         .. math::
 
-            \partial_t \tilde{\rho} + \nabla \cdot (\rho_0 \mathbf{u}) = 0
+            \partial_t \tilde{\rho} + \nabla \cdot \left( (\rho_0 + \tilde{\rho}) \mathbf{u} \right) = 0
 
         Momentum:
 
         .. math::
 
-            \rho_0 \partial_t \mathbf{u} + 2 q_0 \nabla \tilde{q} + 2 \tilde{q} \nabla q_0
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho\, \mathbf{u} \otimes \mathbf{u})
+            + \nabla \left( 2 q_0 \tilde{q} + \tilde{q}^2 \right)
             = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + (\nabla \times \mathbf{B}_0) \times \tilde{\mathbf{B}}
+            + (\nabla \times \tilde{\mathbf{B}}) \times \tilde{\mathbf{B}}
             + \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right)
 
         Square root of the pressure:
 
         .. math::
 
-            \partial_t \tilde{q} + \mathbf{u} \cdot \nabla q_0 + \frac{\gamma}{2} q_0 \nabla \cdot \mathbf{u} = 0
+            \partial_t \tilde{q} + \mathbf{u} \cdot \nabla (q_0 + \tilde{q}) + \frac{\gamma}{2} (q_0 + \tilde{q}) \nabla \cdot \mathbf{u} = 0
 
         Induction:
 
         .. math::
 
-            \partial_t \tilde{\mathbf{B}} - \nabla \times (\mathbf{u} \times \mathbf{B}_0)
+            \partial_t \tilde{\mathbf{B}} - \nabla \times \left( \mathbf{u} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \right)
             + \nabla \times \left( (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} \right) = 0
 
         Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity
-        coefficients. Since :math:`2 q_0 \nabla \tilde q + 2 \tilde q \nabla q_0 = \nabla (2 q_0 \tilde q)` and
-        :math:`2 q_0 \tilde q` is the linearized pressure perturbation, the ideal part (:math:`\mu = \eta = 0`) is
-        ideal linear MHD written in :math:`q` instead of :math:`p`.
+        coefficients. Since :math:`\nabla(2 q_0 \tilde q + \tilde q^2) = \nabla \tilde p` with
+        :math:`\tilde p = p - p_0`, the ideal part (:math:`\mu = \eta = 0`) is the perturbative ideal MHD system
+        written in :math:`q` instead of :math:`p`.
 
-        The equations derive from the Lagrangian
+        **Linear model** (``linear=True``): the terms that are nonlinear in the perturbations are dropped, i.e.
+        :math:`\rho \to \rho_0` in the continuity and momentum equations (no :math:`\mathbf u \cdot \nabla \mathbf u`),
+        the pressure force is :math:`\nabla (2 q_0 \tilde q) = 2 q_0 \nabla \tilde q + 2 \tilde q \nabla q_0`, the
+        Lorentz force has no :math:`(\nabla \times \tilde{\mathbf B}) \times \tilde{\mathbf B}`, and :math:`\tilde q`,
+        :math:`\tilde{\mathbf B}` are advected with :math:`q_0` and :math:`\mathbf B_0` only:
 
         .. math::
 
-            L = \int_\Omega \left( \rho_0 \frac{|\mathbf{u}|^2}{2} - \frac{\tilde{q}^2 + 2 q_0 \hat{q}}{\gamma - 1}
+            \partial_t \tilde{q} + \mathbf{u} \cdot \nabla q_0 + \frac{\gamma}{2} q_0 \nabla \cdot \mathbf{u} = 0\,,
+            \qquad
+            \partial_t \tilde{\mathbf{B}} - \nabla \times (\mathbf{u} \times \mathbf{B}_0)
+            + \nabla \times \left( (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} \right) = 0\,.
+
+        The equations derive from the Lagrangian (with :math:`\rho_0` instead of :math:`\rho` in the linear model)
+
+        .. math::
+
+            L = \int_\Omega \left( \rho \frac{|\mathbf{u}|^2}{2} - \frac{\tilde{q}^2 + 2 q_0 \hat{q}}{\gamma - 1}
             - \frac{|\tilde{\mathbf{B}}|^2}{2} - \mathbf{B}_0 \cdot \hat{\mathbf{B}} \right) \textrm d \mathbf{x}\,,
 
-        with the auxiliary second-order variables :math:`\hat q` (``diagnostics.qt3``) and :math:`\hat{\mathbf B}`
-        (``diagnostics.bt2``), advected by the perturbations,
+        with the auxiliary variables :math:`\hat q` (``diagnostics.qt3``) and :math:`\hat{\mathbf B}`
+        (``diagnostics.bt2``) advected by the perturbations only (in both models),
 
         .. math::
 
@@ -272,16 +317,16 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
 
         .. math::
 
-            H = \int_\Omega \left( \rho_0 \frac{|\mathbf{u}|^2}{2} + \frac{\tilde{q}^2 + 2 q_0 \hat{q}}{\gamma - 1}
+            H = \int_\Omega \left( \rho \frac{|\mathbf{u}|^2}{2} + \frac{\tilde{q}^2 + 2 q_0 \hat{q}}{\gamma - 1}
             + \frac{|\tilde{\mathbf{B}}|^2}{2} + \mathbf{B}_0 \cdot \hat{\mathbf{B}} \right) \textrm d \mathbf{x}
 
-        a conserved quantity. The heat produced by viscosity and resistivity goes into :math:`\hat q` (skipped with
-        the option ``fast=True`` of the dissipative propagators).
+        a conserved quantity. Note that the heat produced by viscosity and resistivity goes into :math:`\hat q`,
+        not into :math:`\tilde q`.
         """
 
     @classmethod
     def doc_normalization(cls):
-        r"""The flow normalization is Alfvénic:
+        r"""The model uses Alfvén-speed normalization:
 
         .. math::
 
@@ -292,7 +337,7 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
-        - Kinetic energy: ``en_U`` :math:`= \int \rho_0 |\mathbf u|^2/2`
+        - Kinetic energy: ``en_U`` :math:`= \int \rho |\mathbf u|^2/2` (:math:`\rho_0` in the linear model)
         - Magnetic energies: ``en_mag_1`` :math:`= \int |\tilde{\mathbf B}|^2/2`, ``en_mag_2`` :math:`= \int \mathbf B_0 \cdot \hat{\mathbf B}`
         - Thermodynamic energies: ``en_thermo_1`` :math:`= \int \tilde q^2/(\gamma - 1)`, ``en_thermo_2`` :math:`= \int 2 q_0 \hat q/(\gamma - 1)`
         - Total energy: ``en_tot`` (conserved)"""
@@ -302,23 +347,31 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
         """Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
-        2. :class:`~struphy.propagators.variational_qb_evolve.VariationalQBEvolve`
-        3. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity` (if :attr:`with_viscosity` is True)
-        4. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
+        2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection` (if :attr:`linear` is False)
+        3. :class:`~struphy.propagators.variational_qb_evolve.VariationalQBEvolve`
+        4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity` (if :attr:`with_viscosity` is True)
+        5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
+
+        The option ``model`` of the variational propagators is ``"perturbative_q"``, or ``"linear_q"`` if
+        :attr:`linear` is True.
         """
         doc = rf"""**1. VariationalDensityEvolve:**
 
 {VariationalDensityEvolve.__doc__}
 
-**2. VariationalQBEvolve:**
+**2. VariationalMomentumAdvection:**
+
+{VariationalMomentumAdvection.__doc__}
+
+**3. VariationalQBEvolve:**
 
 {VariationalQBEvolve.__doc__}
 
-**3. VariationalViscosity:**
+**4. VariationalViscosity:**
 
 {VariationalViscosity.__doc__}
 
-**4. VariationalResistivity:**
+**5. VariationalResistivity:**
 
 {VariationalResistivity.__doc__}
 """
@@ -326,22 +379,25 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
 
     @classmethod
     def doc_long_description(cls):
-        r"""Linear MHD around a zero-flow equilibrium in the variable :math:`q = \sqrt{p}`, with optional viscosity and
-        resistivity. Using :math:`q` makes the Lagrangian quadratic in the perturbed variables; the linear equations
-        then follow from a variational principle with the auxiliary variables :math:`\hat q` and :math:`\hat{\mathbf B}`,
-        which the discretization inherits (exact energy conservation for the ideal model). The magnetic and pressure
-        terms are solved together in one implicit step (no splitting between the shear-Alfvén and the compressional
-        part). Set ``with_viscosity=False`` and ``with_resistivity=False`` for ideal linear MHD."""
+        r"""MHD written for the perturbations with respect to a zero-flow equilibrium, in the variable
+        :math:`q = \sqrt{p}`, with optional viscosity and resistivity. By default all nonlinear terms are kept, so
+        the model is equivalent to full MHD, but the equilibrium force balance is subtracted analytically: a zero
+        perturbation stays exactly zero, also when the discrete equilibrium is not in exact force balance. With
+        ``linear=True`` the model solves linear MHD around the equilibrium.
+        Using :math:`q` makes the Lagrangian quadratic in the perturbed variables, which allows the
+        variational discretization with the auxiliary variables :math:`\hat q` and :math:`\hat{\mathbf B}`.
+        Set ``with_viscosity=False`` and ``with_resistivity=False`` for ideal MHD."""
 
     @classmethod
     def doc_examples(cls):
-        r"""Create the ideal linear perturbative q-MHD model:
+        r"""Create the ideal perturbative q-MHD model and its linear version:
 
         .. code-block:: python
 
-            from struphy.models import ViscoResistiveLinearPerturbativeMHD_with_q
+            from struphy.models import VariationalPerturbativeMHD_with_q
 
-            model = ViscoResistiveLinearPerturbativeMHD_with_q(with_viscosity=False, with_resistivity=False)
+            model = VariationalPerturbativeMHD_with_q(with_viscosity=False, with_resistivity=False)
+            linear_model = VariationalPerturbativeMHD_with_q(linear=True, with_viscosity=False, with_resistivity=False)
             model.mhd.sqrt_p
             model.em_fields.b_field
         """
@@ -350,18 +406,19 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
     def doc_use_cases(cls):
         r"""This model is appropriate for:
 
-        - linear MHD waves and instabilities around a (possibly non-uniform) zero-flow equilibrium
-        - the linear limit of
-          :class:`~struphy.models.visco_resistive_perturbative_mhd_with_q.ViscoResistivePerturbativeMHD_with_q`
-        - comparison with the p-based :class:`~struphy.models.visco_resistive_linear_perturbative_mhd.ViscoResistiveLinearPerturbativeMHD`
-          and with :class:`~struphy.models.linear_mhd.LinearMHD`"""
+        - nonlinear MHD dynamics around a given (possibly non-uniform) zero-flow equilibrium
+        - linear MHD waves and instabilities (``linear=True``)
+        - instabilities and waves where the discrete equilibrium force must not drive spurious flows
+        - comparison with :class:`~struphy.models.variational_mhd_with_q.VariationalMHD_with_q` (full-f), with
+          :class:`~struphy.models.variational_perturbative_mhd.VariationalPerturbativeMHD` (pressure) and with
+          :class:`~struphy.models.linear_mhd.LinearMHD`"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-        - nonlinear MHD dynamics (use
-          :class:`~struphy.models.visco_resistive_perturbative_mhd_with_q.ViscoResistivePerturbativeMHD_with_q`)
         - equilibria with flow
-        - entropy-based thermodynamics
-        - kinetic plasma coupling"""
+        - dissipative runs where the viscous and resistive heating must raise the pressure (it goes into
+          :math:`\hat q`, see ``doc_pde``)
+        - entropy-based thermodynamic evolution
+        - kinetic or hybrid particle coupling"""
