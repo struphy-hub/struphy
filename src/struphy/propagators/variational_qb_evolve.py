@@ -236,7 +236,10 @@ class VariationalQBEvolve(Propagator):
             midpoint :math:`t^{n+1/2}` and updated in every Picard iteration, which makes the step second-order
             accurate in time. If ``False``, they are taken at :math:`t^n`; the step is then only first-order accurate
             (e.g. for sound waves). Both conserve the energy. ``None`` means ``True`` for ``"linear_q"`` and
-            ``"perturbative_q"``, and ``False`` for ``"full_q"``.
+            ``"perturbative_q"``, and ``False`` for ``"full_q"``. With ``True``, the Jacobian of the Picard iteration
+            does not contain the dependence of the operators on their weights, so a step needs several iterations
+            (about 4 to 11, growing with the time step) instead of one, each with a Schur solve; ``False`` is the
+            cheaper first-order choice.
         """
 
         # specific literals
@@ -248,7 +251,7 @@ class VariationalQBEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
-        implicit_weights: bool = None
+        implicit_weights: bool | None = None
 
         def __post_init__(self):
             # checks
@@ -381,8 +384,10 @@ class VariationalQBEvolve(Propagator):
         qn = self.variables.q.spline.vector
         bn = self.variables.b.spline.vector
 
-        self._update_Pib(bn)
-        self._update_Projq(qn)
+        # with implicit weights the operators are updated at the midpoint inside the iteration
+        if not self._implicit_weights:
+            self._update_Pib(bn)
+            self._update_Projq(qn)
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
@@ -543,6 +548,18 @@ class VariationalQBEvolve(Propagator):
             logger.info(
                 f"!!!Warning: Maximum iteration in VariationalQBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
+
+        if not err < tol**2:
+            # the last iteration applied an update after the residual: evaluate the midpoint velocity (and the
+            # operators) at the final iterate, such that the updates below are consistent with it
+            un12 = un.copy(out=self._tmp_un12)
+            un12 += un1
+            un12 *= 0.5
+            if self._implicit_weights:
+                self._update_linear_form_dl_db(bn, bn1)
+                self._update_linear_form_dl_dq(qn, qn1)
+                self._update_Pib(self._tmp_bn12)
+                self._update_Projq(self._tmp_qn12)
 
         self._tmp_un_diff = un1 - un
         self._tmp_bn_diff = bn1 - bn
