@@ -321,7 +321,8 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
             + \frac{|\tilde{\mathbf{B}}|^2}{2} + \mathbf{B}_0 \cdot \hat{\mathbf{B}} \right) \textrm d \mathbf{x}
 
         a conserved quantity. Note that the heat produced by viscosity and resistivity goes into :math:`\hat q`,
-        not into :math:`\tilde q`.
+        not into :math:`\tilde q` (in the linear model, the heating is skipped with the option ``fast=True`` of the
+        dissipative propagators).
         """
 
     @classmethod

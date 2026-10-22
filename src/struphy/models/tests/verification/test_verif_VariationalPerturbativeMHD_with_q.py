@@ -275,9 +275,9 @@ def test_linear_waves(tmp_path, wave):
 
 
 def test_linear_same_as_p_model(tmp_path):
-    """The p-based linear model (VariationalPerturbativeMHD with linear=True) solves the same equations; its time step is of
-    first order (operator weights at t^n), so around the sheared slab the two models agree up to a difference of
-    first order in the time step."""
+    """The p-based linear model (VariationalPerturbativeMHD with linear=True) solves the same equations; its time
+    step is of first order (operator weights at t^n), so around the sheared slab the two models agree up to a
+    difference of first order in the time step."""
     setup = sheared_slab()
     t_end = 0.5
     rel_diff = {}

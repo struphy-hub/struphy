@@ -1,6 +1,6 @@
 """MHD waves in a homogeneous slab with the ideal linear perturbative MHD model in q = sqrt(p)
-(VariationalPerturbativeMHD_with_q with linear=True, without viscosity and resistivity): Alfvén, slow and fast magnetosonic
-speeds from the space-time spectrum."""
+(VariationalPerturbativeMHD_with_q with linear=True, without viscosity and resistivity): Alfvén, slow and fast
+magnetosonic speeds from the space-time spectrum."""
 
 # -----------------------------
 # Description of the simulation

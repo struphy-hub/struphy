@@ -1,7 +1,7 @@
 """Post-process and plot the MHD slab dispersion.
 
-Run as ``python pproc_slab_dispersion_linear.py [sim_folder] [flags of params_slab_dispersion_linear.py] [--show]``; the flags
-must be those of the run. The figures are written into ``<sim_folder>/results`` (``--show`` shows them instead):
+Run as ``python pproc_slab_dispersion_linear.py [sim_folder] [flags of params_slab_dispersion_linear.py]
+[--show]``; the flags must be those of the run. The figures are written into ``<sim_folder>/results`` (``--show`` shows them instead):
 the space-time power spectra of u_x (Alfvén branch) and of the pressure perturbation (slow and fast branches) with
 the fitted and exact phase speeds, and the energies against time.
 """
