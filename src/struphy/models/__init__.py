@@ -39,13 +39,13 @@ _LAZY_IMPORTS = {
     "VariationalBarotropicFluid": "struphy.models.variational_barotropic_fluid",
     "VariationalCompressibleFluid": "struphy.models.variational_compressible_fluid",
     "VariationalPressurelessFluid": "struphy.models.variational_pressureless_fluid",
-    "ViscoResistiveDeltafMHD": "struphy.models.visco_resistive_deltaf_mhd",
-    "ViscoResistiveDeltafMHD_with_q": "struphy.models.visco_resistive_deltaf_mhd_with_q",
     "ViscoResistiveLinearMHD": "struphy.models.visco_resistive_linear_mhd",
     "ViscoResistiveLinearMHD_with_q": "struphy.models.visco_resistive_linear_mhd_with_q",
     "ViscoResistiveMHD": "struphy.models.visco_resistive_mhd",
     "ViscoResistiveMHD_with_p": "struphy.models.visco_resistive_mhd_with_p",
     "ViscoResistiveMHD_with_q": "struphy.models.visco_resistive_mhd_with_q",
+    "ViscoResistivePerturbativeMHD": "struphy.models.visco_resistive_perturbative_mhd",
+    "ViscoResistivePerturbativeMHD_with_q": "struphy.models.visco_resistive_perturbative_mhd_with_q",
     "ViscousEulerSPH": "struphy.models.viscous_euler_sph",
     "ViscousFluid": "struphy.models.viscous_fluid",
     "Vlasov": "struphy.models.vlasov",
@@ -86,13 +86,13 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
     from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
     from struphy.models.variational_pressureless_fluid import VariationalPressurelessFluid
-    from struphy.models.visco_resistive_deltaf_mhd import ViscoResistiveDeltafMHD
-    from struphy.models.visco_resistive_deltaf_mhd_with_q import ViscoResistiveDeltafMHD_with_q
     from struphy.models.visco_resistive_linear_mhd import ViscoResistiveLinearMHD
     from struphy.models.visco_resistive_linear_mhd_with_q import ViscoResistiveLinearMHD_with_q
     from struphy.models.visco_resistive_mhd import ViscoResistiveMHD
     from struphy.models.visco_resistive_mhd_with_p import ViscoResistiveMHD_with_p
     from struphy.models.visco_resistive_mhd_with_q import ViscoResistiveMHD_with_q
+    from struphy.models.visco_resistive_perturbative_mhd import ViscoResistivePerturbativeMHD
+    from struphy.models.visco_resistive_perturbative_mhd_with_q import ViscoResistivePerturbativeMHD_with_q
     from struphy.models.viscous_euler_sph import ViscousEulerSPH
     from struphy.models.viscous_fluid import ViscousFluid
     from struphy.models.vlasov import Vlasov
@@ -132,13 +132,13 @@ __all__ = [
     "VariationalBarotropicFluid",
     "VariationalCompressibleFluid",
     "VariationalPressurelessFluid",
-    "ViscoResistiveDeltafMHD",
-    "ViscoResistiveDeltafMHD_with_q",
     "ViscoResistiveLinearMHD",
     "ViscoResistiveLinearMHD_with_q",
     "ViscoResistiveMHD",
     "ViscoResistiveMHD_with_p",
     "ViscoResistiveMHD_with_q",
+    "ViscoResistivePerturbativeMHD",
+    "ViscoResistivePerturbativeMHD_with_q",
     "ViscousEulerSPH",
     "ViscousFluid",
     "Vlasov",

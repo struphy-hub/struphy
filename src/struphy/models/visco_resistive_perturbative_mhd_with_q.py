@@ -21,7 +21,7 @@ from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-class ViscoResistiveDeltafMHD_with_q(StruphyModel):
+class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
     """Delta-f visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
 
     Parameters
@@ -304,9 +304,9 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
 
         .. code-block:: python
 
-            from struphy.models import ViscoResistiveDeltafMHD_with_q
+            from struphy.models import ViscoResistivePerturbativeMHD_with_q
 
-            model = ViscoResistiveDeltafMHD_with_q()
+            model = ViscoResistivePerturbativeMHD_with_q()
             model.mhd.sqrt_p
             model.em_fields.b_field
         """

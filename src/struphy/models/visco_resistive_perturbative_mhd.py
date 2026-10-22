@@ -21,7 +21,7 @@ from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-class ViscoResistiveDeltafMHD(StruphyModel):
+class ViscoResistivePerturbativeMHD(StruphyModel):
     """Delta-f visco-resistive MHD equations discretized with a variational method.
 
     Parameters
@@ -293,7 +293,7 @@ class ViscoResistiveDeltafMHD(StruphyModel):
 
     @classmethod
     def doc_long_description(cls):
-        r"""ViscoResistiveDeltafMHD is the dissipative perturbative MHD model using
+        r"""ViscoResistivePerturbativeMHD is the dissipative perturbative MHD model using
         pressure as thermodynamic variable. It is intended for departures from a
         background equilibrium that are not strictly linear but still naturally
         formulated as perturbations."""
@@ -304,9 +304,9 @@ class ViscoResistiveDeltafMHD(StruphyModel):
 
         .. code-block:: python
 
-            from struphy.models import ViscoResistiveDeltafMHD
+            from struphy.models import ViscoResistivePerturbativeMHD
 
-            model = ViscoResistiveDeltafMHD()
+            model = ViscoResistivePerturbativeMHD()
             model.mhd.pressure
             model.em_fields.b_field
         """
