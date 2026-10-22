@@ -1403,6 +1403,50 @@ class H1vecMassMatrix_density:
         )
 
 
+def kinetic_metric(derham: Derham, mass_ops, basis_ops, divdiv_alpha: float = 0.0) -> LinearOperator:
+    r"""Metric :math:`\mathbb A[\hat\rho]` of the (regularized) kinetic energy :math:`\frac 12 \mathbf u^\top \mathbb A \mathbf u`
+    of the variational fluid models,
+
+    .. math::
+
+        \frac 12 \mathbf u^\top \mathbb A[\hat\rho] \mathbf u = \int \rho \frac{|\mathbf u|^2}{2} \,\textnormal d \mathbf x
+        + \alpha \int \rho\, (\nabla \cdot \mathbf u)^2 \,\textnormal d \mathbf x \,, \qquad
+        \mathbb A[\hat\rho] = \mathbb M^v[\hat\rho] + 2 \alpha\, (\mathbb D \mathbb U^v)^\top \mathbb M^{3,\rho} \,\mathbb D \mathbb U^v \,,
+
+    with :math:`\mathbb M^v[\hat\rho]` = ``mass_ops.WMMnew``, :math:`\mathbb M^{3,\rho}` = ``mass_ops.WMM3new`` and
+    :math:`\mathbb U^v` = ``basis_ops.Uv``. The divergence of :math:`\mathbf u = DF \hat{\mathbf u}` is discretized as
+    :math:`\sqrt g \, \nabla \cdot \mathbf u \approx \mathbb D \hat\Pi^2[\sqrt g \, \hat{\mathbf u}]`, the discrete divergence that
+    is also used for the transport of pressure. The div-div term penalizes compressions (Hamiltonian regularization);
+    both mass matrices depend linearly on the density and are re-assembled in
+    :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators (provides ``WMMnew`` and ``WMM3new``).
+
+    basis_ops : BasisProjectionOperators
+        Basis projection operators (provides ``Uv``).
+
+    divdiv_alpha : float
+        Coefficient :math:`\alpha \geq 0` of the div-div term; for 0, the metric is ``mass_ops.WMMnew``.
+
+    Returns
+    -------
+    LinearOperator
+        The metric :math:`\mathbb A[\hat\rho]` (symmetric, positive definite).
+    """
+    assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
+    if divdiv_alpha == 0.0:
+        return mass_ops.WMMnew
+
+    divUv = derham.div @ basis_ops.Uv
+    return mass_ops.WMMnew + (2.0 * divdiv_alpha) * (divUv.T @ mass_ops.WMM3new @ divUv)
+
+
 class KineticEnergyEvaluator:
     r"""Helper class to evaluate the different Kinetic energy terms appearing in VariationalDensityEvolve.
 
@@ -1419,9 +1463,15 @@ class KineticEnergyEvaluator:
 
     mass_ops : WeightedMassOperators
         The weighted mass operators needed to create new mass matrices
+
+    basis_ops : BasisProjectionOperators, optional
+        Basis projection operators, needed for ``divdiv_alpha > 0`` (discrete divergence, see :func:`kinetic_metric`).
+
+    divdiv_alpha : float
+        Coefficient of the div-div term of the kinetic energy, see :func:`kinetic_metric`.
     """
 
-    def __init__(self, derham, domain, mass_ops):
+    def __init__(self, derham, domain, mass_ops, basis_ops=None, divdiv_alpha: float = 0.0):
         integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
@@ -1449,6 +1499,84 @@ class KineticEnergyEvaluator:
 
         self._M_un = mass_ops.create_weighted_mass("H1vec", "L2")
         self._M_un1 = mass_ops.create_weighted_mass("L2", "H1vec")
+
+        # div-div term alpha int rho (div u)^2 dx of the kinetic energy, with sqrt(g) div u = D Uv u (a 3-form)
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
+        self._divdiv_alpha = divdiv_alpha
+        if divdiv_alpha > 0.0:
+            assert basis_ops is not None, "basis_ops are needed for divdiv_alpha > 0."
+            self._divUv = derham.div @ basis_ops.Uv
+            self._divuf = derham.create_spline_function("divuf", "L2")
+            self._divuf1 = derham.create_spline_function("divuf1", "L2")
+            self._divu = self._divUv.codomain.zeros()
+            self._divu_values = xp.zeros(grid_shape, dtype=float)
+            self._divu1_values = xp.zeros(grid_shape, dtype=float)
+            self._divu_weight = xp.zeros(grid_shape, dtype=float)
+            # 1/g, the push-forward of two 3-forms (see mass_ops.WMM3new)
+            self._inv_g = 1.0 / domain.jacobian_det(*integration_grid) ** 2
+            # 1/sqrt(g): get_u2_grid values are integrated with the 3-form geometric weight 1/sqrt(g)
+            self._inv_sqrt_g = deepcopy(self._inv_g * domain.jacobian_det(*integration_grid))
+            # V3 -> V3 parts of the derivatives of the div-div term, composed with D Uv below
+            self._M3_divun = mass_ops.create_weighted_mass("L2", "L2")
+            self._M3_divun1 = mass_ops.create_weighted_mass("L2", "L2")
+            self._M_divun = self._M3_divun @ self._divUv
+            self._M_divun1 = self._divUv.T @ self._M3_divun1
+
+    @property
+    def divdiv_alpha(self) -> float:
+        """Coefficient of the div-div term of the kinetic energy (0: no regularization)."""
+        return self._divdiv_alpha
+
+    @property
+    def M_divun(self) -> LinearOperator:
+        r"""Operator H1vec -> L2, :math:`\mathbf v \mapsto \int \Lambda^3_{ijk} \frac{d^n \, (\mathbb D \mathbb U^v \mathbf v)^\top \vec{\boldsymbol\Lambda}^3}{g} \textnormal d \boldsymbol\eta`
+        with :math:`d^n = (\mathbb D \mathbb U^v \mathbf u^n)^\top \vec{\boldsymbol\Lambda}^3` (see :meth:`assemble_M_divun`)."""
+        return self._M_divun
+
+    @property
+    def M_divun1(self) -> LinearOperator:
+        r"""Operator L2 -> H1vec, :math:`\delta\rho \mapsto (\mathbb D \mathbb U^v)^\top \mathbb M^3[d^{n+1}/g] \, \delta\rho`,
+        such that :math:`2\alpha` times it is the derivative of the div-div part of :math:`\mathbb A[\hat\rho]\mathbf u^{n+1}`
+        in :math:`\hat\rho` (see :meth:`assemble_M_divun1`)."""
+        return self._M_divun1
+
+    def _eval_divu(self, u, spline, out):
+        """Values of the 3-form D Uv u on the integration grid."""
+        self._divUv.dot(u, out=self._divu)
+        spline.vector = self._divu
+        return spline.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd, out=out)
+
+    def add_divdiv_grid(self, un, un1, out):
+        r"""Add :math:`\alpha \frac{d^n d^{n+1}}{\sqrt g}` to ``out`` (values on the integration grid), the div-div part of the
+        :math:`\hat\rho`-derivative of the kinetic energy (to be integrated with the 3-form weight :math:`1/\sqrt g`, as
+        :meth:`get_u2_grid`); :math:`d = (\mathbb D \mathbb U^v \mathbf u)^\top \vec{\boldsymbol\Lambda}^3`."""
+        if self._divdiv_alpha == 0.0:
+            return out
+        d = self._eval_divu(un, self._divuf, self._divu_values)
+        d1 = self._eval_divu(un1, self._divuf1, self._divu1_values)
+        self._tmp_int_grid *= 0.0
+        self._tmp_int_grid += d
+        self._tmp_int_grid *= d1
+        self._tmp_int_grid *= self._inv_sqrt_g
+        self._tmp_int_grid *= self._divdiv_alpha
+        out += self._tmp_int_grid
+        return out
+
+    def assemble_M_divun(self, un):
+        """Assemble the weight :math:`d^n/g` of :attr:`M_divun`."""
+        d = self._eval_divu(un, self._divuf, self._divu_values)
+        self._divu_weight *= 0.0
+        self._divu_weight += d
+        self._divu_weight *= self._inv_g
+        self._M3_divun.assemble([[self._divu_weight]])
+
+    def assemble_M_divun1(self, un1):
+        """Assemble the weight :math:`d^{n+1}/g` of :attr:`M_divun1`."""
+        d1 = self._eval_divu(un1, self._divuf1, self._divu1_values)
+        self._divu_weight *= 0.0
+        self._divu_weight += d1
+        self._divu_weight *= self._inv_g
+        self._M3_divun1.assemble([[self._divu_weight]])
 
     @property
     def M_un(
