@@ -22,7 +22,7 @@ from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
 class ViscoResistivePerturbativeMHD(StruphyModel):
-    """Delta-f visco-resistive MHD equations discretized with a variational method.
+    """Perturbative (delta-f) visco-resistive MHD equations discretized with a variational method.
 
     Parameters
     ----------
@@ -224,7 +224,7 @@ class ViscoResistivePerturbativeMHD(StruphyModel):
 
         .. math::
 
-            \partial_t \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \right) + \nabla \cdot \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \otimes \tilde{\mathbf{u}} \right) + \frac{1}{\gamma - 1} \nabla \tilde{p} + \mathbf{B}_0 \times \nabla \times \tilde{\mathbf{B}} + \tilde{\mathbf{B}} \times \nabla \times \mathbf{B}_0 + \tilde{\mathbf{B}} \times \nabla \times \tilde{\mathbf{B}} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \tilde{\mathbf{u}} \right) = 0
+            \partial_t \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \right) + \nabla \cdot \left( (\tilde{\rho} + \rho_0) \tilde{\mathbf{u}} \otimes \tilde{\mathbf{u}} \right) + \nabla \tilde{p} + \mathbf{B}_0 \times \nabla \times \tilde{\mathbf{B}} + \tilde{\mathbf{B}} \times \nabla \times \mathbf{B}_0 + \tilde{\mathbf{B}} \times \nabla \times \tilde{\mathbf{B}} - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \tilde{\mathbf{u}} \right) = 0
 
         Pressure:
 

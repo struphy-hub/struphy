@@ -22,7 +22,8 @@ from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
 class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
-    """Delta-f visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
+    """Perturbative (delta-f) visco-resistive MHD equations, with the q variable (square root of the pressure),
+    discretized with a variational method.
 
     Parameters
     ----------
@@ -215,31 +216,72 @@ class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
     def doc_pde(cls):
         r"""**PDEs solved by model:**
 
+        The unknowns are the perturbations :math:`(\tilde\rho, \tilde q, \tilde{\mathbf B})` with respect to a
+        zero-flow MHD equilibrium :math:`(\rho_0, q_0, \mathbf B_0)` with :math:`q_0 = \sqrt{p_0}`, and the
+        velocity :math:`\mathbf u`. The total quantities are :math:`\rho = \rho_0 + \tilde\rho`,
+        :math:`q = q_0 + \tilde q = \sqrt{p}` and :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}`.
+
         Continuity:
 
         .. math::
 
-            \partial_t \tilde{\rho} + \nabla \cdot (\rho_0 \tilde{\mathbf{u}}) = 0
+            \partial_t \tilde{\rho} + \nabla \cdot \left( (\rho_0 + \tilde{\rho}) \mathbf{u} \right) = 0
 
         Momentum:
 
         .. math::
 
-            \partial_t (\rho_0 \tilde{\mathbf{u}}) + \frac{2 q_0}{\gamma - 1} \nabla \tilde{q} + \frac{2 \tilde{q}}{\gamma - 1} \nabla q_0 + \frac{2 \tilde{q}}{\gamma - 1} \nabla \tilde{q} + \mathbf{B}_0 \times \nabla \times \tilde{\mathbf{B}} + \tilde{\mathbf{B}} \times \nabla \times \mathbf{B}_0 - \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \tilde{\mathbf{u}} \right) = 0
+            \partial_t (\rho \mathbf{u}) + \nabla \cdot (\rho\, \mathbf{u} \otimes \mathbf{u})
+            + \nabla \left( 2 q_0 \tilde{q} + \tilde{q}^2 \right)
+            = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + (\nabla \times \mathbf{B}_0) \times \tilde{\mathbf{B}}
+            + (\nabla \times \tilde{\mathbf{B}}) \times \tilde{\mathbf{B}}
+            + \nabla \cdot \left( (\mu + \mu_a(\mathbf{x})) \nabla \mathbf{u} \right)
 
-        Energy-like variable:
+        Square root of the pressure:
 
         .. math::
 
-            \partial_t \tilde{q} + \nabla \cdot \left( (q_0 + \tilde{q}) \tilde{\mathbf{u}} \right) + \left( \frac{\gamma}{2} - 1 \right) (q_0 + \tilde{q}) \nabla \cdot \tilde{\mathbf{u}} = 0
+            \partial_t \tilde{q} + \mathbf{u} \cdot \nabla (q_0 + \tilde{q}) + \frac{\gamma}{2} (q_0 + \tilde{q}) \nabla \cdot \mathbf{u} = 0
 
         Induction:
 
         .. math::
 
-            \partial_t \tilde{\mathbf{B}} + \nabla \times \left( (\mathbf{B}_0 + \tilde{\mathbf{B}}) \times \tilde{\mathbf{u}} \right) + \nabla \times (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} = 0
+            \partial_t \tilde{\mathbf{B}} - \nabla \times \left( \mathbf{u} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \right)
+            + \nabla \times \left( (\eta + \eta_a(\mathbf{x})) \nabla \times \tilde{\mathbf{B}} \right) = 0
 
-        Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity coefficients.
+        Here :math:`\mu_a(\mathbf{x})` and :math:`\eta_a(\mathbf{x})` are artificial viscosity and resistivity
+        coefficients. Since :math:`\nabla(2 q_0 \tilde q + \tilde q^2) = \nabla \tilde p` with
+        :math:`\tilde p = p - p_0`, the ideal part (:math:`\mu = \eta = 0`) is the perturbative ideal MHD system
+        written in :math:`q` instead of :math:`p`.
+
+        The equations derive from the Lagrangian
+
+        .. math::
+
+            L = \int_\Omega \left( \rho \frac{|\mathbf{u}|^2}{2} - \frac{\tilde{q}^2 + 2 q_0 \hat{q}}{\gamma - 1}
+            - \frac{|\tilde{\mathbf{B}}|^2}{2} - \mathbf{B}_0 \cdot \hat{\mathbf{B}} \right) \textrm d \mathbf{x}\,,
+
+        with the auxiliary variables :math:`\hat q` (``diagnostics.qt3``) and :math:`\hat{\mathbf B}`
+        (``diagnostics.bt2``) advected by the perturbations only,
+
+        .. math::
+
+            \partial_t \hat{q} + \mathbf{u} \cdot \nabla \tilde{q} + \frac{\gamma}{2} \tilde{q} \nabla \cdot \mathbf{u}
+            = \frac{\gamma - 1}{2 q_0} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \mathbf{u}|^2
+            + (\eta + \eta_a(\mathbf{x})) |\nabla \times \tilde{\mathbf{B}}|^2 \right)\,,
+            \qquad
+            \partial_t \hat{\mathbf{B}} - \nabla \times (\mathbf{u} \times \tilde{\mathbf{B}}) = 0\,.
+
+        They do not feed back on the other unknowns, but they make the energy
+
+        .. math::
+
+            H = \int_\Omega \left( \rho \frac{|\mathbf{u}|^2}{2} + \frac{\tilde{q}^2 + 2 q_0 \hat{q}}{\gamma - 1}
+            + \frac{|\tilde{\mathbf{B}}|^2}{2} + \mathbf{B}_0 \cdot \hat{\mathbf{B}} \right) \textrm d \mathbf{x}
+
+        a conserved quantity. Note that the heat produced by viscosity and resistivity goes into :math:`\hat q`,
+        not into :math:`\tilde q`.
         """
 
     @classmethod
@@ -255,10 +297,10 @@ class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
-        - Kinetic energy: ``en_U``
-        - Magnetic energies: ``en_mag_1``, ``en_mag_2``
-        - Thermodynamic q-energies: ``en_thermo_1``, ``en_thermo_2``
-        - Total energy: ``en_tot``"""
+        - Kinetic energy: ``en_U`` :math:`= \int \rho |\mathbf u|^2/2`
+        - Magnetic energies: ``en_mag_1`` :math:`= \int |\tilde{\mathbf B}|^2/2`, ``en_mag_2`` :math:`= \int \mathbf B_0 \cdot \hat{\mathbf B}`
+        - Thermodynamic energies: ``en_thermo_1`` :math:`= \int \tilde q^2/(\gamma - 1)`, ``en_thermo_2`` :math:`= \int 2 q_0 \hat q/(\gamma - 1)`
+        - Total energy: ``en_tot`` (conserved)"""
 
     @classmethod
     def doc_discretization(cls):
@@ -294,19 +336,23 @@ class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
 
     @classmethod
     def doc_long_description(cls):
-        r"""This model is the ``delta f`` dissipative MHD formulation in the
-        q-variable representation. It is aimed at perturbative nonlinear MHD
-        studies where the q-formulation is preferred numerically."""
+        r"""Nonlinear MHD written for the perturbations with respect to a zero-flow equilibrium, in the variable
+        :math:`q = \sqrt{p}`, with optional viscosity and resistivity. All nonlinear terms are kept, so the model
+        is equivalent to full MHD, but the equilibrium force balance is subtracted analytically: a zero
+        perturbation stays exactly zero, also when the discrete equilibrium is not in exact force balance.
+        Using :math:`q` makes the Lagrangian quadratic in the perturbed variables, which allows the
+        variational discretization with the auxiliary variables :math:`\hat q` and :math:`\hat{\mathbf B}`.
+        Set ``with_viscosity=False`` and ``with_resistivity=False`` for ideal perturbative MHD."""
 
     @classmethod
     def doc_examples(cls):
-        r"""Create and initialize the visco-resistive ``delta f`` q-MHD model:
+        r"""Create the ideal perturbative q-MHD model:
 
         .. code-block:: python
 
             from struphy.models import ViscoResistivePerturbativeMHD_with_q
 
-            model = ViscoResistivePerturbativeMHD_with_q()
+            model = ViscoResistivePerturbativeMHD_with_q(with_viscosity=False, with_resistivity=False)
             model.mhd.sqrt_p
             model.em_fields.b_field
         """
@@ -315,14 +361,17 @@ class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
     def doc_use_cases(cls):
         r"""This model is appropriate for:
 
-        - dissipative ``delta f`` MHD with q-thermodynamics
-        - comparison against the p-based ``delta f`` model
-        - nonlinear perturbative benchmarks with viscosity and resistivity"""
+        - nonlinear MHD dynamics around a given (possibly non-uniform) zero-flow equilibrium
+        - instabilities and waves where the discrete equilibrium force must not drive spurious flows
+        - comparison with :class:`~struphy.models.visco_resistive_mhd_with_q.ViscoResistiveMHD_with_q` (full-f)
+          and :class:`~struphy.models.visco_resistive_linear_mhd_with_q.ViscoResistiveLinearMHD_with_q` (linear)"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-        - full-f MHD far from equilibrium
+        - equilibria with flow
+        - dissipative runs where the viscous and resistive heating must raise the pressure (it goes into
+          :math:`\hat q`, see ``doc_pde``)
         - entropy-based thermodynamic evolution
         - kinetic or hybrid particle coupling"""

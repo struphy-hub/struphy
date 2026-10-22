@@ -621,7 +621,7 @@ class VariationalPBEvolve(Propagator):
 
     def _create_Pib0(self):
         self.curlPib0 = Hdiv0_transport_operator(self.derham)
-        self.curlPibT0 = self.curlPib.T
+        self.curlPibT0 = self.curlPib0.T
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
 

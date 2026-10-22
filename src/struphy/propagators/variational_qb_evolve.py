@@ -27,17 +27,62 @@ logger = logging.getLogger("struphy")
 
 class VariationalQBEvolve(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
-    find :math:`\mathbf u \in (H^1)^3`, :math:`p \in L^2` and :math:`\mathbf B \in H(\textnormal{div})` such that
+    find :math:`\mathbf u \in (H^1)^3`, :math:`q \in L^2` and :math:`\mathbf B \in H(\textnormal{div})` such that,
+    with the transport operators
 
     .. math::
 
-        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times (\tilde{\mathbf B} \times \mathbf v) - \int_\Omega \frac{2 q}{\gamma -1} (\nabla \cdot (\tilde{q} \mathbf v))\,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
-        \\[4mm]
-        &\partial_t \mathbf B + \nabla \cdot ( \tilde{\mathbf B} \times \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t q + \nabla \cdot(\tilde{q} \mathbf u) + (\gamma/2 - 1) \tilde{q} \nabla \cdot u = 0 \,.
+        \mathcal T_{\bar{\mathbf B}}(\mathbf v) = \nabla \times (\bar{\mathbf B} \times \mathbf v)\,,
+        \qquad
+        \mathcal S_{\bar q}(\mathbf v) = \nabla \cdot (\bar q \mathbf v) + \left(\frac \gamma 2 - 1\right) \bar q\, \nabla \cdot \mathbf v\,,
 
-    Where :math:`\tilde{\mathbf B}` (resp. :math:`\tilde{q}`) is either :math:`\mathbf B` (resp. :math:`q`) for full-f models, :math:`\mathbf B_0` (resp. :math:`q_0`) for linear models or :math:`\mathbf B_0+\mathbf B` (resp. :math:`q_0+q`) for :math:`\delta f` models.
+    the following holds, depending on the option ``model``:
+
+    * ``"full_q"`` (full MHD in :math:`q = \sqrt p`):
+
+      .. math::
+
+          &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x
+          - \int_\Omega \mathbf B \cdot \mathcal T_{\mathbf B}(\mathbf v)\,\textrm d \mathbf x
+          - \int_\Omega \frac{2 q}{\gamma -1} \mathcal S_q(\mathbf v)\,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
+          \\[2mm]
+          &\partial_t \mathbf B + \mathcal T_{\mathbf B}(\mathbf u) = 0 \,,
+          \qquad
+          \partial_t q + \mathcal S_q(\mathbf u) = 0 \,.
+
+    * ``"linear_q"`` (:math:`\mathbf B` and :math:`q` are the perturbations of the equilibrium :math:`\mathbf B_0`, :math:`q_0`):
+
+      .. math::
+
+          &\int_\Omega \partial_t (\rho_0 \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x
+          - \int_\Omega \left(\mathbf B \cdot \mathcal T_{\mathbf B_0}(\mathbf v) + \mathbf B_0 \cdot \mathcal T_{\mathbf B}(\mathbf v)\right)\textrm d \mathbf x
+          - \int_\Omega \frac{2}{\gamma -1} \left(q\, \mathcal S_{q_0}(\mathbf v) + q_0\, \mathcal S_q(\mathbf v)\right)\textrm d \mathbf x = 0\,,
+          \\[2mm]
+          &\partial_t \mathbf B + \mathcal T_{\mathbf B_0}(\mathbf u) = 0 \,,
+          \qquad
+          \partial_t q + \mathcal S_{q_0}(\mathbf u) = 0 \,.
+
+    * ``"perturbative_q"`` (:math:`\mathbf B` and :math:`q` are the perturbations, all nonlinear terms are kept):
+
+      .. math::
+
+          &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x
+          - \int_\Omega \left(\mathbf B \cdot \mathcal T_{\mathbf B_0 + \mathbf B}(\mathbf v) + \mathbf B_0 \cdot \mathcal T_{\mathbf B}(\mathbf v)\right)\textrm d \mathbf x
+          - \int_\Omega \frac{2}{\gamma -1} \left(q\, \mathcal S_{q_0 + q}(\mathbf v) + q_0\, \mathcal S_q(\mathbf v)\right)\textrm d \mathbf x = 0\,,
+          \\[2mm]
+          &\partial_t \mathbf B + \mathcal T_{\mathbf B_0 + \mathbf B}(\mathbf u) = 0 \,,
+          \qquad
+          \partial_t q + \mathcal S_{q_0 + q}(\mathbf u) = 0 \,.
+
+    The second-order terms come from the auxiliary variables :math:`\hat{\mathbf B}` (``bt2``) and :math:`\hat q` (``qt3``),
+    which, if given, are advanced with :math:`\partial_t \hat{\mathbf B} + \mathcal T_{\mathbf B}(\mathbf u) = 0` and
+    :math:`\partial_t \hat q + \mathcal S_q(\mathbf u) = 0`. They enter the conserved energy of the linear and perturbative
+    models as :math:`\int \mathbf B_0 \cdot \hat{\mathbf B} + 2 q_0 \hat q / (\gamma - 1)`.
+    For ``"full_q"`` the mass density :math:`\rho` is the variable of :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`,
+    for ``"perturbative_q"`` it is :math:`\rho_0` plus that variable.
+
+    The scheme below is written for ``"full_q"``; for the other models the operators and linear forms are
+    replaced by the sums above.
 
     On the logical domain:
 
@@ -46,11 +91,11 @@ class VariationalQBEvolve(Propagator):
         \begin{align}
         &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
         - \int_{\hat{\Omega}} \hat{\mathbf{B}}^2 \cdot G \,\nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\,
-        - \frac{q}{\gamma -1} \nabla \cdot (\hat{q} \hat{v})  \textrm d \boldsymbol \eta = 0 ~ ,
+        - \frac{2 \hat{q}}{\gamma -1} \left(\nabla \cdot (\hat{q} \hat{\mathbf{v}}) + (\gamma/2 - 1) \hat{q} \nabla \cdot \hat{\mathbf{v}}\right) \textrm d \boldsymbol \eta = 0 ~ ,
         \\[2mm]
         &\partial_t \hat{\mathbf{B}}^2 + \nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{u}}) = 0 ~ ,
         \\[2mm]
-        &\partial_t \hat{q} + \nabla \cdot (\hat{q} \hat{u}) + (\gamma/2 - 1 ) \hat{p} \nabla \cdot G \hat{u} = 0 \,
+        &\partial_t \hat{q} + \nabla \cdot (\hat{q} \hat{u}) + (\gamma/2 - 1 ) \hat{q} \nabla \cdot G \hat{u} = 0 \,
         \end{align}
 
     It is discretized as
@@ -471,7 +516,7 @@ class VariationalQBEvolve(Propagator):
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             logger.info(
-                f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
+                f"!!!Warning: Maximum iteration in VariationalQBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
         self._tmp_un_diff = un1 - un
@@ -634,7 +679,7 @@ class VariationalQBEvolve(Propagator):
 
     def _create_Pib0(self):
         self.curlPib0 = Hdiv0_transport_operator(self.derham)
-        self.curlPibT0 = self.curlPib.T
+        self.curlPibT0 = self.curlPib0.T
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
 
