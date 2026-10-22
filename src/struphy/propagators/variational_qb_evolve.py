@@ -82,7 +82,9 @@ class VariationalQBEvolve(Propagator):
     for ``"perturbative_q"`` it is :math:`\rho_0` plus that variable.
 
     The scheme below is written for ``"full_q"``; for the other models the operators and linear forms are
-    replaced by the sums above.
+    replaced by the sums above. Below, hats denote pullbacks to the logical domain (not the auxiliary variables).
+    The weights of the transport operators are taken at :math:`t^n` in the momentum, induction and pressure
+    equations alike, which makes the step energy conserving.
 
     On the logical domain:
 
@@ -108,7 +110,7 @@ class VariationalQBEvolve(Propagator):
         \Big(\big(\mathbb D \hat{\Pi}^{2}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^v]]
         + (\gamma/2 - 1)\hat{\Pi}^{3}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf v \Big)^\top \hat{l}^3(\frac{2q^{n+\frac{1}{2}}}{\gamma-1}) = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
         \\[2mm]
         &\frac{\mathbf q^{n+1}- \mathbf q^n}{\Delta t} + \big(\mathbb D \hat{\Pi}^{2}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^v]]
         + (\gamma/2 - 1)\hat{\Pi}^{3}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf u^{n+1/2}= 0 ~ ,
@@ -125,9 +127,9 @@ class VariationalQBEvolve(Propagator):
 
     .. math::
 
-        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+\frac{1}{2}})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
+        \hat{\mathbf{B}}_h^{n} = (\mathbf{b}^{n})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
         \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,
-        \qquad \hat{q}_h^{n+1/2} = (\boldsymbol q^{n+1/2})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
+        \qquad \hat{q}_h^{n} = (\boldsymbol q^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
     and :math:`\mathcal{U}^v` is :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`.
     """
@@ -187,7 +189,7 @@ class VariationalQBEvolve(Propagator):
         qt3: FEECVariable = None,
         bt2: FEECVariable = None,
     ):
-        """
+        r"""
         Parameters
         ----------
         div_u : FEECVariable, default=None
@@ -195,9 +197,13 @@ class VariationalQBEvolve(Propagator):
         u2 : FEECVariable, default=None
             Velocity 2-form diagnostic (``"Hdiv"`` space).
         qt3 : FEECVariable, default=None
-            Heat-flux pressure 3-form (``"L2"`` space) used in the momentum source term.
+            Auxiliary second-order variable :math:`\hat q` (``"L2"`` space) of the linear and perturbative models,
+            advanced with :math:`\partial_t \hat q + \mathcal S_q(\mathbf u) = 0`. It enters only the energy, not the
+            momentum equation.
         bt2 : FEECVariable, default=None
-            Magnetic 2-form (``"Hdiv"`` space) providing the Lorentz force.
+            Auxiliary second-order variable :math:`\hat{\mathbf B}` (``"Hdiv"`` space) of the linear and perturbative
+            models, advanced with :math:`\partial_t \hat{\mathbf B} + \mathcal T_{\mathbf B}(\mathbf u) = 0`. It enters
+            only the energy, not the momentum equation.
         """
         self.variables = self.Variables()
         self.div_u = div_u

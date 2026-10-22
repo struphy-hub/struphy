@@ -142,7 +142,7 @@ class VariationalPBEvolve(Propagator):
         pt3: FEECVariable = None,
         bt2: FEECVariable = None,
     ):
-        """
+        r"""
         Parameters
         ----------
         div_u : FEECVariable, default=None
@@ -150,9 +150,11 @@ class VariationalPBEvolve(Propagator):
         u2 : FEECVariable, default=None
             Velocity 2-form diagnostic (``"Hdiv"`` space).
         pt3 : FEECVariable, default=None
-            Pressure 3-form (``"L2"`` space) used in the momentum source term.
+            Auxiliary second-order pressure :math:`p_2` (``"L2"`` space) of the linear and perturbative models,
+            advected by the pressure perturbation. It enters only the energy, not the momentum equation.
         bt2 : FEECVariable, default=None
-            Magnetic 2-form (``"Hdiv"`` space) providing the Lorentz force.
+            Auxiliary second-order magnetic field :math:`\mathbf B_2` (``"Hdiv"`` space) of the linear and perturbative
+            models, advected by the magnetic perturbation. It enters only the energy, not the momentum equation.
         """
         self.variables = self.Variables()
         self.div_u = div_u

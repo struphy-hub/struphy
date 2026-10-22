@@ -230,7 +230,7 @@ class ViscoResistivePerturbativeMHD(StruphyModel):
 
         .. math::
 
-            \partial_t \tilde{p} + \tilde{\mathbf{u}} \cdot \nabla (\tilde{p} + p_0) + \gamma (\tilde{p} + p_0) \nabla \cdot \tilde{\mathbf{u}} = \frac{1}{\gamma - 1} \left( (\mu + \mu_a(\mathbf{x})) |\nabla \tilde{\mathbf{u}}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \tilde{\mathbf{B}}|^2 \right)
+            \partial_t \tilde{p} + \tilde{\mathbf{u}} \cdot \nabla (\tilde{p} + p_0) + \gamma (\tilde{p} + p_0) \nabla \cdot \tilde{\mathbf{u}} = (\gamma - 1) \left( (\mu + \mu_a(\mathbf{x})) |\nabla \tilde{\mathbf{u}}|^2 + (\eta + \eta_a(\mathbf{x})) |\nabla \times \tilde{\mathbf{B}}|^2 \right)
 
         Induction:
 
@@ -300,7 +300,7 @@ class ViscoResistivePerturbativeMHD(StruphyModel):
 
     @classmethod
     def doc_examples(cls):
-        r"""Create and initialize the visco-resistive ``delta f`` MHD model:
+        r"""Create and initialize the visco-resistive perturbative MHD model:
 
         .. code-block:: python
 
@@ -317,12 +317,12 @@ class ViscoResistivePerturbativeMHD(StruphyModel):
 
         - perturbative nonlinear MHD around a prescribed equilibrium
         - dissipative MHD verification with background fields
-        - comparing linear and ``delta f`` variational formulations"""
+        - comparing linear and perturbative variational formulations"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-        - fully full-f MHD evolution far from the chosen equilibrium
+        - full-f MHD evolution without a reference equilibrium
         - kinetic or particle-resolved plasma effects
         - entropy- or q-based thermodynamic formulations"""

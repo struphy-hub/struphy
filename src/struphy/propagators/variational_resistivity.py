@@ -99,14 +99,16 @@ class VariationalResistivity(Propagator):
             self._b = new
 
     def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
-        """
+        r"""
         Parameters
         ----------
         rho : FEECVariable, default=None
             Mass density 3-form (``"L2"`` space) weighting the thermodynamic equation.
         pt3 : FEECVariable, default=None
-            Pressure or entropy 3-form (``"L2"`` space) evolved by the resistive heating.
-            If ``None``, the thermodynamic equation is skipped.
+            For ``model="linear_q"`` and ``"perturbative_q"``: the auxiliary variable :math:`\hat q` (``"L2"`` space),
+            which receives the resistive heating with the energy density :math:`2 q_0 \hat q / (\gamma - 1)`, i.e.
+            :math:`\partial_t \hat q = (\gamma - 1)/(2 q_0)\, \eta |\nabla \times \mathbf B|^2`. If ``None``, the
+            thermodynamic equation is skipped. For the other models the heating goes into the variable ``s``.
         """
         self.variables = self.Variables()
         self.rho = rho
