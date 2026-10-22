@@ -247,12 +247,12 @@ class VariationalPBEvolve(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
-            pc=pc,
-            tol=1e-16,
+            pc=self._Mrho_pc,
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -298,6 +298,9 @@ class VariationalPBEvolve(Propagator):
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
     def __call__(self, dt):
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        self._Mrho_pc.refresh()
+
         if self._nonlin_solver.type == "Picard":
             self.__call_picard(dt)
         else:
@@ -532,7 +535,7 @@ class VariationalPBEvolve(Propagator):
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )

@@ -130,13 +130,13 @@ class VariationalMomentumAdvection(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        # "cg" takes no preconditioner
+        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None) if self.options.solver == "pcg" else None
         self._Mrho_inv = inverse(
             self._Mrho,
             self.options.solver,
-            # "cg" takes no preconditioner
-            **({"pc": pc} if self.options.solver == "pcg" else {}),
-            tol=1e-16,
+            **({"pc": self._Mrho_pc} if self._Mrho_pc is not None else {}),
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -168,6 +168,10 @@ class VariationalMomentumAdvection(Propagator):
         )
 
     def __call__(self, dt):
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        if self._Mrho_pc is not None:
+            self._Mrho_pc.refresh()
+
         if self._nonlin_solver.type == "Newton":
             self.__call_newton(dt)
         elif self._nonlin_solver.type == "Picard":
@@ -285,7 +289,7 @@ class VariationalMomentumAdvection(Propagator):
             self.options.solver,
             # "cg" takes no preconditioner
             **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
