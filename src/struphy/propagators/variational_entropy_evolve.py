@@ -182,12 +182,12 @@ class VariationalEntropyEvolve(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
-            pc=pc,
-            tol=1e-16,
+            pc=self._Mrho_pc,
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -220,6 +220,9 @@ class VariationalEntropyEvolve(Propagator):
             self._compute_init_linear_form()
 
     def __call__(self, dt):
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        self._Mrho_pc.refresh()
+
         self.__call_newton(dt)
 
     def __call_newton(self, dt):
@@ -328,7 +331,7 @@ class VariationalEntropyEvolve(Propagator):
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
