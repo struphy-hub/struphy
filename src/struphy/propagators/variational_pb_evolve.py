@@ -166,7 +166,7 @@ class VariationalPBEvolve(Propagator):
 
         Parameters
         ----------
-        model : {"full_p", "linear", "deltaf"}, default="full_p"
+        model : {"full_p", "linear", "perturbative"}, default="full_p"
             Pressure-magnetic coupled model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -181,7 +181,7 @@ class VariationalPBEvolve(Propagator):
         """
 
         # specific literals
-        OptsModel = Literal["full_p", "linear", "deltaf"]
+        OptsModel = Literal["full_p", "linear", "perturbative"]
         # propagator options
         model: OptsModel = "full_p"
         gamma: float = 5.0 / 3.0
@@ -372,7 +372,7 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_p_advection,
                 )
 
-            elif self._model == "deltaf":
+            elif self._model == "perturbative":
                 advection = self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
@@ -562,7 +562,7 @@ class VariationalPBEvolve(Propagator):
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
 
-        elif self._model == "deltaf":
+        elif self._model == "perturbative":
             # initialize the jacobian differently if linear model
             self._create_Pib0()
             self._create_transop0()
@@ -652,7 +652,7 @@ class VariationalPBEvolve(Propagator):
     def _create_linear_form_p(self):
         """Update the linearform representing integration in V3 against pressure energy"""
 
-        if self._model in ["full_p", "linear", "deltaf"]:
+        if self._model in ["full_p", "linear", "perturbative"]:
             self._tmp_int_grid *= 0.0
             self._tmp_int_grid -= 1.0 / (self._gamma - 1.0)
             self._tmp_int_grid *= self._energy_metric_term

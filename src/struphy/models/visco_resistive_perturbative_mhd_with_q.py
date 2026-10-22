@@ -187,19 +187,19 @@ class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='deltaf_q')\n",
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='perturbative_q')\n",
                     ]
                 elif "variat_qb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='deltaf_q')\n",
+                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='perturbative_q')\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='deltaf_q')\n",
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='perturbative_q')\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='deltaf_q')\n",
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='perturbative_q')\n",
                     ]
                 elif "sqrt_p.add_background" in line:
                     # new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]

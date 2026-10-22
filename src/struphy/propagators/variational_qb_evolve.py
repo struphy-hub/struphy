@@ -166,7 +166,7 @@ class VariationalQBEvolve(Propagator):
 
         Parameters
         ----------
-        model : {"full_q", "linear_q", "deltaf_q"}, default="full_q"
+        model : {"full_q", "linear_q", "perturbative_q"}, default="full_q"
             Coupled q-B evolution model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -181,7 +181,7 @@ class VariationalQBEvolve(Propagator):
         """
 
         # specific literals
-        OptsModel = Literal["full_q", "linear_q", "deltaf_q"]
+        OptsModel = Literal["full_q", "linear_q", "perturbative_q"]
         # propagator options
         model: OptsModel = "full_q"
         gamma: float = 5.0 / 3.0
@@ -367,7 +367,7 @@ class VariationalQBEvolve(Propagator):
                     out=self._tmp_q_advection,
                 )
 
-            elif self._model == "deltaf_q":
+            elif self._model == "perturbative_q":
                 advection = self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
@@ -562,7 +562,7 @@ class VariationalQBEvolve(Propagator):
             self._mdt2_pc_transopT_M = 2 * (self._transop_q0T @ self.mass_ops.M3)
             self._dt2_transop = 2 * self._transop_q0
 
-        elif self._model == "deltaf_q":
+        elif self._model == "perturbative_q":
             # initialize the jacobian differently if linear model
             self._create_Pib0()
             self._create_transop0()

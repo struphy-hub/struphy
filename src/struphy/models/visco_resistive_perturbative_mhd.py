@@ -186,11 +186,11 @@ class ViscoResistivePerturbativeMHD(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='deltaf')\n",
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='perturbative')\n",
                     ]
                 elif "variat_pb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='deltaf')\n",
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='perturbative')\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
