@@ -301,7 +301,7 @@ class VariationalResistivity(Propagator):
 
             e_n *= self._energy_metric
 
-        elif self._model in ["full_p", "linear_p", "delta_p"]:
+        elif self._model in ["full_p", "linear_p"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -354,7 +354,7 @@ class VariationalResistivity(Propagator):
                 )
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["full_p", "linear_p", "delta_p"]:
+            elif self._model in ["full_p", "linear_p"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -661,7 +661,7 @@ class VariationalResistivity(Propagator):
             )
             self._energy_metric = deepcopy(metric)
 
-        elif self._model in ["full_p", "linear_p", "delta_p"]:
+        elif self._model in ["full_p", "linear_p"]:
             metric = 1.0 / self.domain.jacobian_det(
                 *integration_grid,
             )
@@ -794,7 +794,7 @@ class VariationalResistivity(Propagator):
         # elif self._model in ["linear_p", "linear_q"]:
         #     cb12 = self.Tcurl.dot(self._extracted_b2, out=self._tmp_cb12)
 
-        elif self._model in ["delta_p", "perturbative_q", "linear_p", "linear_q"]:
+        elif self._model in ["perturbative_q", "linear_p", "linear_q"]:
             # bn12 += self._extracted_b2
             cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
