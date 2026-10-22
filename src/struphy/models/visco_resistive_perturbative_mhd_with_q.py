@@ -133,7 +133,7 @@ class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
         # 5. define scalars to be tracked during simulation
         kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
         magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
-        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2")
+        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", normalization=2.0)
         thermo_energy_1 = FunctionScalarFEEC(self._compute_en_thermo_1)
         thermo_energy_2 = FunctionScalarFEEC(self._compute_en_thermo_2)
         self.scalars = Scalars(
