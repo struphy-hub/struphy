@@ -238,8 +238,8 @@ class VariationalQBEvolve(Propagator):
             (e.g. for sound waves). Both conserve the energy. ``None`` means ``True`` for ``"linear_q"`` and
             ``"perturbative_q"``, and ``False`` for ``"full_q"``. With ``True``, the Jacobian of the Picard iteration
             does not contain the dependence of the operators on their weights, so a step needs several iterations
-            (about 4 to 11, growing with the time step) instead of one, each with a Schur solve; ``False`` is the
-            cheaper first-order choice.
+            (typically 2 to 10, more for large time steps or amplitudes) instead of one, each with a Schur solve;
+            ``False`` is the cheaper first-order choice.
         """
 
         # specific literals

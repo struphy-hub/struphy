@@ -60,8 +60,8 @@ class VariationalPBEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
-        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}} = 0 ~ ,
-        - (\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3(\frac{g}{\gamma-1})
+        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}}
+        - (\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3(\frac{g}{\gamma-1}) = 0 ~ ,
         \\[2mm]
         &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
         \\[2mm]
@@ -484,6 +484,12 @@ class VariationalPBEvolve(Propagator):
             logger.info(
                 f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
+
+        if not err < tol**2:
+            # the last iteration applied an update after the residual: midpoint velocity of the final iterate
+            un12 = un.copy(out=self._tmp_un12)
+            un12 += un1
+            un12 *= 0.5
 
         self._tmp_un_diff = un1 - un
         self._tmp_bn_diff = bn1 - bn
