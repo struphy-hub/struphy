@@ -5,15 +5,15 @@ plots of the examples (slices in the physical planes and 3D views of the fields)
 last saved time, together with the energy budget and the (m, n) harmonics of the radial components. Vector fields
 are shown by their components in the basis of their initial condition (``given_in_basis``, else their FEEC form,
 see ``Output.field_basis``), as functions of the physical coordinates; the 3D views show the scalar fields and the
-first components (radial eta1 in a logical basis). The measured TAE frequency is compared with the analytical one, saved and a
-warning issued for a deviation of more than 10% (not with ``--test-run``). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
+first components (radial eta1 in a logical basis). The measured TAE frequency is compared with the analytical one
+and saved; a deviation of more than 10% fails with an ``AssertionError`` after the figures are saved (not with
+``--test-run``). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
 (``pip install "struphy[pproc]"``).
 """
 
 import argparse
 import os
 import sys
-import warnings
 from pathlib import Path
 
 import numpy as np
@@ -117,15 +117,10 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     # the basis of the components of each vector field (None for a scalar field)
     bases = {f"{s}/{v}": run.field_basis(f"{s}/{v}") if vector else None for _, _, s, v, vector in FIELDS}
 
-    # the frequency of the TAE, compared with the analytical value (not for the few steps of --test-run); only
-    # reported until a full-resolution run has confirmed the measurement (then: assert)
+    # the frequency of the TAE, compared with the analytical value at the end (after the figures)
     measured, expected = tae_frequency(run, bases["mhd/velocity"])
     np.save(os.path.join(results_dir, "omega_tae.npy"), measured)
     np.save(os.path.join(results_dir, "omega_tae_expected.npy"), expected)
-    if not args.test_run and abs(measured - expected) > TAE_RTOL * expected:
-        warnings.warn(
-            f"The TAE frequency {measured:.4g} differs from the expected {expected:.4g} by more than {TAE_RTOL:.0%}."
-        )
 
     finish({"energies": run.plot.energies(parts=ENERGIES).fig}, results_dir, save_figs)
     for n, t in zip(snapshots, times):
@@ -176,6 +171,12 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
 
     if not save_figs:
         plt.show()
+
+    # not for the few steps of --test-run
+    if not args.test_run:
+        assert abs(measured - expected) <= TAE_RTOL * expected, (
+            f"The TAE frequency {measured:.4g} differs from the expected {expected:.4g} by more than {TAE_RTOL:.0%}."
+        )
 
 
 if __name__ == "__main__":

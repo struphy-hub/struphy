@@ -74,6 +74,53 @@ def test_stiffness_approximation_unit_cube(derivative, sigma, num_elements):
     assert _max_abs(diffs, comm) < 1e-12 * _max_abs(_local_diagonal(P.matrix), comm)
 
 
+@pytest.mark.parametrize("derivative", ["grad", "curl", "div"])
+@pytest.mark.parametrize(
+    "num_elements, degree, bcs",
+    [
+        ([6, 5, 4], [2, 3, 2], (("dirichlet", "free"), None, None)),
+        # periodic directions with fewer points than the band width (entries wrap onto the band)
+        ([6, 4, 3], [3, 3, 3], (("dirichlet", "dirichlet"), None, None)),
+    ],
+)
+def test_stiffness_local_diagonal(derivative, num_elements, degree, bcs):
+    """The diagonal of d^T M d from the stencil data of M equals the probed one (sum of mass terms, full metric)."""
+
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import (
+        _mass_terms,
+        _probe_diagonal,
+        _stiffness_local_diagonal,
+        _terms_matrix,
+    )
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = MPI.COMM_WORLD
+    derham = Derham(TensorProductGrid(num_elements=num_elements), DerhamOptions(degree=degree, bcs=bcs), comm=comm)
+    mass_ops = WeightedMassOperators(derham, domains.HollowTorus(a1=0.1, a2=1.0, R0=3.0, tor_period=3))
+
+    form = FORMS[derivative]
+    d = getattr(derham, f"{derivative}_bcfree")
+    mid = getattr(mass_ops, f"M{int(form) + 1}")
+    space, metric = {"0": ("Hcurl", ("Ginv", "sqrt_g")), "1": ("Hdiv", ("G", "1/sqrt_g")), "2": ("L2", ("1/sqrt_g",))}[
+        form
+    ]
+    weighted = mass_ops.create_weighted_mass(
+        space, space, weights=metric + (lambda e1, e2, e3: 1.0 + e1 * e2,), name="M_test", assemble=True
+    )
+    terms = _mass_terms(mid - 0.3 * weighted)
+
+    diag = _stiffness_local_diagonal(d, terms)
+    ref = _probe_diagonal(d.T @ _terms_matrix(terms) @ d, d.domain)
+    assert len(diag) == len(ref)
+    assert _max_abs([a - b for a, b in zip(diag, ref)], comm) < 1e-12 * _max_abs(ref, comm)
+
+
 @pytest.mark.parametrize("mapping", ["Cuboid", "HollowCylinder"])
 @pytest.mark.parametrize("sigma", [0.0, 1.0])
 def test_stiffness_preconditioner_grad(mapping, sigma):
