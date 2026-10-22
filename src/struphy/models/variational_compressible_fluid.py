@@ -28,6 +28,10 @@ class VariationalCompressibleFluid(StruphyModel):
         Base units for normalization (default: BaseUnits())
     mass_number: float
         Mass number (in units of Proton mass) of the fluid species (default: 1.0)
+    divdiv_alpha: float
+        Coefficient alpha >= 0 of the div-div regularization alpha int rho (div u)^2 dx of the kinetic energy
+        (Hamiltonian regularization, penalizes compressions; default: 0.0), see
+        :func:`~struphy.feec.variational_utilities.kinetic_metric`
     """
 
     @classmethod
@@ -50,14 +54,15 @@ class VariationalCompressibleFluid(StruphyModel):
             self,
             s: FEECVariable = None,
             rho: FEECVariable = None,
+            divdiv_alpha: float = 0.0,
         ):
-            self.variat_dens = VariationalDensityEvolve(s=s)
-            self.variat_mom = VariationalMomentumAdvection()
-            self.variat_ent = VariationalEntropyEvolve(rho=rho)
+            self.variat_dens = VariationalDensityEvolve(s=s, divdiv_alpha=divdiv_alpha)
+            self.variat_mom = VariationalMomentumAdvection(divdiv_alpha=divdiv_alpha)
+            self.variat_ent = VariationalEntropyEvolve(rho=rho, divdiv_alpha=divdiv_alpha)
 
     ## abstract methods
 
-    def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0):
+    def __init__(self, base_units: BaseUnits = BaseUnits(), mass_number: float = 1.0, divdiv_alpha: float = 0.0):
 
         # 0. store input parameters
         self.params = copy.deepcopy(locals())
@@ -69,7 +74,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(s=self.fluid.entropy, rho=self.fluid.density)
+        self.propagators = self.Propagators(s=self.fluid.entropy, rho=self.fluid.density, divdiv_alpha=divdiv_alpha)
 
         # 4. assign variables to propagators
         self.propagators.variat_dens.variables.rho = self.fluid.density
@@ -82,11 +87,12 @@ class VariationalCompressibleFluid(StruphyModel):
         kinetic_energy = BilinearEnergyFEEC(self.fluid.velocity, bilinear_form_name="WMMnew")
         thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
         total_energy = kinetic_energy + thermo_energy
-        self.scalars = Scalars(
-            en_U=kinetic_energy,
-            en_thermo=thermo_energy,
-            en_tot=total_energy,
-        )
+        energies = dict(en_U=kinetic_energy, en_thermo=thermo_energy)
+        if divdiv_alpha > 0.0:
+            divdiv_energy = FunctionScalarFEEC(self._compute_divdiv_energy)
+            energies["en_divdiv"] = divdiv_energy
+            total_energy = total_energy + divdiv_energy
+        self.scalars = Scalars(**energies, en_tot=total_energy)
 
     @property
     def bulk_species(self):
@@ -126,6 +132,17 @@ class VariationalCompressibleFluid(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+
+    def _compute_divdiv_energy(self):
+        """alpha int rho (div u)^2 dx, the div-div part of the kinetic energy (see kinetic_metric).
+
+        :meta private:
+        """
+        if not hasattr(self, "_divUv"):
+            self._divUv = Propagator.derham.div @ Propagator.basis_ops.Uv
+            self._tmp_divu = self._divUv.codomain.zeros()
+        d = self._divUv.dot(self.fluid.velocity.spline.vector, out=self._tmp_divu)
+        return self.params["divdiv_alpha"] * Propagator.mass_ops.WMM3new.dot_inner(d, d)
 
     def update_thermo_energy(self):
         """Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
@@ -198,6 +215,7 @@ class VariationalCompressibleFluid(StruphyModel):
 
         - Kinetic energy: ``en_U``
         - Thermodynamic energy: ``en_thermo``
+        - Div-div part of the kinetic energy (only for ``divdiv_alpha > 0``): ``en_divdiv``
         - Total energy: ``en_tot``"""
 
     @classmethod

@@ -37,6 +37,10 @@ class ViscoResistiveMHD(StruphyModel):
         Whether to include viscous dissipation (default: True)
     with_resistivity: bool
         Whether to include resistive dissipation (default: True)
+    divdiv_alpha: float
+        Coefficient alpha >= 0 of the div-div regularization alpha int rho (div u)^2 dx of the kinetic energy
+        (Hamiltonian regularization, penalizes compressions; default: 0.0), see
+        :func:`~struphy.feec.variational_utilities.kinetic_metric`
     """
 
     @classmethod
@@ -66,13 +70,14 @@ class ViscoResistiveMHD(StruphyModel):
             rho: FEECVariable = None,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
+            divdiv_alpha: float = 0.0,
         ):
-            self.variat_dens = VariationalDensityEvolve(s=s)
-            self.variat_mom = VariationalMomentumAdvection()
-            self.variat_ent = VariationalEntropyEvolve(rho=rho)
-            self.variat_mag = VariationalMagFieldEvolve()
+            self.variat_dens = VariationalDensityEvolve(s=s, divdiv_alpha=divdiv_alpha)
+            self.variat_mom = VariationalMomentumAdvection(divdiv_alpha=divdiv_alpha)
+            self.variat_ent = VariationalEntropyEvolve(rho=rho, divdiv_alpha=divdiv_alpha)
+            self.variat_mag = VariationalMagFieldEvolve(divdiv_alpha=divdiv_alpha)
             if with_viscosity:
-                self.variat_viscous = VariationalViscosity(rho=rho)
+                self.variat_viscous = VariationalViscosity(rho=rho, divdiv_alpha=divdiv_alpha)
             if with_resistivity:
                 self.variat_resist = VariationalResistivity(rho=rho)
 
@@ -84,6 +89,7 @@ class ViscoResistiveMHD(StruphyModel):
         mass_number: float = 1.0,
         with_viscosity: bool = True,
         with_resistivity: bool = True,
+        divdiv_alpha: float = 0.0,
     ):
 
         # 0. store input parameters
@@ -102,6 +108,7 @@ class ViscoResistiveMHD(StruphyModel):
             rho=self.mhd.density,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
+            divdiv_alpha=divdiv_alpha,
         )
 
         # 4. assign variables to propagators
@@ -124,10 +131,13 @@ class ViscoResistiveMHD(StruphyModel):
         magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
         thermo_energy = FunctionScalarFEEC(self.update_thermo_energy)
         total_energy = kinetic_energy + magnetic_energy + thermo_energy
+        energies = dict(en_U=kinetic_energy, en_thermo=thermo_energy, en_mag=magnetic_energy)
+        if divdiv_alpha > 0.0:
+            divdiv_energy = FunctionScalarFEEC(self._compute_divdiv_energy)
+            energies["en_divdiv"] = divdiv_energy
+            total_energy = total_energy + divdiv_energy
         self.scalars = Scalars(
-            en_U=kinetic_energy,
-            en_thermo=thermo_energy,
-            en_mag=magnetic_energy,
+            **energies,
             en_tot=total_energy,
             dens_tot=VolumeFormEnergyFEEC(self.mhd.density),
             entr_tot=VolumeFormEnergyFEEC(self.mhd.entropy),
@@ -160,6 +170,17 @@ class ViscoResistiveMHD(StruphyModel):
             self._ones[:] = 1.0
 
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
+
+    def _compute_divdiv_energy(self):
+        """alpha int rho (div u)^2 dx, the div-div part of the kinetic energy (see kinetic_metric).
+
+        :meta private:
+        """
+        if not hasattr(self, "_divUv"):
+            self._divUv = Propagator.derham.div @ Propagator.basis_ops.Uv
+            self._tmp_divu = self._divUv.codomain.zeros()
+        d = self._divUv.dot(self.mhd.velocity.spline.vector, out=self._tmp_divu)
+        return self.params["divdiv_alpha"] * Propagator.mass_ops.WMM3new.dot_inner(d, d)
 
     def _compute_tot_div_B(self):
         b = self.em_fields.b_field.spline.vector
@@ -258,6 +279,7 @@ class ViscoResistiveMHD(StruphyModel):
         - Kinetic energy: ``en_U``
         - Thermodynamic energy: ``en_thermo``
         - Magnetic energy: ``en_mag``
+        - Div-div part of the kinetic energy (only for ``divdiv_alpha > 0``): ``en_divdiv``
         - Total energy: ``en_tot``
         - Total density / entropy: ``dens_tot``, ``entr_tot``
         - Divergence diagnostic: ``tot_div_B``"""

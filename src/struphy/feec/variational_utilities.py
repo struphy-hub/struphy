@@ -1420,6 +1420,11 @@ def kinetic_metric(derham: Derham, mass_ops, basis_ops, divdiv_alpha: float = 0.
     both mass matrices depend linearly on the density and are re-assembled in
     :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`.
 
+    With :math:`\alpha > 0` the momentum :math:`\mathbb A \mathbf u` contains second derivatives of :math:`\mathbf u`,
+    which makes the Picard iteration of
+    :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection` converge only for
+    small time steps (it diverges for larger :math:`\alpha \Delta t`); use a smaller time step or its Newton iteration.
+
     Parameters
     ----------
     derham : Derham
