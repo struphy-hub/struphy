@@ -18,7 +18,7 @@ from struphy import (
 )
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models import (
-    ViscoResistiveLinearMHD,
+    ViscoResistiveLinearPerturbativeMHD,
     ViscoResistiveLinearPerturbativeMHD_with_q,
     ViscoResistiveMHD_with_q,
     ViscoResistivePerturbativeMHD,
@@ -39,7 +39,7 @@ VARIANTS = {
     ViscoResistiveMHD_with_q: "full_q",
     ViscoResistiveLinearPerturbativeMHD_with_q: "linear_q",
     ViscoResistivePerturbativeMHD: "perturbative",
-    ViscoResistiveLinearMHD: "linear",
+    ViscoResistiveLinearPerturbativeMHD: "linear",
 }
 
 

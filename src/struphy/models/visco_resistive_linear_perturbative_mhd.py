@@ -20,8 +20,8 @@ from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-class ViscoResistiveLinearMHD(StruphyModel):
-    """Linear visco-resistive MHD equations discretized with a variational method.
+class ViscoResistiveLinearPerturbativeMHD(StruphyModel):
+    """Linear perturbative visco-resistive MHD equations discretized with a variational method.
 
     Parameters
     ----------
@@ -303,9 +303,9 @@ class ViscoResistiveLinearMHD(StruphyModel):
 
         .. code-block:: python
 
-            from struphy.models import ViscoResistiveLinearMHD
+            from struphy.models import ViscoResistiveLinearPerturbativeMHD
 
-            model = ViscoResistiveLinearMHD()
+            model = ViscoResistiveLinearPerturbativeMHD()
             model.em_fields.b_field
             model.mhd.velocity
             model.mhd.pressure

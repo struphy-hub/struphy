@@ -39,7 +39,7 @@ _LAZY_IMPORTS = {
     "VariationalBarotropicFluid": "struphy.models.variational_barotropic_fluid",
     "VariationalCompressibleFluid": "struphy.models.variational_compressible_fluid",
     "VariationalPressurelessFluid": "struphy.models.variational_pressureless_fluid",
-    "ViscoResistiveLinearMHD": "struphy.models.visco_resistive_linear_mhd",
+    "ViscoResistiveLinearPerturbativeMHD": "struphy.models.visco_resistive_linear_perturbative_mhd",
     "ViscoResistiveLinearPerturbativeMHD_with_q": "struphy.models.visco_resistive_linear_perturbative_mhd_with_q",
     "ViscoResistiveMHD": "struphy.models.visco_resistive_mhd",
     "ViscoResistiveMHD_with_p": "struphy.models.visco_resistive_mhd_with_p",
@@ -86,7 +86,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
     from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
     from struphy.models.variational_pressureless_fluid import VariationalPressurelessFluid
-    from struphy.models.visco_resistive_linear_mhd import ViscoResistiveLinearMHD
+    from struphy.models.visco_resistive_linear_perturbative_mhd import ViscoResistiveLinearPerturbativeMHD
     from struphy.models.visco_resistive_linear_perturbative_mhd_with_q import ViscoResistiveLinearPerturbativeMHD_with_q
     from struphy.models.visco_resistive_mhd import ViscoResistiveMHD
     from struphy.models.visco_resistive_mhd_with_p import ViscoResistiveMHD_with_p
@@ -132,7 +132,7 @@ __all__ = [
     "VariationalBarotropicFluid",
     "VariationalCompressibleFluid",
     "VariationalPressurelessFluid",
-    "ViscoResistiveLinearMHD",
+    "ViscoResistiveLinearPerturbativeMHD",
     "ViscoResistiveLinearPerturbativeMHD_with_q",
     "ViscoResistiveMHD",
     "ViscoResistiveMHD_with_p",

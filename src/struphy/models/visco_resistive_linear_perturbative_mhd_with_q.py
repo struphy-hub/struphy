@@ -353,7 +353,7 @@ class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
         - linear MHD waves and instabilities around a (possibly non-uniform) zero-flow equilibrium
         - the linear limit of
           :class:`~struphy.models.visco_resistive_perturbative_mhd_with_q.ViscoResistivePerturbativeMHD_with_q`
-        - comparison with the p-based :class:`~struphy.models.visco_resistive_linear_mhd.ViscoResistiveLinearMHD`
+        - comparison with the p-based :class:`~struphy.models.visco_resistive_linear_perturbative_mhd.ViscoResistiveLinearPerturbativeMHD`
           and with :class:`~struphy.models.linear_mhd.LinearMHD`"""
 
     @classmethod
