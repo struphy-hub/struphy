@@ -63,7 +63,9 @@ with `pip install "struphy[pproc]"`.
 | `Poisson` | `gaussian_cube`, `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
 | `ShearAlfven` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes) |
 | `ToyDrift` | `diocotron_instability` |
+| `ViscoResistiveLinearPerturbativeMHD_with_q` | `slab_dispersion` (Alfvén, slow and fast waves) |
 | `ViscoResistiveMHD` | `orszag_tang` (Orszag-Tang vortex), `slab_dispersion` (Alfvén, slow and fast waves) |
+| `ViscoResistivePerturbativeMHD_with_q` | `slab_dispersion` (Alfvén, slow and fast waves) |
 | `Vlasov` | `maxwellian_uniform_field` |
 | `VlasovAmpereOneSpecies` | `bump_on` (bump-on-tail), `strong_Landau_damping`, `two_stream`, `weak_Landau_damping` |
 | `VlasovMaxwellOneSpecies` | `weak_Landau_damping`, `weibel_instability` |

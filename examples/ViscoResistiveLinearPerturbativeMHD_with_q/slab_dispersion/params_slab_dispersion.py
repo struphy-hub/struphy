@@ -30,7 +30,7 @@ Expected result. The space-time Fourier transform of u_x (Alfvén) and of the pr
 shows the three branches omega = v k. The pproc fits the speeds and prints them with the exact values
 v_A |cos theta| = 1.195, v_slow = 1.074, v_fast = 2.974; a run gave 1.192, 1.072 and 2.927 (within about one
 frequency bin 2 pi / Tend; the fast branch bends down at large k by numerical dispersion). The nonlinear model
-ViscoResistivePerturbativeMHD_with_q gives the same result for this small amplitude
+ViscoResistivePerturbativeMHD_with_q agrees within a frequency bin for this small amplitude
 (examples/ViscoResistivePerturbativeMHD_with_q/slab_dispersion). en_tot changed by 2e-6 (relative, nonlinear solver
 tolerance) over the run.
 The run takes about 7 minutes on one process.

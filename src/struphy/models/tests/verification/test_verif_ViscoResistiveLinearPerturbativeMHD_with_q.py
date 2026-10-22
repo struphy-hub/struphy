@@ -1,6 +1,6 @@
 """Verification of the ideal linear perturbative MHD model in q = sqrt(p),
 :class:`~struphy.models.visco_resistive_linear_perturbative_mhd_with_q.ViscoResistiveLinearPerturbativeMHD_with_q`
-without viscosity and resistivity (linear MHD in q, eq. 33 of the notes on variational perturbative MHD):
+without viscosity and resistivity (ideal linear MHD around a zero-flow equilibrium, written in q):
 
 1. the energy with the auxiliary variables q^ and B^ is conserved around a non-uniform (sheared slab) equilibrium,
    where the terms with grad q0 and curl B0 are active;
@@ -131,4 +131,5 @@ def test_same_as_p_model(tmp_path):
         rel_diff[dt] = [norm(q_n[i] - p_n[i]) / norm(q_n[i]) for i in (1, 3)]
     logger.info(f"relative difference q-model / p-model (u, B) per dt: {rel_diff}")
     for i, name in enumerate(("u", "B")):
+        assert rel_diff[0.05][i] < 0.6, (name, rel_diff)
         assert rel_diff[0.025][i] < 0.6 * rel_diff[0.05][i], (name, rel_diff)
