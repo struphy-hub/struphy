@@ -364,7 +364,7 @@ class ViscoResistivePerturbativeMHD_with_q(StruphyModel):
         - nonlinear MHD dynamics around a given (possibly non-uniform) zero-flow equilibrium
         - instabilities and waves where the discrete equilibrium force must not drive spurious flows
         - comparison with :class:`~struphy.models.visco_resistive_mhd_with_q.ViscoResistiveMHD_with_q` (full-f)
-          and :class:`~struphy.models.visco_resistive_linear_mhd_with_q.ViscoResistiveLinearMHD_with_q` (linear)"""
+          and :class:`~struphy.models.visco_resistive_linear_perturbative_mhd_with_q.ViscoResistiveLinearPerturbativeMHD_with_q` (linear)"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):

@@ -35,8 +35,8 @@ from struphy.models.variational_barotropic_fluid import VariationalBarotropicFlu
 from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
 from struphy.models.variational_pressureless_fluid import VariationalPressurelessFluid
 from struphy.models.visco_resistive_linear_mhd import ViscoResistiveLinearMHD
-from struphy.models.visco_resistive_linear_mhd_with_q import (
-    ViscoResistiveLinearMHD_with_q,
+from struphy.models.visco_resistive_linear_perturbative_mhd_with_q import (
+    ViscoResistiveLinearPerturbativeMHD_with_q,
 )
 from struphy.models.visco_resistive_mhd import ViscoResistiveMHD
 from struphy.models.visco_resistive_mhd_with_p import ViscoResistiveMHD_with_p
@@ -85,7 +85,7 @@ __all__ = [
     "VariationalCompressibleFluid",
     "VariationalPressurelessFluid",
     "ViscoResistiveLinearMHD",
-    "ViscoResistiveLinearMHD_with_q",
+    "ViscoResistiveLinearPerturbativeMHD_with_q",
     "ViscoResistiveMHD",
     "ViscoResistiveMHD_with_p",
     "ViscoResistiveMHD_with_q",

@@ -8,7 +8,7 @@ and resistivity, against conservation laws, analytic wave frequencies and the fu
 3. around a homogeneous equilibrium, where the discrete equilibrium force vanishes, the perturbative and full-f
    models give the same solution (the transport operators are linear in their coefficient), and the p-based
    perturbative model (ViscoResistivePerturbativeMHD) agrees up to a time discretization error of first order;
-4. in the linear limit the model converges to ViscoResistiveLinearMHD_with_q, and both give the analytic frequencies
+4. in the linear limit the model converges to ViscoResistiveLinearPerturbativeMHD_with_q, and both give the analytic frequencies
    of the shear Alfvén and the fast magnetosonic wave.
 """
 
@@ -32,7 +32,7 @@ from struphy import (
 )
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models import (
-    ViscoResistiveLinearMHD_with_q,
+    ViscoResistiveLinearPerturbativeMHD_with_q,
     ViscoResistiveMHD_with_q,
     ViscoResistivePerturbativeMHD,
     ViscoResistivePerturbativeMHD_with_q,
@@ -53,7 +53,7 @@ NONLIN = NonlinearSolverParameters()
 VARIANTS = {
     ViscoResistivePerturbativeMHD_with_q: "perturbative_q",
     ViscoResistiveMHD_with_q: "full_q",
-    ViscoResistiveLinearMHD_with_q: "linear_q",
+    ViscoResistiveLinearPerturbativeMHD_with_q: "linear_q",
     ViscoResistivePerturbativeMHD: "perturbative",
 }
 
@@ -319,7 +319,7 @@ def test_linear_limit_and_waves(tmp_path, wave):
         t_zero = dt * (i - 1 + proj[i - 1] / (proj[i - 1] - proj[i]))
         return model.mhd.velocity.spline.vector.toarray(), xp.pi / 2 / t_zero
 
-    u_lin, omega_lin = run(ViscoResistiveLinearMHD_with_q, 1.0)
+    u_lin, omega_lin = run(ViscoResistiveLinearPerturbativeMHD_with_q, 1.0)
     rel_diff = []
     for amp in (1e-2, 1e-3):
         u_pert, omega_pert = run(ViscoResistivePerturbativeMHD_with_q, amp)

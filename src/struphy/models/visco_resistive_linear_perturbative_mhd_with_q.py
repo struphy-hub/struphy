@@ -20,7 +20,7 @@ from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-class ViscoResistiveLinearMHD_with_q(StruphyModel):
+class ViscoResistiveLinearPerturbativeMHD_with_q(StruphyModel):
     """Linear visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
 
     Parameters
@@ -296,9 +296,9 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
 
         .. code-block:: python
 
-            from struphy.models import ViscoResistiveLinearMHD_with_q
+            from struphy.models import ViscoResistiveLinearPerturbativeMHD_with_q
 
-            model = ViscoResistiveLinearMHD_with_q()
+            model = ViscoResistiveLinearPerturbativeMHD_with_q()
             model.mhd.sqrt_p
             model.em_fields.b_field
         """

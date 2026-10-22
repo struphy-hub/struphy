@@ -1,7 +1,7 @@
 import pytest
 
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, grids, perturbations
-from struphy.models import ViscoResistiveLinearMHD_with_q, ViscoResistiveMHD
+from struphy.models import ViscoResistiveLinearPerturbativeMHD_with_q, ViscoResistiveMHD
 
 
 def _run(model, tmp_path):
@@ -21,7 +21,7 @@ def _run(model, tmp_path):
 @pytest.mark.parametrize("fast", [False, True])
 def test_linear_q_viscosity_resistivity(fast, tmp_path):
     """Non-zero mu/eta enters the Newton iteration of VariationalViscosity/Resistivity (issue #422)."""
-    model = ViscoResistiveLinearMHD_with_q()
+    model = ViscoResistiveLinearPerturbativeMHD_with_q()
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="linear_q")
     props.variat_qb.options = props.variat_qb.Options(model="linear_q")
