@@ -106,9 +106,13 @@ def _allocate(tmp_path, name, model_class, setup, dt, perturb=None):
     if perturb is not None:
         perturb(model)
 
+    # the same output folder on all ranks (pytest gives each rank its own tmp_path)
+    comm = MPI.COMM_WORLD
+    out_folder = comm.bcast(str(tmp_path) if comm.Get_rank() == 0 else None)
+
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder=name),
+        env=EnvironmentOptions(out_folders=out_folder, sim_folder=name),
         time_opts=Time(dt=dt, Tend=dt),
         domain=domain,
         equil=equil,
@@ -216,7 +220,12 @@ def test_equilibrium_preservation(tmp_path):
 
 def test_same_as_full_f(tmp_path):
     """Around a homogeneous equilibrium the perturbative and the full-f model give the same discrete solution, also
-    for a nonlinear amplitude."""
+    for a nonlinear amplitude.
+
+    The discrete force of the equilibrium vanishes here, and the backgrounds of the full-f model (projections of the
+    equilibrium n3, q3, b2) coincide with the projected equilibrium used inside the perturbative propagators, since
+    the equilibrium is constant and the map (Cuboid) is affine. For a non-uniform equilibrium the two models differ
+    by the discrete equilibrium force (see test_equilibrium_preservation)."""
     Lz = 10.0
     setup = _homogeneous_slab(Lz=Lz)
     dt, n_steps, amp = 0.05, 10, 0.1
@@ -244,7 +253,7 @@ def test_same_as_full_f(tmp_path):
 def test_same_as_p_model(tmp_path):
     """The q-based and the p-based perturbative model (ViscoResistivePerturbativeMHD) solve the same equations with
     different time discretizations: for the same initial velocity (zero q~ and p~), u and B agree up to a difference
-    that is of first order in the time step (it does not change under grid refinement)."""
+    that is of first order in the time step."""
     Lz, amp, t_end = 10.0, 0.1, 0.5
     setup = _homogeneous_slab(Lz=Lz)
 
@@ -316,12 +325,12 @@ def test_linear_limit_and_waves(tmp_path, wave):
         u_pert, omega_pert = run(ViscoResistivePerturbativeMHD_with_q, amp)
         rel_diff.append(_norm(u_pert / amp - u_lin) / _norm(u_lin))
         logger.info(f"{wave}: amp {amp}, omega {omega_pert:.5f}")
-        assert abs(omega_pert - omega_exact) < 1e-2 * omega_exact, (omega_pert, omega_exact)
+        assert abs(omega_pert - omega_exact) < 2e-3 * omega_exact, (omega_pert, omega_exact)
 
     logger.info(
         f"{wave}: omega exact {omega_exact:.5f}, linear {omega_lin:.5f}, relative difference to linear {rel_diff}"
     )
-    assert abs(omega_lin - omega_exact) < 1e-2 * omega_exact, (omega_lin, omega_exact)
+    assert abs(omega_lin - omega_exact) < 2e-3 * omega_exact, (omega_lin, omega_exact)
     assert rel_diff[0] < 5e-2, rel_diff
-    # the nonlinear correction decreases (at least linearly) with the amplitude
+    # the relative nonlinear correction decreases linearly with the amplitude (factor 10 here; checked with margin)
     assert rel_diff[1] < rel_diff[0] / 5 + 1e-8, rel_diff
