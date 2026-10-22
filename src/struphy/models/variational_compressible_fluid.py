@@ -197,6 +197,13 @@ class VariationalCompressibleFluid(StruphyModel):
             \partial_t s + \nabla \cdot (s \mathbf{u}) = 0
 
         where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`.
+
+        With ``divdiv_alpha`` :math:`=\alpha > 0`, the kinetic energy is
+        :math:`\int \rho |\mathbf u|^2/2 + \alpha \rho (\nabla \cdot \mathbf u)^2 \,\textrm d \mathbf x`
+        (Hamiltonian regularization of compressions). The equations follow from the same variational principle with
+        the momentum :math:`\rho \mathbf u - 2 \alpha \nabla (\rho \nabla \cdot \mathbf u)` instead of
+        :math:`\rho \mathbf u`, and the density derivative :math:`\alpha (\nabla \cdot \mathbf u)^2` of the kinetic
+        energy enters the force like :math:`|\mathbf u|^2/2`.
         """
 
     @classmethod

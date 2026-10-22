@@ -143,6 +143,11 @@ class VariationalMomentumAdvection(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        if self.divdiv_alpha > 0.0 and self._nonlin_solver.type == "Picard":
+            logger.warning(
+                "VariationalMomentumAdvection: with divdiv_alpha > 0 the Picard iteration converges only for small "
+                'time steps; use a small dt or NonlinearSolverParameters(type="Newton").'
+            )
         # "cg" takes no preconditioner
         self._Mrho_pc = (
             MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None) if self.options.solver == "pcg" else None
@@ -239,7 +244,7 @@ class VariationalMomentumAdvection(Propagator):
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
         if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
+            logger.warning(
                 f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err =} \n {tol**2 =}",
             )
 
@@ -286,7 +291,7 @@ class VariationalMomentumAdvection(Propagator):
                 un1 = self._Mrho_inv.dot(mn1, out=self._tmp_un1)
 
         if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
+            logger.warning(
                 f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err =} \n {tol**2 =}",
             )
 

@@ -58,7 +58,7 @@ def test_visco_resistive_mhd_divdiv_energy(divdiv_alpha, with_viscosity, tmp_pat
 
     sc = _run(model, tmp_path).scalars
     en_tot = sc["en_tot"].values
-    assert np.max(np.abs(en_tot - en_tot[0])) / en_tot[0] < 1e-6
+    assert np.max(np.abs(en_tot - en_tot[0])) / en_tot[0] < 1e-9
 
     if divdiv_alpha > 0.0:
         en_divdiv = sc["en_divdiv"].values
@@ -81,7 +81,7 @@ def test_compressible_fluid_divdiv_energy(tmp_path):
         _init(model.fluid)
         sc = _run(model, tmp_path / f"alpha_{divdiv_alpha}").scalars
         en_tot = sc["en_tot"].values
-        assert np.max(np.abs(en_tot - en_tot[0])) / en_tot[0] < 1e-6
+        assert np.max(np.abs(en_tot - en_tot[0])) / en_tot[0] < 1e-9
         results[divdiv_alpha] = sc["en_U"].values
 
     # the div-div term resists compression: less kinetic energy goes into the internal energy
