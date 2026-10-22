@@ -202,13 +202,13 @@ class VariationalDensityEvolve(Propagator):
         self._info = self.options.nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        # "cg" takes no preconditioner
+        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None) if self.options.solver == "pcg" else None
         self._Mrho_inv = inverse(
             self._Mrho,
             self.options.solver,
-            # "cg" takes no preconditioner
-            **({"pc": pc} if self.options.solver == "pcg" else {}),
-            tol=1e-16,
+            **({"pc": self._Mrho_pc} if self._Mrho_pc is not None else {}),
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -417,7 +417,7 @@ class VariationalDensityEvolve(Propagator):
             self.options.solver,
             # "cg" takes no preconditioner
             **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
             recycle=True,
@@ -532,9 +532,8 @@ class VariationalDensityEvolve(Propagator):
         self._Mrho.spline_functions["l2_field"].vector = rho
         self._Mrho.assemble()
 
-        logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options.get('pc') = }")
-        if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options.get("pc"), MassMatrixPreconditioner):
-            self._Mrho_inv._options["pc"].update_mass_operator(self._Mrho)
+        if getattr(self, "_Mrho_pc", None) is not None:
+            self._Mrho_pc.refresh()
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kinetic energy"""

@@ -71,3 +71,43 @@ def test_symmetric_mass_with_spline_weight():
         ]
     )
     np.testing.assert_allclose(symm.dot(probe).toarray(), 2.0 * reference.dot(probe).toarray(), rtol=1e-12, atol=1e-12)
+
+
+def test_preconditioner_refresh_after_reassembly():
+    # A preconditioner of a mass operator that is re-assembled elsewhere (e.g. WMMnew, shared by the
+    # variational propagators) is updated by refresh() only if the operator was re-assembled.
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+
+    domain = domains.Cuboid(r1=2.0, r2=3.0)
+    derham = Derham(
+        grids.TensorProductGrid(num_elements=(4, 4, 1)),
+        DerhamOptions(degree=(2, 2, 1)),
+        comm=MPI.COMM_WORLD,
+        domain=domain,
+    )
+    masses = WeightedMassOperators(derham, domain)
+    weighted = masses.WMMnew
+    rho = weighted.spline_functions["l2_field"]
+    rho.vector = derham.projectors["3"](lambda e1, e2, e3: 2.0 + e1)
+    weighted.assemble()
+
+    pc = MassMatrixPreconditioner(weighted, dim_reduce=None)
+    assert not pc.refresh()
+
+    probe = derham.projectors["v"](
+        [
+            lambda e1, e2, e3: 1.0 + e2,
+            lambda e1, e2, e3: 2.0 + 0 * e1,
+            lambda e1, e2, e3: 3.0 + e1,
+        ]
+    )
+    stale = pc.dot(probe).toarray()
+
+    rho.vector = derham.projectors["3"](lambda e1, e2, e3: 1.0 + 3.0 * e1 * e2)
+    weighted.assemble()
+    fresh = MassMatrixPreconditioner(weighted, dim_reduce=None).dot(probe).toarray()
+    assert not np.allclose(stale, fresh)
+
+    assert pc.refresh()
+    np.testing.assert_allclose(pc.dot(probe).toarray(), fresh, rtol=1e-12, atol=1e-12)
+    assert not pc.refresh()
