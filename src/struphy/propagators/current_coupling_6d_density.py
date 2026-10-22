@@ -86,8 +86,8 @@ class CurrentCoupling6DDensity(Propagator):
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for the unknown ``u`` variable.
 
-        solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Symmetric iterative solver used for the linear system.
+        solver : LiteralOptions.OptsGenSolver, default="pbicgstab"
+            Iterative solver for the linear system, which is not symmetric (the density matrix is antisymmetric).
 
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner applied to the FEEC mass matrix.
@@ -111,7 +111,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         # propagator options
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
-        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
@@ -121,7 +121,7 @@ class CurrentCoupling6DDensity(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
-            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.matrix_free, bool)
 

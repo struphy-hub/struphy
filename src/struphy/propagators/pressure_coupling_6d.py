@@ -122,12 +122,12 @@ class PressureCoupling6D(Propagator):
             If ``True``, use the perpendicular pressure-coupling model;
             otherwise use the full-model kernels.
 
-        matrix_free : bool, default=False
+        matrix_free : bool, default=True
             Apply the 3x3 block particle matrix matrix-free, with its filling :math:`w_p G^{-1}(\boldsymbol \eta_p)`
             stored per marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator` with
             ``n_blocks=3``), instead of assembling its six symmetric blocks: per marker and solver iteration, one
             evaluation of each block and one deposition into each block instead of the products of all pairs of basis
-            functions per marker. Needs 6 auxiliary marker columns.
+            functions per marker. Needs 6 auxiliary marker columns. Ignored on the CuPy backend.
         """
 
         # propagator options
@@ -138,7 +138,7 @@ class PressureCoupling6D(Propagator):
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         use_perp_model: bool = True
-        matrix_free: bool = False
+        matrix_free: bool = True
 
         def __post_init__(self):
             # checks
