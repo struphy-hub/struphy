@@ -33,18 +33,14 @@ from struphy.models.toy_drift import ToyDrift
 from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
 from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
+from struphy.models.variational_mhd import VariationalMHD
+from struphy.models.variational_mhd_with_p import VariationalMHD_with_p
+from struphy.models.variational_mhd_with_q import VariationalMHD_with_q
+from struphy.models.variational_perturbative_mhd import VariationalPerturbativeMHD
+from struphy.models.variational_perturbative_mhd_with_q import (
+    VariationalPerturbativeMHD_with_q,
+)
 from struphy.models.variational_pressureless_fluid import VariationalPressurelessFluid
-from struphy.models.visco_resistive_deltaf_mhd import ViscoResistiveDeltafMHD
-from struphy.models.visco_resistive_deltaf_mhd_with_q import (
-    ViscoResistiveDeltafMHD_with_q,
-)
-from struphy.models.visco_resistive_linear_mhd import ViscoResistiveLinearMHD
-from struphy.models.visco_resistive_linear_mhd_with_q import (
-    ViscoResistiveLinearMHD_with_q,
-)
-from struphy.models.visco_resistive_mhd import ViscoResistiveMHD
-from struphy.models.visco_resistive_mhd_with_p import ViscoResistiveMHD_with_p
-from struphy.models.visco_resistive_mhd_with_q import ViscoResistiveMHD_with_q
 from struphy.models.viscous_euler_sph import ViscousEulerSPH
 from struphy.models.viscous_fluid import ViscousFluid
 from struphy.models.vlasov import Vlasov
@@ -84,14 +80,12 @@ __all__ = [
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",
     "VariationalCompressibleFluid",
+    "VariationalMHD",
+    "VariationalMHD_with_p",
+    "VariationalMHD_with_q",
+    "VariationalPerturbativeMHD",
+    "VariationalPerturbativeMHD_with_q",
     "VariationalPressurelessFluid",
-    "ViscoResistiveDeltafMHD",
-    "ViscoResistiveDeltafMHD_with_q",
-    "ViscoResistiveLinearMHD",
-    "ViscoResistiveLinearMHD_with_q",
-    "ViscoResistiveMHD",
-    "ViscoResistiveMHD_with_p",
-    "ViscoResistiveMHD_with_q",
     "ViscousEulerSPH",
     "ViscousFluid",
     "Vlasov",

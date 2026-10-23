@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+import cunumpy as xp
 from line_profiler import profile
 from maybempi import MPI
 
@@ -13,7 +14,9 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_6d_2 import cc_lin_mhd_6d_2
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.cc_lin_mhd_6d_2_mf import cc_lin_mhd_6d_2_mf
+from struphy.pic.accumulation.kernels.marker_operator_symm_dot import marker_operator_symm_dot
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
 from struphy.pic.pushing.kernels.push_bxu_H1vec import push_bxu_H1vec
 from struphy.pic.pushing.kernels.push_bxu_Hcurl import push_bxu_Hcurl
 from struphy.pic.pushing.kernels.push_bxu_Hdiv import push_bxu_Hdiv
@@ -113,6 +116,12 @@ class CurrentCoupling6DCurrent(Propagator):
         boundary_cut : tuple, default=(0.0, 0.0, 0.0)
             Boundary clipping parameters forwarded to accumulation/pushing
             kernels.
+
+        matrix_free : bool, default=False
+            Apply the particle matrix matrix-free, with its symmetric filling stored per marker
+            (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one
+            spline evaluation and one deposition per marker and solver iteration instead of the products of all pairs
+            of basis functions per marker. Needs 6 auxiliary marker columns. Ignored on the CuPy backend.
         """
 
         # propagator options
@@ -122,12 +131,14 @@ class CurrentCoupling6DCurrent(Propagator):
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         boundary_cut: tuple = (0.0, 0.0, 0.0)
+        matrix_free: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            assert isinstance(self.matrix_free, bool)
 
             # defaults
             if self.solver_params is None:
@@ -147,7 +158,10 @@ class CurrentCoupling6DCurrent(Propagator):
 
     @profile
     def allocate(self):
-        self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
+        if self.options.u_space == "H1vec":
+            self._space_key_int = 0
+        else:
+            self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
 
         particles = self.variables.ions.particles
         u = self.variables.u.spline.vector
@@ -170,17 +184,43 @@ class CurrentCoupling6DCurrent(Propagator):
 
         self._boundary_cut_e1 = self.options.boundary_cut[0]
 
-        # load accumulator
-        self._accumulator = Accumulator(
-            particles,
-            self.options.u_space,
-            cc_lin_mhd_6d_2,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-            filter_params=self.options.filter_params,
-        )
+        # load accumulator (the matrix-free kernels have no CUDA version)
+        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        if self._matrix_free:
+            # the vector, and the filling of the matrix per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 6, "matrix_free needs 6 free (auxiliary) marker columns."
+            self._args_accum = (column,)
+            self._accumulator = AccumulatorVector(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_6d_2_mf,
+                self.mass_ops,
+                self.domain.args_domain,
+                filter_params=self.options.filter_params,
+            )
+            self._A_particles = MarkerOperator(
+                particles,
+                self.options.u_space,
+                marker_operator_symm_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (self._space_key_int, column),
+                symmetry="symm",
+            )
+        else:
+            self._args_accum = ()
+            self._accumulator = Accumulator(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_6d_2,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="symm",
+                filter_params=self.options.filter_params,
+            )
+            self._A_particles = self._accumulator.operators[0]
 
         # FEM spaces and basis extraction operators for u and b
         u_id = self.derham.space_to_form[self.options.u_space]
@@ -239,7 +279,7 @@ class CurrentCoupling6DCurrent(Propagator):
             pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(_A)
 
-        _BC = -1 / 4 * self._accumulator.operators[0]
+        _BC = -1 / 4 * self._A_particles
 
         self._schur_solver = SchurSolver(
             _A,
@@ -274,6 +314,7 @@ class CurrentCoupling6DCurrent(Propagator):
             self._coupling_mat,
             self._coupling_vec,
             self._boundary_cut_e1,
+            *self._args_accum,
         )
 
         # solve linear system for updated u coefficients (in-place)

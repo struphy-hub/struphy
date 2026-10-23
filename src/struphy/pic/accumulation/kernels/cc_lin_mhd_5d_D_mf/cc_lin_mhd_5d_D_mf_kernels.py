@@ -37,7 +37,7 @@ def cc_lin_mhd_5d_D_mf(
     matrix :math:`F_p` of the density matrix :math:`A = \sum_p \vec \Lambda_p F_p \vec \Lambda_p^\top` of the
     propagator :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity` in the marker columns
     ``column`` to ``column + 2``, for the matrix-free application by
-    :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf_dot.cc_lin_mhd_5d_D_mf_dot_kernels.cc_lin_mhd_5d_D_mf_dot`.
+    :func:`~struphy.pic.accumulation.kernels.marker_operator_asym_dot.marker_operator_asym_dot_kernels.marker_operator_asym_dot`.
     The filling matrix is that of the assembled variant
     :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D.cc_lin_mhd_5d_D_kernels.cc_lin_mhd_5d_D`.
     """

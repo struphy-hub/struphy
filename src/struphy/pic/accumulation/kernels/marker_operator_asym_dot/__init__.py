@@ -7,4 +7,4 @@ from struphy.utils.cuda_arguments import CUDA_STRUCTS
 # the arguments the kernel writes to, by position: vec1, vec2, vec3
 OUTPUTS = (3, 4, 5)
 
-cc_lin_mhd_5d_D_mf_dot = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, host_options={"outputs": OUTPUTS})
+marker_operator_asym_dot = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, host_options={"outputs": OUTPUTS})
