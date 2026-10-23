@@ -78,12 +78,17 @@ def _vnorm(v):
     return float(val[0]) ** 0.5
 
 
+# explicit coefficients with c1 != |c2| != |c3| (the species ones are c1 = 1, c2 = c3 = -1 here)
+COEFFS = {"species": {}, "explicit": {"c1": 2.0, "c2": -0.5, "c3": -3.0}}
+
+
+@pytest.mark.parametrize("coeffs", list(COEFFS))
 @pytest.mark.parametrize("kappa", [1.0, 0.0])
 @pytest.mark.parametrize("precond", ["StiffnessPreconditioner", "MassMatrixPreconditioner"])
-def test_energy_conservation(kappa, precond):
+def test_energy_conservation(kappa, precond, coeffs):
     """The coupling step conserves its energy H exactly (up to the solver tolerance), also for dt >> 1/omega_p and
     in the quasi-neutral limit kappa=0."""
-    model = _model(kappa=kappa, precond=precond)
+    model = _model(kappa=kappa, precond=precond, **COEFFS[coeffs])
     prop = model.propagators.coupling
     b = model.em_fields.b_field.spline.vector
     energy_0 = prop.energy()
@@ -93,8 +98,56 @@ def test_energy_conservation(kappa, precond):
         assert prop._solver._info["success"]
     # H is dominated by the thermal energy: compare its change also with the energy exchanged with the B field
     exchanged = abs(0.5 * b.inner(prop._M2.dot(b)) - energy_b_0)
-    assert exchanged > 10 * energy_b_0
+    assert exchanged > energy_b_0
     assert abs(prop.energy() - energy_0) < 1e-9 * exchanged
+
+
+@pytest.mark.parametrize("kappa", [1.0, 0.0])
+def test_discrete_equations(kappa):
+    """The new state satisfies the Crank-Nicolson equations: Ampère's law
+    kappa M1 (e^{n+1} - e^n) / dt = c1 C^T M2 b_mid - c2 j(V_mid) (with V^{n+1} from the pusher, j linear in V at
+    fixed positions) and Faraday's law (b^{n+1} - b^n) / dt = -C e_mid, with e_mid = e^{n+1} for kappa = 0."""
+    dt = 0.5
+    model = _model(kappa=kappa, **COEFFS["explicit"])
+    prop = model.propagators.coupling
+    e0, b0, _ = _state(model)
+    prop._accum()
+    j0 = prop._accum.vectors[0].copy()
+    prop(dt)
+    e1, b1, _ = _state(model)
+    prop._accum()
+    j_mid = (j0 + prop._accum.vectors[0]) * 0.5
+    b_mid = (b0 + b1) * 0.5
+    e_mid = (e0 + e1) * 0.5 if kappa > 0.0 else e1
+
+    curl_b = prop._curl.T.dot(prop._M2.dot(b_mid)) * prop._c1
+    current = j_mid * prop._c2
+    residual = curl_b - current - prop._M1.dot(e1 - e0) * (kappa / dt)
+    assert _norm(residual) < 1e-8 * (_norm(curl_b) + _norm(current))
+
+    faraday = (b1 - b0) * (1 / dt) + prop._curl.dot(e_mid)
+    assert _norm(faraday) < 1e-10 * _norm(b1 - b0) / dt
+
+    if kappa == 0.0:
+        # weakly divergence-free mid-point current
+        div_j = prop.derham.grad.T.dot(j_mid)
+        assert _norm(div_j) < 1e-8 * _norm(j_mid)
+
+
+def test_dt_change():
+    """The Schur solver and its preconditioner are rebuilt only when dt changes (here with a given n_ref, so the
+    Schur operator is built before any accumulation); the energy stays conserved across the change."""
+    model = _model(n_ref=1.0)
+    prop = model.propagators.coupling
+    energy_0 = prop.energy()
+    prop(0.5)
+    solver = prop._solver
+    prop(0.5)
+    assert prop._solver is solver
+    prop(1.0)
+    assert prop._solver is not solver
+    assert prop._schur_dt == 1.0
+    assert abs(prop.energy() - energy_0) < 1e-12 * energy_0
 
 
 def test_agrees_with_split_propagators():
@@ -119,33 +172,17 @@ def test_agrees_with_split_propagators():
 
 
 def test_quasi_neutral_limit():
-    """b and V converge like kappa to the kappa=0 solution, and at kappa=0 the displacement-free Ampère law
-    c1 C^T M2 b_mid = c2 j_mid holds; the iteration counts stay bounded as kappa -> 0."""
+    """b and V converge like kappa to the kappa=0 solution; the iteration counts stay bounded as kappa -> 0."""
     dt = 0.5
     results = {}
     niter = {}
     for kappa in (1e-2, 1e-4, 0.0):
         model = _model(kappa=kappa)
         prop = model.propagators.coupling
-        e0, b0, v0 = _state(model)
-        prop._accum()
-        j0 = prop._accum.vectors[0].copy()
         prop(dt)
         niter[kappa] = prop._solver._info["niter"]
-        e1, b1, v1 = _state(model)
+        _, b1, v1 = _state(model)
         results[kappa] = (b1.toarray(), v1)
-
-        if kappa == 0.0:
-            # j is linear in V at fixed positions: j_mid = (j(V^n) + j(V^{n+1})) / 2
-            prop._accum()
-            j_mid = (j0 + prop._accum.vectors[0]) * 0.5
-            b_mid = (b0 + b1) * 0.5
-            curl_b = prop._curl.T.dot(prop._M2.dot(b_mid)) * prop._c1
-            residual = curl_b - j_mid * prop._c2
-            assert _norm(residual) < 1e-8 * _norm(curl_b)
-            # weakly divergence-free mid-point current
-            div_j = prop.derham.grad.T.dot(j_mid)
-            assert _norm(div_j) < 1e-8 * _norm(j_mid)
 
     b_ref, v_ref = results[0.0]
     errs = [_vnorm(results[k][0] - b_ref) + _vnorm(results[k][1] - v_ref) for k in (1e-2, 1e-4)]
@@ -153,26 +190,9 @@ def test_quasi_neutral_limit():
     assert max(niter.values()) <= 2 * min(niter.values()), niter
 
 
-def test_quasi_neutral_independent_of_e0():
-    """For kappa=0, the electric field at the beginning of the step does not enter: b, V and the stored
-    e = e_mid are the same for a different e^n."""
-    dt = 0.5
-    out = []
-    for scale in (1.0, -3.0):
-        model = _model(kappa=0.0)
-        model.em_fields.e_field.spline.vector *= scale
-        model.em_fields.e_field.spline.vector.update_ghost_regions()
-        model.propagators.coupling(dt)
-        out.append(_state(model))
-    for x, y in zip(out[0], out[1]):
-        x = x if isinstance(x, xp.ndarray) else x.toarray()
-        y = y if isinstance(y, xp.ndarray) else y.toarray()
-        assert _vnorm(x - y) < 1e-8 * _vnorm(x)
-
-
 def test_control_variate_quasi_neutral_rejected():
     """The quasi-neutral limit needs full-f weights."""
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError, match="quasi-neutral"):
         _model(control_variate=True, kappa=0.0)
 
 

@@ -212,7 +212,8 @@ class VlasovMaxwellCoupling(Propagator):
               ``derivative="curl"`` for the stabilized curl-curl approximation of the Schur operator (see the class
               docstring), rebuilt when the time step changes.
             - ``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``: preconditioner of
-              :math:`\mathbb M_1`, sufficient for :math:`\Delta t \lesssim h`.
+              :math:`\mathbb M_1`, sufficient for :math:`\Delta t \lesssim h` (polar splines are not supported by
+              this propagator yet).
             - ``None``: no preconditioner (set automatically, with a warning, for ``solver="cg"``).
 
         solver_params : SolverParameters, default=None
@@ -274,6 +275,8 @@ class VlasovMaxwellCoupling(Propagator):
         self._c2 = alpha**2 / epsilon if self.options.c2 is None else self.options.c2
         self._c3 = 1.0 / epsilon if self.options.c3 is None else self.options.c3
         assert self._c2 * self._c3 > 0.0, f"c2 * c3 must be > 0, got c2={self._c2}, c3={self._c3}."
+
+        assert not self.derham.polar_splines, "VlasovMaxwellCoupling does not support polar splines yet."
 
         particles = self.variables.ions.particles
         if particles.control_variate:
