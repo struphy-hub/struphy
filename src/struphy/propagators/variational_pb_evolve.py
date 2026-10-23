@@ -60,13 +60,13 @@ class VariationalPBEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
-        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}} = 0 ~ ,
-        - (\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3(\frac{g}{\gamma-1})
+        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}}
+        - (\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3(\frac{g}{\gamma-1}) = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf p^{n+1}- \mathbf p^n}{\Delta t} + \big(\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v]]
-        + (\gamma - 1)\hat{\Pi}^{3}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf u^{n+1/2}= 0 ~ ,
+        &\frac{\mathbf p^{n+1}- \mathbf p^n}{\Delta t} + \big(\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v]]
+        + (\gamma - 1)\hat{\Pi}^{3}[\hat{p_h^{n}} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf u^{n+1/2}= 0 ~ ,
         \\[2mm]
         \end{align}
 
@@ -80,11 +80,14 @@ class VariationalPBEvolve(Propagator):
 
     .. math::
 
-        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+\frac{1}{2}})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
+        \hat{\mathbf{B}}_h^{n} = (\mathbf{b}^{n})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
         \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,
-        \qquad \hat{p}_h^{n+1/2} = (\boldsymbol p^{n+1/2})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
+        \qquad \hat{p}_h^{n} = (\boldsymbol p^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
     and :math:`\mathcal{U}^v` is :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`.
+
+    The weights of the transport operators are taken at :math:`t^n` (in all equations, which conserves the
+    energy); the step is therefore only first-order accurate in time.
     """
 
     class Variables:
@@ -142,7 +145,7 @@ class VariationalPBEvolve(Propagator):
         pt3: FEECVariable = None,
         bt2: FEECVariable = None,
     ):
-        """
+        r"""
         Parameters
         ----------
         div_u : FEECVariable, default=None
@@ -150,9 +153,11 @@ class VariationalPBEvolve(Propagator):
         u2 : FEECVariable, default=None
             Velocity 2-form diagnostic (``"Hdiv"`` space).
         pt3 : FEECVariable, default=None
-            Pressure 3-form (``"L2"`` space) used in the momentum source term.
+            Auxiliary second-order pressure :math:`p_2` (``"L2"`` space) of the linear and perturbative models,
+            advected by the pressure perturbation. It enters only the energy, not the momentum equation.
         bt2 : FEECVariable, default=None
-            Magnetic 2-form (``"Hdiv"`` space) providing the Lorentz force.
+            Auxiliary second-order magnetic field :math:`\mathbf B_2` (``"Hdiv"`` space) of the linear and perturbative
+            models, advected by the magnetic perturbation. It enters only the energy, not the momentum equation.
         """
         self.variables = self.Variables()
         self.div_u = div_u
@@ -166,7 +171,7 @@ class VariationalPBEvolve(Propagator):
 
         Parameters
         ----------
-        model : {"full_p", "linear", "deltaf"}, default="full_p"
+        model : {"full_p", "linear", "perturbative"}, default="full_p"
             Pressure-magnetic coupled model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -181,7 +186,7 @@ class VariationalPBEvolve(Propagator):
         """
 
         # specific literals
-        OptsModel = Literal["full_p", "linear", "deltaf"]
+        OptsModel = Literal["full_p", "linear", "perturbative"]
         # propagator options
         model: OptsModel = "full_p"
         gamma: float = 5.0 / 3.0
@@ -372,7 +377,7 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_p_advection,
                 )
 
-            elif self._model == "deltaf":
+            elif self._model == "perturbative":
                 advection = self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
@@ -480,6 +485,12 @@ class VariationalPBEvolve(Propagator):
                 f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
+        if not err < tol**2:
+            # the last iteration applied an update after the residual: midpoint velocity of the final iterate
+            un12 = un.copy(out=self._tmp_un12)
+            un12 += un1
+            un12 *= 0.5
+
         self._tmp_un_diff = un1 - un
         self._tmp_bn_diff = bn1 - bn
         self._tmp_pn_diff = pn1 - pn
@@ -562,7 +573,7 @@ class VariationalPBEvolve(Propagator):
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
 
-        elif self._model == "deltaf":
+        elif self._model == "perturbative":
             # initialize the jacobian differently if linear model
             self._create_Pib0()
             self._create_transop0()
@@ -621,7 +632,7 @@ class VariationalPBEvolve(Propagator):
 
     def _create_Pib0(self):
         self.curlPib0 = Hdiv0_transport_operator(self.derham)
-        self.curlPibT0 = self.curlPib.T
+        self.curlPibT0 = self.curlPib0.T
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
 
@@ -652,7 +663,7 @@ class VariationalPBEvolve(Propagator):
     def _create_linear_form_p(self):
         """Update the linearform representing integration in V3 against pressure energy"""
 
-        if self._model in ["full_p", "linear", "deltaf"]:
+        if self._model in ["full_p", "linear", "perturbative"]:
             self._tmp_int_grid *= 0.0
             self._tmp_int_grid -= 1.0 / (self._gamma - 1.0)
             self._tmp_int_grid *= self._energy_metric_term
