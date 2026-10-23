@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import cunumpy as xp
 from cunumpy.kernels import Kernel, PyccelKernel
 from feectools.linalg.basic import LinearOperator, Vector, VectorSpace
-from feectools.linalg.block import BlockVector
+from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 from maybempi import MPI
 from scope_profiler import ProfileManager
@@ -469,6 +469,12 @@ class AccumulatorVector:
     args_domain : DomainArguments
         Mapping infos.
 
+    filter_params : FilterParameters
+        Params for the accumulation filter.
+
+    n_vectors : int
+        Number of vectors accumulated by one kernel call (in the order of the kernel arguments), e.g. 3 for the
+        pressure coupling. Default=1.
     """
 
     def __init__(
@@ -479,6 +485,7 @@ class AccumulatorVector:
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         filter_params: FilterParameters = None,
+        n_vectors: int = 1,
     ):
         self._particles = particles
         self._space_id = space_id
@@ -501,32 +508,14 @@ class AccumulatorVector:
         self._args_data = ()
 
         if space_id in ("H1", "L2"):
-            self._vectors += [
-                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
-            ]
-            self._vectors_temp += [
-                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
-            ]
-            self._vectors_out += [
-                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
-            ]
-
+            vector_class = StencilVector
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
-            self._vectors += [
-                BlockVector(
-                    self.derham.fem_spaces[self.form].coeff_space,
-                ),
-            ]
-            self._vectors_temp += [
-                BlockVector(
-                    self.derham.fem_spaces[self.form].coeff_space,
-                ),
-            ]
-            self._vectors_out += [
-                BlockVector(
-                    self.derham.fem_spaces[self.form].coeff_space,
-                ),
-            ]
+            vector_class = BlockVector
+        coeff_space = self.derham.fem_spaces[self.form].coeff_space
+        for _ in range(n_vectors):
+            self._vectors += [vector_class(coeff_space)]
+            self._vectors_temp += [vector_class(coeff_space)]
+            self._vectors_out += [vector_class(coeff_space)]
 
         for vec in self._vectors:
             if isinstance(vec, StencilVector):
@@ -831,6 +820,13 @@ class MarkerOperator(LinearOperator):
 
     symmetry : str
         ``"symm"`` (:math:`F_p^\top = F_p`) or ``"asym"`` (:math:`F_p^\top = -F_p`), for the transpose.
+
+    n_blocks : int
+        Number of copies of the space in the domain (and codomain). For ``n_blocks > 1``, the operator is the
+        ``n_blocks x n_blocks`` block matrix :math:`(A_{ab})_{a,b}` on the product space, e.g. the pressure coupling
+        with :math:`A_{ab} = \sum_p v_{p,a} v_{p,b}\, \vec \Lambda_p F_p \vec \Lambda_p^\top`; then ``kernel`` takes
+        the ``n_blocks`` output vectors followed by the ``n_blocks`` coefficient vectors (three arrays each), and
+        ``symmetry`` refers to the whole block matrix.
     """
 
     def __init__(
@@ -842,8 +838,10 @@ class MarkerOperator(LinearOperator):
         args_domain: DomainArguments,
         args: tuple = (),
         symmetry: str = "symm",
+        n_blocks: int = 1,
     ):
         assert symmetry in ("symm", "asym")
+        assert n_blocks >= 1
         derham = mass_ops.derham
         form = derham.space_to_form[space_id]
         self._E = derham.extraction_ops[form]
@@ -851,12 +849,21 @@ class MarkerOperator(LinearOperator):
         # the transposes are new operators: built once (dot is called in every iteration of a solver)
         self._ET = self._E.T
         self._BT = self._B.T
-        self._acc = AccumulatorVector(particles, space_id, kernel, mass_ops, args_domain)
+        self._acc = AccumulatorVector(particles, space_id, kernel, mass_ops, args_domain, n_vectors=n_blocks)
         self._args = args
         self._symmetry = symmetry
-        self._x_full = self._E.domain.zeros()
+        self._n_blocks = n_blocks
+        # one full coefficient vector per block (with ghost regions, evaluated at the markers)
+        self._x_full = [self._E.domain.zeros() for _ in range(n_blocks)]
         self._x_tmp = self._B.domain.zeros()
-        self._space = self._B.codomain
+        if n_blocks == 1:
+            self._space = self._B.codomain
+        else:
+            self._space = BlockVectorSpace(*(self._B.codomain,) * n_blocks)
+        self._data = ()
+        for x_full in self._x_full:
+            blocks = x_full.blocks if hasattr(x_full, "blocks") else [x_full]
+            self._data += tuple(blk._data for blk in blocks)
 
     @property
     def domain(self) -> VectorSpace:
@@ -885,14 +892,19 @@ class MarkerOperator(LinearOperator):
 
     def dot(self, v: Vector, out: Vector = None) -> Vector:
         assert v.space == self._space
+        v_blocks = [v] if self._n_blocks == 1 else v.blocks
         # coefficients of the full space, with ghost regions for the evaluation at the markers
-        self._BT.dot(v, out=self._x_tmp)
-        self._ET.dot(self._x_tmp, out=self._x_full)
-        self._x_full.update_ghost_regions()
-        blocks = self._x_full.blocks if hasattr(self._x_full, "blocks") else [self._x_full]
-        self._acc(*[blk._data for blk in blocks], *self._args)
-        res = self._acc.vectors[0]
+        for v_blk, x_full in zip(v_blocks, self._x_full):
+            self._BT.dot(v_blk, out=self._x_tmp)
+            self._ET.dot(self._x_tmp, out=x_full)
+            x_full.update_ghost_regions()
+        self._acc(*self._data, *self._args)
+        res = self._acc.vectors
         if out is None:
-            return res.copy()
-        res.copy(out=out)
+            out = self._space.zeros()
+        if self._n_blocks == 1:
+            res[0].copy(out=out)
+        else:
+            for res_blk, out_blk in zip(res, out.blocks):
+                res_blk.copy(out=out_blk)
         return out

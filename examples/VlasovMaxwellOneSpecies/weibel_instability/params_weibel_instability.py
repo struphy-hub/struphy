@@ -314,7 +314,8 @@ model.kinetic_ions.set_markers(
 model.propagators.maxwell.options = model.propagators.maxwell.Options()
 model.propagators.push_eta.options = model.propagators.push_eta.Options()
 model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
-model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+# matrix-free particle matrix: 1.25x faster coupling step than assembling it on 1-2 ranks, as fast on 4
+model.propagators.coupling_va.options = model.propagators.coupling_va.Options(matrix_free=True)
 model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 
 # ------------------

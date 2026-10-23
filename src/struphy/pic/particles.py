@@ -50,8 +50,10 @@ class Particles6D(Particles):
     """Marker columns saved as orbits, see :attr:`~struphy.pic.base.Particles.orbit_quantities`."""
     default_background = maxwellians.Maxwellian3D()
     """Default kinetic background is a 3D Cartesian Maxwellian."""
-    default_n_cols = {"diagnostics": 0, "aux": 5}
-    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
+    default_n_cols = {"diagnostics": 0, "aux": 6}
+    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use (6 for the symmetric
+    3x3 particle-matrix fillings stored per marker by the matrix-free accumulation, see
+    :class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`)."""
 
     @property
     def mu_idx(self):
@@ -279,7 +281,7 @@ class PauliParticles6D(Particles6D):
 
     orbit_quantities = Particles6D.orbit_quantities + ((9, "mu", "$\\mu$", "magnetic moment"),)
     """Marker columns saved as orbits: those of :class:`Particles6D` and the magnetic moment."""
-    default_n_cols = {"diagnostics": 1, "aux": 5}
+    default_n_cols = {"diagnostics": 1, "aux": 6}
     """One diagnostics column holds the magnetic moment."""
 
     @property
