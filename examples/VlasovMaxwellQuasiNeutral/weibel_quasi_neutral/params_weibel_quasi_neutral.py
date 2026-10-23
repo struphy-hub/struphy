@@ -53,19 +53,21 @@ kappa gamma^2 ~ 8e-4 is negligible against k^2 + 1 = 2.56: the Weibel instabilit
 
 Setup. As in the VlasovMaxwellOneSpecies Weibel example: periodic box of length 2 pi / k with k = 1.25, 32 cells
 and cubic splines in x, Maxwellian electrons with n = 1 and vth1 = 0.02 / sqrt(2), vth2 = sqrt(12) vth1 (v3 = 0),
-the seed field B3 = -1e-4 cos(k x), 100000 markers with full-f weights (seed 1234; the quasi-neutral limit needs
-full-f weights). Time step dt = {args.dt:g} (20 times the dt = 0.05 of the VlasovMaxwellOneSpecies example; the
-implicit coupling step is stable for dt omega_p > 1) up to t = {args.tend:g}, Lie-Trotter splitting.
+the seed field B3 = -1e-4 cos(k x), 100000 markers with full-f weights (the quasi-neutral limit needs full-f
+weights), loaded by an antithetic Sobol sequence (each Sobol point reflected in all phase-space directions, so that
+the mean velocities of each group of markers vanish), which removes most of the noise of the current. Time step
+dt = {args.dt:g} (20 times the dt = 0.05 of the VlasovMaxwellOneSpecies example; the implicit coupling step is stable
+for dt omega_p > 1) up to t = {args.tend:g}, Lie-Trotter splitting.
 
 Expected result. For k = 1.25 the dispersion relation gives gamma = 0.02784 for both kappa = 1 and kappa = 0 (the
 growth rate of the amplitude of B3; the magnetic energy grows as exp(2 gamma t)). The energy en_H conserved by the
 coupling step changes only by the splitting with the particle pushers. The pproc fits gamma to the magnetic energy
 (between t = Tend/5 and 2 Tend/5), compares with the analytical value and plots the energies. Measured with this
-setup (serial, 2026-10-23): gamma = 0.0249 for kappa = 1 and gamma = 0.0251 for kappa = 0, about 10 % below the
-analytical value; without the initial projection (kappa = 0, option initial_projection=False) gamma = 0.0249, with a
-period-2 oscillation of en_B in the first 80 time units, and with dt = 0.25 gamma = 0.0253, so the deviation is
-mostly due to the marker noise and resolution, not to the large time step. The relative change of en_H stays below
-4e-9.
+setup (serial, 2026-10-23): gamma = 0.02805 for kappa = 1 and gamma = 0.02758 for kappa = 0, within 1 % of the
+analytical value; the relative change of en_H stays below 6e-9. With pseudo-random markers instead, the fitted rate
+is about 10 % low and scatters by about 7 % between seeds (marker noise); the large time step changes it only by
+about 1 %. The verification test test_verif_VlasovMaxwellQuasiNeutral.py runs this setup for kappa = 0 up to
+t = 160.
 
 For kappa = 0 the coupling step projects the initial state onto curl B = J (option initial_projection, default):
 the constraint holds only at the mid-point of each step, so initial data that violate it (here by the marker noise
@@ -152,9 +154,10 @@ sim = Simulation(
 model.kinetic_ions.set_markers(
     loading_params=LoadingParameters(
         Np=2000 if args.test_run else 100000,
+        # quasi-random markers reflected in all phase-space directions (no seed): much less noise in the current
+        loading="sobol_antithetic",
         set_zero_velocity=(False, False, True),
         moments=(0.0, 0.0, 0.0, vth1_background_val, vth2_background_val, 1.0),
-        seed=1234,
     ),
     weights_params=WeightsParameters(control_variate=False),
     boundary_params=BoundaryParameters(),
