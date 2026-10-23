@@ -1,5 +1,5 @@
-"""Inertial Alfvén wave with the DriftKineticMaxwell model, with and without displacement current (`--kappa 1` or
-`--kappa 0`) and with or without the E x B current (`--exb-current`)."""
+"""Inertial Alfvén wave with the DriftKineticMaxwell model, with and without displacement current (`--lam 1` or
+`--lam 0`) and with or without the E x B current (`--exb-current`)."""
 
 import argparse
 from pathlib import Path
@@ -12,9 +12,12 @@ parser.add_argument(
     default=str(Path(__file__).resolve().parent),
     help="Folder in which the output folder is created (default: beside this file).",
 )
-parser.add_argument("--sim-folder", default=None, help="Name of the output folder (default: sim_kappa<kappa>[_exb]).")
+parser.add_argument("--sim-folder", default=None, help="Name of the output folder (default: sim_lam<lam>[_exb]).")
 parser.add_argument(
-    "--kappa", type=float, default=0.0, help="Coefficient of the displacement current (1: Maxwell, 0: quasi-neutral)."
+    "--lam",
+    type=float,
+    default=0.0,
+    help="lam = v_th / c, coefficient lam^2 of the displacement current (0: quasi-neutral).",
 )
 parser.add_argument(
     "--exb-current", action="store_true", help="Include the E x B current of the guiding centers in Ampere's law."
@@ -28,7 +31,7 @@ parser.add_argument(
 )
 args, _ = parser.parse_known_args()
 if args.sim_folder is None:
-    args.sim_folder = f"sim_kappa{args.kappa:g}" + ("_exb" if args.exb_current else "")
+    args.sim_folder = f"sim_lam{args.lam:g}" + ("_exb" if args.exb_current else "")
 if args.test_run:
     args.tend = 2 * args.dt
 
@@ -37,34 +40,37 @@ name = "Inertial Alfven wave in the drift-kinetic Maxwell model"
 description = f"""
 Shear (inertial) Alfven wave in a cold guiding-center plasma with the DriftKineticMaxwell model: drift-kinetic
 particles (PIC, Particles5D) coupled to Maxwell's equations through the implicit, energy conserving
-DriftKineticMaxwellCoupling step, in a periodic slab with the uniform field B0 = e_z. Here
-kappa = {args.kappa:g}, E x B current {"on" if args.exb_current else "off"}.
+DriftKineticMaxwellCoupling step, in a periodic slab with the uniform field B0 = e_z. Here lam = {args.lam:g}
+(coefficient lam^2 of the displacement current), E x B current {"on" if args.exb_current else "off"}.
 
-Physics. In the units of the model (velocities in units of c, alpha = Omega_p / Omega_c, epsilon = 1 / (Omega_c t))
+Physics. The model is normalized with the thermal velocity v_th of the species (t = x / v_th, E in units of
+v_th B), with the species parameters epsilon = 1 / (Omega_c t), lam_s = Omega_c x / c and kappa_s = Omega_p x / c.
 Ampere's law reads
-    kappa dE/dt + chi n0 / |B0|^2 dE_perp/dt = curl B - (alpha^2 / epsilon) J_gc,
-with the guiding-center current J_gc and the polarization coefficient chi = alpha^2 (c^2 / v_A^2 of the species).
-The drift-kinetic ordering removes the polarization drift from the guiding-center motion; the chi term adds it back.
-Without it, the quasi-neutral limit kappa = 0 would be singular for flute modes, and for kappa = 1 the shear Alfven
-wave would travel at the speed of light. For a cold plasma and k = (kx, 0, kz), the shear mode (E_x, E_z, B_y)
-obeys, without the E x B current and for kappa = 0,
-    omega^2 = (c1 / chi) kz^2 / (1 + kx^2 d^2),   d^2 = c1 / P,   P = c2 c3 n0 = alpha^2 / epsilon^2,
-the inertial Alfven wave with v_A^2 = 1 / chi and the inertial length d. For kappa > 0, and with the E x B current
-(which couples the shear and the fast wave through the Hall term of the single species), the frequencies are the
-roots of the determinant of the 3x3 cold-plasma dispersion matrix (computed in the pproc script).
+    lam^2 dE/dt + chi n0 / |B0|^2 dE_perp/dt = curl B - c2 J_gc,
+with the guiding-center current J_gc, lam = epsilon lam_s = v_th / c (here an option, 0 or 1), the polarization
+coefficient chi = (epsilon kappa_s)^2 = v_th^2 / v_A^2 and c2 = epsilon kappa_s^2; the parallel force has
+c3 = 1 / epsilon. The drift-kinetic ordering removes the polarization drift from the guiding-center motion; the chi
+term adds it back. Without it, the quasi-neutral limit lam = 0 would be singular for flute modes. For a cold plasma
+and k = (kx, 0, kz), the shear mode (E_x, E_z, B_y) obeys, without the E x B current and for lam = 0,
+    omega^2 = (1 / chi) kz^2 / (1 + kx^2 d^2),   d^2 = 1 / P,   P = c2 c3 n0 = kappa_s^2,
+the inertial Alfven wave with v_A^2 = 1 / chi and the inertial length d = 1 / kappa_s. For lam > 0, and with the
+E x B current (which couples the shear and the fast wave through the Hall term of the single species), the
+frequencies are the roots of the determinant of the 3x3 cold-plasma dispersion matrix (computed in the pproc
+script).
 
-Setup. alpha = 3, epsilon = 0.5 (chi = 9, v_A = 1/3, d = 1/6); box 1 x 1 x 4 with 8 x 1 x 8 cells and cubic
-splines in x and z, kx = 2 pi, kz = pi / 2 (kx^2 d^2 = 1.1); cold guiding centers (vth = 1e-6, full-f weights,
-50 markers per cell, seed 1234), initial B_y = 1e-2 sin(kx x + kz z) (2-form component). Time step
-dt = {args.dt:g} (omega dt = 0.18) up to t = {args.tend:g}, Lie-Trotter splitting of the coupling step with the
-parallel and the E* x b0 guiding-center pushers. For kappa = 0 the coupling step first projects the initial state
-onto the constraint of the quasi-neutral limit (option initial_projection, default).
+Setup. epsilon = 0.5, lam_s = 2, kappa_s = 6 (chi = 9, v_A = 1/3, d = 1/6, c2 = 18, c3 = 2; lam = 1 would mean
+v_th = c and only tests the displacement-current branch); box 1 x 1 x 4 with 8 x 1 x 8 cells and cubic splines in
+x and z, kx = 2 pi, kz = pi / 2 (kx^2 d^2 = 1.1); cold guiding centers (vth = 1e-6, full-f weights, 50 markers per
+cell, seed 1234), initial B_y = 1e-2 sin(kx x + kz z) (2-form component). Time step dt = {args.dt:g}
+(omega dt = 0.18) up to t = {args.tend:g}, Lie-Trotter splitting of the coupling step with the parallel and the
+E* x b0 guiding-center pushers. For lam = 0 the coupling step first projects the initial state onto the constraint
+of the quasi-neutral limit (option initial_projection, default).
 
-Expected result. Analytical frequencies of the shear mode: omega = 0.3616 (kappa = 0), 0.2643 (kappa = 0 with the
-E x B current) and 0.3428 (kappa = 1; the B_y perturbation then also excites the upper branch, omega = 8.70, with a
+Expected result. Analytical frequencies of the shear mode: omega = 0.3616 (lam = 0), 0.2643 (lam = 0 with the
+E x B current) and 0.3428 (lam = 1; the B_y perturbation then also excites the upper branch, omega = 8.70, with a
 small amplitude). The pproc fits omega to the magnetic energy en_B ~ cos^2(omega t) and compares. Measured with
-this example (serial, 2026-10-23): -1.0 % for kappa = 0; with the verification test of the same setup -0.25 % with
-the E x B current and -0.7 % for kappa = 1 (dt = 0.1). The deviation decreases with the number of markers (-0.35 %
+this example (serial, 2026-10-23): -1.0 % for lam = 0; with the verification test of the same setup -0.25 % with
+the E x B current and -0.7 % for lam = 1 (dt = 0.1). The deviation decreases with the number of markers (-0.35 %
 with 200 markers per cell). The total energy en_tot is conserved by the whole splitting up to the solver tolerance
 (cold plasma, uniform B0): relative change 5e-6 with the default tolerance 1e-8, 1e-9 with 1e-12.
 
@@ -104,11 +110,11 @@ set_logging_level(logging.WARNING)
 
 from struphy.models import DriftKineticMaxwell
 
-ALPHA, EPSILON = 3.0, 0.5
+EPSILON, LAM, KAPPA = 0.5, 2.0, 6.0
 LX, LZ = 1.0, 4.0
 VTH = 1e-6
 
-model = DriftKineticMaxwell(base_units=BaseUnits(), alpha=ALPHA, epsilon=EPSILON)
+model = DriftKineticMaxwell(base_units=BaseUnits(kBT=1.0), epsilon=EPSILON, lam=LAM, kappa=KAPPA)
 
 model.em_fields.e_field.save_data = True
 model.em_fields.b_field.save_data = True
@@ -159,10 +165,10 @@ model.kinetic_ions.set_markers(
 
 prop = model.propagators.coupling
 if args.exb_current:
-    prop.options = prop.Options(kappa=args.kappa)
+    prop.options = prop.Options(lam=args.lam)
 else:
     # without the E x B current the Schur system is symmetric
-    prop.options = prop.Options(kappa=args.kappa, exb_current=False, solver="pcg")
+    prop.options = prop.Options(lam=args.lam, exb_current=False, solver="pcg")
 model.propagators.push_para.options = model.propagators.push_para.Options()
 # with the electric field (not a potential) only the explicit E* x b0 push is consistent
 model.propagators.push_bxe.options = model.propagators.push_bxe.Options(algo="explicit")

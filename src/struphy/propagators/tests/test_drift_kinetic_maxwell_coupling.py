@@ -9,8 +9,8 @@ set_logging_level(logging.WARNING)
 
 
 def _model(control_variate=False, domain=None, **options):
-    """Allocated DriftKineticMaxwell model (slab with a tilted homogeneous B0, full-f guiding centers with alpha=1,
-    epsilon=0.5, a parallel flow and a B perturbation) with the given options of its coupling propagator."""
+    """Allocated DriftKineticMaxwell model (slab with a tilted homogeneous B0, full-f guiding centers with epsilon=0.5,
+    lam=2, kappa=2, a parallel flow and a B perturbation) with the given options of its coupling propagator."""
     from struphy import (
         DerhamOptions,
         LoadingParameters,
@@ -25,7 +25,7 @@ def _model(control_variate=False, domain=None, **options):
     )
     from struphy.linear_algebra.solver import SolverParameters
 
-    model = models.DriftKineticMaxwell(alpha=1.0, epsilon=0.5)
+    model = models.DriftKineticMaxwell(epsilon=0.5, lam=2.0, kappa=2.0)
     model.kinetic_ions.set_markers(
         loading_params=LoadingParameters(ppc=20, seed=1234),
         weights_params=WeightsParameters(control_variate=control_variate),
@@ -76,12 +76,12 @@ def _random_v1(derham, seed):
 
 @pytest.mark.parametrize("matrix_free", [False, True])
 @pytest.mark.parametrize("exb_current", [True, False])
-@pytest.mark.parametrize("kappa", [1.0, 0.0])
-def test_energy_conservation(kappa, exb_current, matrix_free):
+@pytest.mark.parametrize("lam", [1.0, 0.0])
+def test_energy_conservation(lam, exb_current, matrix_free):
     """The coupling step conserves its energy H exactly (up to the solver tolerance), also for a large time step and
-    in the quasi-neutral limit kappa=0 (without the initial projection, which changes H once)."""
+    in the quasi-neutral limit lam=0 (without the initial projection, which changes H once)."""
     solver = {} if exb_current else {"solver": "pcg"}
-    model = _model(kappa=kappa, exb_current=exb_current, matrix_free=matrix_free, initial_projection=False, **solver)
+    model = _model(lam=lam, exb_current=exb_current, matrix_free=matrix_free, initial_projection=False, **solver)
     prop = model.propagators.coupling
     b = model.em_fields.b_field.spline.vector
     energy_0 = prop.energy()
@@ -108,12 +108,12 @@ def test_energy_conservation_mapped():
     assert abs(prop.energy() - energy_0) < 1e-11 * energy_0
 
 
-@pytest.mark.parametrize("kappa", [1.0, 0.0])
-def test_matrix_free_agrees(kappa):
+@pytest.mark.parametrize("lam", [1.0, 0.0])
+def test_matrix_free_agrees(lam):
     """The matrix-free particle matrices give the same step as the assembled ones (with the E x B current)."""
     states = []
     for matrix_free in (False, True):
-        model = _model(kappa=kappa, matrix_free=matrix_free, initial_projection=False)
+        model = _model(lam=lam, matrix_free=matrix_free, initial_projection=False)
         model.propagators.coupling(0.5)
         # the two simulations have different Derham objects: compare the arrays
         e, b, v = _state(model)
@@ -140,13 +140,13 @@ def test_particle_matrices():
 
 
 @pytest.mark.parametrize("matrix_free", [False, True])
-@pytest.mark.parametrize("kappa", [1.0, 0.0])
-def test_discrete_equations(kappa, matrix_free):
+@pytest.mark.parametrize("lam", [1.0, 0.0])
+def test_discrete_equations(lam, matrix_free):
     """Without the E x B current, the new state satisfies the Crank-Nicolson equations: Ampère's law
     M_E (e^{n+1} - e^n) / dt = c1 C^T M2 b_mid - c2 j(V_mid) (j linear in v_par at fixed positions and fixed
     a_p = B*/B*_par, which depends on v_par only through the curvature, zero here) and Faraday's law."""
     dt = 0.5
-    model = _model(kappa=kappa, matrix_free=matrix_free, exb_current=False, solver="pcg", initial_projection=False)
+    model = _model(lam=lam, matrix_free=matrix_free, exb_current=False, solver="pcg", initial_projection=False)
     prop = model.propagators.coupling
     e0, b0, _ = _state(model)
     prop._accumulate()
@@ -168,11 +168,11 @@ def test_discrete_equations(kappa, matrix_free):
 
 
 def test_initial_projection():
-    """For kappa=0, without the initial projection the magnetic energy oscillates with period 2 (the constraint
+    """For lam=0, without the initial projection the magnetic energy oscillates with period 2 (the constraint
     residual changes sign in every step); the projection removes this."""
 
     def en_b_series(projection):
-        model = _model(kappa=0.0, initial_projection=projection)
+        model = _model(lam=0.0, initial_projection=projection)
         prop = model.propagators.coupling
         b = model.em_fields.b_field.spline.vector
         series = []
@@ -209,12 +209,12 @@ def test_invalid_options():
 
     Options = DriftKineticMaxwellCoupling.Options
     with pytest.raises(AssertionError):
-        Options(kappa=-1.0)
+        Options(lam=-1.0)
     with pytest.raises(AssertionError):
         Options(chi=-1.0)
     with pytest.raises(AssertionError):
         # no displacement and no polarization current: the perpendicular field is undetermined
-        Options(kappa=0.0, chi=0.0)
+        Options(lam=0.0, chi=0.0)
     with pytest.raises(AssertionError):
         Options(c1=0.0)
     with pytest.raises(AssertionError):
@@ -225,7 +225,81 @@ def test_invalid_options():
     Options(solver="pcg", exb_current=False)
 
 
-def test_control_variate_needs_kappa():
-    """kappa=0 needs full-f weights (the particle matrix is indefinite with the control variate)."""
+def test_control_variate_needs_lam():
+    """lam=0 needs full-f weights (the particle matrix is indefinite with the control variate)."""
     with pytest.raises(AssertionError):
-        _model(kappa=0.0, control_variate=True)
+        _model(lam=0.0, control_variate=True)
+
+
+def _cold_model(push_para_e_field=False):
+    """DriftKineticMaxwell with cold guiding centers (mu ~ 0), uniform B0 and no B perturbation (no mirror force), and
+    a large electric field with a parallel component. Optionally pushes with the electric field also in push_para
+    (forbidden in the model)."""
+    from struphy import DerhamOptions, LoadingParameters, Simulation, domains, equils, grids, maxwellians, models
+    from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
+
+    vth = 1e-6
+    model = models.DriftKineticMaxwell(epsilon=0.5, lam=2.0, kappa=2.0)
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=5, seed=1, moments=(0.0, 0.0, 1.0, vth), B0=1.0)
+    )
+    model.kinetic_ions.var.add_background(
+        maxwellians.GyroMaxwellian2D(n=(1.0, None), vth_para=(1.0, None), vth_perp=(vth, None), B0=1.0)
+    )
+    if push_para_e_field:
+        model.propagators.push_para = PushGuidingCenterParallel(
+            b_tilde=model.em_fields.b_field, e_field=model.em_fields.e_field
+        )
+        model.propagators.push_para.variables.ions = model.kinetic_ions.var
+    Simulation(
+        model=model,
+        domain=domains.Cuboid(r1=2.0, r2=2.0, r3=2.0),
+        equil=equils.HomogenSlab(B0x=0.3, B0z=1.0),
+        grid=grids.TensorProductGrid(num_elements=(4, 4, 4)),
+        derham_opts=DerhamOptions(degree=(2, 2, 2)),
+    ).allocate()
+    e = model.em_fields.e_field.spline.vector
+    for blk in e.blocks:
+        blk._data[:] = 1.0
+    e.update_ghost_regions()
+    return model
+
+
+def _all_vpar(particles):
+    """Sorted parallel velocities of all valid markers on all processes (markers may change their process during a
+    push, so they are compared as a set)."""
+    from maybempi import MPI
+
+    local = particles.markers[3, particles.valid_mks].copy()
+    comm = MPI.COMM_WORLD
+    if comm.Get_size() > 1:
+        local = xp.concatenate(comm.allgather(local))
+    return xp.sort(local)
+
+
+@pytest.mark.parametrize("evaluate_e_field", [False, True])
+@pytest.mark.parametrize("algo", ["discrete_gradient_1st_order", "explicit"])
+def test_parallel_force_applied_once(algo, evaluate_e_field):
+    """The parallel electric force b* . E / epsilon is applied only by the coupling step: push_para of the model
+    leaves v_par unchanged when E != 0 (cold markers, no mirror force), for every algorithm. An electric field passed
+    to push_para in the model is rejected."""
+    model = _cold_model()
+    prop = model.propagators.push_para
+    prop.options = prop.Options(algo=algo, evaluate_e_field=evaluate_e_field)
+    prop.allocate()
+    particles = model.kinetic_ions.var.particles
+    v_0 = _all_vpar(particles)
+    prop(0.1)
+    assert xp.max(xp.abs(_all_vpar(particles) - v_0)) == 0.0
+
+    # the same push with the electric field changes v_par (by about dt / epsilon * b* . E)
+    model.propagators.push_para.e_field = model.em_fields.e_field
+    prop.options = prop.Options(algo="explicit")
+    prop.allocate()
+    prop(0.1)
+    assert xp.max(xp.abs(_all_vpar(particles) - v_0)) > 1e-2
+
+
+def test_parallel_force_in_push_para_rejected():
+    with pytest.raises(AssertionError):
+        _cold_model(push_para_e_field=True)

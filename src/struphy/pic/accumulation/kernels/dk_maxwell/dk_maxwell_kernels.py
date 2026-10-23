@@ -34,7 +34,7 @@ def dk_maxwell(
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
     epsilon: float,
-    lam: float,
+    skew: float,
     b2_1: "float[:,:,:]",
     b2_2: "float[:,:,:]",
     b2_3: "float[:,:,:]",
@@ -53,7 +53,7 @@ def dk_maxwell(
 
     .. math::
 
-        A_p^{\mu\nu} = w_p \left( a_{p,\mu} a_{p,\nu} + \lambda\, S_{p,\mu\nu} \right)\,,
+        A_p^{\mu\nu} = w_p \left( a_{p,\mu} a_{p,\nu} + \sigma\, S_{p,\mu\nu} \right)\,,
         \qquad
         B_p^\mu = w_p\, v_{\parallel,p}\, a_{p,\mu}\,,
         \qquad
@@ -66,8 +66,8 @@ def dk_maxwell(
     \widehat{(\nabla \times \mathbf b_0) \cdot \mathbf b_0})`, as in
     :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel` and
     :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`. The rank-one part is the
-    parallel response, the antisymmetric part :math:`S_p` the :math:`E \times B` current, scaled by ``lam``
-    (:math:`\lambda`).
+    parallel response, the antisymmetric part :math:`S_p` the :math:`E \times B` current, scaled by ``skew``
+    (:math:`\sigma`).
     """
 
     markers = args_markers.markers
@@ -111,12 +111,12 @@ def dk_maxwell(
         # unit vector b0 (1-form)
         eval_1form_spline_mpi(span1, span2, span3, args_derham, unit_b1_1, unit_b1_2, unit_b1_3, unit_b1)
 
-        # filling: w (a a^T + lam S), with S x = x cross b0 / B*_parallel
+        # filling: w (a a^T + skew S), with S x = x cross b0 / B*_parallel
         for i in range(3):
             for j in range(3):
                 filling_m[i, j] = weight * a[i] * a[j]
 
-        s = weight * lam / b_star_parallel
+        s = weight * skew / b_star_parallel
         filling_m[0, 1] += s * unit_b1[2]
         filling_m[0, 2] -= s * unit_b1[1]
         filling_m[1, 0] -= s * unit_b1[2]

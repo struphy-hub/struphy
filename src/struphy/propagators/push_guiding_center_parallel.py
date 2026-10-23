@@ -101,7 +101,7 @@ class PushGuidingCenterParallel(Propagator):
         b_tilde: FEECVariable = None,
         e_field: FEECVariable = None,
     ):
-        """
+        r"""
         Parameters
         ----------
         phi : FEECVariable, default=None

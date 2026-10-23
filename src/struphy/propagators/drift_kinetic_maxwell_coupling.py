@@ -33,7 +33,7 @@ class DriftKineticMaxwellCoupling(Propagator):
 
     .. math::
 
-        \kappa \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x
+        \lambda^2 \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x
         + \chi \int_{\Omega} \frac{n_0}{|B_0|^2} \frac{\partial \mathbf E_\perp}{\partial t} \cdot \mathbf F_\perp
         \,\textrm d \mathbf x
         &= c_1 \int_{\Omega} \tilde{\mathbf B} \cdot \nabla \times \mathbf F \,\textrm d \mathbf x
@@ -60,13 +60,16 @@ class DriftKineticMaxwellCoupling(Propagator):
     The current is the guiding-center current :math:`\iint f^\textnormal{vol} \dot{\mathbf X}` without the
     magnetic drifts (which move the positions): parallel streaming, including the curvature drift in
     :math:`\mathbf B^*`, and (option ``exb_current``) the :math:`E \times B` drift. The coefficients are
-    :math:`\kappa \geq 0`, :math:`\chi \geq 0` with :math:`\kappa + \chi > 0`, :math:`c_1 > 0` and
-    :math:`c_2 c_3 > 0`; the defaults :math:`\kappa = 1`, :math:`\chi = \alpha^2`, :math:`c_1 = 1`,
-    :math:`c_2 = \alpha^2/\varepsilon`, :math:`c_3 = 1/\varepsilon` are the units of
-    :class:`~struphy.models.vlasov_maxwell_one_species.VlasovMaxwellOneSpecies`. The :math:`\chi` term is the
+    :math:`\lambda \geq 0`, :math:`\chi \geq 0` with :math:`\lambda^2 + \chi > 0`, :math:`c_1 > 0` and
+    :math:`c_2 c_3 > 0`. The defaults are the coefficients of the species' :ref:`equation parameters <equation_params>`,
+    :math:`\lambda = \varepsilon \lambda_\textrm{s}`, :math:`\chi = (\varepsilon \kappa_\textrm{s})^2`,
+    :math:`c_1 = 1`, :math:`c_2 = \kappa_\textrm{s}^2 \varepsilon`, :math:`c_3 = 1/\varepsilon`, i.e. for the thermal
+    velocity scale of :class:`~struphy.models.drift_kinetic_maxwell.DriftKineticMaxwell`
+    :math:`\lambda = \hat v_\textrm{th}/c`, :math:`\chi = \hat v_\textrm{th}^2/\hat v_A^2`. The :math:`\chi` term is the
     (linearized, long-wavelength) polarization current of the guiding centers, which the drift-kinetic ordering
     removes from :math:`\dot{\mathbf X}`: without it, the perpendicular electrostatic field is undetermined for
-    :math:`\kappa = 0` (flute modes), and for :math:`\kappa = 1` the shear Alfvén wave travels at the speed of light.
+    :math:`\lambda = 0` (flute modes), and with only the displacement current the shear Alfvén wave travels at the
+    speed of light.
 
     With the FE coefficients :math:`\mathbf e \in \mathbb R^{N_1}` of :math:`\mathbf E \in V^1_h` and
     :math:`\mathbf b \in \mathbb R^{N_2}` of :math:`\tilde{\mathbf B} \in V^2_h`, and :math:`N` markers with logical
@@ -82,7 +85,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         \qquad
         \dot v_{\parallel,p} = c_3\, \mathbf a_p \cdot \mathbf \Lambda^1_p \mathbf e\,,
 
-    with :math:`\mathbb M_E = \kappa\, \mathbb M_1 + \chi\, \mathbb M_1^\perp` (:math:`\mathbb M_1^\perp` =
+    with :math:`\mathbb M_E = \lambda^2\, \mathbb M_1 + \chi\, \mathbb M_1^\perp` (:math:`\mathbb M_1^\perp` =
     :attr:`~struphy.feec.mass.WeightedMassOperators.M1gyro`), :math:`\mathbf a_p =
     \hat{\mathbf B}^{*2} / \hat B^{*3}_\parallel (\boldsymbol \eta_p)`, :math:`\mathbf \Lambda^1_p` the basis of
     :math:`V^1_h` at :math:`\boldsymbol \eta_p`, and
@@ -134,7 +137,7 @@ class DriftKineticMaxwellCoupling(Propagator):
     with the velocity update by
     :func:`~struphy.pic.pushing.kernels.push_vpar_with_efield.push_vpar_with_efield_kernels.push_vpar_with_efield`.
 
-    **Quasi-neutral limit** :math:`\kappa = 0`. The parallel part of :math:`\mathbf e` is then determined by
+    **Quasi-neutral limit** :math:`\lambda = 0`. The parallel part of :math:`\mathbf e` is then determined by
     :math:`\mathbb A_\parallel` alone (which needs positive weights, i.e. full-f, and markers everywhere), the
     perpendicular part by :math:`\chi\, \mathbb M_1^\perp` and the curl-curl operator. The perpendicular field
     still carries the energy :math:`\frac 12 \mathbf e^\top \mathbb M_E \mathbf e`, so the Crank-Nicolson update is
@@ -210,15 +213,18 @@ class DriftKineticMaxwellCoupling(Propagator):
 
         Parameters
         ----------
-        kappa : float, default=1.0
-            Coefficient :math:`\kappa \geq 0` of the displacement current :math:`\partial_t \mathbf E`;
-            ``kappa=0.0`` is the quasi-neutral limit (needs ``chi > 0`` and full-f weights, no control variate).
+        lam : float, default=None
+            The displacement current has the coefficient :math:`\lambda^2` (``lam`` :math:`= \lambda \geq 0`);
+            ``lam=0.0`` is the quasi-neutral limit (needs ``chi > 0`` and full-f weights, no control variate). If
+            ``None``, :math:`\varepsilon \lambda_\textrm{s}` of the species (``lam`` and ``epsilon`` of
+            its equation parameters).
 
         chi : float, default=None
             Coefficient :math:`\chi \geq 0` of the polarization current
-            :math:`\frac{n_0}{|B_0|^2} \partial_t \mathbf E_\perp`. If ``None``, :math:`\alpha^2` of the species
-            (the polarization of the guiding centers themselves); a larger value mimics the polarization of a heavier
-            species. ``kappa + chi`` must be positive. The density :math:`n_0` is the one of the MHD equilibrium
+            :math:`\frac{n_0}{|B_0|^2} \partial_t \mathbf E_\perp`. If ``None``,
+            :math:`(\varepsilon \kappa_\textrm{s})^2` of the species (the polarization of the
+            guiding centers themselves); a larger value mimics the polarization of a heavier species. ``lam**2 + chi``
+            must be positive. The density :math:`n_0` is the one of the MHD equilibrium
             (:attr:`~struphy.feec.mass.WeightedMassOperators.M1gyro`), not of the kinetic background: choose them
             consistently.
 
@@ -226,8 +232,8 @@ class DriftKineticMaxwellCoupling(Propagator):
             Coefficient :math:`c_1 > 0` of :math:`\nabla \times \tilde{\mathbf B}` in Ampère's law.
 
         c2 : float, default=None
-            Coefficient of the current density in Ampère's law. If ``None``, :math:`\alpha^2/\varepsilon` of the
-            species.
+            Coefficient of the current density in Ampère's law. If ``None``, :math:`\kappa_\textrm{s}^2 \varepsilon`
+            of the species (``kappa`` and ``epsilon`` of its equation parameters).
 
         c3 : float, default=None
             Coefficient of the parallel electric force (:math:`c_2 c_3 > 0`). If ``None``, :math:`1/\varepsilon` of
@@ -266,7 +272,7 @@ class DriftKineticMaxwellCoupling(Propagator):
             of assembling them. Needs 7 auxiliary marker columns.
 
         initial_projection : bool, default=True
-            Only for ``kappa=0``: in the setup (first :meth:`prepare_time_step`), replace
+            Only for ``lam=0``: in the setup (first :meth:`prepare_time_step`), replace
             :math:`(\mathbf b, \mathbf V)` by the mid-point state of one step, which satisfies the constraint of the
             quasi-neutral limit exactly. Not applied to a restored (restart) state.
         """
@@ -274,7 +280,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         # specific literals
         OptsSolver = Literal["pbicgstab", "bicgstab", "gmres", "pcg", "cg"]
 
-        kappa: float = 1.0
+        lam: float = None
         chi: float = None
         c1: float = 1.0
         c2: float = None
@@ -291,11 +297,13 @@ class DriftKineticMaxwellCoupling(Propagator):
             # checks
             check_option(self.solver, self.OptsSolver)
             check_option(self.precond, LiteralOptions.OptsMaxwellPrecond)
-            assert self.kappa >= 0.0, f"kappa must be >= 0, got {self.kappa}."
+            if self.lam is not None:
+                assert self.lam >= 0.0, f"lam must be >= 0, got {self.lam}."
             if self.chi is not None:
                 assert self.chi >= 0.0, f"chi must be >= 0, got {self.chi}."
-                assert self.kappa + self.chi > 0.0, (
-                    "kappa + chi must be > 0: without displacement and polarization current, the perpendicular "
+            if self.lam is not None and self.chi is not None:
+                assert self.lam**2 + self.chi > 0.0, (
+                    "lam**2 + chi must be > 0: without displacement and polarization current, the perpendicular "
                     "electric field is undetermined."
                 )
             assert self.c1 > 0.0, f"c1 must be > 0, got {self.c1}."
@@ -334,24 +342,25 @@ class DriftKineticMaxwellCoupling(Propagator):
     def allocate(self):
         # coefficients
         equation_params = self.variables.ions.species.equation_params
-        alpha = equation_params.alpha
         epsilon = equation_params.epsilon
         self._epsilon = epsilon
-        self._kappa = self.options.kappa
-        self._chi = alpha**2 if self.options.chi is None else self.options.chi
+        # lam^2 = (epsilon lam_s)^2, chi = (epsilon kappa_s)^2, c2 = kappa_s^2 epsilon, c3 = 1 / epsilon
+        # (see the equation parameters)
+        self._lam2 = (epsilon * equation_params.lam) ** 2 if self.options.lam is None else self.options.lam**2
+        self._chi = (epsilon * equation_params.kappa) ** 2 if self.options.chi is None else self.options.chi
         self._c1 = self.options.c1
-        self._c2 = alpha**2 / epsilon if self.options.c2 is None else self.options.c2
+        self._c2 = equation_params.kappa**2 * epsilon if self.options.c2 is None else self.options.c2
         self._c3 = 1.0 / epsilon if self.options.c3 is None else self.options.c3
         self._exb = self.options.exb_current
         assert self._c2 * self._c3 > 0.0, f"c2 * c3 must be > 0, got c2={self._c2}, c3={self._c3}."
-        assert self._kappa + self._chi > 0.0, f"kappa + chi must be > 0, got kappa={self._kappa}, chi={self._chi}."
+        assert self._lam2 + self._chi > 0.0, f"lam**2 + chi must be > 0, got lam**2={self._lam2}, chi={self._chi}."
 
         assert not self.derham.polar_splines, "DriftKineticMaxwellCoupling does not support polar splines yet."
 
         particles = self.variables.ions.particles
         if particles.control_variate:
-            assert self._kappa > 0.0, (
-                "The quasi-neutral limit kappa=0 needs full-f weights: with the control variate the accumulated "
+            assert self._lam2 > 0.0, (
+                "The quasi-neutral limit lam=0 needs full-f weights: with the control variate the accumulated "
                 "matrix is indefinite and the Schur system is not well-posed."
             )
             logger.warning(
@@ -428,7 +437,7 @@ class DriftKineticMaxwellCoupling(Propagator):
                 symmetry="asym",
             )
         else:
-            # one matrix A_par + lam * S, lam = 2 / (dt * c3) (set in prepare_time_step)
+            # one matrix A_par + skew * S, skew = 2 / (dt * c3) (set in prepare_time_step)
             self._args_accum_pre = (epsilon,)
             self._args_accum_post = args_fields + args_unit_b + args_b_par
             self._accum = Accumulator(
@@ -441,17 +450,17 @@ class DriftKineticMaxwellCoupling(Propagator):
                 symmetry=None,
             )
             self._A_lam = self._accum.operators[0]
-        self._lam = 0.0
+        self._skew = 0.0
 
         # operators
         self._M1 = self.mass_ops.M1
         self._M2 = self.mass_ops.M2
         self._curl = self.derham.curl
         self._curl_curl = self._curl.T @ self._M2 @ self._curl
-        if self._kappa > 0.0 and self._chi > 0.0:
-            self._ME = self._kappa * self._M1 + self._chi * self.mass_ops.M1gyro
-        elif self._kappa > 0.0:
-            self._ME = self._kappa * self._M1
+        if self._lam2 > 0.0 and self._chi > 0.0:
+            self._ME = self._lam2 * self._M1 + self._chi * self.mass_ops.M1gyro
+        elif self._lam2 > 0.0:
+            self._ME = self._lam2 * self._M1
         else:
             self._ME = self._chi * self.mass_ops.M1gyro
 
@@ -533,12 +542,12 @@ class DriftKineticMaxwellCoupling(Propagator):
         if self._matrix_free:
             self._accum(*self._args_accum_pre, *self._args_accum_post)
         else:
-            self._accum(*self._args_accum_pre, self._lam, *self._args_accum_post)
+            self._accum(*self._args_accum_pre, self._skew, *self._args_accum_post)
 
     def prepare_time_step(self, dt: float):
         """Schur operator, its preconditioner and solver for the time step ``dt``: built in the setup, rebuilt when dt
         changes. The particle matrices enter by reference (assembled, or matrix-free reading the fillings stored in
-        the markers), so they are updated by the accumulation in every step. For ``kappa=0`` (and
+        the markers), so they are updated by the accumulation in every step. For ``lam=0`` (and
         ``initial_projection``), the first call also projects the state onto the constraint."""
         if dt == self._schur_dt:
             return
@@ -549,8 +558,8 @@ class DriftKineticMaxwellCoupling(Propagator):
             if self._exb:
                 schur = schur + (dt * self._c2 / 2) * self._S
         else:
-            # A_lam = A_par + lam S with lam = 2 / (dt c3): dt^2 c2 c3 / 4 A_lam = dt^2 c2 c3 / 4 A_par + dt c2 / 2 S
-            self._lam = 2.0 / (dt * self._c3) if self._exb else 0.0
+            # A_lam = A_par + skew S with skew = 2 / (dt c3): dt^2 c2 c3 / 4 A_lam = dt^2 c2 c3 / 4 A_par + dt c2 / 2 S
+            self._skew = 2.0 / (dt * self._c3) if self._exb else 0.0
             schur = schur + (dt**2 * self._c2 * self._c3 / 4) * self._A_lam
 
         if self._precond == "StiffnessPreconditioner":
@@ -571,15 +580,16 @@ class DriftKineticMaxwellCoupling(Propagator):
         self._solver = inverse(schur, self.options.solver, **kwargs)
         self._schur_dt = dt
 
-        # kappa = 0: consistent initial state, once (in the setup, before the initial data are saved)
-        if self._kappa == 0.0 and self.options.initial_projection and not self._projected:
+        # lam = 0: consistent initial state, once (in the setup, before the initial data are saved)
+        if self._lam2 == 0.0 and self.options.initial_projection and not self._projected:
             self._project_onto_constraint(dt)
             self._projected = True
 
-    def energy(self) -> float:
-        r"""The energy :math:`H = \frac{1}{2} \mathbf e^\top \mathbb M_E \mathbf e + \frac{c_1}{2} \mathbf b^\top
-        \mathbb M_2 \mathbf b + \frac{c_2}{c_3} \sum_p w_p (v_{\parallel,p}^2/2 + \mu_p |B_0|(\boldsymbol \eta_p))`
-        conserved by the propagator (summed over all MPI ranks; a collective operation)."""
+    def energies(self) -> tuple[float, float, float]:
+        r"""The three parts :math:`\frac{1}{2} \mathbf e^\top \mathbb M_E \mathbf e` (displacement and polarization),
+        :math:`\frac{c_1}{2} \mathbf b^\top \mathbb M_2 \mathbf b` and
+        :math:`\frac{c_2}{c_3} \sum_p w_p (v_{\parallel,p}^2/2 + \mu_p |B_0|(\boldsymbol \eta_p))` of the energy
+        :meth:`energy` (summed over all MPI ranks; a collective operation)."""
         e = self.variables.e.spline.vector
         b = self.variables.b.spline.vector
         particles = self.variables.ions.particles
@@ -599,12 +609,16 @@ class DriftKineticMaxwellCoupling(Propagator):
         if particles.clone_config is not None:
             particles.clone_config.inter_comm.Allreduce(MPI.IN_PLACE, kinetic, op=MPI.SUM)
 
-        energy = (
-            0.5 * e.inner(self._ME.dot(e, out=self._e_tmp))
-            + self._c1 / 2 * b.inner(self._M2.dot(b, out=self._b_tmp))
-            + self._c2 / self._c3 * float(kinetic[0])
-        )
-        return energy
+        energy_e = 0.5 * e.inner(self._ME.dot(e, out=self._e_tmp))
+        energy_b = self._c1 / 2 * b.inner(self._M2.dot(b, out=self._b_tmp))
+        energy_f = self._c2 / self._c3 * float(kinetic[0])
+        return energy_e, energy_b, energy_f
+
+    def energy(self) -> float:
+        r"""The energy :math:`H = \frac{1}{2} \mathbf e^\top \mathbb M_E \mathbf e + \frac{c_1}{2} \mathbf b^\top
+        \mathbb M_2 \mathbf b + \frac{c_2}{c_3} \sum_p w_p (v_{\parallel,p}^2/2 + \mu_p |B_0|(\boldsymbol \eta_p))`
+        conserved by the propagator (summed over all MPI ranks; a collective operation)."""
+        return sum(self.energies())
 
     def _mid_point_field(self, dt: float):
         """Accumulate at the current markers and solve the Schur system for the mid-point field (into ``_e_mid``,
@@ -631,7 +645,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         return e_mid, self._solver._info
 
     def _project_onto_constraint(self, dt: float):
-        """For kappa = 0: replace (b, V) by the mid-point state of one step, which satisfies the constraint of the
+        """For lam = 0: replace (b, V) by the mid-point state of one step, which satisfies the constraint of the
         quasi-neutral limit exactly. The electric field is kept."""
         bn = self.variables.b.spline.vector
         e_mid, _ = self._mid_point_field(dt)
@@ -642,7 +656,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         b_new += bn
         self._pusher(dt / 2)
         self.update_feec_variables(b=b_new)
-        logger.info("DriftKineticMaxwellCoupling: projected the initial state onto the constraint (kappa = 0).")
+        logger.info("DriftKineticMaxwellCoupling: projected the initial state onto the constraint (lam = 0).")
 
     @profile
     def __call__(self, dt):
@@ -660,7 +674,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         b_new *= -dt
         b_new += bn
 
-        # new e coeffs: Crank-Nicolson (M_E = kappa M1 + chi M1gyro is nonzero, so e carries energy also for kappa = 0)
+        # new e coeffs: Crank-Nicolson (M_E = lam^2 M1 + chi M1gyro is nonzero, so e carries energy also for lam = 0)
         e_new = e_mid.copy(out=self._e_new)
         e_new *= 2.0
         e_new -= en
