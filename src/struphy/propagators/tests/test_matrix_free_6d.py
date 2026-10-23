@@ -64,6 +64,44 @@ def test_vlasov_ampere_coupling_matrix_free():
     _compare(run)
 
 
+@pytest.mark.parametrize("kappa", [1.0, 0.0])
+def test_vlasov_maxwell_coupling_matrix_free(kappa: float):
+    """VlasovMaxwellCoupling: e-field, b-field and velocities after two steps (in a curved domain), with and without
+    displacement current."""
+    from struphy import DerhamOptions, LoadingParameters, Simulation, domains, grids, maxwellians, perturbations
+    from struphy.models import VlasovMaxwellQuasiNeutral
+
+    def run(matrix_free: bool):
+        model = VlasovMaxwellQuasiNeutral(alpha=1.0, epsilon=-1.0)
+        model.kinetic_ions.set_markers(loading_params=LoadingParameters(Np=1000, seed=1234))
+        model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D())
+        model.em_fields.b_field.add_perturbation(
+            perturbations.ModesSin(ls=(1,), ms=(1,), amps=(1e-2,), given_in_basis="2", comp=2)
+        )
+        prop = model.propagators.coupling
+        prop.options = prop.Options(kappa=kappa, matrix_free=matrix_free, solver_params=_solver_params())
+        Simulation(
+            model=model,
+            domain=domains.Colella(alpha=0.1),
+            grid=grids.TensorProductGrid(num_elements=(6, 4, 2)),
+            derham_opts=DerhamOptions(degree=(2, 2, 1)),
+        ).allocate()
+        particles = model.kinetic_ions.var.particles
+        # one step for kappa=0: the initial data violate curl B = J, and the residual of this constraint changes sign
+        # in every step, so b and V return to their initial values after two steps (period-2 oscillation)
+        return _steps(
+            prop,
+            lambda: (
+                model.em_fields.e_field.spline.vector.toarray(),
+                model.em_fields.b_field.spline.vector.toarray(),
+                particles.markers[3:6, particles.valid_mks],
+            ),
+            n=2 if kappa > 0.0 else 1,
+        )
+
+    _compare(run)
+
+
 def test_efield_weights_coupling_matrix_free():
     """EfieldWeightsCoupling: e-field and weights after two steps (in a curved domain)."""
     from struphy import DerhamOptions, LoadingParameters, Simulation, domains, grids, maxwellians, perturbations

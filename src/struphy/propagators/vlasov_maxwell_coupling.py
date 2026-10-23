@@ -12,8 +12,10 @@ from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.accumulation.kernels.marker_operator_symm_dot import marker_operator_symm_dot
 from struphy.pic.accumulation.kernels.vlasov_maxwell import vlasov_maxwell
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.vlasov_maxwell_mf import vlasov_maxwell_mf
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
 from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
@@ -223,6 +225,13 @@ class VlasovMaxwellCoupling(Propagator):
             Reference density :math:`\bar n` in the stiffness preconditioner. If ``None``, the Rayleigh quotient
             :math:`\mathbf 1^\top \mathbb A \mathbf 1 / \mathbf 1^\top \mathbb M_1 \mathbf 1` of the accumulated
             matrix at the setup (a density average).
+
+        matrix_free : bool, default=False
+            Apply the particle matrix :math:`\mathbb A` matrix-free, with the filling
+            :math:`w_p G^{-1}(\boldsymbol \eta_p)` stored per marker
+            (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one spline
+            evaluation and one deposition per marker and solver iteration instead of the products of all pairs of
+            basis functions per marker. Needs 6 auxiliary marker columns. Ignored on the CuPy backend.
         """
 
         kappa: float = 1.0
@@ -233,6 +242,7 @@ class VlasovMaxwellCoupling(Propagator):
         precond: LiteralOptions.OptsMaxwellPrecond = "StiffnessPreconditioner"
         solver_params: SolverParameters = None
         n_ref: float = None
+        matrix_free: bool = False
 
         def __post_init__(self):
             # checks
@@ -244,6 +254,7 @@ class VlasovMaxwellCoupling(Propagator):
                 assert self.c2 * self.c3 > 0.0, f"c2 * c3 must be > 0, got c2={self.c2}, c3={self.c3}."
             if self.n_ref is not None:
                 assert self.n_ref > 0.0, f"n_ref must be > 0, got {self.n_ref}."
+            assert isinstance(self.matrix_free, bool)
             if self.solver == "cg" and self.precond is not None:
                 logger.warning(f'solver="cg" takes no preconditioner; ignoring precond="{self.precond}".')
                 self.precond = None
@@ -290,16 +301,42 @@ class VlasovMaxwellCoupling(Propagator):
 
         self._info = self.options.solver_params.info
 
-        # accumulation of the matrix A and the vector j
-        self._accum = Accumulator(
-            particles,
-            "Hcurl",
-            vlasov_maxwell,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-        )
+        # accumulation of the matrix A (assembled, or matrix-free) and the vector j;
+        # the matrix-free kernels have no CUDA version
+        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        if self._matrix_free:
+            # the vector, and the filling of the matrix per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 6, "matrix_free needs 6 free (auxiliary) marker columns."
+            self._args_accum = (column,)
+            self._accum = AccumulatorVector(
+                particles,
+                "Hcurl",
+                vlasov_maxwell_mf,
+                self.mass_ops,
+                self.domain.args_domain,
+            )
+            self._A_particles = MarkerOperator(
+                particles,
+                "Hcurl",
+                marker_operator_symm_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (1, column),
+                symmetry="symm",
+            )
+        else:
+            self._args_accum = ()
+            self._accum = Accumulator(
+                particles,
+                "Hcurl",
+                vlasov_maxwell,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="symm",
+            )
+            self._A_particles = self._accum.operators[0]
 
         # operators
         self._M1 = self.mass_ops.M1
@@ -309,11 +346,11 @@ class VlasovMaxwellCoupling(Propagator):
 
         # reference density for the stiffness preconditioner: density average of the accumulated matrix
         if self.options.n_ref is None:
-            self._accum()
+            self._accum(*self._args_accum)
             ones = self.derham.V1.zeros()
             for block in ones.blocks:
                 block._data[:] = 1.0
-            ones_A = ones.inner(self._accum.operators[0].dot(ones))
+            ones_A = ones.inner(self._A_particles.dot(ones))
             ones_M1 = ones.inner(self._M1.dot(ones))
             if ones_A > 0.0:
                 self._n_ref = ones_A / ones_M1
@@ -366,12 +403,13 @@ class VlasovMaxwellCoupling(Propagator):
 
     def prepare_time_step(self, dt: float):
         """Schur operator :math:`\\kappa \\mathbb M_1 + \\frac{\\Delta t^2}{4} \\mathbb K`, its preconditioner and
-        solver for the time step ``dt``: built in the setup, rebuilt when dt changes. The accumulated matrix enters by
-        reference, so it is updated by the accumulation in every step."""
+        solver for the time step ``dt``: built in the setup, rebuilt when dt changes. The particle matrix enters by
+        reference (assembled, or matrix-free reading the fillings stored in the markers), so it is updated by the
+        accumulation in every step."""
         if dt == self._schur_dt:
             return
 
-        schur = (dt**2 * self._c1 / 4) * self._curl_curl + (dt**2 * self._c2 * self._c3 / 4) * self._accum.operators[0]
+        schur = (dt**2 * self._c1 / 4) * self._curl_curl + (dt**2 * self._c2 * self._c3 / 4) * self._A_particles
         if self._kappa > 0.0:
             schur = self._kappa * self._M1 + schur
 
@@ -416,8 +454,8 @@ class VlasovMaxwellCoupling(Propagator):
         en = self.variables.e.spline.vector
         bn = self.variables.b.spline.vector
 
-        # accumulate A and j at the current marker positions and velocities
-        self._accum()
+        # accumulate A (or its fillings per marker) and j at the current marker positions and velocities
+        self._accum(*self._args_accum)
 
         # Schur operator for the current time step (no-op unless dt changed since the setup)
         self.prepare_time_step(dt)

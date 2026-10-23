@@ -102,20 +102,21 @@ def test_energy_conservation(kappa, precond, coeffs):
     assert abs(prop.energy() - energy_0) < 1e-9 * exchanged
 
 
+@pytest.mark.parametrize("matrix_free", [False, True])
 @pytest.mark.parametrize("kappa", [1.0, 0.0])
-def test_discrete_equations(kappa):
+def test_discrete_equations(kappa, matrix_free):
     """The new state satisfies the Crank-Nicolson equations: Ampère's law
     kappa M1 (e^{n+1} - e^n) / dt = c1 C^T M2 b_mid - c2 j(V_mid) (with V^{n+1} from the pusher, j linear in V at
     fixed positions) and Faraday's law (b^{n+1} - b^n) / dt = -C e_mid, with e_mid = e^{n+1} for kappa = 0."""
     dt = 0.5
-    model = _model(kappa=kappa, **COEFFS["explicit"])
+    model = _model(kappa=kappa, matrix_free=matrix_free, **COEFFS["explicit"])
     prop = model.propagators.coupling
     e0, b0, _ = _state(model)
-    prop._accum()
+    prop._accum(*prop._args_accum)
     j0 = prop._accum.vectors[0].copy()
     prop(dt)
     e1, b1, _ = _state(model)
-    prop._accum()
+    prop._accum(*prop._args_accum)
     j_mid = (j0 + prop._accum.vectors[0]) * 0.5
     b_mid = (b0 + b1) * 0.5
     e_mid = (e0 + e1) * 0.5 if kappa > 0.0 else e1
@@ -210,5 +211,8 @@ def test_options():
         Options(c2=1.0, c3=-1.0)
     with pytest.raises(AssertionError):
         Options(precond="HiptmairXu")
+    with pytest.raises(AssertionError):
+        Options(matrix_free=1)
+    assert Options().matrix_free is False
     assert Options().precond == "StiffnessPreconditioner"
     assert Options(solver="cg").precond is None
