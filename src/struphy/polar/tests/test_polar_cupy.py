@@ -342,8 +342,12 @@ def check_polar_mpi(cuda_aware, mpi_dims_mask, fake=True):
     """Backend parity with both Kronecker redistributions and ranks away from the pole."""
     from contextlib import nullcontext
 
+    from maybempi import MPI
     from struphy.pic.tests.cuda_emulation import emulated_launches
     from struphy.polar.linear_operators import set_device_sparse_module
+
+    if MPI.COMM_WORLD.Get_size() == 1:
+        pytest.skip("polar MPI decomposition parity requires more than one rank")
 
     previous_mpi = cunumpy.mpi.get_mpi_cuda_aware()
     previous_sparse = set_device_sparse_module(DenseDeviceSparse) if fake else None
