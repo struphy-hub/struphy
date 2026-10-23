@@ -69,7 +69,7 @@ class VlasovAmpereCoupling(Propagator):
         - \Delta t \frac{\alpha^2}{\varepsilon} \, \mathbf j\,,
 
     with the accumulated matrix and vector (:class:`~struphy.pic.accumulation.particles_to_grid.Accumulator`,
-    kernel :func:`~struphy.pic.accumulation.kernels.vlasov_maxwell.vlasov_maxwell`)
+    kernel :func:`~struphy.pic.accumulation.kernels.vlasov_maxwell.vlasov_maxwell_kernels.vlasov_maxwell`)
 
     .. math::
 
@@ -81,12 +81,12 @@ class VlasovAmpereCoupling(Propagator):
     :math:`\mathbb A` is a particle approximation of the :math:`n`-weighted mass matrix :math:`\mathbb M_1`,
     so the Schur operator is a mass matrix with weight :math:`1 + \Delta t^2 \alpha^2 n / (4 \varepsilon^2)`,
     solved with ``solver`` and ``precond`` (built from :math:`\mathbb M_1`). The velocities are then updated by
-    :func:`~struphy.pic.pushing.kernels.push_v_with_efield.push_v_with_efield` with the mid-point field
+    :func:`~struphy.pic.pushing.kernels.push_v_with_efield.push_v_with_efield_kernels.push_v_with_efield` with the mid-point field
     :math:`\frac 12 (\mathbf e^{n+1} + \mathbf e^n)`.
     """
 
     class Variables:
-        """Container for variables advanced by :class:`VlasovAmpereCoupling`.
+        """Container for variables advanced by :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`.
 
         Attributes
         ----------
@@ -125,12 +125,12 @@ class VlasovAmpereCoupling(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VlasovAmpereCoupling`.
+        """Configuration options for :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`.
 
         Parameters
         ----------
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Symmetric iterative solver used by :class:`SchurSolver`.
+            Symmetric iterative solver used by :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner for electric-field mass matrix block.
         solver_params : SolverParameters, default=None

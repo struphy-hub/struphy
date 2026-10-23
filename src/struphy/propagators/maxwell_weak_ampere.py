@@ -41,7 +41,7 @@ class MaxwellWeakAmpere(Propagator):
 
     with the mass matrices :math:`\mathbb M_1`, :math:`\mathbb M_2`
     (:class:`~struphy.feec.mass.WeightedMassOperators`) and the discrete curl :math:`\mathbb C`
-    (``derham.curl``). It conserves the energy
+    (:attr:`~struphy.feec.psydac_derham.Derham.curl`). It conserves the energy
     :math:`\frac 12 \mathbf e^\top \mathbb M_1 \mathbf e + \frac 12 \mathbf b^\top \mathbb M_2 \mathbf b`
     and the discrete divergence :math:`\mathbb D \mathbf b` (since :math:`\mathbb D \mathbb C = 0`).
 
@@ -69,11 +69,7 @@ class MaxwellWeakAmpere(Propagator):
       solved with ``solver`` and ``precond``. By default (``precond="StiffnessPreconditioner"``) the Schur operator
       is preconditioned by :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` for
       :math:`\mathbb C^\top \left(\frac{\Delta t^2}{4} \mathbb M_2\right) \mathbb C + \mathbb M_1`, built for the
-      current time step (:meth:`prepare_time_step`). Its number of iterations hardly depends on :math:`\Delta t`,
-      whereas with the mass matrix preconditioner of :math:`\mathbb M_1` it grows with
-      :math:`\Delta t / h` (16x16x4 cells, p=3, hollow cylinder, :math:`\Delta t = 10 h`: 35 instead of 257 PCG
-      iterations, :math:`\Delta t = 100 h`: 39 instead of 411). For :math:`\Delta t \lesssim h` the mass matrix
-      preconditioner needs fewer iterations. Then
+      current time step (:meth:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere.prepare_time_step`). Then
       :math:`\mathbf b^{n+1} = \mathbf b^n - \frac{\Delta t}{2} \mathbb C (\mathbf e^{n+1} + \mathbf e^n)`.
 
     - explicit: Runge-Kutta method from :class:`~struphy.ode.utils.ButcherTableau` for the system
@@ -123,7 +119,7 @@ class MaxwellWeakAmpere(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        r"""Configuration options for :class:`MaxwellWeakAmpere`.
+        r"""Configuration options for :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`.
 
         Parameters
         ----------
@@ -135,7 +131,7 @@ class MaxwellWeakAmpere(Propagator):
 
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Name of the symmetric iterative solver passed to
-            :func:`psydac.linalg.solvers.inverse`.
+            ``feectools.linalg.solvers.inverse``.
 
         precond : LiteralOptions.OptsMaxwellPrecond, default="StiffnessPreconditioner"
             Preconditioner of the linear solves.
@@ -165,7 +161,7 @@ class MaxwellWeakAmpere(Propagator):
 
         Notes
         -----
-        System size reduction is performed via :class:`SchurSolver` for
+        System size reduction is performed via :class:`~struphy.linear_algebra.schur_solver.SchurSolver` for
         implicit time stepping to eliminate the magnetic field and reduce
         the system to the electric field equation.
         """
