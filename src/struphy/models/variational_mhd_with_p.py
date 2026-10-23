@@ -21,7 +21,7 @@ from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-class ViscoResistiveMHD_with_p(StruphyModel):
+class VariationalMHD_with_p(StruphyModel):
     """Full (non-linear) visco-resistive MHD equations, with the pressure variable, discretized with a variational method.
 
     Parameters
@@ -300,9 +300,9 @@ class ViscoResistiveMHD_with_p(StruphyModel):
 
         .. code-block:: python
 
-            from struphy.models import ViscoResistiveMHD_with_p
+            from struphy.models import VariationalMHD_with_p
 
-            model = ViscoResistiveMHD_with_p()
+            model = VariationalMHD_with_p()
             model.mhd.pressure
             model.em_fields.b_field
         """
