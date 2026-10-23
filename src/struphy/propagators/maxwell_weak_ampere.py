@@ -30,12 +30,49 @@ class MaxwellWeakAmpere(Propagator):
         \\[2mm]
         \frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E &= 0\,.
 
-    Time discretization:
+    Ampère's law holds weakly, Faraday's law strongly. With the FE coefficients
+    :math:`\mathbf e \in \mathbb R^{N_1}` of :math:`\mathbf E \in V^1_h` and :math:`\mathbf b \in \mathbb R^{N_2}`
+    of :math:`\mathbf B \in V^2_h`, the semi-discrete system reads
 
-    - implicit: Crank-Nicolson (implicit mid-point)
-    - explicit: explicit RK methods from ButcherTableau
+    .. math::
 
-    System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
+        \mathbb M_1 \dot{\mathbf e} = \mathbb C^\top \mathbb M_2 \mathbf b\,, \qquad
+        \dot{\mathbf b} = - \mathbb C \mathbf e\,,
+
+    with the mass matrices :math:`\mathbb M_1`, :math:`\mathbb M_2`
+    (:class:`~struphy.feec.mass.WeightedMassOperators`) and the discrete curl :math:`\mathbb C`
+    (``derham.curl``). It conserves the energy
+    :math:`\frac 12 \mathbf e^\top \mathbb M_1 \mathbf e + \frac 12 \mathbf b^\top \mathbb M_2 \mathbf b`
+    and the discrete divergence :math:`\mathbb D \mathbf b` (since :math:`\mathbb D \mathbb C = 0`).
+
+    :ref:`time_discret`:
+
+    - implicit: Crank-Nicolson (implicit mid-point),
+
+      .. math::
+
+          \mathbb M_1 \frac{\mathbf e^{n+1} - \mathbf e^n}{\Delta t} = \mathbb C^\top \mathbb M_2 \frac{\mathbf b^{n+1} + \mathbf b^n}{2}\,,
+          \qquad
+          \frac{\mathbf b^{n+1} - \mathbf b^n}{\Delta t} = - \mathbb C \frac{\mathbf e^{n+1} + \mathbf e^n}{2}\,,
+
+      which conserves both invariants exactly (up to the solver tolerance). The magnetic field is eliminated by
+      :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with :math:`x = \mathbf e`, :math:`y = \mathbf b`,
+      :math:`A = \mathbb M_1`, :math:`B = -\frac 12 \mathbb C^\top \mathbb M_2` and :math:`C = \frac 12 \mathbb C`,
+      which gives the curl-curl system
+
+      .. math::
+
+          \left(\mathbb M_1 + \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M_2 \mathbb C\right) \mathbf e^{n+1}
+          = \left(\mathbb M_1 - \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M_2 \mathbb C\right) \mathbf e^n
+          + \Delta t \, \mathbb C^\top \mathbb M_2 \mathbf b^n\,,
+
+      solved with ``solver`` and ``precond`` (built from :math:`\mathbb M_1`). Then
+      :math:`\mathbf b^{n+1} = \mathbf b^n - \frac{\Delta t}{2} \mathbb C (\mathbf e^{n+1} + \mathbf e^n)`.
+
+    - explicit: Runge-Kutta method from :class:`~struphy.ode.utils.ButcherTableau` for the system
+      :math:`\dot{\mathbf e} = \mathbb M_1^{-1} \mathbb C^\top \mathbb M_2 \mathbf b`,
+      :math:`\dot{\mathbf b} = - \mathbb C \mathbf e`, where :math:`\mathbb M_1^{-1}` is applied with ``solver`` and
+      ``precond`` in each stage. The time step is limited by the CFL condition of light waves.
     """
 
     class Variables:
