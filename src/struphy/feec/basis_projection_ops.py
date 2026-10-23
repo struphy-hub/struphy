@@ -21,7 +21,6 @@ from struphy.feec.utilities import LocalRotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.docstring_converter import auto_convert_docstring
 
 logger = logging.getLogger("struphy")
 
@@ -1598,7 +1597,6 @@ class BasisProjectionOperatorLocal(LinearOperator):
         return self._mat
 
 
-@auto_convert_docstring
 class BasisProjectionOperator(LinearOperator):
     r"""
     Class for assembling basis projection operators in 3d.
@@ -1809,6 +1807,11 @@ class BasisProjectionOperator(LinearOperator):
         return self._transposed
 
     @property
+    def dof_matrix(self):
+        """The tensor-product DOF matrix sigma_i(weights[i,j] * Lambda_j) (not transposed)."""
+        return self._dof_mat
+
+    @property
     def dof_operator(self):
         """The degrees of freedom operator as composite linear operator containing polar extraction and boundary operators."""
         return self._dof_operator
@@ -1926,19 +1929,27 @@ class BasisProjectionOperator(LinearOperator):
             use_cache=self._use_cache,
         )
 
-    def update_weights(self, weights):
+    def update_weights(self, weights, dof_mat=None):
         """Updates self.weights and computes new DOF matrix.
 
         Parameters
         ----------
         weights : list
             Weight function(s) (callables or xp.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
+
+        dof_mat : StencilMatrix | BlockLinearOperator, optional
+            The DOF matrix for these weights, if already assembled (e.g. by the non-transposed operator with the same
+            weights, :attr:`dof_matrix`); then it is not assembled again.
         """
 
         self._weights = weights
 
         # assemble tensor-product dof matrix
-        self._dof_mat = self.assemble()
+        if dof_mat is None:
+            self._dof_mat = self.assemble()
+        else:
+            assert dof_mat.domain == self._dof_mat.domain and dof_mat.codomain == self._dof_mat.codomain
+            self._dof_mat = dof_mat
 
         # only need to update the transposed in case where it's needed
         # (no need to recreate a new ComposedOperator)

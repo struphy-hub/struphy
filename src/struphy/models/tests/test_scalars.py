@@ -1,8 +1,12 @@
 import cunumpy as xp
+import pytest
 
 from struphy.models.scalars import KineticEnergyPIC, KineticEnergySPH, Scalar, Scalars
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.particles import Particles5D
+
+# the scalars are computed from mock markers here, without parallel data structures
+pytestmark = pytest.mark.mpi_skip
 
 
 class _Constant(Scalar):
@@ -177,6 +181,11 @@ class _GuidingCenterMarkers:
         self.markers[5:9, Np:] = -1.0  # holes
         self.holes = xp.zeros(Np + 2, dtype=bool)
         self.holes[Np:] = True
+        self.valid_mks = ~self.holes
+
+    def save_magnetic_background_energy(self):
+        # mu * |B_0| is already in row 8
+        pass
 
 
 def test_en_fB_ignores_ghost_markers():

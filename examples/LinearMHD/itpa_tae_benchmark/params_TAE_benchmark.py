@@ -13,6 +13,12 @@ description = """
 Toroidal Alfven eigenmode (TAE) with the LinearMHD model: linear ideal MHD around a static (zero-flow)
 equilibrium, i.e. shear Alfven waves together with the coupling to the magnetosonic waves through the pressure
 and density perturbations. No energetic particles: the TAE is excited by the initial condition, not driven.
+With --model LinearMHDCurlCurl, the magnetic field is in H(curl) and the implicit shear Alfven step solves a
+curl-curl system for it, preconditioned by Hiptmair-Xu (same physics, same expected frequency; the shear Alfven step
+is not exactly energy conserving and damps the wave numerically). --model LinearMHDCurlCurlwithProj is the version
+with the exactly energy conserving shear Alfven step (mass matrix preconditioner). On 4 MPI ranks, the 1000 time
+steps take about 40 min with LinearMHD and with LinearMHDCurlCurl (2.2 s per step) and about 4 h with
+LinearMHDCurlCurlwithProj (14 s per step).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -30,18 +36,19 @@ with the velocity unit v_unit (the Alfven velocity of the base units, set by the
 (base units).
 
 Setup (ITPA TAE benchmark). Large-aspect-ratio tokamak with circular flux surfaces (AdhocTorus): major radius
-R0 = 10, minor radius a = 1, toroidal field B0 = 3, safety factor q(r) = 1.71 + 0.16 r^2/a^2, number density
-n(r) = 0.2 + 0.8 (1 - r^2/a^2) and on-axis beta 0.0018. Only the toroidal mode number n = 6 is computed, on a sixth
+R0 = 10, minor radius a = 1, toroidal field B0 = 3, safety factor q(r) = 1.71 + 0.16 r^2/a^2, flat number density
+n = 1 and on-axis beta 0.0018. Only the toroidal mode number n = 6 is computed, on a sixth
 of the torus (HollowTorus with tor_period = 6 and a hole of radius 0.1): the logical mode number -1 along eta3 is
 the physical n = 6. The velocity is initialized with the m = 10 and m = 11 harmonics, localized around r = 0.5
 (given as 2-form components).
 
-Expected result. With n = 6 and m = 10 the gap is at q(r_c) = 21/12 = 1.75, i.e. r_c = 0.5, where n = 0.8 and
-|B| = 3.0 (flux-surface average), so v_A(r_c) = 3.36 v_unit and
-    omega_TAE = 6/21 * 3.36/10 = 0.096 v_unit / x_unit,
-a period of about 65 time units (about 33 kHz with the default base units x_unit = 1 m, B = 1 T, n = 1e20 m^-3 and
-hydrogen, where v_unit = 2.2e6 m/s). The run up to t = 500 covers about 7.6 periods; the pproc script shows the
-energies, the components of the fields and the radial profiles of the (m, n) harmonics.
+Expected result. With n = 6 and m = 10 the gap is at q(r_c) = 21/12 = 1.75, i.e. r_c = 0.5, where n = 1 and
+|B| = 3.0 (flux-surface average), so v_A(r_c) = 3.0 v_unit and
+    omega_TAE = 6/21 * 3.0/10 = 0.086 v_unit / x_unit,
+a period of about 73 time units (about 30 kHz with the default base units x_unit = 1 m, B = 1 T, n = 1e20 m^-3 and
+hydrogen, where v_unit = 2.2e6 m/s). The run up to t = 500 covers about 6.8 periods; the pproc script asserts the
+measured frequency within 10% of omega_TAE and shows the energies, the components of the fields and the radial
+profiles of the (m, n) harmonics.
 
 References:
 - W. W. Heidbrink, "Basic physics of Alfven instabilities in toroidal plasmas", Phys. Plasmas 15, 055501 (2008).
@@ -67,15 +74,25 @@ parser.add_argument(
     help="Folder in which the output folder is created (default: beside this file).",
 )
 parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
-parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 96, 16], help="Number of elements per direction.")
+parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 44, 8], help="Number of elements per direction.")
+parser.add_argument(
+    "--model",
+    default="LinearMHD",
+    choices=["LinearMHD", "LinearMHDCurlCurl", "LinearMHDCurlCurlwithProj"],
+    help="LinearMHD (default, magnetic field in H(div), implicit solve for the velocity), LinearMHDCurlCurl "
+    "(magnetic field in H(curl), implicit curl-curl solve for the magnetic field, not energy conserving) or "
+    "LinearMHDCurlCurlwithProj (as LinearMHDCurlCurl, energy conserving shear Alfven step).",
+)
 parser.add_argument(
     "--precond",
-    default="MassMatrixPreconditioner",
-    choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner"],
-    help="Preconditioner of the shear Alfven solve: of the mass matrix (default), a geometric multigrid V-cycle of "
-    "the whole Schur operator (experimental, currently slower here), or the Kronecker (fast diagonalization) "
-    "preconditioner of the whole Schur operator with the E x B auxiliary space correction (8x32x4, dt = 0.1: about "
-    "11 instead of 31 PCG iterations per step, 2x faster; larger gains for larger time steps).",
+    default=None,
+    choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
+    help="Preconditioner of the shear Alfven solve: the Kronecker (fast diagonalization) preconditioner of the whole "
+    "Schur operator with the E x B auxiliary space correction (LinearMHD only, its default; 24x44x8, dt = 0.5, "
+    "4 MPI ranks: 2.5 s per time step instead of 17 s with the mass matrix preconditioner), of the mass matrix "
+    "(default of LinearMHDCurlCurlwithProj), a geometric multigrid V-cycle of the whole Schur operator (LinearMHD "
+    "only; experimental, currently slower here), or Hiptmair-Xu for the curl-curl operator (curl-curl models only; "
+    "the default of LinearMHDCurlCurl).",
 )
 parser.add_argument(
     "--test-run",
@@ -84,6 +101,20 @@ parser.add_argument(
     "(test_examples.py).",
 )
 args, _ = parser.parse_known_args()
+if args.precond is None:
+    args.precond = {"LinearMHD": "StiffnessPreconditioner", "LinearMHDCurlCurl": "HiptmairXu"}.get(
+        args.model, "MassMatrixPreconditioner"
+    )
+only = {"MultiGrid": "LinearMHD", "StiffnessPreconditioner": "LinearMHD"}
+if (
+    args.precond in only
+    and args.model != only[args.precond]
+    or args.precond == "HiptmairXu"
+    and args.model == "LinearMHD"
+):
+    parser.error(f"--precond {args.precond} is not available for --model {args.model}.")
+if args.model != "LinearMHD":
+    name = f"ITPA TAE benchmark ({args.model})"
 if args.test_run:
     args.num_elements = [8, 32, 4]
 
@@ -114,13 +145,18 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-from struphy.models import LinearMHD
+from struphy.models import LinearMHD, LinearMHDCurlCurl, LinearMHDCurlCurlwithProj
 
 # Units
 base_units = BaseUnits()
 
 # Model instance
-model = LinearMHD(base_units=base_units)
+model_class = {
+    "LinearMHD": LinearMHD,
+    "LinearMHDCurlCurl": LinearMHDCurlCurl,
+    "LinearMHDCurlCurlwithProj": LinearMHDCurlCurlwithProj,
+}[args.model]
+model = model_class(base_units=base_units)
 
 # List all variables and decide whether to save their data
 model.em_fields.b_field.save_data = True
@@ -144,12 +180,19 @@ time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else 500.0)
 domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=10.0, sfl=False, pol_period=1, tor_period=6)
 
 # Fluid equilibrium (can be used as part of initial conditions)
-equil = equils.AdhocTorus(a=1.0, R0=10.0, B0=3.0, q_kind=0, p_kind=1, q0=1.71, q1=1.87, p1=0.95, p2=0.05, beta=0.0018)
+equil = equils.AdhocTorus(
+    a=1.0, R0=10.0, B0=3.0, q_kind=0, p_kind=1, q0=1.71, q1=1.87, n1=0.0, n2=0.0, na=1.0, p1=0.95, p2=0.05, beta=0.0018
+)
 # Grid
 grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 
 # Derham options
-derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None))
+# Boundary conditions at the walls (flux surfaces, B0.n = 0): LinearMHD (magnetic field in H(div)) imposes b.n = 0
+# and u.n = 0 strongly (Dirichlet). The curl-curl models (magnetic field in H(curl)) use free boundary conditions:
+# Dirichlet would force the tangential magnetic field to zero (unphysical, it damps the TAE). With free boundary
+# conditions, u.n = 0 holds weakly in the shear Alfven step and p = 0 weakly in the magnetosonic step.
+bcs_eta1 = ("dirichlet", "dirichlet") if args.model == "LinearMHD" else ("free", "free")
+derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
 
 # Profiling options
 profiling_opts = ProfilingOptions(use_line_profiler=True)
@@ -184,22 +227,27 @@ model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
 # Background for (some) FEEC variables
 
 # Perturbations for (some) FEEC variables
-ms_radial_1, ms_radial_2 = 10, 11
+# The m = 10 and m = 11 harmonics of the TAE (n = 6: logical mode number -1 along eta3), Gaussian around eta1_c (the
+# radius r_c = 0.5 of the gap), as 2-form components: divergence free for the poloidal amplitude amp / (2 pi m)
+# ("d_exp" is the derivative of "exp")
+eta1_c = (0.5 - domain.params["a1"]) / (domain.params["a2"] - domain.params["a1"])
+sigma, amp = 0.1, 1e-3
+ms = (10, 11)
 perturbation_radial = perturbations.TorusModesSin(
-    ms=(ms_radial_1, ms_radial_2),
+    ms=ms,
     ns=(-1, -1),
-    amps=(1e-3, 1e-3),
+    amps=(amp, amp),
     pfuns=("exp", "exp"),
-    pfun_params=([0.5, 0.1], [0.5, 0.1]),
+    pfun_params=([eta1_c, sigma], [eta1_c, sigma]),
     comp=0,
     given_in_basis="2",
 )
 perturbation_poloidal = perturbations.TorusModesCos(
-    ms=(10, 11),
+    ms=ms,
     ns=(-1, -1),
-    amps=(1e-3 * 1 / (2 * np.pi * ms_radial_1), 1e-3 * 1 / (2 * np.pi * ms_radial_2)),
+    amps=tuple(amp / (2 * np.pi * m) for m in ms),
     pfuns=("d_exp", "d_exp"),
-    pfun_params=([0.5, 0.1], [0.5, 0.1]),
+    pfun_params=([eta1_c, sigma], [eta1_c, sigma]),
     comp=1,
     given_in_basis="2",
 )

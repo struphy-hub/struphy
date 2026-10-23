@@ -1675,7 +1675,14 @@ class Derham:
         equil: FluidEquilibrium = None,
         projection: LiteralOptions.OptsInitProjection = "commuting",
     ):
-        """Creat a callable spline function.
+        r"""Create a callable spline function (:class:`SplineFunction`)
+
+        .. math::
+
+            S_h(\boldsymbol \eta) = \sum_{ijk} s_{ijk}\, \Lambda^\alpha_{ijk}(\boldsymbol \eta)
+
+        of the coefficients :math:`s_{ijk}` (``coeffs``) in the space ``space_id`` with the basis functions
+        :math:`\Lambda^\alpha_{ijk}` (component-wise for the vector-valued spaces).
 
         Parameters
         ----------
@@ -2271,8 +2278,26 @@ class Derham:
 
 
 class SplineFunction:
-    """
+    r"""
     Initializes a callable spline function with a method for assigning initial conditions.
+
+    The spline function of the coefficients :math:`s_{ijk}` (``coeffs``) in the space :math:`V^\alpha_h` with the
+    basis functions :math:`\Lambda^\alpha_{ijk}` (:math:`\alpha = 0, 3`), on the logical domain, is
+
+    .. math::
+
+        S_h(\boldsymbol \eta) = \sum_{ijk} s_{ijk}\, \Lambda^\alpha_{ijk}(\boldsymbol \eta)\,,
+
+    and, for the vector-valued spaces (:math:`\alpha = 1, 2, v`), component-wise
+
+    .. math::
+
+        S_{h,\mu}(\boldsymbol \eta) = \sum_{ijk} s_{\mu, ijk}\, \Lambda^\alpha_{\mu, ijk}(\boldsymbol \eta)\,,
+        \qquad \mu = 1, 2, 3\,.
+
+    Calling the spline function returns these logical components (no push-forward to the physical domain). This
+    notation :math:`S_h` is used throughout Struphy for a spline function, e.g. evaluated at the marker positions
+    :math:`S_h(\boldsymbol \eta_p)`.
 
     Parameters
     ----------

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 # class name -> module defining it, resolved on first access by __getattr__ below
 _LAZY_IMPORTS = {
     "AdiabaticPhi": "struphy.propagators.adiabatic_phi",
+    "AdiabaticPoissonSolve": "struphy.propagators.adiabatic_poisson_solve",
     "CurlCurlSolve": "struphy.propagators.curl_curl_solve",
     "CurrentCoupling5DCurlb": "struphy.propagators.current_coupling_5d_curlb",
     "CurrentCoupling5DDensity": "struphy.propagators.current_coupling_5d_density",
@@ -53,6 +54,7 @@ _LAZY_IMPORTS = {
 
 if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.adiabatic_phi import AdiabaticPhi
+    from struphy.propagators.adiabatic_poisson_solve import AdiabaticPoissonSolve
     from struphy.propagators.curl_curl_solve import CurlCurlSolve
     from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
     from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
@@ -103,6 +105,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
 
 __all__ = [
     "AdiabaticPhi",
+    "AdiabaticPoissonSolve",
     "CurlCurlSolve",
     "CurrentCoupling5DCurlb",
     "CurrentCoupling5DDensity",

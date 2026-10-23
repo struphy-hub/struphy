@@ -44,6 +44,7 @@ def struphy_test(
 
     if "unit" in group:
         list_of_tests = [
+            f"{LIBPATH}/api/tests/",
             f"{LIBPATH}/bsplines/tests/",
             f"{LIBPATH}/console/tests/",
             f"{LIBPATH}/dispersion_relations/tests/",
@@ -63,6 +64,7 @@ def struphy_test(
             # end-to-end GPU tests (NumPy reference, and the CuPy comparison on a GPU or the fake CuPy)
             f"{LIBPATH}/models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py",
             f"{LIBPATH}/models/tests/test_gpu_VlasovAmpereOneSpecies.py",
+            f"{LIBPATH}/models/tests/test_scalars.py",
         ]
 
         if mpi > 1:

@@ -124,21 +124,30 @@ class LinearMHD(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        self._tmp_b1: BlockVector = Propagator.derham.V2.zeros()
-        self._tmp_b2: BlockVector = Propagator.derham.V2.zeros()
+        # background magnetic field and mass matrix in the space of the perturbation (2-form, or 1-form in the
+        # curl-curl models)
+        if self.em_fields.b_field.space == "Hcurl":
+            self._b_eq = Propagator.projected_equil.b1
+            self._M_b = Propagator.mass_ops.M1
+        else:
+            self._b_eq = Propagator.projected_equil.b2
+            self._M_b = Propagator.mass_ops.M2
+
+        self._tmp_b1: BlockVector = self._b_eq.space.zeros()
+        self._tmp_b2: BlockVector = self._b_eq.space.zeros()
 
     def _compute_en_B_eq(self):
-        Propagator.mass_ops.M2.dot(Propagator.projected_equil.b2, apply_bc=False, out=self._tmp_b1)
-        return Propagator.projected_equil.b2.inner(self._tmp_b1) / 2
+        self._M_b.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        return self._b_eq.inner(self._tmp_b1) / 2
 
     def _compute_en_p_eq(self):
         return Propagator.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
 
     def _compute_en_B_tot(self):
-        Propagator.projected_equil.b2.copy(out=self._tmp_b1)
+        self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self.em_fields.b_field.spline.vector
 
-        Propagator.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        self._M_b.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
         return self._tmp_b1.inner(self._tmp_b2) / 2
 
     ## abstract methods for documentation

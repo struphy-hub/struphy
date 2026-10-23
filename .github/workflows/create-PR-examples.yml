@@ -1,4 +1,4 @@
-name: Create pull request into struphy-hub/struphy-parameter-files
+name: Create pull request into struphy-hub/struphy-examples
 
 on:
   push:
@@ -23,42 +23,46 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          repository: struphy-hub/struphy-parameter-files
+          repository: struphy-hub/struphy-examples
           token: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}
-          path: struphy-parameter-files
+          path: struphy-examples
 
       - name: Copy examples and push new branch
         run: |
-            cd struphy-parameter-files
+            cd struphy-examples
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
             # the submit_*.py scripts of the profiling cases need the profiling driver in profiling/,
-            # which is not part of the parameter files repo
-            rsync -a --exclude 'submit_*.py' ../examples/ ./
+            # which is not part of the examples repo;
+            # --delete removes examples that were renamed or removed in struphy (excluded files are kept)
+            rsync -a --delete \
+              --exclude 'submit_*.py' --exclude '__pycache__' \
+              --exclude '.git' --exclude '.github' --exclude '.gitignore' --exclude 'LICENSE' \
+              ../examples/ ./
             git status
-            git add .
-            git commit -m "Changes to parameter files from struphy (on push to main)"
+            git add -A
+            git commit -m "Examples from struphy v${STRUPHY_VERSION} (on push to main)"
             git push origin from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
 
-      - name: Create version tag in struphy-parameter-files
+      - name: Create version tag in struphy-examples
         run: |
-            cd struphy-parameter-files
+            cd struphy-examples
             TAG_NAME="v${STRUPHY_VERSION}"
             if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" > /dev/null; then
               echo "Tag ${TAG_NAME} already exists in origin. Skipping tag creation."
             else
-              git tag -a "${TAG_NAME}" -m "Parameter files for Struphy v${STRUPHY_VERSION}"
+              git tag -a "${TAG_NAME}" -m "Examples for Struphy v${STRUPHY_VERSION}"
               git push origin "${TAG_NAME}"
             fi
 
       - name: Create pull request
         run: |
           gh pr create \
-            --repo struphy-hub/struphy-parameter-files \
-            --title "New parameter files from struphy v${STRUPHY_VERSION}" \
+            --repo struphy-hub/struphy-examples \
+            --title "Examples from struphy v${STRUPHY_VERSION}" \
             --body "This is an auto-generated PR from a Struphy workflow (on push to main)." \
             --head from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }} \
-            --base main 
+            --base main
         env:
           GH_TOKEN: ${{ secrets.STRUPHY_HUB_ACCESS_TOKEN }}

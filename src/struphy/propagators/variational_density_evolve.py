@@ -15,6 +15,7 @@ from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
+    kinetic_metric,
 )
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -74,6 +75,13 @@ class VariationalDensityEvolve(Propagator):
     .. math::
 
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{\rho}_h^{k} = (\rho^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} .
+
+    With a div-div regularization (``divdiv_alpha`` :math:`=\alpha > 0`), the kinetic energy is
+    :math:`\int \rho |\mathbf u|^2/2 + \alpha \rho (\nabla \cdot \mathbf u)^2 \,\textrm d \mathbf x`: the mass matrix
+    :math:`\mathbb M^v[\hat\rho]` is replaced by the metric :math:`\mathbb A[\hat\rho]` of
+    :func:`~struphy.feec.variational_utilities.kinetic_metric` and :math:`\alpha \, d^{n+1} d^n / g` is added to
+    the argument of :math:`\hat l^3`, with :math:`d^k = (\mathbb D \mathbb U^v \mathbf u^k)^\top \vec{\boldsymbol \Lambda}^3`.
+    Since :math:`\mathbb A` is linear in :math:`\hat\rho`, the scheme conserves the regularized energy.
     """
 
     class Variables:
@@ -111,16 +119,22 @@ class VariationalDensityEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self, s: FEECVariable = None):
+    def __init__(self, s: FEECVariable = None, divdiv_alpha: float = 0.0):
         """
         Parameters
         ----------
         s : FEECVariable, default=None
             Entropy density 3-form (``"L2"`` space) evolved alongside the mass density.
             If ``None``, only the density equation is solved.
+
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
         """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
         self.s = s
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -201,14 +215,18 @@ class VariationalDensityEvolve(Propagator):
 
         self._info = self.options.nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
-        self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        # "cg" takes no preconditioner; the density-weighted mass matrix also preconditions the regularized metric
+        self._Mrho_pc = (
+            MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
+            if self.options.solver in ("pcg", "pcg_sr")
+            else None
+        )
         self._Mrho_inv = inverse(
             self._Mrho,
             self.options.solver,
-            # "cg" takes no preconditioner
-            **({"pc": pc} if self.options.solver in ("pcg", "pcg_sr") else {}),
-            tol=1e-16,
+            **({"pc": self._Mrho_pc} if self._Mrho_pc is not None else {}),
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -222,7 +240,13 @@ class VariationalDensityEvolve(Propagator):
 
         # Projector
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
-        self._kinetic_evaluator = KineticEnergyEvaluator(self.derham, self.domain, self.mass_ops)
+        self._kinetic_evaluator = KineticEnergyEvaluator(
+            self.derham,
+            self.domain,
+            self.mass_ops,
+            basis_ops=self.basis_ops,
+            divdiv_alpha=self.divdiv_alpha,
+        )
         self._initialize_projectors_and_mass()
         if self._model in ["linear", "linear_q"]:
             rhotmp = self.projected_equil.n3
@@ -417,7 +441,7 @@ class VariationalDensityEvolve(Propagator):
             self.options.solver,
             # "cg" takes no preconditioner
             **({"pc": self.pc_Mv} if self.options.solver in ("pcg", "pcg_sr") else {}),
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
             recycle=True,
@@ -459,8 +483,14 @@ class VariationalDensityEvolve(Propagator):
         self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_divPirho = 2 * self.divPirho
 
-        self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
-        self._Jacobian[0, 1] = self._kinetic_evaluator.M_un1 + self._dt_pc_divPirhoT @ self._M_drho
+        M_un = self._kinetic_evaluator.M_un
+        M_un1 = self._kinetic_evaluator.M_un1
+        if self.divdiv_alpha > 0.0:
+            # derivatives of the div-div term of the kinetic energy
+            M_un = M_un + (2.0 * self.divdiv_alpha) * self._kinetic_evaluator.M_divun
+            M_un1 = M_un1 + (2.0 * self.divdiv_alpha) * self._kinetic_evaluator.M_divun1
+        self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ M_un
+        self._Jacobian[0, 1] = M_un1 + self._dt_pc_divPirhoT @ self._M_drho
         self._Jacobian[1, 0] = self._dt2_divPirho
         self._Jacobian[1, 1] = self._I3
 
@@ -528,18 +558,21 @@ class VariationalDensityEvolve(Propagator):
         self.divPirhoT.update_coeffs(rho)
 
     def _update_weighted_MM(self, rho):
-        """update the weighted mass matrix operator"""
-        self._Mrho.spline_functions["l2_field"].vector = rho
-        self._Mrho.assemble()
+        """update the density-weighted mass matrices of the kinetic energy"""
+        self.mass_ops.WMMnew.spline_functions["l2_field"].vector = rho
+        self.mass_ops.WMMnew.assemble()
+        if self.divdiv_alpha > 0.0:
+            # same density spline function as WMMnew
+            self.mass_ops.WMM3new.assemble()
 
-        logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options.get('pc') = }")
-        if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options.get("pc"), MassMatrixPreconditioner):
-            self._Mrho_inv._options["pc"].update_mass_operator(self._Mrho)
+        if getattr(self, "_Mrho_pc", None) is not None:
+            self._Mrho_pc.refresh()
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kinetic energy"""
 
         self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
+        self._kinetic_evaluator.add_divdiv_grid(un, un1, self._eval_dl_drho)
 
         if self._model == "barotropic":
             # discrete gradient of rho*U(rho) = rho**2/2: (rho^n + rho^{n+1})/2
@@ -598,6 +631,9 @@ class VariationalDensityEvolve(Propagator):
     def _get_jacobian(self, dt, rhon, rhon1, un, un1, sn):
         self._kinetic_evaluator.assemble_M_un(un)
         self._kinetic_evaluator.assemble_M_un1(un1)
+        if self.divdiv_alpha > 0.0:
+            self._kinetic_evaluator.assemble_M_divun(un)
+            self._kinetic_evaluator.assemble_M_divun1(un1)
 
         if self._model == "barotropic":
             # self._M_drho is constant (-M3/2), set in allocate
