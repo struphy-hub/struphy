@@ -11,7 +11,13 @@ from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.feec.variational_utilities import Hdiv0_transport_operator, kinetic_metric
+from struphy.feec.variational_utilities import (
+    Hdiv0_transport_operator,
+    NewtonConvergence,
+    dot_normalized,
+    inv_norm2,
+    kinetic_metric,
+)
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolverFull
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -128,9 +134,11 @@ class VariationalMagFieldEvolve(Propagator):
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below
+            ``tol`` times the norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or
+            when it stagnates (with a warning).
         """
 
         OptsModel = Literal["full", "full_p", "linear"]
@@ -242,7 +250,8 @@ class VariationalMagFieldEvolve(Propagator):
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalMagFieldEvolve", tol, self._get_error_newton(mn, bn))
 
         for it in range(self._nonlin_solver.maxiter):
             # Newton iteration
@@ -300,12 +309,12 @@ class VariationalMagFieldEvolve(Propagator):
             mn_diff += advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, bn_diff)
+            stop = conv.stop(self._get_error_newton(mn_diff, bn_diff), it)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if err < tol**2 or xp.isnan(err):
+            if stop:
                 break
 
             # Derivative for Newton
@@ -315,7 +324,8 @@ class VariationalMagFieldEvolve(Propagator):
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = bn_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
@@ -324,10 +334,7 @@ class VariationalMagFieldEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
 
         self._tmp_un_diff = un1 - un
         self._tmp_bn_diff = bn1 - bn
@@ -424,7 +431,8 @@ class VariationalMagFieldEvolve(Propagator):
         wb *= -1
 
     def _get_error_newton(self, mn_diff, bn_diff):
-        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
         err_b = self.mass_ops.M2.dot_inner(bn_diff, bn_diff)
         return max(err_b, err_u)
 
