@@ -1,14 +1,14 @@
-"""Orszag-Tang vortex with the nonlinear variational ideal MHD model (ViscoResistiveMHD without viscosity and
+"""Orszag-Tang vortex with the nonlinear variational ideal MHD model (VariationalMHD without viscosity and
 resistivity): conservation of mass, entropy, energy and div B in a nonlinear 2D flow."""
 
 # -----------------------------
 # Description of the simulation
 # -----------------------------
 
-name = "Orszag-Tang vortex (ViscoResistiveMHD)"
+name = "Orszag-Tang vortex (VariationalMHD)"
 description = """
 Orszag-Tang vortex, a standard nonlinear test of compressible MHD codes, computed with the variational MHD model
-ViscoResistiveMHD (density, entropy, velocity and magnetic field), here without viscosity and resistivity,
+VariationalMHD (density, entropy, velocity and magnetic field), here without viscosity and resistivity,
 i.e. ideal MHD.
 
 Physics. On the periodic square [0, 2 pi]^2 the initial state is
@@ -79,7 +79,7 @@ from struphy import (
     grids,
 )
 from struphy.fields_background.base import CartesianFluidEquilibriumWithB
-from struphy.models import ViscoResistiveMHD
+from struphy.models import VariationalMHD
 
 # ---------------------
 # Initial state
@@ -143,7 +143,7 @@ gamma = 5.0 / 3.0
 # ---------------------
 
 base_units = BaseUnits()
-model = ViscoResistiveMHD(base_units=base_units, with_viscosity=False, with_resistivity=False)
+model = VariationalMHD(base_units=base_units, with_viscosity=False, with_resistivity=False)
 
 model.em_fields.b_field.save_data = True
 model.mhd.density.save_data = True

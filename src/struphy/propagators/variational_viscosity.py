@@ -12,7 +12,7 @@ from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import CoordinateProjector
 from struphy.feec.mass import L2Projector
 from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.feec.variational_utilities import InternalEnergyEvaluator, kinetic_metric
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -67,6 +67,9 @@ class VariationalViscosity(Propagator):
     .. math::
         P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
 
+    With a div-div regularization (``divdiv_alpha`` :math:`> 0`), the mass matrix :math:`\mathbb M^v[\hat\rho]` is
+    replaced by the metric :math:`\mathbb A[\hat\rho]` of the regularized kinetic energy, see
+    :func:`~struphy.feec.variational_utilities.kinetic_metric`.
     """
 
     class Variables:
@@ -104,19 +107,26 @@ class VariationalViscosity(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
+    def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None, divdiv_alpha: float = 0.0):
         """
         Parameters
         ----------
         rho : FEECVariable, default=None
             Mass density 3-form (``"L2"`` space) weighting the velocity mass matrix.
         pt3 : FEECVariable, default=None
-            Pressure or entropy 3-form (``"L2"`` space) evolved alongside the velocity.
-            If ``None``, the thermodynamic equation is skipped.
+            For ``model="linear_q"`` and ``"perturbative_q"``: the auxiliary variable :math:`\hat q` (``"L2"`` space),
+            which receives the viscous heating with the energy density :math:`2 q_0 \hat q / (\gamma - 1)`, i.e.
+            :math:`\partial_t \hat q = (\gamma - 1)/(2 q_0)\, \mu |\nabla \mathbf u|^2`. If ``None``, the thermodynamic
+            equation is skipped. For the other models the heating goes into the variable ``s``.
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
         """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
         self.rho = rho
         self.pt3 = pt3
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -124,7 +134,7 @@ class VariationalViscosity(Propagator):
 
         Parameters
         ----------
-        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"}, default="full"
+        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "perturbative_q"}, default="full"
             Thermodynamic model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -147,7 +157,7 @@ class VariationalViscosity(Propagator):
         """
 
         # specific literals
-        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
+        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "perturbative_q"]
         # propagator options
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
@@ -199,8 +209,8 @@ class VariationalViscosity(Propagator):
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
-        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        self._Mrho_pc = MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
@@ -289,7 +299,7 @@ class VariationalViscosity(Propagator):
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
         # 2) Initial energy and linear form
         rho = self.rho.spline.vector
-        if self._model in ["deltaf_q", "linear_q"]:
+        if self._model in ["perturbative_q", "linear_q"]:
             self.sf.vector = self.pt3.spline.vector
         else:
             self.sf.vector = sn
@@ -326,7 +336,7 @@ class VariationalViscosity(Propagator):
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
-        elif self._model in ["linear_q", "deltaf_q"]:
+        elif self._model in ["linear_q", "perturbative_q"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -345,7 +355,7 @@ class VariationalViscosity(Propagator):
         err = tol + 1
 
         for it in range(self._nonlin_solver.maxiter):
-            if self._model in ["deltaf_q", "linear_q"]:
+            if self._model in ["perturbative_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
                 self.sf1.vector = sn1
@@ -379,7 +389,7 @@ class VariationalViscosity(Propagator):
                 e_n1 *= 1.0 / (self._gamma - 1.0)
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["linear_q", "deltaf_q"]:
+            elif self._model in ["linear_q", "perturbative_q"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -414,8 +424,8 @@ class VariationalViscosity(Propagator):
                 if self.pc_jac is not None:
                     self.pc_jac.update_mass_operator(self.M_de_ds)
 
-            elif self._model in ["full_q", "linear_q", "deltaf_q"]:
-                if self._model in ["deltaf_q", "linear_q"]:
+            elif self._model in ["full_q", "linear_q", "perturbative_q"]:
+                if self._model in ["perturbative_q", "linear_q"]:
                     sf1_values = self._q0_values
 
                 deds = self._de_s1_values
@@ -433,7 +443,7 @@ class VariationalViscosity(Propagator):
             if self._info:
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
-            if self._model in ["deltaf_q", "linear_q"]:
+            if self._model in ["perturbative_q", "linear_q"]:
                 pt3_vec = self.pt3.spline.vector
                 pt3_vec += incr
             else:
@@ -646,7 +656,7 @@ class VariationalViscosity(Propagator):
             if self.pc_jac is not None:
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
-        elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+        elif self._model in ["full_q", "linear_q", "perturbative_q"]:
             metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
@@ -676,7 +686,7 @@ class VariationalViscosity(Propagator):
         ) * self.domain.jacobian_det(*integration_grid)
         self._mass_M1_metric = deepcopy(metric)
 
-        if self._model in ["linear_q", "deltaf_q"]:
+        if self._model in ["linear_q", "perturbative_q"]:
             self.sf1.vector = self.projected_equil.q3
 
             self._q0_values = self.sf1.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd)

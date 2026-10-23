@@ -99,14 +99,16 @@ class VariationalResistivity(Propagator):
             self._b = new
 
     def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
-        """
+        r"""
         Parameters
         ----------
         rho : FEECVariable, default=None
             Mass density 3-form (``"L2"`` space) weighting the thermodynamic equation.
         pt3 : FEECVariable, default=None
-            Pressure or entropy 3-form (``"L2"`` space) evolved by the resistive heating.
-            If ``None``, the thermodynamic equation is skipped.
+            For ``model="linear_q"`` and ``"perturbative_q"``: the auxiliary variable :math:`\hat q` (``"L2"`` space),
+            which receives the resistive heating with the energy density :math:`2 q_0 \hat q / (\gamma - 1)`, i.e.
+            :math:`\partial_t \hat q = (\gamma - 1)/(2 q_0)\, \eta |\nabla \times \mathbf B|^2`. If ``None``, the
+            thermodynamic equation is skipped. For the other models the heating goes into the variable ``s``.
         """
         self.variables = self.Variables()
         self.rho = rho
@@ -118,7 +120,7 @@ class VariationalResistivity(Propagator):
 
         Parameters
         ----------
-        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"}, default="full"
+        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "perturbative_q"}, default="full"
             Thermodynamic model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -141,7 +143,7 @@ class VariationalResistivity(Propagator):
         """
 
         # specific literals
-        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
+        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "perturbative_q"]
         # propagator options
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
@@ -275,7 +277,7 @@ class VariationalResistivity(Propagator):
         # 2) Initial energy and linear form
         rho = self.rho.spline.vector
         self.rhof.vector = rho
-        if self._model in ["deltaf_q", "linear_q"]:
+        if self._model in ["perturbative_q", "linear_q"]:
             self.sf.vector = self.pt3.spline.vector
         else:
             self.sf.vector = sn
@@ -301,7 +303,7 @@ class VariationalResistivity(Propagator):
 
             e_n *= self._energy_metric
 
-        elif self._model in ["full_p", "linear_p", "delta_p"]:
+        elif self._model in ["full_p", "linear_p"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -316,7 +318,7 @@ class VariationalResistivity(Propagator):
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
-        elif self._model in ["linear_q", "deltaf_q"]:
+        elif self._model in ["linear_q", "perturbative_q"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -335,7 +337,7 @@ class VariationalResistivity(Propagator):
         err = tol + 1
 
         for it in range(self._nonlin_solver.maxiter):
-            if self._model in ["deltaf_q", "linear_q"]:
+            if self._model in ["perturbative_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
                 self.sf1.vector = sn1
@@ -354,7 +356,7 @@ class VariationalResistivity(Propagator):
                 )
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["full_p", "linear_p", "delta_p"]:
+            elif self._model in ["full_p", "linear_p"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -369,7 +371,7 @@ class VariationalResistivity(Propagator):
                 e_n1 *= 1.0 / (self._gamma - 1.0)
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["linear_q", "deltaf_q"]:
+            elif self._model in ["linear_q", "perturbative_q"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -403,8 +405,8 @@ class VariationalResistivity(Propagator):
                 if self.pc_jac is not None:
                     self.pc_jac.update_mass_operator(self.M_de_ds)
 
-            elif self._model in ["full_q", "linear_q", "deltaf_q"]:
-                if self._model in ["deltaf_q", "linear_q"]:
+            elif self._model in ["full_q", "linear_q", "perturbative_q"]:
+                if self._model in ["perturbative_q", "linear_q"]:
                     sf1_values = self._q0_values
                 deds = self._de_s1_values
                 deds *= 0.0
@@ -421,7 +423,7 @@ class VariationalResistivity(Propagator):
             if self._info:
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
-            if self._model in ["deltaf_q", "linear_q"]:
+            if self._model in ["perturbative_q", "linear_q"]:
                 pt3_vec = self.pt3.spline.vector
                 pt3_vec += incr
             else:
@@ -661,7 +663,7 @@ class VariationalResistivity(Propagator):
             )
             self._energy_metric = deepcopy(metric)
 
-        elif self._model in ["full_p", "linear_p", "delta_p"]:
+        elif self._model in ["full_p", "linear_p"]:
             metric = 1.0 / self.domain.jacobian_det(
                 *integration_grid,
             )
@@ -686,7 +688,7 @@ class VariationalResistivity(Propagator):
             if self.pc_jac is not None:
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
-        elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+        elif self._model in ["full_q", "linear_q", "perturbative_q"]:
             metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
@@ -703,7 +705,7 @@ class VariationalResistivity(Propagator):
             )
             self._energy_metric = deepcopy(metric)
 
-        if self._model in ["linear_q", "deltaf_q"]:
+        if self._model in ["linear_q", "perturbative_q"]:
             self.sf1.vector = self.projected_equil.q3
 
             self._q0_values = self.sf1.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd)
@@ -794,7 +796,7 @@ class VariationalResistivity(Propagator):
         # elif self._model in ["linear_p", "linear_q"]:
         #     cb12 = self.Tcurl.dot(self._extracted_b2, out=self._tmp_cb12)
 
-        elif self._model in ["delta_p", "deltaf_q", "linear_p", "linear_q"]:
+        elif self._model in ["perturbative_q", "linear_p", "linear_q"]:
             # bn12 += self._extracted_b2
             cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 

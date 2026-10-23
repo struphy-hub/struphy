@@ -1,13 +1,15 @@
 import pytest
+from maybempi import MPI
 
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, grids, perturbations
-from struphy.models import ViscoResistiveLinearMHD_with_q, ViscoResistiveMHD
+from struphy.models import VariationalMHD, VariationalPerturbativeMHD_with_q
 
 
 def _run(model, tmp_path):
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim"),
+        # tmp_path differs per rank: all ranks write to the folder of rank 0
+        env=EnvironmentOptions(out_folders=MPI.COMM_WORLD.bcast(str(tmp_path), root=0), sim_folder="sim"),
         time_opts=Time(dt=0.01, Tend=0.01),
         domain=domains.Cuboid(),
         equil=equils.HomogenSlab(),
@@ -21,7 +23,7 @@ def _run(model, tmp_path):
 @pytest.mark.parametrize("fast", [False, True])
 def test_linear_q_viscosity_resistivity(fast, tmp_path):
     """Non-zero mu/eta enters the Newton iteration of VariationalViscosity/Resistivity (issue #422)."""
-    model = ViscoResistiveLinearMHD_with_q()
+    model = VariationalPerturbativeMHD_with_q(linear=True)
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="linear_q")
     props.variat_qb.options = props.variat_qb.Options(model="linear_q")
@@ -37,7 +39,7 @@ def test_linear_q_viscosity_resistivity(fast, tmp_path):
 @pytest.mark.fluid
 def test_full_viscosity_resistivity(tmp_path):
     """model="full" evaluates the density 3-form in VariationalViscosity (issue #446)."""
-    model = ViscoResistiveMHD()
+    model = VariationalMHD()
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="full")
     props.variat_viscous.options = props.variat_viscous.Options(model="full", mu=0.1, mu_a=0.1)

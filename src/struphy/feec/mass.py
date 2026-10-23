@@ -1042,6 +1042,31 @@ class WeightedMassOperators:
             )
         return self._WMMnew
 
+    @property
+    def WMM3new(self):
+        r"""Density-weighted mass matrix of :math:`L^2` (3-forms)
+
+        .. math::
+
+            \mathbb M^{3,\rho}_{ijk, mno} = \int \frac{\hat\rho^3}{g} \Lambda^3_{ijk} \Lambda^3_{mno} \, \textnormal d \boldsymbol \eta
+            = \int \rho \, \frac{\Lambda^3_{ijk}}{\sqrt g} \frac{\Lambda^3_{mno}}{\sqrt g} \, \textnormal d \mathbf x \,,
+
+        where :math:`\hat\rho^3` is the density 3-form of :attr:`WMMnew` (the same spline function), i.e. the
+        :math:`L^2` inner product of the push-forwards weighted with the physical density :math:`\rho`.
+        It enters the div-div term of the regularized kinetic energy, see
+        :func:`~struphy.feec.variational_utilities.kinetic_metric`, and is assembled together with :attr:`WMMnew`.
+        """
+        if not hasattr(self, "_WMM3new"):
+            spline = self.WMMnew.spline_functions["l2_field"]
+            self._WMM3new = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=("1/sqrt_g", "1/sqrt_g", spline),
+                name="WMM3new",
+                assemble=False,
+            )
+        return self._WMM3new
+
     #######################################
     # Wrapper around WeightedMassOperator #
     #######################################

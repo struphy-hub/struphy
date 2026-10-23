@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+import cunumpy as xp
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
@@ -14,9 +15,11 @@ from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.kernels.marker_operator_pressure_dot import marker_operator_pressure_dot
 from struphy.pic.accumulation.kernels.pc_lin_mhd_6d import pc_lin_mhd_6d
 from struphy.pic.accumulation.kernels.pc_lin_mhd_6d_full import pc_lin_mhd_6d_full
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.pc_lin_mhd_6d_mf import pc_lin_mhd_6d_mf
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
 from struphy.pic.pushing.kernels.push_pc_GXu import push_pc_GXu
 from struphy.pic.pushing.kernels.push_pc_GXu_full import push_pc_GXu_full
 from struphy.pic.pushing.pusher import Pusher
@@ -118,6 +121,13 @@ class PressureCoupling6D(Propagator):
         use_perp_model : bool, default=True
             If ``True``, use the perpendicular pressure-coupling model;
             otherwise use the full-model kernels.
+
+        matrix_free : bool, default=True
+            Apply the 3x3 block particle matrix matrix-free, with its filling :math:`w_p G^{-1}(\boldsymbol \eta_p)`
+            stored per marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator` with
+            ``n_blocks=3``), instead of assembling its six symmetric blocks: per marker and solver iteration, one
+            evaluation of each block and one deposition into each block instead of the products of all pairs of basis
+            functions per marker. Needs 6 auxiliary marker columns. Ignored on the CuPy backend.
         """
 
         # propagator options
@@ -128,6 +138,7 @@ class PressureCoupling6D(Propagator):
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
         use_perp_model: bool = True
+        matrix_free: bool = True
 
         def __post_init__(self):
             # checks
@@ -136,6 +147,7 @@ class PressureCoupling6D(Propagator):
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
             assert isinstance(self.use_perp_model, bool)
+            assert isinstance(self.matrix_free, bool)
 
             # defaults
             if self.solver_params is None:
@@ -196,17 +208,51 @@ class PressureCoupling6D(Propagator):
             accum_ker = pc_lin_mhd_6d_full
             pusher_ker = push_pc_GXu_full
 
-        # define Accumulator and arguments
-        self._ACC = Accumulator(
-            self.variables.energetic_ions.particles,
-            "Hcurl",  # TODO:check
-            accum_ker,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="pressure",
-            filter_params=self.options.filter_params,
-        )
+        # define Accumulator and arguments (the matrix-free kernels have no CUDA version)
+        particles = self.variables.energetic_ions.particles
+        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        if self._matrix_free:
+            # the three vectors, and the filling of the matrices per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 6, "matrix_free needs 6 free (auxiliary) marker columns."
+            n_v = 2 if self.options.use_perp_model else 3
+            self._args_accum = (n_v, column)
+            self._ACC = AccumulatorVector(
+                particles,
+                "Hcurl",
+                pc_lin_mhd_6d_mf,
+                self.mass_ops,
+                self.domain.args_domain,
+                filter_params=self.options.filter_params,
+                n_vectors=3,
+            )
+            self._MAT = MarkerOperator(
+                particles,
+                "Hcurl",
+                marker_operator_pressure_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (n_v, column),
+                symmetry="symm",
+                n_blocks=3,
+            )
+        else:
+            self._args_accum = ()
+            self._ACC = Accumulator(
+                particles,
+                "Hcurl",  # TODO:check
+                accum_ker,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="pressure",
+                filter_params=self.options.filter_params,
+            )
+            self._MAT = [
+                [self._ACC.operators[0], self._ACC.operators[1], self._ACC.operators[2]],
+                [self._ACC.operators[1], self._ACC.operators[3], self._ACC.operators[4]],
+                [self._ACC.operators[2], self._ACC.operators[4], self._ACC.operators[5]],
+            ]
 
         self._tmp_g1 = grad.codomain.zeros()
         self._tmp_g2 = grad.codomain.zeros()
@@ -240,12 +286,6 @@ class PressureCoupling6D(Propagator):
         self._tmp = self._X.codomain.zeros()
         self._BV = self.variables.u.spline.vector.space.zeros()
 
-        self._MAT = [
-            [self._ACC.operators[0], self._ACC.operators[1], self._ACC.operators[2]],
-            [self._ACC.operators[1], self._ACC.operators[3], self._ACC.operators[4]],
-            [self._ACC.operators[2], self._ACC.operators[4], self._ACC.operators[5]],
-        ]
-
         self._GT_VEC = BlockVector(self.derham.Vv)
 
         _BC = -1 / 4 * self._XT @ self.GT_MAT_G(self.derham, self._MAT) @ self._X
@@ -269,6 +309,7 @@ class PressureCoupling6D(Propagator):
         # acuumulate MAT and VEC
         self._ACC(
             self.options.ep_scale,
+            *self._args_accum,
         )
 
         # update GT_VEC
@@ -320,8 +361,10 @@ class PressureCoupling6D(Propagator):
             derham : struphy.feec.psydac_derham.Derham
                 Discrete de Rham sequence on the logical unit cube.
 
-            MAT : List of StencilMatrices
-                List with six of accumulated pressure terms
+            MAT : list | MarkerOperator
+                3x3 nested list of the accumulated pressure terms (six of them distinct), or the matrix-free
+                :class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator` of the whole 3x3 block matrix
+                (``n_blocks=3``).
         """
 
         def __init__(self, derham, MAT, transposed=False):
@@ -336,6 +379,12 @@ class PressureCoupling6D(Propagator):
 
             self._vector = BlockVector(derham.Vv)
             self._temp = BlockVector(derham.V1)
+
+            # matrix-free: the gradients of the three components, and the result of MAT
+            self._matrix_free = isinstance(MAT, LinearOperator)
+            if self._matrix_free:
+                self._grad_v = MAT.domain.zeros()
+                self._mat_grad_v = MAT.codomain.zeros()
 
         @property
         def domain(self):
@@ -372,12 +421,19 @@ class PressureCoupling6D(Propagator):
 
             v.update_ghost_regions()
 
-            for i in range(3):
+            if self._matrix_free:
                 for j in range(3):
-                    self._temp += self._MAT[i][j].dot(self._grad.dot(v[j]))
+                    self._grad.dot(v[j], out=self._grad_v[j])
+                self._MAT.dot(self._grad_v, out=self._mat_grad_v)
+                for i in range(3):
+                    self._vector[i] = self._gradT.dot(self._mat_grad_v[i])
+            else:
+                for i in range(3):
+                    for j in range(3):
+                        self._temp += self._MAT[i][j].dot(self._grad.dot(v[j]))
 
-                self._vector[i] = self._gradT.dot(self._temp)
-                self._temp *= 0.0
+                    self._vector[i] = self._gradT.dot(self._temp)
+                    self._temp *= 0.0
 
             self._vector.update_ghost_regions()
 
