@@ -204,8 +204,8 @@ def _constraint_residual(prop):
 @pytest.mark.parametrize("matrix_free", [False, True])
 def test_initial_projection(matrix_free):
     """kappa=0: without the initial projection, the constraint residual r = c1 C^T M2 b - c2 j(V) changes sign in
-    every step (period-2 oscillation). The projection in the setup makes r vanish, does not depend on dt, and the
-    steps then leave b and V unchanged (frozen positions)."""
+    every step (period-2 oscillation). The projection in the setup makes r vanish, does not depend on dt, keeps e,
+    and the steps then leave b and V unchanged (frozen positions)."""
     # without projection: r^{n+1} = -r^n
     model = _model(kappa=0.0, initial_projection=False, matrix_free=matrix_free)
     prop = model.propagators.coupling
@@ -220,10 +220,15 @@ def test_initial_projection(matrix_free):
     for dt in (0.5, 2.0):
         model = _model(kappa=0.0, matrix_free=matrix_free)
         prop = model.propagators.coupling
-        j_scale = abs(prop._c2) * _norm(_constraint_residual(prop) * 0.0 + prop._accum.vectors[0])
+        # accumulate at the initial markers for the scale of the current
+        prop._accum(*prop._args_accum)
+        j_scale = abs(prop._c2) * _norm(prop._accum.vectors[0])
+        e_init = model.em_fields.e_field.spline.vector.copy()
         prop.prepare_time_step(dt)
         assert _norm(_constraint_residual(prop)) < 1e-10 * j_scale
         e, b, v = _state(model)
+        # the electric field is not changed by the projection
+        assert _norm(e - e_init) == 0.0
         projected.append((b.toarray(), v))
         for _ in range(2):
             prop(dt)

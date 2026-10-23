@@ -503,7 +503,8 @@ class VlasovMaxwellCoupling(Propagator):
 
     def _project_onto_constraint(self, dt: float):
         """For kappa = 0: replace (b, V) by the mid-point state of one step, which satisfies
-        c1 C^T M2 b = c2 j(V) exactly (independent of dt), and e by the mid-point field."""
+        c1 C^T M2 b = c2 j(V) exactly (independent of dt). The electric field is kept (e.g. from the initial Poisson
+        solve): e_mid is an impulse of size 1/dt here, and e does not enter the steps for kappa = 0."""
         bn = self.variables.b.spline.vector
         e_mid, _ = self._mid_point_field(dt)
 
@@ -512,7 +513,7 @@ class VlasovMaxwellCoupling(Propagator):
         b_new *= -dt / 2
         b_new += bn
         self._pusher(dt / 2)
-        self.update_feec_variables(e=e_mid.copy(out=self._e_new), b=b_new)
+        self.update_feec_variables(b=b_new)
         logger.info("VlasovMaxwellCoupling: projected the initial state onto c1 curl B = c2 J (kappa = 0).")
 
     @profile
