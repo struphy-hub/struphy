@@ -1,4 +1,4 @@
-"Matrix-free application of the density matrix of cc_lin_mhd_5d_D_mf (gyro-center (5D) particles)."
+"Matrix-free application of a particle matrix with antisymmetric fillings (MarkerOperator)."
 
 from numpy import empty
 from pyccel.decorators import stack_array
@@ -15,7 +15,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 
 
 @stack_array("s_h")
-def cc_lin_mhd_5d_D_mf_dot(
+def marker_operator_asym_dot(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
@@ -29,9 +29,10 @@ def cc_lin_mhd_5d_D_mf_dot(
     column: "int",
 ):
     r"""Applies the particle matrix (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`) with the
-    antisymmetric 3x3 filling :math:`F_p` stored by
-    :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf.cc_lin_mhd_5d_D_mf_kernels.cc_lin_mhd_5d_D_mf`
-    (entries 12, 13, 23 in the marker columns ``column`` to ``column + 2``) to the FE coefficients :math:`s`
+    antisymmetric 3x3 filling :math:`F_p`, with the entries 12, 13, 23 stored in the marker columns ``column`` to
+    ``column + 2`` (e.g. by
+    :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf.cc_lin_mhd_5d_D_mf_kernels.cc_lin_mhd_5d_D_mf`),
+    to the FE coefficients :math:`s`
     (component arrays ``s1, s2, s3``), with the filling
 
     .. math::
