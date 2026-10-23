@@ -119,22 +119,6 @@ featuring the plasma- and cyclotron frequency of species :math:`\textrm{s}`, res
 
 where :math:`Z_\textrm{s}` and :math:`A_\textrm{s}` stand for the species' charge and mass number, respectively.
 
-The parameters :math:`\lambda_\textrm{s}` and :math:`\kappa_\textrm{s}` (``lam`` and ``kappa`` in the code) measure the
-length unit in units of the inertial lengths :math:`c/\hat \Omega_\textnormal{cs}` and :math:`c/\hat \Omega_\textnormal{ps}`.
-With the ``cyclotron`` velocity scale of species :math:`\textrm{s}` (hence :math:`\varepsilon_\textrm{s} = 1`), Ampère's law
-:math:`\frac{1}{c^2} \partial_t \mathbf E = \nabla \times \mathbf B - \mu_0 \mathbf J` becomes
-
-.. math::
-
-        \lambda_\textrm{s}^2 \frac{\partial \mathbf E'}{\partial t'} = \nabla' \times \mathbf B' - \kappa_\textrm{s}^2 \mathbf J'\,,
-
-with :math:`\hat E = \hat B \hat v` and :math:`\hat \jmath = q_\textrm{s} \hat n \hat v`, while the Vlasov equation and
-Faraday's law have no coefficients. :math:`\lambda_\textrm{s} \to 0` is the limit without displacement current
-(quasi-neutral limit). For a general velocity scale the coefficients are :math:`\varepsilon_\textrm{s}^2 \lambda_\textrm{s}^2`
-and :math:`\kappa_\textrm{s}^2 \varepsilon_\textrm{s}`, and :math:`1/\varepsilon_\textrm{s}` in the Vlasov equation; for the
-``light`` velocity scale :math:`\varepsilon_\textrm{s} \lambda_\textrm{s} = 1` and
-:math:`\kappa_\textrm{s}^2 \varepsilon_\textrm{s} = \alpha_\textrm{s}^2 / \varepsilon_\textrm{s}`.
-
 These equation parameters are defined in :class:`~struphy.models.species.Species.EquationParameters` and can be overridden
 in the model constructor.
 

@@ -41,8 +41,7 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
         kappa, alpha is not adapted.
     epsilon: float, optional
         Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass
-        numbers (equal to 1 for this model's cyclotron velocity scale; set -1 for electrons with the default charge
-        number).
+        numbers (equal to 1 in this model's normalization).
     lam: float, optional
         Cyclotron frequency × length unit / speed of light (coefficient lam^2 of the displacement current; 0 is the
         quasi-neutral limit). If None, computed from units and charge/mass numbers.
@@ -200,13 +199,13 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
 
         .. math::
 
-            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
+            \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0
 
         Ampère's law:
 
         .. math::
 
-            -\lambda^2 \frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\kappa^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}
+            -\lambda^2 \frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \kappa^2 \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}
 
         Faraday's law:
 
@@ -214,29 +213,23 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
 
             \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
 
-        with :math:`\varepsilon = 1` in the cyclotron normalization (set :math:`\varepsilon = -1` for electrons with the
-        default charge number; then :math:`\kappa^2/\varepsilon` carries the sign of the charge). These forms assume
-        :math:`\varepsilon = \pm 1`; for an overridden :math:`\varepsilon` the coefficients of the displacement and
-        the plasma current are :math:`\varepsilon^2 \lambda^2` and :math:`\kappa^2 \varepsilon` (see
-        :ref:`equation_params`). For
-        :math:`\lambda = 0` (quasi-neutral limit) Ampère's law becomes :math:`\nabla \times \mathbf B =
-        \frac{\kappa^2}{\varepsilon} \int \mathbf v f \, \textrm d^3 \mathbf v`, which implies :math:`\nabla \cdot \mathbf J = 0`; the electric field is then determined by this
+        For :math:`\lambda = 0` (quasi-neutral limit) Ampère's law becomes :math:`\nabla \times \mathbf B =
+        \kappa^2 \int \mathbf v f \, \textrm d^3 \mathbf v`, which implies :math:`\nabla \cdot \mathbf J = 0`; the electric field is then determined by this
         constraint, not by its own evolution. The coefficients of the coupling terms can be changed by the options
         ``lam``, ``c1``, ``c2``, ``c3`` of the propagator
         :class:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling`.
 
         At initial time the weak Poisson equation (Gauss' law :math:`\lambda^2 \nabla \cdot \mathbf E = \kappa^2 \rho`)
-        (with the charge density :math:`\rho = \frac{1}{\varepsilon} \int (f - f_0) \, \textrm d^3 \mathbf v`) is
-        solved once for :math:`\lambda > 0`,
+        is solved once for :math:`\lambda > 0`,
 
         .. math::
 
-            \lambda^2 \int_{\Omega} \nabla \psi^{\top} \cdot \nabla \phi \, \textrm{d} \mathbf{x} = \frac{\kappa^2}{\varepsilon} \int_{\Omega} \int_{\mathbb{R}^3} \psi \, (f - f_0) \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
+            \lambda^2 \int_{\Omega} \nabla \psi^{\top} \cdot \nabla \phi \, \textrm{d} \mathbf{x} = \kappa^2 \int_{\Omega} \int_{\mathbb{R}^3} \psi \, (f - f_0) \, \text{d}^3 \mathbf{v} \, \textrm{d} \mathbf{x} \qquad \forall \ \psi \in H^1
             \\[2mm]
             \mathbf{E}(t=0) = -\nabla \phi(t=0)
 
         (for :math:`\lambda = 0` the initial electric field does not enter the time stepping). Moreover, it is assumed
-        that :math:`\nabla \times \mathbf{B}_0 = \frac{\kappa^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}`,
+        that :math:`\nabla \times \mathbf{B}_0 = \kappa^2 \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}`,
         where :math:`\mathbf{B}_0` is the static equilibrium magnetic field.
         """
 
@@ -253,15 +246,13 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
         .. math::
 
             \lambda = \frac{\hat\Omega_c \hat x}{c}\,,\qquad \kappa = \frac{\hat\Omega_p \hat x}{c} = \alpha \lambda\,,
-            \qquad \varepsilon = \frac{1}{\hat\Omega_c \hat t} = 1\,,
 
         where :math:`c/\hat\Omega_c` and :math:`c/\hat\Omega_p` are the inertial lengths (:math:`\lambda` carries the
         sign of the charge, like :math:`\hat\Omega_c`; only :math:`\lambda^2` enters). The Vlasov equation and
         Faraday's law then have no coefficients, and Ampère's law
         :math:`\frac{1}{c^2} \partial_t \mathbf E = \nabla \times \mathbf B - \mu_0 \mathbf J` becomes
         :math:`\lambda^2 \partial_t \mathbf E = \nabla \times \mathbf B - \kappa^2 \mathbf J`. The quasi-neutral limit is
-        :math:`\lambda \to 0` at fixed :math:`\kappa`. With :math:`\lambda = \kappa = 1` (and :math:`\varepsilon = -1` for
-        electrons) the equations are those of :class:`~struphy.models.vlasov_maxwell_one_species.VlasovMaxwellOneSpecies`
+        :math:`\lambda \to 0` at fixed :math:`\kappa`. With :math:`\lambda = \kappa = 1` the equations are those of :class:`~struphy.models.vlasov_maxwell_one_species.VlasovMaxwellOneSpecies`
         with :math:`\alpha = 1`, i.e. lengths in units of :math:`c/\hat\Omega_p` and :math:`\hat\Omega_c = \hat\Omega_p`."""
 
     @classmethod
@@ -309,13 +300,13 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
 
     @classmethod
     def doc_examples(cls):
-        r"""Create a quasi-neutral Vlasov-Maxwell model (electrons, lengths in units of the electron skin depth):
+        r"""Create a quasi-neutral Vlasov-Maxwell model (lengths in units of the skin depth):
 
         .. code-block:: python
 
             from struphy.models import VlasovMaxwellQuasiNeutral
 
-            model = VlasovMaxwellQuasiNeutral(epsilon=-1.0, lam=0.0, kappa=1.0)
+            model = VlasovMaxwellQuasiNeutral(lam=0.0, kappa=1.0)
             model.em_fields.b_field
             model.kinetic_ions.var
         """

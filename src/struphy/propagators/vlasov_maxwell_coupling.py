@@ -66,13 +66,12 @@ class VlasovMaxwellCoupling(Propagator):
         \dot{\mathbf V} = c_3\, \overline{DF^{-\top}} \, \mathbf \Lambda^1 \, \mathbf e\,,
 
     with the notation of :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`. It conserves the
-    energy
+    energy (:meth:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling.energy`)
 
     .. math::
 
         H = \frac{\lambda^2}{2}\, \mathbf e^\top \mathbb M_1 \mathbf e + \frac{c_1}{2}\, \mathbf b^\top \mathbb M_2 \mathbf b
-        + \frac{c_2}{2 c_3}\, \mathbf V^\top \mathbb W \mathbf V
-        \qquad (:meth:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling.energy`)\,.
+        + \frac{c_2}{2 c_3}\, \mathbf V^\top \mathbb W \mathbf V\,.
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point), with
     :math:`\mathbf e^\textnormal{mid} = \frac 12 (\mathbf e^{n+1} + \mathbf e^n)` etc.,
