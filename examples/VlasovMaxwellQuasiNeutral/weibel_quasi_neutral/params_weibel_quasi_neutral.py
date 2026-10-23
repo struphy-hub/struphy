@@ -61,9 +61,15 @@ Expected result. For k = 1.25 the dispersion relation gives gamma = 0.02784 for 
 growth rate of the amplitude of B3; the magnetic energy grows as exp(2 gamma t)). The energy en_H conserved by the
 coupling step changes only by the splitting with the particle pushers. The pproc fits gamma to the magnetic energy
 (between t = Tend/5 and 2 Tend/5), compares with the analytical value and plots the energies. Measured with this
-setup (serial, 2026-10-23): gamma = 0.0249 for kappa = 1 and kappa = 0 (they agree to 0.2 %), 10 % below the
-analytical value; with dt = 0.25 gamma = 0.0253, so the deviation is mostly due to the marker noise and resolution,
-not to the large time step. The relative change of en_H stays below 2e-9.
+setup (serial, 2026-10-23): gamma = 0.0249 for kappa = 1 and gamma = 0.0251 for kappa = 0, about 10 % below the
+analytical value; without the initial projection (kappa = 0, option initial_projection=False) gamma = 0.0249, with a
+period-2 oscillation of en_B in the first 80 time units, and with dt = 0.25 gamma = 0.0253, so the deviation is
+mostly due to the marker noise and resolution, not to the large time step. The relative change of en_H stays below
+4e-9.
+
+For kappa = 0 the coupling step projects the initial state onto curl B = J (option initial_projection, default):
+the constraint holds only at the mid-point of each step, so initial data that violate it (here by the marker noise
+of J) would oscillate with period 2.
 
 References:
 - E. S. Weibel, "Spontaneously growing transverse waves in a plasma due to an anisotropic velocity distribution",
