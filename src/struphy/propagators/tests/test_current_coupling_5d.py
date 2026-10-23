@@ -236,7 +236,7 @@ def test_curlb_matrix_free():
 @pytest.mark.parametrize("u_space", ["Hdiv", "Hcurl", "H1vec"])
 def test_density_matrix_free(u_space: str):
     """The matrix-free density matrix of CurrentCoupling5DDensity (MarkerOperator with the kernels
-    cc_lin_mhd_5d_D_mf and cc_lin_mhd_5d_D_mf_dot) equals the assembled one (cc_lin_mhd_5d_D) and is antisymmetric."""
+    cc_lin_mhd_5d_D_mf and marker_operator_asym_dot) equals the assembled one (cc_lin_mhd_5d_D) and is antisymmetric."""
     import numpy as np
 
     from struphy import (
@@ -252,7 +252,7 @@ def test_density_matrix_free(u_space: str):
     from struphy.models import LinearMHDDriftkineticCC
     from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D import cc_lin_mhd_5d_D
     from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf import cc_lin_mhd_5d_D_mf
-    from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf_dot import cc_lin_mhd_5d_D_mf_dot
+    from struphy.pic.accumulation.kernels.marker_operator_asym_dot import marker_operator_asym_dot
     from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
 
     model = LinearMHDDriftkineticCC(turn_off=tuple(p for p in ALL_PROPAGATORS if p != "CurrentCoupling5DDensity"))
@@ -296,7 +296,7 @@ def test_density_matrix_free(u_space: str):
         n_threads=particles.args_markers.n_markers,
     )
     matrix_free = MarkerOperator(
-        particles, u_space, cc_lin_mhd_5d_D_mf_dot, mass_ops, args_domain, (form_int, column), symmetry="asym"
+        particles, u_space, marker_operator_asym_dot, mass_ops, args_domain, (form_int, column), symmetry="asym"
     )
 
     rng = np.random.default_rng(0)
