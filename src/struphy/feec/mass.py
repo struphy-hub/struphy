@@ -35,7 +35,7 @@ from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.docstring_converter import auto_convert_docstring, info
+from struphy.utils.docstring_converter import info
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
@@ -226,7 +226,6 @@ class WeightedMassOperators:
     # Mass matrices related to L2-scalar products in all 3d derham spaces #
     #######################################################################
 
-    @auto_convert_docstring
     @property
     def M0(self):
         r"""
@@ -246,7 +245,6 @@ class WeightedMassOperators:
             )
         return self._M0
 
-    @auto_convert_docstring
     @property
     def M1(self):
         r"""
@@ -267,7 +265,6 @@ class WeightedMassOperators:
 
         return self._M1
 
-    @auto_convert_docstring
     @property
     def M2(self):
         r"""
@@ -289,7 +286,6 @@ class WeightedMassOperators:
 
         return self._M2
 
-    @auto_convert_docstring
     @property
     def M3(self):
         r"""
@@ -311,7 +307,6 @@ class WeightedMassOperators:
 
         return self._M3
 
-    @auto_convert_docstring
     @property
     def M3p_inv(self):
         r"""
@@ -341,7 +336,6 @@ class WeightedMassOperators:
             )
         return self._M3p_inv
 
-    @auto_convert_docstring
     @property
     def Mv(self):
         r"""
@@ -366,7 +360,6 @@ class WeightedMassOperators:
     ######################################
     # Predefined weighted mass operators #
     ######################################
-    @auto_convert_docstring
     @property
     def M2stab_for_rot(self):
         r"""
@@ -388,7 +381,6 @@ class WeightedMassOperators:
 
         return self._M2stab_for_rot
 
-    @auto_convert_docstring
     @property
     def M1n(self):
         r"""
@@ -416,7 +408,6 @@ class WeightedMassOperators:
 
         return self._M1n
 
-    @auto_convert_docstring
     @property
     def M2n(self):
         r"""
@@ -444,7 +435,6 @@ class WeightedMassOperators:
 
         return self._M2n
 
-    @auto_convert_docstring
     @property
     def M2gyro(self):
         r"""
@@ -482,7 +472,6 @@ class WeightedMassOperators:
             self._M2gyro = M2_B - M2para_B
         return self._M2gyro
 
-    @auto_convert_docstring
     @property
     def Mvn(self):
         r"""
@@ -510,7 +499,6 @@ class WeightedMassOperators:
 
         return self._Mvn
 
-    @auto_convert_docstring
     @property
     def M1ninv(self):
         r"""
@@ -538,7 +526,6 @@ class WeightedMassOperators:
 
         return self._M1ninv
 
-    @auto_convert_docstring
     @property
     def M1J(self):
         r"""
@@ -577,7 +564,6 @@ class WeightedMassOperators:
 
         return self._M1J
 
-    @auto_convert_docstring
     @property
     def M2J(self):
         r"""
@@ -616,7 +602,41 @@ class WeightedMassOperators:
 
         return self._M2J
 
-    @auto_convert_docstring
+    @property
+    def M21J(self):
+        r"""
+        Mixed mass matrix from 1-forms to 2-forms
+
+        .. math::
+
+            \mathbb M^{21,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(J) G^{-1} \vec{\Lambda}^1_{\nu,mno} \textnormal{d}\boldsymbol{\eta},
+
+        with the rotation matrix :math:`\mathcal{R}(J)` of :attr:`M2J`, such that
+        :math:`\mathbf v^\top \mathbb M^{21,J} \mathbf b = \int \mathbf V \cdot (\mathbf J_\textnormal{eq} \times \mathbf B)\, \textnormal d \mathbf x`
+        for a 2-form :math:`\mathbf V` and a 1-form :math:`\mathbf B`. The 1-form counterpart of :attr:`M2J` (which acts
+        on 2-forms).
+        """
+
+        if not hasattr(self, "_M21J"):
+            assert self.eq_mhd is not None, (
+                "M21J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
+            rot_J = LocalRotationMatrix(
+                self.eq_mhd.j2_1,
+                self.eq_mhd.j2_2,
+                self.eq_mhd.j2_3,
+            )
+
+            self._M21J = self.create_weighted_mass(
+                "Hcurl",
+                "Hdiv",
+                weights=(rot_J, "Ginv"),
+                name="M21J",
+                assemble=True,
+            )
+
+        return self._M21J
+
     @property
     def MvJ(self):
         r"""
@@ -655,7 +675,6 @@ class WeightedMassOperators:
 
         return self._MvJ
 
-    @auto_convert_docstring
     @property
     def M2B_div0(self):
         r"""
@@ -730,7 +749,6 @@ class WeightedMassOperators:
 
         return self._M2B_div0
 
-    @auto_convert_docstring
     @property
     def M2B(self):
         r"""
@@ -769,7 +787,6 @@ class WeightedMassOperators:
 
         return self._M2B
 
-    @auto_convert_docstring
     @property
     def M2Bn(self):
         r"""
@@ -814,7 +831,6 @@ class WeightedMassOperators:
 
         return self._M2Bn
 
-    @auto_convert_docstring
     @property
     def M1Bninv(self):
         r"""
@@ -859,7 +875,6 @@ class WeightedMassOperators:
 
         return self._M1Bninv
 
-    @auto_convert_docstring
     @property
     def M1para(self):
         r"""
@@ -884,7 +899,6 @@ class WeightedMassOperators:
             )
         return self._M1para
 
-    @auto_convert_docstring
     @property
     def M1perp(self):
         r"""
@@ -898,7 +912,6 @@ class WeightedMassOperators:
             self._M1perp = self.M1 - self.M1para
         return self._M1perp
 
-    @auto_convert_docstring
     @property
     def M1para_MHDeq(self):
         r"""
@@ -924,7 +937,6 @@ class WeightedMassOperators:
             )
         return self._M1para_MHDeq
 
-    @auto_convert_docstring
     @property
     def M1_MHDeq(self):
         r"""
@@ -948,7 +960,6 @@ class WeightedMassOperators:
             )
         return self._M1_MHDeq
 
-    @auto_convert_docstring
     @property
     def M1gyro(self):
         r"""
@@ -962,7 +973,6 @@ class WeightedMassOperators:
             self._M1gyro = self.M1_MHDeq - self.M1para_MHDeq
         return self._M1gyro
 
-    @auto_convert_docstring
     @property
     def M0ad(self):
         r"""
@@ -989,7 +999,6 @@ class WeightedMassOperators:
 
         return self._M0ad
 
-    @auto_convert_docstring
     @property
     def M0ad_withT(self):
         r"""
@@ -1033,6 +1042,31 @@ class WeightedMassOperators:
                 assemble=False,
             )
         return self._WMMnew
+
+    @property
+    def WMM3new(self):
+        r"""Density-weighted mass matrix of :math:`L^2` (3-forms)
+
+        .. math::
+
+            \mathbb M^{3,\rho}_{ijk, mno} = \int \frac{\hat\rho^3}{g} \Lambda^3_{ijk} \Lambda^3_{mno} \, \textnormal d \boldsymbol \eta
+            = \int \rho \, \frac{\Lambda^3_{ijk}}{\sqrt g} \frac{\Lambda^3_{mno}}{\sqrt g} \, \textnormal d \mathbf x \,,
+
+        where :math:`\hat\rho^3` is the density 3-form of :attr:`WMMnew` (the same spline function), i.e. the
+        :math:`L^2` inner product of the push-forwards weighted with the physical density :math:`\rho`.
+        It enters the div-div term of the regularized kinetic energy, see
+        :func:`~struphy.feec.variational_utilities.kinetic_metric`, and is assembled together with :attr:`WMMnew`.
+        """
+        if not hasattr(self, "_WMM3new"):
+            spline = self.WMMnew.spline_functions["l2_field"]
+            self._WMM3new = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=("1/sqrt_g", "1/sqrt_g", spline),
+                name="WMM3new",
+                assemble=False,
+            )
+        return self._WMM3new
 
     #######################################
     # Wrapper around WeightedMassOperator #
@@ -1647,6 +1681,9 @@ class WeightedMassOperator(LinearOperator):
         self._matrix_free = matrix_free
         self._dry_run = dry_run
         self._dtype = V.coeff_space.dtype
+
+        # number of calls of assemble(), lets dependent objects (e.g. preconditioners) detect new data
+        self._assembly_count = 0
 
         # recipe for re-creating the operator with WeightedMassOperators.create_weighted_mass, see to_dict()
         self._creation_info: dict | None = None
@@ -2311,6 +2348,8 @@ class WeightedMassOperator(LinearOperator):
             # the data no longer stems from the creation recipe
             self._creation_info = None
 
+        self._assembly_count += 1
+
         if self._matrix_free:
             if weights is not None:
                 if self._is_scalar:
@@ -2485,6 +2524,11 @@ class WeightedMassOperator(LinearOperator):
                 self._mat[2, 1]._data[:] = -self._mat[1, 2].T._data
 
             logger.debug("Done.")
+
+    @property
+    def assembly_count(self) -> int:
+        """Number of calls of :meth:`assemble` (changes whenever the matrix data may have changed)."""
+        return self._assembly_count
 
     @property
     def is_reconstructible(self) -> bool:

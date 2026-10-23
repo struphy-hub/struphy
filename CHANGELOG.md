@@ -1,6 +1,113 @@
 # Changelog
 
 
+## Struphy 3.5.0 - 2026-10-21
+
+* [PyPI](https://pypi.org/project/struphy/3.5.0)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.5.0)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.4.0...v3.5.0)
+
+
+### Headlines
+
+* **Struphy on the feectools CUDA stack**: the `feectools` submodule moves to the feectools CUDA stack, which runs on the CuPy backend with MPI on device buffers, one GPU per MPI rank, and CUDA kernels for the stencil `dot`, `transpose`, `inner` and `axpy`. Field solves of a whole model can now stay on the GPU, also on several ranks. https://github.com/struphy-hub/struphy/pull/680
+* **Geometry evaluation on the GPU for all analytic mappings**: CUDA versions of `f`, `df`, the metric, `pull`/`push`/`tran` and the four geometry entry kernels for all analytic mappings, so `Domain.__call__`, `jacobian_det` and the transforms run on the device. This lifts the Cuboid-only restriction of the CUDA kernels; before, particle runs on the CuPy backend failed at setup. https://github.com/struphy-hub/struphy/pull/681
+* **Spline mappings on the GPU**: `IGAPolarCylinder`, `IGAPolarTorus`, `Tokamak`, GVEC and DESC domains can be created on the CuPy backend (the one-time setup runs on the host), and the spline mappings are evaluated on the device, so every mapping now runs on the GPU. https://github.com/struphy-hub/struphy/pull/683
+* **MHD equilibria on the CuPy backend**: every equilibrium in `fields_background/equils.py` can be created and evaluated on the CuPy backend. SciPy-, gvec- and DESC-based setups and evaluations run on the host through the new helpers `setup_on_host`, `host_call` and `evaluate_on_host`; the time loop uses the projected equilibrium as before. https://github.com/struphy-hub/struphy/pull/714
+* **Polar splines on the CuPy backend**: polar extraction, derivatives, commuting projectors (`schur`, `lu`, `ilu`) and mass preconditioners work on the GPU with device work arrays, cached device triangular solves and CUDA-aware MPI for the polar reductions. https://github.com/struphy-hub/struphy/pull/720
+* **Kronecker stiffness preconditioner**: new `StiffnessPreconditioner` for operators of the form `d^T M d + sigma M`, built on the new Kronecker machinery of feectools (factors on groups of axes, `KroneckerSumSolver` by fast diagonalization). `MassMatrixPreconditioner` and `MassMatrixDiagonalPreconditioner` share one refactored implementation, and `MassMatrixPreconditioner` gets the option `weight_reduction="midpoint" | "average"`. https://github.com/struphy-hub/struphy/pull/731
+* **CurlCurl model and curl-curl preconditioners**: new model `CurlCurl` for `(C^T M2 C + sigma M1) e = j`, with the new `HiptmairXuPreconditioner` and a geometric multigrid with Hiptmair smoother (`MultiGridOptions(hiptmair=True)`). With the Jacobi smoother, the multigrid is the only option whose iteration count is robust in `sigma` on the torus. https://github.com/struphy-hub/struphy/pull/744
+* **Struct-of-arrays marker buffer**: `Particles.markers` is stored with one column per marker, shape `(n_cols, n_markers_max)` and indexed `markers[j, ip]`, so every marker quantity is one contiguous block on the CPU and on the GPU. https://github.com/struphy-hub/struphy/pull/774
+* **Guidelines for AI coding agents**: coding guidelines for changing Struphy (`AGENTS.md` in the repository, plus guides for adding models and propagators), and usage guidelines shipped with the package. The new command `struphy agents` prints the usage guide, and `struphy agents --install` installs the `setup-simulation` and `postprocess-simulation` skills into a user's project. https://github.com/struphy-hub/struphy/pull/797
+
+### API changes
+
+* `ImplicitDiffusion.Options` and `PoissonSolve.Options` accept `precond="MultiGrid"` and a new field `multigrid: MultiGridOptions` for the new geometric multigrid preconditioner (MPI, 3D semi-coarsening, operators rebuilt on the coarse grids). The old `multigrid_solver` is removed. https://github.com/struphy-hub/struphy/pull/91
+* `Compiler()` and `Compiler.compile()` take a new argument `debug` (default `False`), and `struphy compile --debug` calls pyccel with its `--debug` option. https://github.com/struphy-hub/struphy/pull/677
+* `MultiGridOptions` is exported from `struphy`. `Output.evaluate()` drops the time dimension when `t` is a single number, and the `MultiGridSolver` wrapper is removed in favour of `inverse(..., pc=...)`. https://github.com/struphy-hub/struphy/pull/682
+* MPI is now handled by [maybempi](https://github.com/max-models/maybempi): the environment variable that overrides the serial/MPI decision is `MAYBEMPI=0`/`1` (`STRUPHY_MPI` is no longer read), and the serial stand-in behaves like MPI on one rank instead of returning `None`. https://github.com/struphy-hub/struphy/pull/701
+* The commands `struphy format` and `struphy lint` are removed; use `ruff check --fix` and `ruff format` directly. The options `--linters`, `--iterations` and `-y` of `struphy build-init-files` are removed. https://github.com/struphy-hub/struphy/pull/730
+* The `precond` option of `ImplicitDiffusion.Options`, `PoissonSolve.Options` and `PoissonAdiabaticGyrokinetic.Options` now reaches the solver (it was ignored before) and defaults to `None`; the new option `precond_params` passes preconditioner settings, and `"StiffnessPreconditioner"` is a new choice. The default `stab_mat` of `PoissonSolve.Options` changes from `"Id"` to `"M0"`, and the default `precond` of `ShearAlfvenCurrentCoupling5D.Options`, `VariationalResistivity.Options` and `VariationalViscosity.Options` changes from `"MassMatrixDiagonalPreconditioner"` to `"MassMatrixPreconditioner"`. https://github.com/struphy-hub/struphy/pull/739
+* New option `stab_average` in `ImplicitDiffusion.Options`, `PoissonSolve.Options` and `PoissonAdiabaticGyrokinetic.Options` sets the directions averaged in the stabilization (e.g. `"eta3"`). With it, `StiffnessPreconditioner` works for the adiabatic gyrokinetic Poisson operator, which is now symmetric. https://github.com/struphy-hub/struphy/pull/740
+* The propagator `PoissonAdiabaticGyrokinetic` is renamed to `GyrokineticPoissonSolve` (module `struphy.propagators.gyrokinetic_poisson_solve`), without an alias. Its `Options` get a `multigrid` field, and `precond="MultiGrid"` now works together with `stab_average`. https://github.com/struphy-hub/struphy/pull/742
+* `CurlCurlSolve` now solves `(C^T M2 C + sigma M1) e = j` (the mass term had a negative sign, which made the operator indefinite). Its `precond` option, which was ignored, now selects `None` (default), `"MassMatrixPreconditioner"`, `"StiffnessPreconditioner"`, `"HiptmairXu"` or `"MultiGrid"`, with new options `precond_params` and `multigrid`. `FEECVariable` gets the argument `projection="commuting" | "L2"`, `MultiGridOptions` the field `hiptmair`, and `TimeDependentSource` accepts variables in every FEEC space. https://github.com/struphy-hub/struphy/pull/744
+* Polar splines use 2D x 1D Kronecker solves for the commuting projectors and mass matrices, so building a polar `Derham` takes 0.1 s instead of minutes. The new option `DerhamOptions.polar_poloidal_solver` (`"schur"` default, `"lu"`, `"ilu"`) selects the poloidal solver. https://github.com/struphy-hub/struphy/pull/747
+* New `Simulation.compile_cuda_kernels()`, called by `Simulation.run()` after `allocate()`, compiles all CUDA kernels of the time loop before the first step and fails fast if one has no CUDA version; `Simulation.kernels()` lists them. https://github.com/struphy-hub/struphy/pull/711
+* New option `enforce_compatibility` in `PoissonSolve.Options` (default `True`), `ImplicitDiffusion.Options` and `GyrokineticPoissonSolve.Options` (default `False`). It removes the net charge from the right-hand side of singular (e.g. periodic) solves; before, the constant mode of `phi` grew to `(net charge) / stab_eps`, which cost `E = -grad phi` most of its digits in PIC runs. https://github.com/struphy-hub/struphy/pull/737
+* New `Output.standard_snapshots()` (first, middle and last saved time step), `Output.field_form()` and `Output.field_basis()`; the new argument `vtk_steps` of `Output.pproc()` writes VTK files only for selected time steps. The PR also adds the ITPA TAE benchmark examples for `LinearMHD` and `ShearAlfven`. https://github.com/struphy-hub/struphy/pull/398
+* `ShearAlfvenPropagator.Options` accepts `precond="MultiGrid"` with a new field `multigrid` (experimental, not the default). The PR also adds physics descriptions to all examples and corrects the growth rates in the two-stream and Weibel post-processing, which were used as rates of the energies instead of the amplitudes. https://github.com/struphy-hub/struphy/pull/778
+* The marker buffer `Particles.markers` is transposed to shape `(n_cols, n_markers_max)` and indexed `markers[j, ip]` (was `markers[ip, j]`); `Particles.n_rows` is renamed to `n_markers_max`. Scripts that access the markers directly have to be adapted. https://github.com/struphy-hub/struphy/pull/774
+* `ShearAlfvenPropagator.Options` accepts `precond="StiffnessPreconditioner"`, a Kronecker preconditioner of the Schur operator, with the new option `exb_correction` (default `True`) for the auxiliary space of the E x B flows. https://github.com/struphy-hub/struphy/pull/781
+* New command `struphy agents` (`--path`, `--install [DIR]`) for the agent usage guide and skills. https://github.com/struphy-hub/struphy/pull/797
+* `struphy.api.models` now also exports `CurlCurl`, `ToyDrift` and `IncompressibleNavierStokesSPH`. https://github.com/struphy-hub/struphy/pull/798
+* `GyrokineticPoissonSolve.Options` accepts `which_geometry=None` (Boltzmann response for all modes, no flux-surface average), and `ImplicitDiffusion.Options` accepts `stab_mat="M0ad_withT"` and `diffusion_mat=None`. https://github.com/struphy-hub/struphy/pull/800
+
+### Physics models
+
+* New model `GyrokineticPoisson` for the gyrokinetic Poisson equation with adiabatic electrons, built like `Poisson`, with profiling cases on a hollow cylinder and a hollow torus compared against an exact solution. https://github.com/struphy-hub/struphy/pull/742
+* New model `CurlCurl` (`TimeDependentSource` followed by `CurlCurlSolve`, like `Poisson`). Its source uses the `L2` projection, so that the gradient part of the projection error is not amplified by `1/sigma`. https://github.com/struphy-hub/struphy/pull/744
+* New models `ShearAlfvenCurlCurl` and `ShearAlfvenCurlCurlwithProj` (propagators `ShearAlfvenCurlCurlPropagator` and `ShearAlfvenCurlCurlwithProjPropagator`): the shear Alfven equations with the magnetic field in H(curl), so that the implicit step is a curl-curl solve. `ShearAlfvenCurlCurl` uses the Hiptmair-Xu preconditioner and has a small numerical damping; `ShearAlfvenCurlCurlwithProj` conserves the energy exactly. https://github.com/struphy-hub/struphy/pull/780
+* New model `VlasovPoissonAdiabatic` (full-orbit ions, adiabatic electrons), the 6D counterpart of `DriftKineticElectrostaticAdiabatic`, with the new propagator `AdiabaticPoissonSolve` and `slab_drift_wave` examples for both models. The PR also fixes the full-f Poisson background. https://github.com/struphy-hub/struphy/pull/800 (renamed from `VlasovPoissonElectrostaticAdiabatic` in https://github.com/struphy-hub/struphy/pull/804)
+* New model `VlasovPoissonAdiabaticPauli`: guiding-center ions computed with classical Pauli particles (Xiao and Qin, Comput. Phys. Commun. 265, 107981 (2021)), i.e. full-orbit markers with a magnetic moment (`PauliParticles6D`) pushed with time steps larger than the cyclotron period. It reuses the full-orbit pushers with the magnetic-moment force, adds the guiding-center polarization term to the quasi-neutrality equation (`AdiabaticPoissonSolve.Options(polarization=True)`), and comes with `tokamak_orbits` and `slab_drift_wave` examples. https://github.com/struphy-hub/struphy/pull/805
+
+### Bug fixes
+
+* Fix stale ghost regions after writes to a `PolarVector`: the `tp` setter and `set_tp_rings_to_zero` did not mark the ghost regions out of sync, so a following stencil `dot` read old ghost values. https://github.com/struphy-hub/struphy/pull/771
+* Polar splines: the commuting projector no longer applies the boundary operator with `apply_bc=False` (wrong projections with Dirichlet BCs), the polar BiCGStab uses a relative tolerance, and the polar operators apply without allocations. https://github.com/struphy-hub/struphy/pull/746
+* Fix the total energy at t=0 in the Vlasov-Ampere/Maxwell models: the ghost regions of the initial electric field were not updated (wrong first push near periodic boundaries), and the control-variate weights were reset to full-f after the initial Poisson solve.738 https://github.com/struphy-hub/struphy/pull/
+* Fix the setup of sorting boxes on the CuPy backend, which failed in `SortingBoxes._set_boxes` and in the `ParticlesSPH` setup; the box sorting kernels move to kernel folders with an explicit host fallback on CuPy. https://github.com/struphy-hub/struphy/pull/736
+
+### Internals
+
+* CUDA strategy, part 6: `Particles` can be created on the CuPy backend, with `cuda_args_markers` for the CUDA kernels. https://github.com/struphy-hub/struphy/pull/651
+* `struphy compile -j N` failed at random because a kernel dependency imported as a function (`from x_kernels import func`) was not detected; it now is. https://github.com/struphy-hub/struphy/pull/661
+* CUDA strategy, part 7: `Derham` can be created on the CuPy backend; the data describing the spline spaces stays on the host, and only coefficients and stencil matrices live on the device. https://github.com/struphy-hub/struphy/pull/652
+* CUDA strategy, part 8: the kernel argument classes are passed to CUDA kernels as C structs defined once in a shared header, instead of long flat signatures. https://github.com/struphy-hub/struphy/pull/653
+* `LinOpWithTransp` is removed; struphy operators subclass the feectools `LinearOperator` and use its generic `toarray()`/`tosparse()`. https://github.com/struphy-hub/struphy/pull/662
+* CUDA strategy, part 9: the pusher and evaluation kernels move to one folder per kernel (`pic/pushing/kernels/<name>/`), so each can get its CUDA version next to it. Code that imported e.g. `struphy.pic.pushing.pusher_kernels` has to import the kernel from its folder. https://github.com/struphy-hub/struphy/pull/663
+* CUDA strategy, part 10: device helpers for B-splines, the Cuboid Jacobian, 3x3 linear algebra and the kinetic boundary conditions. https://github.com/struphy-hub/struphy/pull/665
+* CUDA strategy, part 11: the first CUDA kernel, `push_eta_stage`, for explicit Runge-Kutta position pushes. https://github.com/struphy-hub/struphy/pull/666
+* CUDA strategy, part 12: CUDA versions of `push_vxb_analytic` and `push_vxb_implicit`, and reflection and spline evaluation on the device, so the `Vlasov` model runs on the GPU for Cuboid mappings. https://github.com/struphy-hub/struphy/pull/667
+* CUDA strategy, part 13: struphy's own kernel dispatch and argument classes are replaced by their [cunumpy](https://github.com/max-models/cunumpy) equivalents. https://github.com/struphy-hub/struphy/pull/668
+* CUDA strategy, part 14: the accumulation kernels move to kernel folders, and the first Vlasov-Ampere CUDA kernels (`push_v_with_efield`, `push_weights_with_efield_lin_va`, `charge_density_0form`) are added, with CPU emulation tests of every CUDA kernel. https://github.com/struphy-hub/struphy/pull/670
+* CUDA strategy, part 15: each kernel folder declares its kernel with cunumpy's `Kernel.from_folder`, and call sites import kernels instead of looking them up in catalogs. https://github.com/struphy-hub/struphy/pull/671
+* CUDA strategy, part 16: one pyccel and one CUDA argument class per argument type, chosen by the owner at creation. https://github.com/struphy-hub/struphy/pull/679
+* Refactor of the weight evaluation in `WeightedMassOperators.create_weighted_mass`, and 2D mass-matrix tests that use less than 1 GB of memory. https://github.com/struphy-hub/struphy/pull/684
+* Move to cunumpy 0.6.1. https://github.com/struphy-hub/struphy/pull/685
+* Refactor of `WeightedMassOperator.__init__`, which also fixes an `AttributeError` for symmetric operators with spline weights. `toarray()`/`tosparse()` now include the extraction and boundary operators; the matrix-only versions are `to_array_mat_only()`/`to_sparse_mat_only()`. https://github.com/struphy-hub/struphy/pull/702
+* Update ruff to 0.16.10 with the previous lint rule set. https://github.com/struphy-hub/struphy/pull/732
+* feectools inner products stay on the device on the CuPy backend, so a CG iteration copies one scalar to the host instead of two or more. https://github.com/struphy-hub/struphy/pull/716
+* Fix two host/device array mix-ups in `SplineFunction.__init__` and `SortingBoxes._set_boxes` that stopped particle runs on the CuPy backend. https://github.com/struphy-hub/struphy/pull/709
+* Fuse the pusher preamble into one CUDA kernel, about 2x faster on the GPU. https://github.com/struphy-hub/struphy/pull/708
+* Marker exchange between MPI ranks on the device with CUDA-aware MPI (staged through host memory otherwise). https://github.com/struphy-hub/struphy/pull/712
+* CUDA version of the `linear_vlasov_ampere` accumulation (`LinearVlasovAmpereOneSpecies`). https://github.com/struphy-hub/struphy/pull/705
+* CUDA version of the `vlasov_maxwell` accumulation (`VlasovAmpereOneSpecies`, `VlasovMaxwellOneSpecies`). https://github.com/struphy-hub/struphy/pull/713
+* Hand-written CUDA port of the guiding-center kernel `bstar_parallel_3form`; CUDA kernels are written by hand, not generated from the pyccel source. https://github.com/struphy-hub/struphy/pull/718
+* New argument classes `SplineArguments`/`CudaSplineArguments` for the spline evaluation kernels of `SplineFunction`. https://github.com/struphy-hub/struphy/pull/721
+* Field evaluation, scalars, binning and saving of the diagnostics run on the device on the CuPy backend, with one host copy per dataset and output step. https://github.com/struphy-hub/struphy/pull/724
+* The FEEC assembly kernels move to one folder per kernel (`feec/kernels/<name>/`), with a host fallback on CuPy. https://github.com/struphy-hub/struphy/pull/725
+* All pyccel kernels declare the arguments they write to (`outputs`), so the CuPy fallback copies back only those. https://github.com/struphy-hub/struphy/pull/723
+* The CUDA device helpers live in C++ namespaces named after the pyccel modules they port. https://github.com/struphy-hub/struphy/pull/722
+* End-to-end GPU test of `VlasovAmpereOneSpecies` on 1 and 2 ranks with a transfer budget for the time loop. It also fixes the ghost regions of the mid-point field in `VlasovAmpereCoupling` on every backend. https://github.com/struphy-hub/struphy/pull/734
+* New benchmark script `profiling/benchmarks/vlasov_benchmark.py` for `VlasovAmpereOneSpecies` and `VlasovMaxwellOneSpecies` on the NumPy and CuPy backends. https://github.com/struphy-hub/struphy/pull/735
+* Polar spline factorizations are shared between the solvers of one `Derham` (e.g. 88 sparse LU calls reduced to 9). https://github.com/struphy-hub/struphy/pull/760
+* The GitLab CI at MPCDF now runs only the GPU tests; all CPU tests, linting and docs run on GitHub Actions. https://github.com/struphy-hub/struphy/pull/710
+* Polar splines in `StiffnessPreconditioner` (grad, curl) and in `stab_average` (`PolarWeightedAverageProjection`), so `GyrokineticPoisson` runs with polar splines. It also fixes simulations on domains with a pole, which crashed on the renamed option `polar_ck`. https://github.com/struphy-hub/struphy/pull/758
+* Profiling examples comparing polar and tensor-product splines for `Poisson`, `CurlCurl` and `GyrokineticPoisson` on a cylinder and a torus; fixes the post-processing of polar fields. https://github.com/struphy-hub/struphy/pull/759
+* Particles on domains with a pole: markers are pushed through the axis, a new axis boundary map handles markers that cross it, and `PushVxB` and the guiding-center propagators work with polar splines. It also fixes the reflecting boundary for `Particles5D`, which overwrote the weights. https://github.com/struphy-hub/struphy/pull/761
+* Profiling examples with long-time particle equilibria for `Vlasov` and `GuidingCenter` (cuboid, and cylinder and torus without hole). https://github.com/struphy-hub/struphy/pull/762
+* Fix the OpenMP pragmas so that all kernels compile with `struphy compile --openmp`, and compile the feectools kernels with OpenMP too. https://github.com/struphy-hub/struphy/pull/757
+* The profiling cases move from `profiling/examples/` to `examples/<Model>/<case>/` with `params_`, `pproc_` and `submit_` files; the diocotron example moves to `examples/ToyDrift/`. https://github.com/struphy-hub/struphy/pull/768
+* The time-dependent examples save their standard figures at the first, middle and last saved snapshot, and run small with `--test-run`. https://github.com/struphy-hub/struphy/pull/773
+* Pushers and accumulations process only the marker slots that can hold markers (`Particles.n_markers_used`), not the trailing holes of the buffer. https://github.com/struphy-hub/struphy/pull/775
+* Faster setup of the Hiptmair-Xu preconditioner (7.6 s to 3.0 s per rank in the TAE example), with an exact stiffness diagonal and the new hook `Propagator.prepare_time_step(dt)`, which builds preconditioners before the time loop. https://github.com/struphy-hub/struphy/pull/796
+* `DriftKineticElectrostaticAdiabatic` solves the Poisson equation between its two guiding-center pushers, so that with Strang splitting both pushes use a current potential. https://github.com/struphy-hub/struphy/pull/799
+* The docs preview of PRs skips compiling Struphy and executing the notebooks; the quickstart gets its 2D figure. https://github.com/struphy-hub/struphy/pull/802
+* The repository `struphy-parameter-files` is renamed to [struphy-examples](https://github.com/struphy-hub/struphy-examples), which is synced on every release; README and docs link it and the website. https://github.com/struphy-hub/struphy/pull/801
+* Verification of the TAE frequency of `ShearAlfven`, `ShearAlfvenCurlCurl` and `ShearAlfvenCurlCurlwithProj` with a new low-mode TAE example; the curl-curl models use free boundary conditions for the magnetic field, which removes most of their energy loss. https://github.com/struphy-hub/struphy/pull/803
+
+
 ## Struphy 3.4.0 - 2026-10-01
 
 * [PyPI](https://pypi.org/project/struphy/3.4.0)

@@ -23,6 +23,7 @@ from struphy import (
     perturbations,
 )
 from struphy.models import LinearVlasovAmpereOneSpecies
+from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
 
@@ -214,6 +215,57 @@ def test_energy_conservation(exit_before_run: bool = False):
         shutil.rmtree(test_folder)
 
 
+def test_initial_poisson_no_background():
+    r"""The delta-f markers carry f - f0, so the initial Poisson solve must not subtract the background n0.
+
+    Without perturbation the delta-f weights vanish and, with :math:`\phi = 0` at the walls in :math:`x`, so does the
+    initial potential. Subtracting :math:`n_0` gives :math:`-\Delta \phi = -\alpha^2 n_0 / \varepsilon`, i.e.
+    :math:`\phi = -x(1 - x)/2` with root mean square 0.09. This runs zero time steps.
+    """
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False, with_E0=False)
+
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_no_background")
+
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=100, seed=1234),
+        weights_params=WeightsParameters(),
+        boundary_params=BoundaryParameters(bc=("reflect", "periodic", "periodic")),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
+        saving_params=SavingParameters(),
+        bufsize=0.4,
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_Eweights.options = model.propagators.coupling_Eweights.Options()
+    model.initial_poisson.options = model.initial_poisson.Options()
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    # a separate initial condition without perturbation: its density is set to zero for the delta-f markers,
+    # while the background f0 keeps n0 = 1
+    model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, None)))
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=Time(dt=0.05, Tend=0.0),
+        domain=domains.Cuboid(),
+        grid=grids.TensorProductGrid(num_elements=(16, 1, 1)),
+        derham_opts=DerhamOptions(degree=(3, 1, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
+    )
+    sim.run()
+
+    # root mean square of phi over the unit cube (collective, on all ranks)
+    phi = model.em_fields.phi.spline.vector
+    phi_rms = float(xp.sqrt(Propagator.mass_ops.M0.dot_inner(phi, phi)))
+    logger.info(f"{phi_rms =}")
+    assert phi_rms < 1e-6, f"Initial potential without perturbation: {phi_rms =} (a background n0 gives 0.09)."
+
+    MPI.COMM_WORLD.Barrier()
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        shutil.rmtree(test_folder)
+
+
 if __name__ == "__main__":
     test_delta_f_initial_condition()
+    test_initial_poisson_no_background()
     test_energy_conservation()

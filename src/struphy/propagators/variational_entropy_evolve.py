@@ -12,7 +12,7 @@ from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.feec.variational_utilities import InternalEnergyEvaluator, kinetic_metric
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -65,6 +65,10 @@ class VariationalEntropyEvolve(Propagator):
     .. math::
 
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
+
+    With a div-div regularization (``divdiv_alpha`` :math:`> 0`), the mass matrix :math:`\mathbb M^v[\hat\rho]` is
+    replaced by the metric :math:`\mathbb A[\hat\rho]` of the regularized kinetic energy, see
+    :func:`~struphy.feec.variational_utilities.kinetic_metric`.
     """
 
     class Variables:
@@ -102,15 +106,21 @@ class VariationalEntropyEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self, rho: FEECVariable = None):
+    def __init__(self, rho: FEECVariable = None, divdiv_alpha: float = 0.0):
         """
         Parameters
         ----------
         rho : FEECVariable, default=None
             Mass density 3-form (``"L2"`` space) weighting the entropy mass matrix.
+
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
         """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
         self.rho = rho
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -181,13 +191,13 @@ class VariationalEntropyEvolve(Propagator):
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        self._Mrho_pc = MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
-            pc=pc,
-            tol=1e-16,
+            pc=self._Mrho_pc,
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -220,6 +230,9 @@ class VariationalEntropyEvolve(Propagator):
             self._compute_init_linear_form()
 
     def __call__(self, dt):
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        self._Mrho_pc.refresh()
+
         self.__call_newton(dt)
 
     def __call_newton(self, dt):
@@ -328,7 +341,7 @@ class VariationalEntropyEvolve(Propagator):
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )

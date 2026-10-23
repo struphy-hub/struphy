@@ -36,7 +36,9 @@ jupyter: python3
 * Drift-kinetic models for strongly magnetized plasma
 * MHD-kinetic hybrid models 
 
-All models can be run on multiple cores through MPI (distributed memory) and OpenMP (shared memory). The compute-intensive parts of the code are translated and compiled ("transpiled") using [pyccel](https://github.com/pyccel/pyccel), giving you the speed of Fortran or C while working within the familiar Python environment. 
+All models can be run on multiple cores through MPI (distributed memory) and OpenMP (shared memory). The compute-intensive parts of the code are translated and compiled ("transpiled") using [pyccel](https://github.com/pyccel/pyccel), giving you the speed of Fortran or C while working within the familiar Python environment.
+
+Explore Struphy on its website **[struphy-hub.github.io](https://struphy-hub.github.io/)**: the models and their equations, the numerical methods, domains, equilibria and a gallery of examples.
 
 The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for Plasma Physics.
 
@@ -56,8 +58,10 @@ python -m venv struphy_env
 source struphy_env/bin/activate
 pip install -U pip
 pip install -U struphy
-struphy compile
+struphy compile -j 4
 ```
+
+`-j 4` compiles the kernels in parallel on four cores.
 
 In case you face troubles with install/compile:
 
@@ -122,6 +126,39 @@ mpirun -n 4 python params_Maxwell.py
 
 You can also put the run command in a batch script.
 
+## Examples
+
+Ready-to-run simulations, each with a parameter file and a post-processing script, are in the repository [struphy-examples](https://github.com/struphy-hub/struphy-examples), one folder per model and case. Its tags match the Struphy releases, so clone the tag of your installed version (`struphy --version`), for example
+
+```
+git clone --branch vX.Y.Z https://github.com/struphy-hub/struphy-examples.git
+cd struphy-examples/VlasovAmpereOneSpecies/two_stream
+python params_two_stream.py
+python pproc_two_stream.py
+```
+
+![Two-stream instability: phase space of the electrons at t = 0, 25 and 50](doc/pics/readme_two_stream.png)
+
+*Two-stream instability: the electron distribution function f(x, v) at t = 0, 25 and 50, computed with the model [VlasovAmpereOneSpecies](https://struphy-hub.github.io/models/vlasov-ampere-one-species/) in a FEEC-PIC discretization (particle-in-cell markers for the electrons, finite element exterior calculus splines for the electric field). Two counter-streaming beams roll up into a phase-space vortex.*
+
+To look at finished examples and their results without running anything, browse the [examples gallery](https://struphy-hub.github.io/examples/) on the Struphy website.
+
+## AI coding agents
+
+Struphy ships a usage guide for AI coding agents (Claude Code, Codex, Copilot, Cursor, ...) that matches your installed version. It explains how to set up, run and post-process simulations. Print it with
+
+```
+struphy agents
+```
+
+To make it available in your own project, run this in the project folder:
+
+```
+struphy agents --install
+```
+
+This copies the Struphy skills (`setup-simulation`, `postprocess-simulation`) to `.claude/skills/` and adds a short pointer to the guide to `AGENTS.md` and `CLAUDE.md`, so your agent finds it automatically. Run it again after upgrading Struphy. Developers changing Struphy itself find the coding guidelines in [AGENTS.md](https://github.com/struphy-hub/struphy/blob/devel/AGENTS.md).
+
 ## Docker
 
 If you want to get started right away without installing anything, you can use the [Docker image](https://hub.docker.com/r/spossann/struphy) - just pull and run:
@@ -148,6 +185,7 @@ docker run -it --rm spossann/ubuntu-for-struphy:main
 
 The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), we recommend in particular to visit:
 
+* [Website](https://struphy-hub.github.io/) (overview of models, numerics and examples)
 * [Install](https://struphy-hub.github.io/struphy/sections/install.html)
 * [Userguide](https://struphy-hub.github.io/struphy/sections/userguide.html)
 * [Available models](https://struphy-hub.github.io/struphy/sections/models.html)

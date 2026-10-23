@@ -27,8 +27,36 @@ Particle subclasses
     :show-inheritance:
 
 
-Particel-to-grid accumulation
+Particle-to-grid accumulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Three classes deposit marker data on the FE spaces:
+
+* :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` assembles particle matrices (and optionally
+  vectors), :math:`\sum_p \Lambda^\alpha_{\mu, ijk}(\boldsymbol \eta_p) F_{p, \mu\nu}
+  \Lambda^\alpha_{\nu, mno}(\boldsymbol \eta_p)`; ``operators[0]`` is the assembled matrix as a linear operator;
+* :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` accumulates vectors only;
+* :class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator` is the matrix-free counterpart of
+  ``Accumulator.operators[0]``: a linear operator that applies the particle matrix to coefficients :math:`s` by
+  evaluating their spline function :math:`S_h` (see :class:`~struphy.feec.psydac_derham.SplineFunction`) at the
+  markers and depositing :math:`F_p\, S_h(\boldsymbol \eta_p)`, in each iteration of a linear solver. The fillings
+  :math:`F_p` are stored in the auxiliary marker columns by the accumulation kernel of the propagator (``*_mf``);
+  the generic kernels ``marker_operator_symm_dot``, ``marker_operator_asym_dot`` and ``marker_operator_rank1_dot``
+  apply symmetric (6 entries), antisymmetric (3 entries) and rank-one (4 entries) fillings, and
+  ``marker_operator_pressure_dot`` the 3x3 block matrix of the pressure coupling (``n_blocks=3``).
+  Assembling costs the products of all pairs of basis functions per marker, :math:`\mathcal O((p+1)^6)`, once per
+  step; the matrix-free application costs one spline evaluation and one deposition per marker,
+  :math:`\mathcal O((p+1)^3)`, per solver iteration. It is faster for 3D grids with higher degrees, expensive
+  fillings or few solver iterations. All propagators that assemble particle matrices (except the disabled
+  ``FaradayExtended``) have the option ``matrix_free``:
+  :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`,
+  :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`,
+  :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`,
+  :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`,
+  :class:`~struphy.propagators.current_coupling_6d_density.CurrentCoupling6DDensity`,
+  :class:`~struphy.propagators.current_coupling_6d_current.CurrentCoupling6DCurrent` and
+  :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`. It is the default in the 5D current
+  couplings and in the pressure coupling, whose assembly is the most expensive (nine blocks).
 
 .. automodule:: struphy.pic.accumulation.particles_to_grid
     :members:

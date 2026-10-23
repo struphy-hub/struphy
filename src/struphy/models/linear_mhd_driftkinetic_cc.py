@@ -32,6 +32,12 @@ from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurr
 
 logger = logging.getLogger("struphy")
 
+# algorithms of the guiding-center pushers in the default parameter file: the energy-conserving discrete gradient
+# methods of the reference discretization, second order (implicit mid-point) for the drift perpendicular to b0, first
+# order (Itoh-Abe) with Newton iterations for the parallel motion
+PUSH_BXE_ALGO = "discrete_gradient_2nd_order"
+PUSH_PARALLEL_ALGO = "discrete_gradient_1st_order_newton"
+
 
 class LinearMHDDriftkineticCC(StruphyModel):
     """Hybrid linear ideal MHD coupled with energetic ions (5D drift-kinetic) via the current-coupling scheme.
@@ -182,6 +188,23 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def bulk_species(self):
         return self.mhd
 
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        """The default parameter file, with the algorithms of the reference discretization for the guiding-center
+        pushers (``PUSH_BXE_ALGO``, ``PUSH_PARALLEL_ALGO``)."""
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        with open(params_path, "r") as f:
+            lines = f.readlines()
+        algos = {"push_bxe": PUSH_BXE_ALGO, "push_parallel": PUSH_PARALLEL_ALGO}
+        for i, line in enumerate(lines):
+            for prop, algo in algos.items():
+                if f"model.propagators.{prop}.Options()" in line:
+                    lines[i] = line.replace(
+                        f"model.propagators.{prop}.Options()", f'model.propagators.{prop}.Options(algo="{algo}")'
+                    )
+        with open(params_path, "w") as f:
+            f.writelines(lines)
+        return params_path
+
     @property
     def velocity_scale(self):
         return "alfvén"
@@ -304,39 +327,45 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
         2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-        3. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
-        4. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
+        3. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
+        4. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
         5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
-        6. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
-        7. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
+        6. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
+        7. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
+
+        The default parameter file of this model (``struphy params LinearMHDDriftkineticCC``) sets the energy-conserving
+        discrete gradient methods of the reference discretization for the guiding-center pushers:
+        ``algo="discrete_gradient_2nd_order"`` (implicit mid-point) for 1 and
+        ``algo="discrete_gradient_1st_order_newton"`` (Itoh-Abe with Newton iterations) for 2. The explicit
+        Runge-Kutta methods (``algo="explicit"``) are cheaper but not energy conserving.
         """
         doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
 
-    {PushGuidingCenterBxEstar.__doc__}
+{PushGuidingCenterBxEstar.__doc__}
 
-    **2. push_guiding_center_parallel.PushGuidingCenterParallel:**
+**2. push_guiding_center_parallel.PushGuidingCenterParallel:**
 
-    {PushGuidingCenterParallel.__doc__}
+{PushGuidingCenterParallel.__doc__}
 
-**3. current_coupling_5d_gradb.CurrentCoupling5DGradB:**
-
-{CurrentCoupling5DGradB.__doc__}
-
-**4. current_coupling_5d_curlb.CurrentCoupling5DCurlb:**
-
-{CurrentCoupling5DCurlb.__doc__}
-
-**5. CurrentCoupling5DDensity:**
-
-{CurrentCoupling5DDensity.__doc__}
-
-**6. ShearAlfvenCurrentCoupling5D:**
+**3. shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D:**
 
 {ShearAlfvenCurrentCoupling5D.__doc__}
 
-**7. Magnetosonic:**
+**4. magnetosonic.Magnetosonic:**
 
 {Magnetosonic.__doc__}
+
+**5. current_coupling_5d_density.CurrentCoupling5DDensity:**
+
+{CurrentCoupling5DDensity.__doc__}
+
+**6. current_coupling_5d_gradb.CurrentCoupling5DGradB:**
+
+{CurrentCoupling5DGradB.__doc__}
+
+**7. current_coupling_5d_curlb.CurrentCoupling5DCurlb:**
+
+{CurrentCoupling5DCurlb.__doc__}
 """
         return doc
 
