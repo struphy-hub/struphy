@@ -33,13 +33,62 @@ class VlasovAmpereCoupling(Propagator):
         \\[2mm]
         \frac{\partial f}{\partial t} + \frac{1}{\varepsilon}\, \mathbf{E} \cdot \frac{\partial f}{\partial \mathbf{v}} &= 0 .
 
-    Time discretization: Crank-Nicolson (implicit mid-point).
+    With :math:`f` approximated by :math:`N` markers with positions :math:`\boldsymbol \eta_p` (logical, fixed in this
+    step), velocities :math:`\mathbf v_p` and weights :math:`w_p` (including the factor :math:`1/N`), and the FE
+    coefficients :math:`\mathbf e \in \mathbb R^{N_1}` of :math:`\mathbf E \in V^1_h`, the semi-discrete system reads
 
-    System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
+    .. math::
+
+        \mathbb M_1 \dot{\mathbf e} = - \frac{\alpha^2}{\varepsilon} \, (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \mathbf V \,,
+        \qquad
+        \dot{\mathbf V} = \frac{1}{\varepsilon} \, \overline{DF^{-\top}} \, \mathbf \Lambda^1 \, \mathbf e\,,
+
+    where :math:`\mathbf V = (\mathbf v_p)_p \in \mathbb R^{3N}`, :math:`\mathbb W = \textnormal{diag}(w_p)`
+    (acting on each velocity component), :math:`\mathbf \Lambda^1 \in \mathbb R^{3N \times N_1}` holds the
+    :math:`V^1_h` basis functions evaluated at the markers, :math:`(\mathbf \Lambda^1 \mathbf e)_p = \hat{\mathbf E}^1(\boldsymbol \eta_p)`,
+    and :math:`\overline{DF^{-1}}` is block-diagonal with the inverse Jacobian matrices :math:`DF^{-1}(\boldsymbol \eta_p)`.
+    It conserves the energy
+    :math:`\frac 12 \mathbf e^\top \mathbb M_1 \mathbf e + \frac{\alpha^2}{2} \mathbf V^\top \mathbb W \mathbf V`.
+
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point),
+
+    .. math::
+
+        \mathbb M_1 \frac{\mathbf e^{n+1} - \mathbf e^n}{\Delta t} = - \frac{\alpha^2}{\varepsilon} \, (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \frac{\mathbf V^{n+1} + \mathbf V^n}{2}\,,
+        \qquad
+        \frac{\mathbf V^{n+1} - \mathbf V^n}{\Delta t} = \frac{1}{\varepsilon} \, \overline{DF^{-\top}} \, \mathbf \Lambda^1 \, \frac{\mathbf e^{n+1} + \mathbf e^n}{2}\,,
+
+    which conserves the energy exactly (up to the solver tolerance; for constant weights, i.e. without control
+    variate). The velocities are eliminated by :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with
+    :math:`x = \mathbf e`, :math:`y = \mathbf V`, :math:`A = \mathbb M_1`,
+    :math:`B = \frac{\alpha^2}{2 \varepsilon} (\mathbf \Lambda^1)^\top \overline{DF^{-1}} \mathbb W` and
+    :math:`C = - \frac{1}{2 \varepsilon} \overline{DF^{-\top}} \mathbf \Lambda^1`, which gives
+
+    .. math::
+
+        \left(\mathbb M_1 + \frac{\Delta t^2 \alpha^2}{4 \varepsilon^2} \mathbb A\right) \mathbf e^{n+1}
+        = \left(\mathbb M_1 - \frac{\Delta t^2 \alpha^2}{4 \varepsilon^2} \mathbb A\right) \mathbf e^n
+        - \Delta t \frac{\alpha^2}{\varepsilon} \, \mathbf j\,,
+
+    with the accumulated matrix and vector (:class:`~struphy.pic.accumulation.particles_to_grid.Accumulator`,
+    kernel :func:`~struphy.pic.accumulation.kernels.vlasov_maxwell.vlasov_maxwell_kernels.vlasov_maxwell`)
+
+    .. math::
+
+        \mathbb A = (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \overline{DF^{-\top}} \, \mathbf \Lambda^1
+        = \sum_p w_p \, \mathbf \Lambda^1_p{}^\top G^{-1}(\boldsymbol \eta_p) \, \mathbf \Lambda^1_p\,,
+        \qquad
+        \mathbf j = (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \mathbf V^n\,.
+
+    :math:`\mathbb A` is a particle approximation of the :math:`n`-weighted mass matrix :math:`\mathbb M_1`,
+    so the Schur operator is a mass matrix with weight :math:`1 + \Delta t^2 \alpha^2 n / (4 \varepsilon^2)`,
+    solved with ``solver`` and ``precond`` (built from :math:`\mathbb M_1`). The velocities are then updated by
+    :func:`~struphy.pic.pushing.kernels.push_v_with_efield.push_v_with_efield_kernels.push_v_with_efield` with the mid-point field
+    :math:`\frac 12 (\mathbf e^{n+1} + \mathbf e^n)`.
     """
 
     class Variables:
-        """Container for variables advanced by :class:`VlasovAmpereCoupling`.
+        """Container for variables advanced by :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`.
 
         Attributes
         ----------
@@ -78,12 +127,12 @@ class VlasovAmpereCoupling(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VlasovAmpereCoupling`.
+        """Configuration options for :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`.
 
         Parameters
         ----------
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Symmetric iterative solver used by :class:`SchurSolver`.
+            Symmetric iterative solver used by :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner for electric-field mass matrix block.
         solver_params : SolverParameters, default=None
