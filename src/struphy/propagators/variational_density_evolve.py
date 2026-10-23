@@ -142,7 +142,7 @@ class VariationalDensityEvolve(Propagator):
 
         Parameters
         ----------
-        model : {"pressureless", "barotropic", "full", "full_p", "full_q", "linear", "deltaf", "linear_q", "deltaf_q"}, default="barotropic"
+        model : {"pressureless", "barotropic", "full", "full_p", "full_q", "linear", "perturbative", "linear_q", "perturbative_q"}, default="barotropic"
             Density/thermodynamic model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -165,9 +165,9 @@ class VariationalDensityEvolve(Propagator):
             "full_p",
             "full_q",
             "linear",
-            "deltaf",
+            "perturbative",
             "linear_q",
-            "deltaf_q",
+            "perturbative_q",
         ]
         # propagator options
         model: OptsModel = "barotropic"
@@ -248,9 +248,9 @@ class VariationalDensityEvolve(Propagator):
         self._initialize_projectors_and_mass()
         if self._model in ["linear", "linear_q"]:
             rhotmp = self.projected_equil.n3
-        elif self._model in ["deltaf", "deltaf_q"]:
-            self._tmp_rho_deltaf = rho.space.zeros()
-            rhotmp = rho.copy(out=self._tmp_rho_deltaf)
+        elif self._model in ["perturbative", "perturbative_q"]:
+            self._tmp_rho_perturbative = rho.space.zeros()
+            rhotmp = rho.copy(out=self._tmp_rho_perturbative)
             rhotmp += self.projected_equil.n3
         else:
             rhotmp = rho
@@ -302,8 +302,8 @@ class VariationalDensityEvolve(Propagator):
             self.update_feec_variables(rho=rhon1, u=un)
             return
 
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon
@@ -316,8 +316,8 @@ class VariationalDensityEvolve(Propagator):
         else:
             s = None
 
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon
@@ -325,8 +325,8 @@ class VariationalDensityEvolve(Propagator):
 
         rhon1 = rhon.copy(out=self._tmp_rhon1)
         rhon1 += self._tmp_rhon_diff
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon1.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon1.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon1
@@ -347,7 +347,7 @@ class VariationalDensityEvolve(Propagator):
             # rhon12 = rhon.copy(out=self._tmp_rhon12)
             # rhon12 += rhon1
             # rhon12 *= 0.5
-            # if self._model == "deltaf":
+            # if self._model == "perturbative":
             #     rhon12 += self.projected_equil.n3
 
             # self._update_Pirho(rhon12)
@@ -401,8 +401,8 @@ class VariationalDensityEvolve(Propagator):
 
             # Multiply by the mass matrix to get the momentum
 
-            if self._model in ["deltaf", "deltaf_q"]:
-                rho = rhon1.copy(out=self._tmp_rho_deltaf)
+            if self._model in ["perturbative", "perturbative_q"]:
+                rho = rhon1.copy(out=self._tmp_rho_perturbative)
                 rho += self.projected_equil.n3
                 self._update_weighted_MM(rho)
             else:
