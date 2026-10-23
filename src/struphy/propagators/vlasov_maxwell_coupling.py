@@ -30,7 +30,7 @@ class VlasovMaxwellCoupling(Propagator):
 
     .. math::
 
-        \kappa \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x
+        \lambda^2 \int_{\Omega} \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x
         &= c_1 \int_{\Omega} \mathbf B \cdot \nabla \times \mathbf F \,\textrm d \mathbf x
         - c_2 \int_{\Omega} \int_{\mathbb{R}^3} f \mathbf{v} \cdot \mathbf{F} \, \text{d}^3 \mathbf{v} \,\textrm d \mathbf x
         \qquad \forall \, \mathbf F \in H(\textnormal{curl})\,,
@@ -39,11 +39,15 @@ class VlasovMaxwellCoupling(Propagator):
         \\[2mm]
         \frac{\partial f}{\partial t} + c_3\, \mathbf{E} \cdot \frac{\partial f}{\partial \mathbf{v}} &= 0\,,
 
-    with :math:`\kappa \geq 0`, :math:`c_1 > 0` and :math:`c_2 c_3 > 0`. It solves the steps of
+    with :math:`\lambda \geq 0`, :math:`c_1 > 0` and :math:`c_2 c_3 > 0`. It solves the steps of
     :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere` and
     :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling` in one implicit step (for
-    :math:`\kappa = 1`, :math:`c_1 = 1`, :math:`c_2 = \alpha^2/\varepsilon`, :math:`c_3 = 1/\varepsilon`).
-    For :math:`\kappa = 0` the displacement current vanishes, :math:`c_1 \nabla \times \mathbf B = c_2 \mathbf J`
+    :math:`\lambda = 1`, :math:`c_1 = 1`, :math:`c_2 = \alpha^2/\varepsilon`, :math:`c_3 = 1/\varepsilon`, the light
+    velocity scale). The defaults are the coefficients of the species' :ref:`equation parameters <equation_params>`,
+    :math:`\lambda = \varepsilon \lambda_\textrm{s}`, :math:`c_2 = \kappa_\textrm{s}^2 \varepsilon`,
+    :math:`c_3 = 1/\varepsilon`, i.e. :math:`\lambda = \lambda_\textrm{s}`, :math:`c_2 = \kappa_\textrm{s}^2`,
+    :math:`c_3 = 1` for the cyclotron velocity scale.
+    For :math:`\lambda = 0` the displacement current vanishes, :math:`c_1 \nabla \times \mathbf B = c_2 \mathbf J`
     (quasi-neutral limit).
 
     With the FE coefficients :math:`\mathbf e \in \mathbb R^{N_1}` of :math:`\mathbf E \in V^1_h` and
@@ -54,7 +58,7 @@ class VlasovMaxwellCoupling(Propagator):
 
     .. math::
 
-        \kappa\, \mathbb M_1 \dot{\mathbf e} = c_1\, \mathbb C^\top \mathbb M_2 \mathbf b
+        \lambda^2\, \mathbb M_1 \dot{\mathbf e} = c_1\, \mathbb C^\top \mathbb M_2 \mathbf b
         - c_2\, (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \mathbf V \,,
         \qquad
         \dot{\mathbf b} = - \mathbb C \mathbf e\,,
@@ -62,20 +66,19 @@ class VlasovMaxwellCoupling(Propagator):
         \dot{\mathbf V} = c_3\, \overline{DF^{-\top}} \, \mathbf \Lambda^1 \, \mathbf e\,,
 
     with the notation of :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`. It conserves the
-    energy
+    energy (:meth:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling.energy`)
 
     .. math::
 
-        H = \frac{\kappa}{2}\, \mathbf e^\top \mathbb M_1 \mathbf e + \frac{c_1}{2}\, \mathbf b^\top \mathbb M_2 \mathbf b
-        + \frac{c_2}{2 c_3}\, \mathbf V^\top \mathbb W \mathbf V
-        \qquad (:meth:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling.energy`)\,.
+        H = \frac{\lambda^2}{2}\, \mathbf e^\top \mathbb M_1 \mathbf e + \frac{c_1}{2}\, \mathbf b^\top \mathbb M_2 \mathbf b
+        + \frac{c_2}{2 c_3}\, \mathbf V^\top \mathbb W \mathbf V\,.
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point), with
     :math:`\mathbf e^\textnormal{mid} = \frac 12 (\mathbf e^{n+1} + \mathbf e^n)` etc.,
 
     .. math::
 
-        \kappa\, \mathbb M_1 \frac{\mathbf e^{n+1} - \mathbf e^n}{\Delta t}
+        \lambda^2\, \mathbb M_1 \frac{\mathbf e^{n+1} - \mathbf e^n}{\Delta t}
         = c_1\, \mathbb C^\top \mathbb M_2 \mathbf b^\textnormal{mid}
         - c_2\, (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \mathbf V^\textnormal{mid}\,,
         \qquad
@@ -89,8 +92,8 @@ class VlasovMaxwellCoupling(Propagator):
 
     .. math::
 
-        \left(\kappa\, \mathbb M_1 + \frac{\Delta t^2}{4}\, \mathbb K\right) \mathbf e^\textnormal{mid}
-        = \kappa\, \mathbb M_1 \mathbf e^n
+        \left(\lambda^2\, \mathbb M_1 + \frac{\Delta t^2}{4}\, \mathbb K\right) \mathbf e^\textnormal{mid}
+        = \lambda^2\, \mathbb M_1 \mathbf e^n
         + \frac{\Delta t}{2} \left( c_1\, \mathbb C^\top \mathbb M_2 \mathbf b^n - c_2\, \mathbf j \right)\,,
         \qquad
         \mathbb K = c_1\, \mathbb C^\top \mathbb M_2 \mathbb C + c_2 c_3\, \mathbb A\,,
@@ -104,13 +107,13 @@ class VlasovMaxwellCoupling(Propagator):
 
         \mathbf b^{n+1} = \mathbf b^n - \Delta t\, \mathbb C \mathbf e^\textnormal{mid}\,,
         \qquad
-        \mathbf e^{n+1} = 2 \mathbf e^\textnormal{mid} - \mathbf e^n \quad (\kappa > 0)\,,
+        \mathbf e^{n+1} = 2 \mathbf e^\textnormal{mid} - \mathbf e^n \quad (\lambda > 0)\,,
 
     and the velocities are updated by
     :func:`~struphy.pic.pushing.kernels.push_v_with_efield.push_v_with_efield_kernels.push_v_with_efield` with
     :math:`\mathbf e^\textnormal{mid}`.
 
-    **Quasi-neutral limit** :math:`\kappa = 0`. The curl-curl operator :math:`\mathbb C^\top \mathbb M_2 \mathbb C`
+    **Quasi-neutral limit** :math:`\lambda = 0`. The curl-curl operator :math:`\mathbb C^\top \mathbb M_2 \mathbb C`
     is singular on the discrete gradients (and harmonic fields); this kernel is absorbed by the plasma term
     :math:`c_2 c_3 \mathbb A`, a particle approximation of the density-weighted mass matrix :math:`\mathbb M_1`.
     The Schur operator is therefore positive definite for positive weights (full-f, no control variate) and plasma
@@ -137,10 +140,10 @@ class VlasovMaxwellCoupling(Propagator):
     **Preconditioner.** With :math:`\mathbb A \approx \bar n\, \mathbb M_1`, the Schur operator is approximately the
     stabilized curl-curl operator
     :math:`\mathbb C^\top \left(\frac{\Delta t^2 c_1}{4} \mathbb M_2\right) \mathbb C
-    + \left(\kappa + \frac{\Delta t^2 c_2 c_3 \bar n}{4}\right) \mathbb M_1`, preconditioned (default) by
+    + \left(\lambda^2 + \frac{\Delta t^2 c_2 c_3 \bar n}{4}\right) \mathbb M_1`, preconditioned (default) by
     :class:`~struphy.feec.preconditioner.StiffnessPreconditioner`, built for the current time step
     (:meth:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling.prepare_time_step`). Its
-    stabilization stays positive for :math:`\kappa = 0`.
+    stabilization stays positive for :math:`\lambda = 0`.
     """
 
     class Variables:
@@ -200,16 +203,18 @@ class VlasovMaxwellCoupling(Propagator):
 
         Parameters
         ----------
-        kappa : float, default=1.0
-            Coefficient :math:`\kappa \geq 0` of the displacement current :math:`\partial_t \mathbf E`;
-            ``kappa=0.0`` is the quasi-neutral limit (needs full-f weights, no control variate).
+        lam : float, default=None
+            :math:`\lambda \geq 0`, with the coefficient :math:`\lambda^2` of the displacement current
+            :math:`\partial_t \mathbf E`; ``lam=0.0`` is the quasi-neutral limit (needs full-f weights, no control
+            variate). If ``None``, :math:`\varepsilon \lambda_\textrm{s}` of the species (``lam`` and ``epsilon`` of
+            its equation parameters).
 
         c1 : float, default=1.0
             Coefficient :math:`c_1 > 0` of :math:`\nabla \times \mathbf B` in Ampère's law.
 
         c2 : float, default=None
-            Coefficient of the current density in Ampère's law. If ``None``, :math:`\alpha^2/\varepsilon` of the
-            species.
+            Coefficient of the current density in Ampère's law. If ``None``, :math:`\kappa_\textrm{s}^2 \varepsilon` of
+            the species (``kappa`` and ``epsilon`` of its equation parameters).
 
         c3 : float, default=None
             Coefficient of the electric force in the Vlasov equation (:math:`c_2 c_3 > 0`). If ``None``,
@@ -245,13 +250,13 @@ class VlasovMaxwellCoupling(Propagator):
             basis functions per marker. Needs 6 auxiliary marker columns. Ignored on the CuPy backend.
 
         initial_projection : bool, default=True
-            Only for ``kappa=0``: in the setup (first :meth:`prepare_time_step`), replace :math:`(\mathbf b, \mathbf V)`
+            Only for ``lam=0``: in the setup (first :meth:`prepare_time_step`), replace :math:`(\mathbf b, \mathbf V)`
             by the mid-point state of one step, which satisfies :math:`c_1 \nabla \times \mathbf B = c_2 \mathbf J`
             exactly (see the class docstring). Without it, initial data that violate the constraint lead to an undamped
             period-2 oscillation of :math:`\mathbf b` and :math:`\mathbf V`. Not applied to a restored (restart) state.
         """
 
-        kappa: float = 1.0
+        lam: float = None
         c1: float = 1.0
         c2: float = None
         c3: float = None
@@ -266,7 +271,8 @@ class VlasovMaxwellCoupling(Propagator):
             # checks
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMaxwellPrecond)
-            assert self.kappa >= 0.0, f"kappa must be >= 0, got {self.kappa}."
+            if self.lam is not None:
+                assert self.lam >= 0.0, f"lam must be >= 0, got {self.lam}."
             assert self.c1 > 0.0, f"c1 must be > 0, got {self.c1}."
             if self.c2 is not None and self.c3 is not None:
                 assert self.c2 * self.c3 > 0.0, f"c2 * c3 must be > 0, got c2={self.c2}, c3={self.c3}."
@@ -298,11 +304,11 @@ class VlasovMaxwellCoupling(Propagator):
     def allocate(self):
         # coefficients
         equation_params = self.variables.ions.species.equation_params
-        alpha = equation_params.alpha
         epsilon = equation_params.epsilon
-        self._kappa = self.options.kappa
+        # lam^2 = (epsilon lam_s)^2, c2 = kappa_s^2 epsilon, c3 = 1 / epsilon (see the equation parameters)
+        self._lam2 = (epsilon * equation_params.lam) ** 2 if self.options.lam is None else self.options.lam**2
         self._c1 = self.options.c1
-        self._c2 = alpha**2 / epsilon if self.options.c2 is None else self.options.c2
+        self._c2 = equation_params.kappa**2 * epsilon if self.options.c2 is None else self.options.c2
         self._c3 = 1.0 / epsilon if self.options.c3 is None else self.options.c3
         assert self._c2 * self._c3 > 0.0, f"c2 * c3 must be > 0, got c2={self._c2}, c3={self._c3}."
 
@@ -310,8 +316,8 @@ class VlasovMaxwellCoupling(Propagator):
 
         particles = self.variables.ions.particles
         if particles.control_variate:
-            assert self._kappa > 0.0, (
-                "The quasi-neutral limit kappa=0 needs full-f weights: with the control variate the accumulated "
+            assert self._lam2 > 0.0, (
+                "The quasi-neutral limit lam=0 needs full-f weights: with the control variate the accumulated "
                 "matrix is indefinite and the Schur system is not well-posed."
             )
             logger.warning(
@@ -422,23 +428,23 @@ class VlasovMaxwellCoupling(Propagator):
         )
 
     def prepare_time_step(self, dt: float):
-        """Schur operator :math:`\\kappa \\mathbb M_1 + \\frac{\\Delta t^2}{4} \\mathbb K`, its preconditioner and
+        """Schur operator :math:`\\lambda^2 \\mathbb M_1 + \\frac{\\Delta t^2}{4} \\mathbb K`, its preconditioner and
         solver for the time step ``dt``: built in the setup, rebuilt when dt changes. The particle matrix enters by
         reference (assembled, or matrix-free reading the fillings stored in the markers), so it is updated by the
-        accumulation in every step. For ``kappa=0`` (and ``initial_projection``), the first call also projects the
+        accumulation in every step. For ``lam=0`` (and ``initial_projection``), the first call also projects the
         state onto the constraint :math:`c_1 \\mathbb C^\\top \\mathbb M_2 \\mathbf b = c_2 \\mathbf j`."""
         if dt == self._schur_dt:
             return
 
         schur = (dt**2 * self._c1 / 4) * self._curl_curl + (dt**2 * self._c2 * self._c3 / 4) * self._A_particles
-        if self._kappa > 0.0:
-            schur = self._kappa * self._M1 + schur
+        if self._lam2 > 0.0:
+            schur = self._lam2 * self._M1 + schur
 
         if self._precond == "StiffnessPreconditioner":
             pc = preconditioner.StiffnessPreconditioner(
                 self.mass_ops,
                 "curl",
-                sigma=self._kappa + dt**2 * self._c2 * self._c3 * self._n_ref / 4,
+                sigma=self._lam2 + dt**2 * self._c2 * self._c3 * self._n_ref / 4,
                 mid=(dt**2 * self._c1 / 4) * self._M2,
                 stab="M1",
             )
@@ -451,15 +457,16 @@ class VlasovMaxwellCoupling(Propagator):
         self._solver = inverse(schur, self.options.solver, **kwargs)
         self._schur_dt = dt
 
-        # kappa = 0: consistent initial state, once (in the setup, before the initial data are saved)
-        if self._kappa == 0.0 and self.options.initial_projection and not self._projected:
+        # lam = 0: consistent initial state, once (in the setup, before the initial data are saved)
+        if self._lam2 == 0.0 and self.options.initial_projection and not self._projected:
             self._project_onto_constraint(dt)
             self._projected = True
 
-    def energy(self) -> float:
-        r"""The energy :math:`H = \frac{\kappa}{2} \mathbf e^\top \mathbb M_1 \mathbf e + \frac{c_1}{2} \mathbf b^\top
-        \mathbb M_2 \mathbf b + \frac{c_2}{2 c_3} \mathbf V^\top \mathbb W \mathbf V` conserved by the propagator
-        (summed over all MPI ranks; a collective operation)."""
+    def energies(self) -> tuple[float, float, float]:
+        r"""The three parts :math:`\frac{\lambda^2}{2} \mathbf e^\top \mathbb M_1 \mathbf e`,
+        :math:`\frac{c_1}{2} \mathbf b^\top \mathbb M_2 \mathbf b` and
+        :math:`\frac{c_2}{2 c_3} \mathbf V^\top \mathbb W \mathbf V` of the energy :meth:`energy` (summed over all
+        MPI ranks; a collective operation)."""
         e = self.variables.e.spline.vector
         b = self.variables.b.spline.vector
         particles = self.variables.ions.particles
@@ -470,10 +477,16 @@ class VlasovMaxwellCoupling(Propagator):
         if particles.clone_config is not None:
             particles.clone_config.inter_comm.Allreduce(MPI.IN_PLACE, kinetic, op=MPI.SUM)
 
-        energy = self._c1 / 2 * b.inner(self._M2.dot(b, out=self._b_tmp)) + self._c2 / self._c3 * float(kinetic[0])
-        if self._kappa > 0.0:
-            energy += self._kappa / 2 * e.inner(self._M1.dot(e, out=self._e_tmp))
-        return energy
+        energy_e = self._lam2 / 2 * e.inner(self._M1.dot(e, out=self._e_tmp)) if self._lam2 > 0.0 else 0.0
+        energy_b = self._c1 / 2 * b.inner(self._M2.dot(b, out=self._b_tmp))
+        energy_f = self._c2 / self._c3 * float(kinetic[0])
+        return energy_e, energy_b, energy_f
+
+    def energy(self) -> float:
+        r"""The energy :math:`H = \frac{\lambda^2}{2} \mathbf e^\top \mathbb M_1 \mathbf e + \frac{c_1}{2}
+        \mathbf b^\top \mathbb M_2 \mathbf b + \frac{c_2}{2 c_3} \mathbf V^\top \mathbb W \mathbf V` conserved by the
+        propagator (summed over all MPI ranks; a collective operation)."""
+        return sum(self.energies())
 
     def _mid_point_field(self, dt: float):
         """Accumulate at the current markers and solve the Schur system for the mid-point field (into ``_e_mid``,
@@ -484,7 +497,7 @@ class VlasovMaxwellCoupling(Propagator):
         # accumulate A (or its fillings per marker) and j at the current marker positions and velocities
         self._accum(*self._args_accum)
 
-        # rhs = kappa M1 e^n + dt/2 (c1 C^T M2 b^n - c2 j)
+        # rhs = lam^2 M1 e^n + dt/2 (c1 C^T M2 b^n - c2 j)
         rhs = self._curl.T.dot(self._M2.dot(bn, out=self._b_tmp), out=self._e_rhs)
         rhs *= self._c1
         j = self._accum.vectors[0]
@@ -492,9 +505,9 @@ class VlasovMaxwellCoupling(Propagator):
         self._e_tmp *= self._c2
         rhs -= self._e_tmp
         rhs *= dt / 2
-        if self._kappa > 0.0:
+        if self._lam2 > 0.0:
             self._M1.dot(en, out=self._e_tmp)
-            self._e_tmp *= self._kappa
+            self._e_tmp *= self._lam2
             rhs += self._e_tmp
 
         e_mid = self._solver.dot(rhs, out=self._e_mid)
@@ -502,9 +515,9 @@ class VlasovMaxwellCoupling(Propagator):
         return e_mid, self._solver._info
 
     def _project_onto_constraint(self, dt: float):
-        """For kappa = 0: replace (b, V) by the mid-point state of one step, which satisfies
+        """For lam = 0: replace (b, V) by the mid-point state of one step, which satisfies
         c1 C^T M2 b = c2 j(V) exactly (independent of dt). The electric field is kept (e.g. from the initial Poisson
-        solve): e_mid is an impulse of size 1/dt here, and e does not enter the steps for kappa = 0."""
+        solve): e_mid is an impulse of size 1/dt here, and e does not enter the steps for lam = 0."""
         bn = self.variables.b.spline.vector
         e_mid, _ = self._mid_point_field(dt)
 
@@ -514,7 +527,7 @@ class VlasovMaxwellCoupling(Propagator):
         b_new += bn
         self._pusher(dt / 2)
         self.update_feec_variables(b=b_new)
-        logger.info("VlasovMaxwellCoupling: projected the initial state onto c1 curl B = c2 J (kappa = 0).")
+        logger.info("VlasovMaxwellCoupling: projected the initial state onto c1 curl B = c2 J (lam = 0).")
 
     @profile
     def __call__(self, dt):
@@ -532,9 +545,9 @@ class VlasovMaxwellCoupling(Propagator):
         b_new *= -dt
         b_new += bn
 
-        # new e coeffs: Crank-Nicolson for kappa > 0, the mid-point field for kappa = 0
+        # new e coeffs: Crank-Nicolson for lam > 0, the mid-point field for lam = 0
         e_new = e_mid.copy(out=self._e_new)
-        if self._kappa > 0.0:
+        if self._lam2 > 0.0:
             e_new *= 2.0
             e_new -= en
 

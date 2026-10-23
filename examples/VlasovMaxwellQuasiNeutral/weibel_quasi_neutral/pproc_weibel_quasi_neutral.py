@@ -1,6 +1,6 @@
 """Post-process the quasi-neutral Weibel example: growth rate of the magnetic energy and energy conservation.
 
-Run as ``python pproc_weibel_quasi_neutral.py [--kappa K]`` (same flags as the params file) or with the path of the
+Run as ``python pproc_weibel_quasi_neutral.py [--lam L]`` (same flags as the params file) or with the path of the
 output folder. Writes ``energies.png`` into ``<sim_folder>/results`` and prints the fitted growth rate.
 """
 
@@ -26,7 +26,7 @@ def main(path_out=DEFAULT_OUTPUT):
     scalars = out.scalars
     t = scalars["en_B"].t.values
     en_B = scalars["en_B"].values
-    en_H = scalars["en_H"].values
+    en_tot = scalars["en_tot"].values
 
     results_dir = Path(path_out) / "results"
     results_dir.mkdir(exist_ok=True)
@@ -42,7 +42,7 @@ def main(path_out=DEFAULT_OUTPUT):
     else:
         gamma = None
         print("Too few saved time steps for a growth-rate fit.")
-    print(f"max relative change of en_H: {np.max(np.abs(en_H - en_H[0])) / abs(en_H[0]):.2e}")
+    print(f"max relative change of en_tot: {np.max(np.abs(en_tot - en_tot[0])) / abs(en_tot[0]):.2e}")
 
     fig, axs = plt.subplots(1, 2, figsize=(11, 4))
     axs[0].semilogy(t, en_B, label="en_B")
@@ -55,9 +55,9 @@ def main(path_out=DEFAULT_OUTPUT):
     axs[0].set_ylim(en_B.min() / 10, en_B.max() * 10)
     axs[0].set_xlabel("t")
     axs[0].legend()
-    axs[1].plot(t, (en_H - en_H[0]) / abs(en_H[0]))
+    axs[1].plot(t, (en_tot - en_tot[0]) / abs(en_tot[0]))
     axs[1].set_xlabel("t")
-    axs[1].set_ylabel("(en_H - en_H(0)) / en_H(0)")
+    axs[1].set_ylabel("(en_tot - en_tot(0)) / en_tot(0)")
     fig.suptitle(f"Weibel instability, {out.path_out.name}")
     fig.tight_layout()
     fig.savefig(results_dir / "energies.png")

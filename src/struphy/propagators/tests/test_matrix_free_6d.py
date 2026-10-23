@@ -64,8 +64,8 @@ def test_vlasov_ampere_coupling_matrix_free():
     _compare(run)
 
 
-@pytest.mark.parametrize("kappa", [1.0, 0.0])
-def test_vlasov_maxwell_coupling_matrix_free(kappa: float):
+@pytest.mark.parametrize("lam", [1.0, 0.0])
+def test_vlasov_maxwell_coupling_matrix_free(lam: float):
     """VlasovMaxwellCoupling: e-field, b-field and velocities after two steps (in a curved domain), with and without
     displacement current."""
     import numpy as np
@@ -74,14 +74,14 @@ def test_vlasov_maxwell_coupling_matrix_free(kappa: float):
     from struphy.models import VlasovMaxwellQuasiNeutral
 
     def run(matrix_free: bool):
-        model = VlasovMaxwellQuasiNeutral(alpha=1.0, epsilon=-1.0)
+        model = VlasovMaxwellQuasiNeutral(epsilon=-1.0, lam=lam, kappa=1.0)
         model.kinetic_ions.set_markers(loading_params=LoadingParameters(Np=1000, seed=1234))
         model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D())
         model.em_fields.b_field.add_perturbation(
             perturbations.ModesSin(ls=(1,), ms=(1,), amps=(1e-2,), given_in_basis="2", comp=2)
         )
         prop = model.propagators.coupling
-        prop.options = prop.Options(kappa=kappa, matrix_free=matrix_free, solver_params=_solver_params())
+        prop.options = prop.Options(matrix_free=matrix_free, solver_params=_solver_params())
         Simulation(
             model=model,
             domain=domains.Colella(alpha=0.1),
@@ -91,7 +91,7 @@ def test_vlasov_maxwell_coupling_matrix_free(kappa: float):
         particles = model.kinetic_ions.var.particles
         # the reference density of the preconditioner, from the assembled or the matrix-free particle matrix
         n_ref = np.array([prop._n_ref])
-        # for kappa=0 the change of b and V is the initial projection onto curl B = J; the steps then leave them
+        # for lam=0 the change of b and V is the initial projection onto curl B = J; the steps then leave them
         # unchanged and give e = e_mid = 0 (the initial e here), so e is not compared
         changes = _steps(
             prop,
@@ -101,7 +101,7 @@ def test_vlasov_maxwell_coupling_matrix_free(kappa: float):
                 particles.markers[3:6, particles.valid_mks],
             ),
         )
-        return [n_ref] + (changes if kappa > 0.0 else changes[1:])
+        return [n_ref] + (changes if lam > 0.0 else changes[1:])
 
     _compare(run)
 
