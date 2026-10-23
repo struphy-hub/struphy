@@ -49,7 +49,9 @@ preconditioner: on the 16 x 16 x 8 grid it stops at its iteration limit with |di
 The variational propagators run with model="linear_q" and their default
 (Newton/Picard) solver options, except implicit_weights=False: the weights of the transport operators at t^n, i.e.
 first order in time like the p model (no midpoint option) and LinearMHD (Crank-Nicolson substeps, Lie-Trotter
-splitting). The step stays energy conserving and needs a single Picard iteration.
+splitting). With split_sound=True the coupling of the velocity to B (shear-Alfven/fast waves, variat_qb) and to q
+(sound waves, variat_sound) are advanced in two implicit substeps, like the shear-Alfven and magnetosonic steps of
+LinearMHD: each substep is energy conserving and needs a single Picard iteration, with a smaller linear system.
 
 Expected result. With n = 1 and m = 1 the gap is at q(r_c) = 3/2, i.e. r_c = 0.5, where n = 1 and |B| = 1.0
 (flux-surface average), so v_A(r_c) = 1.0 v_unit and
@@ -135,8 +137,9 @@ gamma = 5.0 / 3.0
 base_units = BaseUnits()
 
 # Model instance: linear and ideal (no viscosity, no resistivity), as LinearMHD
+# split_sound: shear-Alfven/fast and sound waves in two substeps, as in LinearMHD
 model = VariationalPerturbativeMHD_with_q(
-    base_units=base_units, linear=True, with_viscosity=False, with_resistivity=False
+    base_units=base_units, linear=True, with_viscosity=False, with_resistivity=False, split_sound=True
 )
 
 # List all variables and decide whether to save their data
@@ -199,6 +202,9 @@ sim = Simulation(
 model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model="linear_q", gamma=gamma)
 # implicit_weights=False: first order in time, as the p model and LinearMHD (Lie-Trotter splitting)
 model.propagators.variat_qb.options = model.propagators.variat_qb.Options(
+    model="linear_q", gamma=gamma, implicit_weights=False
+)
+model.propagators.variat_sound.options = model.propagators.variat_sound.Options(
     model="linear_q", gamma=gamma, implicit_weights=False
 )
 

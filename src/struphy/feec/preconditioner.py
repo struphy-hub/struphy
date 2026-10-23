@@ -679,8 +679,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         A = \mathbb L^T \mathbb M_{\textrm{mid}} \mathbb L + \sigma \, \mathbb S \,,
 
     with ``mid`` (default: the mass operator of the codomain of :math:`\mathbb L`) and ``stab`` (default: of its
-    domain). The weights of ``mid`` and ``stab`` are approximated by separable shapes (separately), times the
-    mean of each block; the off-diagonal blocks of ``mid`` are neglected. Each diagonal block of :math:`A` is then a
+    domain). The weights of ``mid`` and ``stab`` are approximated by separable shapes (separately, and per diagonal
+    block with ``block_shapes``), times the mean of each block; the off-diagonal blocks of ``mid`` are neglected. Each diagonal block of :math:`A` is then a
     sum of Kronecker products :math:`\sum_t c_t F_{t,1} \otimes F_{t,2} \otimes F_{t,3} + \sigma_c M_1 \otimes M_2
     \otimes M_3` (block Jacobi in the components of the domain). It is inverted in the basis
     :math:`U_1 \otimes U_2 \otimes U_3` of the generalized eigenproblems :math:`\hat S_d U_d = M_d U_d \Lambda_d` of
@@ -740,6 +740,13 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         Gradient only: the directions averaged in the stabilization :math:`\mathbb S (\mathbb I - \mathbb A)`,
         e.g. ``"eta3"``, ``"eta2 eta3"`` or ``"eta1 eta2 eta3"`` (global mean); None (default) for no averaging.
 
+    block_shapes : bool
+        General operators only: approximate the weights of each diagonal block of ``mid`` and ``stab`` by their own
+        separable shape (default), instead of one shape common to all blocks. The blocks are inverted independently
+        (block Jacobi), so this costs nothing and is exact for separable weights with different profiles per
+        component, as the metric coefficients of curvilinear maps (e.g. :math:`G_{22} \sqrt g \propto r^3` for the
+        poloidal component of a vector field in a torus); in a Cartesian geometry all blocks have the same shape.
+
     References
     ----------
     R. E. Lynch, J. R. Rice and D. H. Thomas, Direct solution of partial difference equations by tensor product
@@ -769,8 +776,10 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         mid: str | LinearOperator | None = None,
         stab: str | LinearOperator | None = None,
         stab_average: str | None = None,
+        block_shapes: bool = True,
     ):
         derham = mass_ops.derham
+        self._block_shapes = block_shapes
         ops = list(derivative) if isinstance(derivative, (list, tuple)) else [derivative]
         self._general = all(isinstance(op, KroneckerBlockOperator) for op in ops)
         if self._general:
@@ -1059,12 +1068,14 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
         # separable weights of stab (shapes per direction, means per block); unit weights keep the coefficients of the
         # terms (e.g. of a scaled mass operator)
+        # (per diagonal block with block_shapes, else one common shape)
+        separable = _separable_weights_per_block if self._block_shapes else _common_shapes_per_block
         if self._stab_is_identity:
-            stab_shapes, dom_means = [_ones_1d] * 3, [1.0] * n_dom
+            stab_shapes, dom_means = [[_ones_1d] * 3] * n_dom, [1.0] * n_dom
         elif self._weights == "average":
-            stab_shapes, dom_means = _separable_weight(_block_weights(self._stab_terms, n_dom), derham)
+            stab_shapes, dom_means = separable(_block_weights(self._stab_terms, n_dom), derham)
         else:
-            stab_shapes, dom_means = [_ones_1d] * 3, _unit_means(self._stab_terms, n_dom)
+            stab_shapes, dom_means = [[_ones_1d] * 3] * n_dom, _unit_means(self._stab_terms, n_dom)
 
         # per operator L_i: its blocks, the means of the blocks of mid_i and their 1d mass matrices (with the essential
         # boundary conditions of mid_i as zero rows and columns)
@@ -1074,9 +1085,9 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
             mid_op = mid_terms[0][1]
             n_mid = len(mid_op.weights)
             if self._weights == "average":
-                mid_shapes, mid_means = _separable_weight(_block_weights(mid_terms, n_mid), derham)
+                mid_shapes, mid_means = separable(_block_weights(mid_terms, n_mid), derham)
             else:
-                mid_shapes, mid_means = [_ones_1d] * 3, _unit_means(mid_terms, n_mid)
+                mid_shapes, mid_means = [[_ones_1d] * 3] * n_mid, _unit_means(mid_terms, n_mid)
             mid_femspace = mid_op.domain_femspace
             mid_comps = (mid_femspace,) if isinstance(mid_femspace, TensorFemSpace) else mid_femspace.spaces
             mid_bc = _boundary_conditions(mid_op, bc is not None)
@@ -1085,7 +1096,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
                 mats = []
                 for d in range(3):
                     basis = comp.spaces[d].basis
-                    M_d, _ = _dense_mass_1d(mid_op, basis, d, mid_shapes[d])
+                    M_d, _ = _dense_mass_1d(mid_op, basis, d, mid_shapes[r][d])
                     if mid_bc is not None and _has_essential_bc(mid_op, basis, r, d):
                         M_d = _zero_bc_dense(M_d, mid_bc[d])
                     mats.append(M_d)
@@ -1101,7 +1112,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
             mass, local_mass, has_bc = [], [], []
             for d in range(3):
                 basis = comp.spaces[d].basis
-                M_d, domain_decomposition = _dense_mass_1d(self._mass_operator, basis, d, stab_shapes[d])
+                M_d, domain_decomposition = _dense_mass_1d(self._mass_operator, basis, d, stab_shapes[c][d])
                 if self._stab_is_identity:
                     M_d = np.eye(M_d.shape[0])
                 essential = bc is not None and _has_essential_bc(self._mass_operator, basis, c, d)
@@ -1876,12 +1887,15 @@ class ShearAlfvenSchurPreconditioner:
 
         S = \mathbb M^{2,n} + \frac{\Delta t^2}{4} \mathbb T^\top \mathbb C^\top \mathbb M^2 \mathbb C \mathbb T\,,
 
-    for the velocity in :math:`H(\textnormal{div})`: the :class:`StiffnessPreconditioner` with the operator
+    for the velocity in :math:`H(\textnormal{div})` (or in :math:`(H^1)^3`, ``u_space="H1vec"``, with
+    :math:`\mathbb M^{v}[\rho_0]` instead of :math:`\mathbb M^{2,n}`, as in the variational models): the
+    :class:`StiffnessPreconditioner` with the operator
     :math:`\mathbb C \tilde{\mathbb T}` (:math:`\tilde{\mathbb T}` is the Kronecker approximation of the basis
     projection operator, :func:`~struphy.feec.kronecker_block.basis_projection_operator`), block Jacobi in the velocity
     components, plus the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows
     :math:`\mathbf B_0 \times \nabla \phi` if ``exb_correction``
-    (:class:`AuxiliarySpacePreconditioner` with :math:`\mathbb N = \hat \Pi^2[\mathbf B_0 \times \,\cdot\,] \, \mathbb G`).
+    (:class:`AuxiliarySpacePreconditioner` with :math:`\mathbb N = \hat \Pi^2[\mathbf B_0 \times \,\cdot\,] \, \mathbb G`,
+    or :math:`\hat \Pi^v[\mathbf B_0 \times \,\cdot\,] \, \mathbb G` for ``u_space="H1vec"``).
     Shared by :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` and
     :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`.
 
@@ -1907,15 +1921,19 @@ class ShearAlfvenSchurPreconditioner:
 
     exb_correction : bool
         Whether to add the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows.
+
+    u_space : str
+        Space of the velocity, ``"Hdiv"`` (2-form) or ``"H1vec"`` (vector field), the domain of ``T``.
     """
 
-    def __init__(self, derham, mass_ops, basis_ops, T, id_M: str, exb_correction: bool = True):
+    def __init__(self, derham, mass_ops, basis_ops, T, id_M: str, exb_correction: bool = True, u_space: str = "Hdiv"):
         from struphy.feec.kronecker_block import basis_projection_operator, derivative_operator
         from struphy.feec.utilities import LocalRotationMatrix
 
         assert self.supported(derham), (
             "The shear Alfven Kronecker preconditioner needs tensor-product splines and the global commuting projectors."
         )
+        assert u_space in ("Hdiv", "H1vec"), f'u_space must be "Hdiv" or "H1vec", got {u_space!r}.'
         self._mass_ops = mass_ops
         self._id_M = id_M
         self._exb_correction = exb_correction
@@ -1923,13 +1941,24 @@ class ShearAlfvenSchurPreconditioner:
         # Kronecker approximation of the curl of the basis projection
         self._kron_curl_T = derivative_operator(derham, "curl") @ basis_projection_operator(T, derham)
         if exb_correction:
-            # E x B flows B0 x grad(phi): 2-form components eps_ijk b1_j d_k phi (b1: covariant components of B0)
+            # E x B flows B0 x grad(phi): 2-form components eps_ijk b1_j d_k phi (b1: covariant components of B0),
+            # or the vector-field (contravariant) components eps_ijk b1_j d_k phi / sqrt(g)
             eq = basis_ops.weights["eq_mhd"]
             rot_b1 = LocalRotationMatrix(eq.b1_1, eq.b1_2, eq.b1_3)
-            fun = [
-                [(lambda e1, e2, e3, m=m, n=n: rot_b1(e1, e2, e3)[:, :, :, m, n]) for n in range(3)] for m in range(3)
-            ]
-            Pi_exb = basis_ops.create_basis_op(fun, "Hcurl", "Hdiv", assemble=True, name="Pi_ExB")
+            if u_space == "Hdiv":
+                fun = [
+                    [(lambda e1, e2, e3, m=m, n=n: rot_b1(e1, e2, e3)[:, :, :, m, n]) for n in range(3)]
+                    for m in range(3)
+                ]
+            else:
+                fun = [
+                    [
+                        (lambda e1, e2, e3, m=m, n=n: rot_b1(e1, e2, e3)[:, :, :, m, n] / basis_ops.sqrt_g(e1, e2, e3))
+                        for n in range(3)
+                    ]
+                    for m in range(3)
+                ]
+            Pi_exb = basis_ops.create_basis_op(fun, "Hcurl", u_space, assemble=True, name="Pi_ExB")
             grad = derham.grad
             self._exb_N = Pi_exb @ grad
             self._exb_NT = grad.T @ Pi_exb.T
@@ -2533,6 +2562,46 @@ def _separable_weight(weights: list, derham) -> tuple[list[xp.ndarray], list[flo
 
     Collective on ``derham.comm`` for array weights.
     """
+    profiles, means = _weight_profiles(weights, derham)
+    nonzero = [(prof, m) for prof, m in zip(profiles, means) if m > 0.0]
+    shapes = [sum(prof[d] / m for prof, m in nonzero) / len(nonzero) for d in range(3)]
+    return shapes, means
+
+
+def _separable_weights_per_block(weights: list, derham) -> tuple[list[list[xp.ndarray]], list[float]]:
+    r"""
+    Separable shape of each 3d weight, :math:`w_i \approx \bar w_i \prod_d \phi_{i,d}(\eta_d)`, as
+    :func:`_separable_weight` but with the shape of each weight itself instead of the common one (for the block Jacobi
+    approximation of general operators, whose diagonal blocks are inverted independently). A weight with vanishing
+    mean gets the common shape.
+
+    Returns
+    -------
+    shapes : list[list[xp.ndarray]]
+        Per weight, :math:`\phi_{i,d}` at the global 1d quadrature points (mean 1).
+
+    means : list[float]
+        The means :math:`\bar w_i`, as in :func:`_separable_weight`.
+
+    Collective on ``derham.comm`` for array weights.
+    """
+    profiles, means = _weight_profiles(weights, derham)
+    nonzero = [(prof, m) for prof, m in zip(profiles, means) if m > 0.0]
+    common = [sum(prof[d] / m for prof, m in nonzero) / len(nonzero) for d in range(3)]
+    shapes = [[prof[d] / m for d in range(3)] if m > 0.0 else common for prof, m in zip(profiles, means)]
+    return shapes, means
+
+
+def _common_shapes_per_block(weights: list, derham) -> tuple[list[list[xp.ndarray]], list[float]]:
+    """The common shape of :func:`_separable_weight`, repeated for each weight (the format of
+    :func:`_separable_weights_per_block`)."""
+    shapes, means = _separable_weight(weights, derham)
+    return [shapes] * len(weights), means
+
+
+def _weight_profiles(weights: list, derham) -> tuple[list[list[xp.ndarray]], list[float]]:
+    """Per weight (see :func:`_separable_weight`): its 1d profiles (the mean over the other directions) at the global
+    1d quadrature points, and its mean over the logical cube (0 if it vanishes relative to the largest one)."""
     grids = [derham.H1_1d_serial[d].get_assembly_grids(derham.nquads[d])[0] for d in range(3)]
     pts = [xp.asarray(np.ravel(g.points)) for g in grids]
     wts = [xp.asarray(np.ravel(g.weights)) for g in grids]
@@ -2554,10 +2623,7 @@ def _separable_weight(weights: list, derham) -> tuple[list[xp.ndarray], list[flo
     assert largest > 0.0, "The weights must not all vanish."
     means = [0.0 if abs(m) <= 1e-12 * largest else m for m in means]
     assert all(m >= 0.0 for m in means), f"The weights must have non-negative means, got {means}."
-
-    nonzero = [(prof, m) for prof, m in zip(profiles, means) if m > 0.0]
-    shapes = [sum(prof[d] / m for prof, m in nonzero) / len(nonzero) for d in range(3)]
-    return shapes, means
+    return profiles, means
 
 
 def _dense_mass_1d(
