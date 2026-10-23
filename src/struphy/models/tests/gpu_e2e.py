@@ -114,8 +114,11 @@ class TransferBudget:
         # 2. diagnostics: no host-to-device copies, no host kernels, only scalar-sized downloads
         for kind in ("to_device", "kernel_conversion", "fallback"):
             assert self.diagnostics.count(kind) == 0, report
-        assert self.diagnostics.to_host <= n_scalars * self.n_diagnostics_calls, report
-        assert self.diagnostics.bytes_to_host <= 8 * n_scalars * self.n_diagnostics_calls, report
+        # MPI scalar reductions copy one value per scalar, followed by the consolidated scalar buffer.
+        max_diagnostic_copies = (n_scalars + 1) * self.n_diagnostics_calls
+        assert self.diagnostics.to_host <= max_diagnostic_copies, report
+        max_diagnostic_bytes = 16 * n_scalars * self.n_diagnostics_calls
+        assert self.diagnostics.bytes_to_host <= max_diagnostic_bytes, report
 
         # 3. output: each saved dataset once to the host
         for kind in ("to_device", "kernel_conversion", "fallback"):
