@@ -207,6 +207,8 @@ model.kinetic_ions.set_markers(
 
 for prop in model.propagators.__dict__.values():
     prop.options = prop.Options()
+# matrix-free particle matrix: 1.2x faster coupling step than assembling it on 1-2 ranks, as fast on 4
+model.propagators.coupling_va.options = model.propagators.coupling_va.Options(matrix_free=True)
 model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 
 # ------------------
