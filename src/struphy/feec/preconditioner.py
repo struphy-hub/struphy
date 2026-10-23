@@ -326,6 +326,7 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
         self._weight_reduction = weight_reduction
 
         super().__init__(mass_operator, apply_bc=apply_bc, diagonal_scaling=diagonal_scaling)
+        self._assembly_count = mass_operator.assembly_count
 
     def _build_approximation(self, bc):
         mass_operator = self._mass_operator
@@ -377,6 +378,24 @@ class MassMatrixPreconditioner(KroneckerPreconditioner):
             self._matrix, self._solver = self._build_approximation(self._bc)
         if self._diagonal_scaling:
             self._scaling = self._build_scaling()
+        self._assembly_count = mass_operator.assembly_count
+
+    def refresh(self) -> bool:
+        """
+        Update the preconditioner if its mass operator was re-assembled since the last update.
+
+        Use it when the mass operator is assembled elsewhere, e.g. a density-weighted mass matrix
+        that is shared between propagators.
+
+        Returns
+        -------
+        bool
+            Whether the preconditioner was updated.
+        """
+        if self._mass_operator.assembly_count == self._assembly_count:
+            return False
+        self.update_mass_operator(self._mass_operator)
+        return True
 
     def transpose(self, conjugate: bool = False) -> MassMatrixPreconditioner:
         """
@@ -2922,6 +2941,11 @@ class FFTSolver(BandedSolver):
             logger.info(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
             self._column[0] *= 1.0 + eps
 
+        # eigenvalues of the circulant matrix (and of its transpose, the circulant matrix with eigenvalues lambda_{-k}),
+        # computed once instead of in every solve
+        self._eigvals = np.fft.fft(self._column)
+        self._eigvals_T = np.roll(self._eigvals[::-1], 1)
+
     # --------------------------------------
     # Abstract interface
     # --------------------------------------
@@ -2946,20 +2970,25 @@ class FFTSolver(BandedSolver):
             Output vector. If given, it has to have the same shape and datatype as rhs.
 
         transposed : bool
-            If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
+            Whether to solve with the transposed matrix.
         """
 
-        from scipy.linalg import solve_circulant
-
         assert isinstance(rhs, np.ndarray), f"FFTSolver solves on the host, got {type(rhs).__name__}."
-        assert rhs.T.shape[0] == self._column.size
+        n = self._column.size
+        assert rhs.shape[-1] == n
+
+        eigvals = self._eigvals_T if transposed else self._eigvals
+        if np.iscomplexobj(rhs) or np.iscomplexobj(self._column):
+            x = np.fft.ifft(np.fft.fft(rhs, axis=-1) / eigvals, axis=-1)
+        else:
+            x = np.fft.irfft(np.fft.rfft(rhs, axis=-1) / eigvals[: n // 2 + 1], n=n, axis=-1)
 
         if out is None:
-            return solve_circulant(self._column, rhs.T).T
+            return x
 
         assert out.shape == rhs.shape
         assert out.dtype == rhs.dtype
-        out[:] = solve_circulant(self._column, rhs.T).T
+        out[:] = x
         return out
 
 
