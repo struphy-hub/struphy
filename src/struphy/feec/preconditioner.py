@@ -627,9 +627,10 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     are inverted exactly by fast diagonalization (Lynch, Rice and Thomas 1964; for spline stiffness matrices
     see Sangalli and Tani 2016, in the References below; implemented in
     :class:`~feectools.linalg.kron.KroneckerSumSolver`): with the generalized eigendecompositions
-    :math:`S_d U_d = M_d U_d \Lambda_d`, :math:`U_d^\top M_d U_d = I`, the inverse of a Kronecker sum is
-    :math:`(U_1 \otimes U_2 \otimes U_3) \, D^{-1} \, (U_1 \otimes U_2 \otimes U_3)^\top` with a diagonal
-    :math:`D`, at the cost of a few 1d matrix products per direction. For the gradient this is the exact
+    :math:`S_d U_d = M_d U_d \Lambda_d`, :math:`U_d^T M_d U_d = I`, and :math:`U = U_1 \otimes U_2 \otimes U_3`,
+    the block is :math:`A_{cc} = U^{-T} D \, U^{-1}` with the diagonal matrix :math:`D = U^T A_{cc} U` (sums of
+    Kronecker products of the :math:`\Lambda_d` and identities, plus :math:`\sigma`), hence
+    :math:`A_{cc}^{-1} = U D^{-1} U^T`, at the cost of a few 1d matrix products per direction. For the gradient this is the exact
     inverse on the logical cube. For curl and div, the off-diagonal blocks are neglected
     (block Jacobi, :math:`P_{BJ}`).
 

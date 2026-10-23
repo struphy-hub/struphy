@@ -87,12 +87,12 @@ class SchurSolver:
 
     @property
     def A(self):
-        """Upper left block from [[A B], [C Id]]."""
+        """Upper left block :math:`A`."""
         return self._A
 
     @property
     def BC(self):
-        """Product from [[A B], [C Id]]."""
+        """Product :math:`BC` of the off-diagonal blocks."""
         return self._BC
 
     @property
@@ -110,12 +110,12 @@ class SchurSolver:
 
     @A.setter
     def A(self, a):
-        """Upper left block from [[A B], [C Id]]."""
+        """Upper left block :math:`A`."""
         self._A = a
 
     @BC.setter
     def BC(self, bc):
-        """Product from [[A B], [C Id]]."""
+        """Product :math:`BC` of the off-diagonal blocks."""
         self._BC = bc
 
     @profile
@@ -206,7 +206,7 @@ class SchurSolverFull:
         ``"pbicgstab"``, ``"gmres"``).
 
     **solver_params :
-        Keyword arguments of the chosen solver.
+        Keyword arguments of the chosen solver; must contain ``pc`` (the preconditioner, None for none).
     """
 
     def __init__(self, M, solver_name, **solver_params):
@@ -311,7 +311,7 @@ class SchurSolverFull3:
         ``"pbicgstab"``, ``"gmres"``).
 
     **solver_params :
-        Keyword arguments of the chosen solver.
+        Keyword arguments of the chosen solver; must contain ``pc`` (the preconditioner, None for none).
     """
 
     def __init__(self, M, solver_name, **solver_params):
