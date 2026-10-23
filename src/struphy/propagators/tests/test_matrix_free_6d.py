@@ -91,17 +91,17 @@ def test_vlasov_maxwell_coupling_matrix_free(kappa: float):
         particles = model.kinetic_ions.var.particles
         # the reference density of the preconditioner, from the assembled or the matrix-free particle matrix
         n_ref = np.array([prop._n_ref])
-        # one step for kappa=0: the initial data violate curl B = J, and the residual of this constraint changes sign
-        # in every step, so b and V return to their initial values after two steps (period-2 oscillation)
-        return [n_ref] + _steps(
+        # for kappa=0 the change of b and V is the initial projection onto curl B = J; the steps then leave them
+        # unchanged and give e = e_mid = 0 (the initial e here), so e is not compared
+        changes = _steps(
             prop,
             lambda: (
                 model.em_fields.e_field.spline.vector.toarray(),
                 model.em_fields.b_field.spline.vector.toarray(),
                 particles.markers[3:6, particles.valid_mks],
             ),
-            n=2 if kappa > 0.0 else 1,
         )
+        return [n_ref] + (changes if kappa > 0.0 else changes[1:])
 
     _compare(run)
 

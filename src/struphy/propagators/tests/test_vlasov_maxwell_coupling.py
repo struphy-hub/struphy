@@ -87,8 +87,9 @@ COEFFS = {"species": {}, "explicit": {"c1": 2.0, "c2": -0.5, "c3": -3.0}}
 @pytest.mark.parametrize("precond", ["StiffnessPreconditioner", "MassMatrixPreconditioner"])
 def test_energy_conservation(kappa, precond, coeffs):
     """The coupling step conserves its energy H exactly (up to the solver tolerance), also for dt >> 1/omega_p and
-    in the quasi-neutral limit kappa=0."""
-    model = _model(kappa=kappa, precond=precond, **COEFFS[coeffs])
+    in the quasi-neutral limit kappa=0 (without the initial projection, after which the kappa=0 step at frozen
+    positions exchanges no energy)."""
+    model = _model(kappa=kappa, precond=precond, initial_projection=False, **COEFFS[coeffs])
     prop = model.propagators.coupling
     b = model.em_fields.b_field.spline.vector
     energy_0 = prop.energy()
@@ -107,9 +108,10 @@ def test_energy_conservation(kappa, precond, coeffs):
 def test_discrete_equations(kappa, matrix_free):
     """The new state satisfies the Crank-Nicolson equations: Ampère's law
     kappa M1 (e^{n+1} - e^n) / dt = c1 C^T M2 b_mid - c2 j(V_mid) (with V^{n+1} from the pusher, j linear in V at
-    fixed positions) and Faraday's law (b^{n+1} - b^n) / dt = -C e_mid, with e_mid = e^{n+1} for kappa = 0."""
+    fixed positions) and Faraday's law (b^{n+1} - b^n) / dt = -C e_mid, with e_mid = e^{n+1} for kappa = 0 (without
+    the initial projection, so that the step is not trivial)."""
     dt = 0.5
-    model = _model(kappa=kappa, matrix_free=matrix_free, **COEFFS["explicit"])
+    model = _model(kappa=kappa, matrix_free=matrix_free, initial_projection=False, **COEFFS["explicit"])
     prop = model.propagators.coupling
     e0, b0, _ = _state(model)
     prop._accum(*prop._args_accum)
@@ -173,12 +175,13 @@ def test_agrees_with_split_propagators():
 
 
 def test_quasi_neutral_limit():
-    """b and V converge like kappa to the kappa=0 solution; the iteration counts stay bounded as kappa -> 0."""
+    """b and V converge like kappa to the kappa=0 solution (of the step without the initial projection); the
+    iteration counts stay bounded as kappa -> 0."""
     dt = 0.5
     results = {}
     niter = {}
     for kappa in (1e-2, 1e-4, 0.0):
-        model = _model(kappa=kappa)
+        model = _model(kappa=kappa, initial_projection=False)
         prop = model.propagators.coupling
         prop(dt)
         niter[kappa] = prop._solver._info["niter"]
@@ -189,6 +192,48 @@ def test_quasi_neutral_limit():
     errs = [_vnorm(results[k][0] - b_ref) + _vnorm(results[k][1] - v_ref) for k in (1e-2, 1e-4)]
     assert errs[1] < 3e-2 * errs[0], errs
     assert max(niter.values()) <= 2 * min(niter.values()), niter
+
+
+def _constraint_residual(prop):
+    """r = c1 C^T M2 b - c2 j(V) at the current markers."""
+    b = prop.variables.b.spline.vector
+    prop._accum(*prop._args_accum)
+    return prop._curl.T.dot(prop._M2.dot(b)) * prop._c1 - prop._accum.vectors[0] * prop._c2
+
+
+@pytest.mark.parametrize("matrix_free", [False, True])
+def test_initial_projection(matrix_free):
+    """kappa=0: without the initial projection, the constraint residual r = c1 C^T M2 b - c2 j(V) changes sign in
+    every step (period-2 oscillation). The projection in the setup makes r vanish, does not depend on dt, and the
+    steps then leave b and V unchanged (frozen positions)."""
+    # without projection: r^{n+1} = -r^n
+    model = _model(kappa=0.0, initial_projection=False, matrix_free=matrix_free)
+    prop = model.propagators.coupling
+    r0 = _constraint_residual(prop)
+    prop(0.5)
+    r1 = _constraint_residual(prop)
+    assert _norm(r0) > 0.0
+    assert _norm(r1 + r0) < 1e-10 * _norm(r0)
+
+    # with projection (default), for two dt
+    projected = []
+    for dt in (0.5, 2.0):
+        model = _model(kappa=0.0, matrix_free=matrix_free)
+        prop = model.propagators.coupling
+        j_scale = abs(prop._c2) * _norm(_constraint_residual(prop) * 0.0 + prop._accum.vectors[0])
+        prop.prepare_time_step(dt)
+        assert _norm(_constraint_residual(prop)) < 1e-10 * j_scale
+        e, b, v = _state(model)
+        projected.append((b.toarray(), v))
+        for _ in range(2):
+            prop(dt)
+        _, b2, v2 = _state(model)
+        assert _norm(b2 - b) < 1e-10 * _norm(b)
+        assert _vnorm(v2 - v) < 1e-10 * _vnorm(v)
+        assert _norm(_constraint_residual(prop)) < 1e-10 * j_scale
+    (b_a, v_a), (b_b, v_b) = projected
+    assert _vnorm(b_a - b_b) < 1e-10 * _vnorm(b_a)
+    assert _vnorm(v_a - v_b) < 1e-10 * _vnorm(v_a)
 
 
 def test_control_variate_quasi_neutral_rejected():
@@ -214,5 +259,8 @@ def test_options():
     with pytest.raises(AssertionError):
         Options(matrix_free=1)
     assert Options().matrix_free is False
+    with pytest.raises(AssertionError):
+        Options(initial_projection=None)
+    assert Options().initial_projection is True
     assert Options().precond == "StiffnessPreconditioner"
     assert Options(solver="cg").precond is None

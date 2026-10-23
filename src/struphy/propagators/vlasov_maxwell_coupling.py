@@ -123,6 +123,17 @@ class VlasovMaxwellCoupling(Propagator):
     :math:`2 \mathbf e^\textnormal{mid} - \mathbf e^n` would carry any error of :math:`\mathbf e^n` as an undamped
     even-odd oscillation). The energy :math:`H` (without the electric part) is still conserved exactly.
 
+    The constraint holds at the mid-point only: its residual
+    :math:`\mathbf r^n = c_1 \mathbb C^\top \mathbb M_2 \mathbf b^n - c_2 \mathbf j(\mathbf V^n)` (linear in
+    :math:`\mathbf V` at fixed positions) satisfies :math:`\mathbf r^{n+1} = - \mathbf r^n`. Initial data that violate
+    the constraint (e.g. by marker noise in :math:`\mathbf J`) would thus oscillate with period 2 without damping. With
+    ``initial_projection`` (default), the setup replaces :math:`(\mathbf b^0, \mathbf V^0)` by the mid-point state of
+    one step, :math:`\mathbf b^0 - \frac{\Delta t}{2} \mathbb C \mathbf e^\textnormal{mid}` and
+    :math:`\mathbf V^0 + \frac{\Delta t}{2} c_3 \overline{DF^{-\top}} \mathbf \Lambda^1 \mathbf e^\textnormal{mid}`
+    (an implicit Euler step of :math:`\Delta t / 2`), which satisfies the constraint exactly and does not depend on
+    :math:`\Delta t`: a projection onto the constraint. The particle pushers of the splitting change
+    :math:`\mathbf r` again by :math:`O(\Delta t)` in every step.
+
     **Preconditioner.** With :math:`\mathbb A \approx \bar n\, \mathbb M_1`, the Schur operator is approximately the
     stabilized curl-curl operator
     :math:`\mathbb C^\top \left(\frac{\Delta t^2 c_1}{4} \mathbb M_2\right) \mathbb C
@@ -232,6 +243,12 @@ class VlasovMaxwellCoupling(Propagator):
             (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one spline
             evaluation and one deposition per marker and solver iteration instead of the products of all pairs of
             basis functions per marker. Needs 6 auxiliary marker columns. Ignored on the CuPy backend.
+
+        initial_projection : bool, default=True
+            Only for ``kappa=0``: in the setup (first :meth:`prepare_time_step`), replace :math:`(\mathbf b, \mathbf V)`
+            by the mid-point state of one step, which satisfies :math:`c_1 \nabla \times \mathbf B = c_2 \mathbf J`
+            exactly (see the class docstring). Without it, initial data that violate the constraint lead to an undamped
+            period-2 oscillation of :math:`\mathbf b` and :math:`\mathbf V`. Not applied to a restored (restart) state.
         """
 
         kappa: float = 1.0
@@ -243,6 +260,7 @@ class VlasovMaxwellCoupling(Propagator):
         solver_params: SolverParameters = None
         n_ref: float = None
         matrix_free: bool = False
+        initial_projection: bool = True
 
         def __post_init__(self):
             # checks
@@ -255,6 +273,7 @@ class VlasovMaxwellCoupling(Propagator):
             if self.n_ref is not None:
                 assert self.n_ref > 0.0, f"n_ref must be > 0, got {self.n_ref}."
             assert isinstance(self.matrix_free, bool)
+            assert isinstance(self.initial_projection, bool)
             if self.solver == "cg" and self.precond is not None:
                 logger.warning(f'solver="cg" takes no preconditioner; ignoring precond="{self.precond}".')
                 self.precond = None
@@ -374,6 +393,7 @@ class VlasovMaxwellCoupling(Propagator):
         self._solver_kwargs = kwargs
         self._solver = None
         self._schur_dt = None
+        self._projected = False
 
         # buffers (the pusher reads e_mid)
         self._e_mid = self.derham.V1.zeros()
@@ -405,7 +425,8 @@ class VlasovMaxwellCoupling(Propagator):
         """Schur operator :math:`\\kappa \\mathbb M_1 + \\frac{\\Delta t^2}{4} \\mathbb K`, its preconditioner and
         solver for the time step ``dt``: built in the setup, rebuilt when dt changes. The particle matrix enters by
         reference (assembled, or matrix-free reading the fillings stored in the markers), so it is updated by the
-        accumulation in every step."""
+        accumulation in every step. For ``kappa=0`` (and ``initial_projection``), the first call also projects the
+        state onto the constraint :math:`c_1 \\mathbb C^\\top \\mathbb M_2 \\mathbf b = c_2 \\mathbf j`."""
         if dt == self._schur_dt:
             return
 
@@ -430,6 +451,11 @@ class VlasovMaxwellCoupling(Propagator):
         self._solver = inverse(schur, self.options.solver, **kwargs)
         self._schur_dt = dt
 
+        # kappa = 0: consistent initial state, once (in the setup, before the initial data are saved)
+        if self._kappa == 0.0 and self.options.initial_projection and not self._projected:
+            self._project_onto_constraint(dt)
+            self._projected = True
+
     def energy(self) -> float:
         r"""The energy :math:`H = \frac{\kappa}{2} \mathbf e^\top \mathbb M_1 \mathbf e + \frac{c_1}{2} \mathbf b^\top
         \mathbb M_2 \mathbf b + \frac{c_2}{2 c_3} \mathbf V^\top \mathbb W \mathbf V` conserved by the propagator
@@ -449,16 +475,14 @@ class VlasovMaxwellCoupling(Propagator):
             energy += self._kappa / 2 * e.inner(self._M1.dot(e, out=self._e_tmp))
         return energy
 
-    @profile
-    def __call__(self, dt):
+    def _mid_point_field(self, dt: float):
+        """Accumulate at the current markers and solve the Schur system for the mid-point field (into ``_e_mid``,
+        with updated ghost regions, which the pusher kernel reads)."""
         en = self.variables.e.spline.vector
         bn = self.variables.b.spline.vector
 
         # accumulate A (or its fillings per marker) and j at the current marker positions and velocities
         self._accum(*self._args_accum)
-
-        # Schur operator for the current time step (no-op unless dt changed since the setup)
-        self.prepare_time_step(dt)
 
         # rhs = kappa M1 e^n + dt/2 (c1 C^T M2 b^n - c2 j)
         rhs = self._curl.T.dot(self._M2.dot(bn, out=self._b_tmp), out=self._e_rhs)
@@ -473,10 +497,34 @@ class VlasovMaxwellCoupling(Propagator):
             self._e_tmp *= self._kappa
             rhs += self._e_tmp
 
-        # mid-point field; the pusher kernel reads its ghost regions
         e_mid = self._solver.dot(rhs, out=self._e_mid)
-        info = self._solver._info
         e_mid.update_ghost_regions()
+        return e_mid, self._solver._info
+
+    def _project_onto_constraint(self, dt: float):
+        """For kappa = 0: replace (b, V) by the mid-point state of one step, which satisfies
+        c1 C^T M2 b = c2 j(V) exactly (independent of dt), and e by the mid-point field."""
+        bn = self.variables.b.spline.vector
+        e_mid, _ = self._mid_point_field(dt)
+
+        # b_mid = b^n - dt/2 C e_mid, V_mid = V^n + dt/2 c3 DF^{-T} Lambda^1 e_mid
+        b_new = self._curl.dot(e_mid, out=self._b_new)
+        b_new *= -dt / 2
+        b_new += bn
+        self._pusher(dt / 2)
+        self.update_feec_variables(e=e_mid.copy(out=self._e_new), b=b_new)
+        logger.info("VlasovMaxwellCoupling: projected the initial state onto c1 curl B = c2 J (kappa = 0).")
+
+    @profile
+    def __call__(self, dt):
+        en = self.variables.e.spline.vector
+        bn = self.variables.b.spline.vector
+
+        # Schur operator for the current time step (no-op unless dt changed since the setup)
+        self.prepare_time_step(dt)
+
+        # mid-point field
+        e_mid, info = self._mid_point_field(dt)
 
         # new b coeffs: b^{n+1} = b^n - dt C e_mid
         b_new = self._curl.dot(e_mid, out=self._b_new)
