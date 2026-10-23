@@ -24,7 +24,7 @@ from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
 
 
-class ViscoResistiveMHD(StruphyModel):
+class VariationalMHD(StruphyModel):
     """Full (non-linear) visco-resistive MHD equations discretized with a variational method.
 
     Parameters
@@ -330,7 +330,7 @@ class ViscoResistiveMHD(StruphyModel):
 
     @classmethod
     def doc_long_description(cls):
-        r"""ViscoResistiveMHD is the full nonlinear dissipative MHD model in the
+        r"""VariationalMHD is the full nonlinear dissipative MHD model in the
         entropy formulation. It is the most complete variational MHD model in
         this family when both viscosity and resistivity are required."""
 
@@ -340,9 +340,9 @@ class ViscoResistiveMHD(StruphyModel):
 
         .. code-block:: python
 
-            from struphy.models import ViscoResistiveMHD
+            from struphy.models import VariationalMHD
 
-            model = ViscoResistiveMHD()
+            model = VariationalMHD()
             model.mhd.density
             model.mhd.velocity
             model.mhd.entropy

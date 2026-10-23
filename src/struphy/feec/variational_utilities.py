@@ -1682,3 +1682,198 @@ class KineticEnergyEvaluator:
         self._M_un1.assemble(
             [[self._Guf_values[0]], [self._Guf_values[1]], [self._Guf_values[2]]],
         )
+
+
+def project_div_free_velocity(
+    u: Vector,
+    derham: Derham,
+    mass_ops,
+    basis_ops,
+    tol: float = 1e-8,
+    maxiter: int = 1000,
+    inner_tol: float = 1e-12,
+) -> dict:
+    r"""Project an H1vec velocity in place onto the discretely divergence-free fields of the variational schemes.
+
+    The variational propagators compute the divergence of :math:`\mathbf u \in V^v_h` as
+    :math:`\mathbb G \mathbf u` with :math:`\mathbb G = \mathbb D\, \mathcal U^v`, where
+    :math:`\mathcal U^v = \hat\Pi^2[\sqrt g\, \vec\Lambda^v]` maps to H(div) and :math:`\mathbb D` is the discrete
+    divergence (see :class:`Pressure_transport_operator`). The projection of a continuous divergence-free field is
+    divergence-free only up to the interpolation error. This function replaces :math:`\mathbf u` by its
+    :math:`\mathbb M^v`-orthogonal projection onto :math:`\ker \mathbb G`,
+
+    .. math::
+
+        (\mathbb G (\mathbb M^v)^{-1} \mathbb G^\top) \boldsymbol\lambda = \mathbb G \mathbf u\,,\qquad
+        \mathbf u \leftarrow \mathbf u - (\mathbb M^v)^{-1} \mathbb G^\top \boldsymbol\lambda\,,
+
+    so that :math:`\mathbb G \mathbf u = 0` up to the solver tolerance, with the smallest change of
+    :math:`\mathbf u` in the :math:`\mathbb M^v` norm. The Schur system is singular (with :math:`u \cdot n = 0` the
+    total flux vanishes) but consistent, and is solved with CG; the inner :math:`\mathbb M^v` solves use PCG with the
+    mass-matrix preconditioner. The solvers take absolute tolerances (Euclidean norms of the coefficient residuals),
+    so they are scaled with the right-hand side: ``tol`` relative to :math:`\mathbb G \mathbf u` and ``inner_tol``
+    relative to :math:`\mathbb G^\top \mathbb G \mathbf u`. Must be called on all MPI ranks.
+
+    Parameters
+    ----------
+    u : Vector
+        Coefficients of the velocity in :math:`V^v_h` (H1vec), modified in place.
+    derham : Derham
+        The discrete de Rham sequence.
+    mass_ops : WeightedMassOperators
+        Mass matrices (``Mv`` and ``M3`` are used).
+    basis_ops : BasisProjectionOperators
+        Basis projection operators (``Uv`` is used).
+    tol : float
+        Tolerance of the CG solve of the Schur system, relative to the (Euclidean) norm of its right-hand side.
+    maxiter : int
+        Maximum number of CG iterations of the Schur system.
+    inner_tol : float
+        Tolerance of the inner PCG solves with ``Mv``, relative to the (Euclidean) norm of
+        :math:`\mathbb G^\top \mathbb G \mathbf u`.
+
+    Returns
+    -------
+    dict
+        ``div_before`` and ``div_after``: the :math:`L^2` norms of :math:`\mathbb G \mathbf u` before and after;
+        ``delta_rel``: the relative change :math:`\|\delta \mathbf u\|_{\mathbb M^v} / \|\mathbf u\|_{\mathbb M^v}`;
+        ``niter``, ``success`` and ``res_norm`` (relative) of the Schur solve.
+    """
+    Mv, M3 = mass_ops.Mv, mass_ops.M3
+    G = derham.div @ basis_ops.Uv
+    # built once: the transpose of the basis projection operator is assembled anew at each call of .T
+    GT = G.T
+
+    out = {"div_before": 0.0, "div_after": 0.0, "delta_rel": 0.0, "niter": 0, "success": True, "res_norm": 0.0}
+    norm_u = xp.sqrt(Mv.dot_inner(u, u))
+    if norm_u == 0.0:
+        return out
+
+    div_u = G.dot(u)
+    out["div_before"] = float(xp.sqrt(M3.dot_inner(div_u, div_u)))
+    norm_rhs = float(xp.sqrt(div_u.inner(div_u)))
+    if norm_rhs == 0.0:
+        return out
+    norm_inner_rhs = float(xp.sqrt(GT.dot(div_u).inner(GT.dot(div_u))))
+
+    Mv_inv = inverse(
+        Mv,
+        "pcg",
+        pc=preconditioner.MassMatrixPreconditioner(Mv),
+        tol=inner_tol * norm_inner_rhs,
+        maxiter=1000,
+        verbose=False,
+    )
+    schur_inv = inverse(G @ Mv_inv @ GT, "cg", tol=tol * norm_rhs, maxiter=maxiter, verbose=False)
+
+    lam = schur_inv.dot(div_u)
+    delta = Mv_inv.dot(GT.dot(lam))
+    u -= delta
+    u.update_ghost_regions()
+
+    div_u = G.dot(u)
+    info = schur_inv.get_info()
+    out["div_after"] = float(xp.sqrt(M3.dot_inner(div_u, div_u)))
+    out["delta_rel"] = float(xp.sqrt(Mv.dot_inner(delta, delta)) / norm_u)
+    out["niter"] = info["niter"]
+    out["success"] = bool(info["success"])
+    out["res_norm"] = float(info["res_norm"]) / norm_rhs
+    if not out["success"]:
+        logger.warning(
+            f"project_div_free_velocity: CG not converged after {out['niter']} iterations "
+            f"(relative residual {out['res_norm']:.2e}, tolerance {tol:.1e})."
+        )
+    return out
+
+
+class NewtonConvergence:
+    r"""Stopping criterion of the Newton and Picard iterations of the variational propagators.
+
+    The squared residual norm of an iteration is compared with ``tol**2`` times ``min(err_ref, 1)``, where ``err_ref``
+    is the squared norm of the state at :math:`t^n`: relative for small states, such as the perturbations of the
+    linear and perturbative models, and absolute (as for the full models) for states of norm one or larger, or zero.
+    The iteration also stops, with a warning, when the error has not decreased in ``patience`` consecutive iterations
+    (stagnation at the accuracy of the linear solves).
+
+    Parameters
+    ----------
+    name : str
+        Name of the propagator, for the warnings.
+    tol : float
+        Tolerance of the relative residual norm.
+    err_ref : float
+        Squared norm of the state at :math:`t^n`, measured as the residual.
+    patience : int
+        Number of consecutive iterations without decrease of the error after which the iteration stops.
+    """
+
+    def __init__(self, name: str, tol: float, err_ref: float, patience: int = 3):
+        self._name = name
+        self._tol = tol
+        self._err_ref = min(float(err_ref), 1.0) if err_ref > 0.0 else 1.0
+        self._patience = patience
+        self._err_min = xp.inf
+        self._n_no_decrease = 0
+        self.err = xp.inf
+        self.converged = False
+        self.stagnated = False
+
+    def stop(self, err: float, it: int, min_iter: int = 0) -> bool:
+        """Whether to stop at iteration ``it``, given the squared (absolute) residual norm ``err``.
+
+        No stop before iteration ``min_iter``, except for NaN."""
+        self.err = float(err) / self._err_ref
+        if xp.isnan(self.err):
+            return True
+        if it >= min_iter and self.err < self._tol**2:
+            self.converged = True
+            return True
+        if self.err < self._err_min:
+            self._err_min = self.err
+            self._n_no_decrease = 0
+        else:
+            self._n_no_decrease += 1
+        if it >= min_iter and self._n_no_decrease >= self._patience:
+            self.stagnated = True
+            logger.warning(
+                f"{self._name}: Newton iteration stagnated at iteration {it}, relative error {self.err:.3e} "
+                f"(smallest {self._err_min:.3e}, tol**2 = {self._tol**2:.1e}).",
+            )
+            return True
+        return False
+
+    def warn_if_not_converged(self, it: int, maxiter: int):
+        """Warning if the iteration ended at ``maxiter`` or with NaN (stagnation is reported by :meth:`stop`)."""
+        if not self.converged and not self.stagnated and (it == maxiter - 1 or xp.isnan(self.err)):
+            logger.warning(
+                f"Maximum iteration in {self._name} reached - not converged: relative error {self.err:.3e}, "
+                f"tol**2 = {self._tol**2:.1e}",
+            )
+
+
+def dot_normalized(op: LinearOperator, v: Vector, out: Vector) -> Vector:
+    """``op.dot(v, out=out)`` for a linear operator with iterative solves of absolute tolerance (e.g. an inverse).
+
+    The operator is applied to :math:`v / |v|` and the result scaled back, so that the solver tolerances are relative
+    to the Euclidean norm of ``v``. ``v`` is restored (up to round-off); ``out`` must not be ``v``."""
+    norm = xp.sqrt(v.inner(v))
+    if not norm > 0.0:
+        out *= 0.0
+        return out
+    v *= 1.0 / norm
+    op.dot(v, out=out)
+    v *= norm
+    out *= norm
+    return out
+
+
+def inv_norm2(inv: LinearOperator, v: Vector) -> float:
+    """The squared norm ``v . inv(v)`` with an inverse (mass matrix) of absolute tolerance, applied to
+    :math:`v / |v|`, so that the tolerance is relative. ``v`` is restored (up to round-off)."""
+    norm = xp.sqrt(v.inner(v))
+    if not norm > 0.0:
+        return 0.0
+    v *= 1.0 / norm
+    err = inv.dot_inner(v, v)
+    v *= norm
+    return norm**2 * err

@@ -624,8 +624,13 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
     with the 1d stiffness matrices :math:`S_d = \mathbb d_d^T M^D_d \mathbb d_d` in the directions
     :math:`N_c` in which component c is differentiated (its B-spline directions). These blocks
-    are inverted exactly by fast diagonalization
-    (:class:`~feectools.linalg.kron.KroneckerSumSolver`). For the gradient this is the exact
+    are inverted exactly by fast diagonalization (Lynch, Rice and Thomas 1964; for spline stiffness matrices
+    see Sangalli and Tani 2016, in the References below; implemented in
+    :class:`~feectools.linalg.kron.KroneckerSumSolver`): with the generalized eigendecompositions
+    :math:`S_d U_d = M_d U_d \Lambda_d`, :math:`U_d^T M_d U_d = I`, and :math:`U = U_1 \otimes U_2 \otimes U_3`,
+    the block is :math:`A_{cc} = U^{-T} D \, U^{-1}` with the diagonal matrix :math:`D = U^T A_{cc} U` (sums of
+    Kronecker products of the :math:`\Lambda_d` and identities, plus :math:`\sigma`), hence
+    :math:`A_{cc}^{-1} = U D^{-1} U^T`, at the cost of a few 1d matrix products per direction. For the gradient this is the exact
     inverse on the logical cube. For curl and div, the off-diagonal blocks are neglected
     (block Jacobi, :math:`P_{BJ}`).
 
@@ -734,6 +739,14 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
     stab_average : str | None
         Gradient only: the directions averaged in the stabilization :math:`\mathbb S (\mathbb I - \mathbb A)`,
         e.g. ``"eta3"``, ``"eta2 eta3"`` or ``"eta1 eta2 eta3"`` (global mean); None (default) for no averaging.
+
+    References
+    ----------
+    R. E. Lynch, J. R. Rice and D. H. Thomas, Direct solution of partial difference equations by tensor product
+    methods, Numer. Math. 6, 185-199 (1964), `doi:10.1007/BF01386067 <https://doi.org/10.1007/BF01386067>`_.
+
+    G. Sangalli and M. Tani, Isogeometric preconditioners based on fast solvers for the Sylvester equation,
+    SIAM J. Sci. Comput. 38(6), A3644-A3671 (2016), `doi:10.1137/16M1062788 <https://doi.org/10.1137/16M1062788>`_.
     """
 
     _FORMS = {"grad": 0, "curl": 1, "div": 2}

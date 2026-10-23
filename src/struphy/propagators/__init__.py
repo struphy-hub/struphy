@@ -50,6 +50,7 @@ _LAZY_IMPORTS = {
     "VariationalResistivity": "struphy.propagators.variational_resistivity",
     "VariationalViscosity": "struphy.propagators.variational_viscosity",
     "VlasovAmpereCoupling": "struphy.propagators.vlasov_ampere_coupling",
+    "VlasovMaxwellCoupling": "struphy.propagators.vlasov_maxwell_coupling",
 }
 
 if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
@@ -102,6 +103,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.variational_resistivity import VariationalResistivity
     from struphy.propagators.variational_viscosity import VariationalViscosity
     from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
+    from struphy.propagators.vlasov_maxwell_coupling import VlasovMaxwellCoupling
 
 __all__ = [
     "AdiabaticPhi",
@@ -151,6 +153,7 @@ __all__ = [
     "VariationalResistivity",
     "VariationalViscosity",
     "VlasovAmpereCoupling",
+    "VlasovMaxwellCoupling",
 ]
 
 

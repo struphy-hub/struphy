@@ -23,7 +23,7 @@ Read this before creating or renaming a model in `src/struphy/models/`. The gene
   0. `self.params = copy.deepcopy(locals())`. All constructor arguments need defaults, and only
      bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization.
   1. instantiate the species as attributes;
-  2. `self.setup_equation_params(base_units=base_units)` (derives units and `alpha`, `epsilon`, `kappa`);
+  2. `self.setup_equation_params(base_units=base_units)` (derives units and `alpha`, `epsilon`, `lam`, `kappa`);
   3. `self.propagators = self.Propagators()`;
   4. link variables: `self.propagators.<prop>.variables.<var> = self.<species>.<var>`;
   5. `self.scalars = Scalars(...)` with the tracked quantities (`scalars.py`, e.g. `BilinearEnergyFEEC`,
@@ -44,6 +44,8 @@ Read this before creating or renaming a model in `src/struphy/models/`. The gene
 - All 8 doc classmethods, written as reST docstrings with math in `.. math::` / `:math:`:
   `doc_pde`, `doc_normalization`, `doc_scalar_quantities`, `doc_long_description`, `doc_examples`,
   `doc_use_cases`, `doc_cannot_be_used_for`, and `doc_discretization`.
+  Put `doc_normalization` directly below `doc_pde` (also in subclasses that change the normalization), since the
+  normalization defines the parameters appearing in the PDEs.
   `doc_discretization` must **return** a string: list the propagators in splitting order with `:class:` links and
   embed each propagator's `__doc__` (see `maxwell.py`). `test_all_models_expose_new_doc_api` fails if any is missing or empty.
 - Add an `.. autoclass:: struphy.models.<Name>` block (same options as its neighbours) under the matching category in

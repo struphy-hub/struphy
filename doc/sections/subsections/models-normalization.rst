@@ -49,7 +49,9 @@ There are four possibilities:
 
 .. math::
     
-    \hat v = v_\textnormal{c, bulk} := \hat x \Omega_\textnormal{c, bulk}/(2\pi) = \hat x\, q_\textnormal{bulk} \hat B /(m_\textnormal{bulk}2\pi)\,.
+    \hat v = v_\textnormal{c, bulk} := \hat x\, \Omega_\textnormal{c, bulk} = \hat x\, q_\textnormal{bulk} \hat B /m_\textnormal{bulk}\,,
+
+so that :math:`\hat t = 1/\Omega_\textnormal{c, bulk}`.
 
 4. ``thermal`` velocity of the bulk species,
 
@@ -106,7 +108,8 @@ In Struphy models, the following equation parameters appear:
 
 .. math::
 
-        \alpha_\textrm{s} = \frac{\hat \Omega_\textnormal{ps}}{\hat \Omega_\textnormal{cs}}\,,\qquad \varepsilon_\textrm{s} = \frac{1}{\hat \Omega_\textnormal{cs} \hat t} \,,
+        \alpha_\textrm{s} = \frac{\hat \Omega_\textnormal{ps}}{\hat \Omega_\textnormal{cs}}\,,\qquad \varepsilon_\textrm{s} = \frac{1}{\hat \Omega_\textnormal{cs} \hat t} \,,\qquad
+        \lambda_\textrm{s} = \frac{\hat \Omega_\textnormal{cs} \hat x}{c}\,,\qquad \kappa_\textrm{s} = \frac{\hat \Omega_\textnormal{ps} \hat x}{c} = \alpha_\textrm{s} \lambda_\textrm{s}\,,
 
 featuring the plasma- and cyclotron frequency of species :math:`\textrm{s}`, respectively,
 
@@ -115,6 +118,7 @@ featuring the plasma- and cyclotron frequency of species :math:`\textrm{s}`, res
         \hat\Omega_\textnormal{ps} = \sqrt{\frac{\hat n (Z_\textrm{s}e)^2}{\epsilon_0 (A_\textrm{s} m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{cs}} = \frac{(Z_\textrm{s}e) \hat B}{(A_\textrm{s} m_\textnormal{H})}\,,
 
 where :math:`Z_\textrm{s}` and :math:`A_\textrm{s}` stand for the species' charge and mass number, respectively.
+
 These equation parameters are defined in :class:`~struphy.models.species.Species.EquationParameters` and can be overridden
 in the model constructor.
 
