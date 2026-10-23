@@ -116,12 +116,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.propagators = self.Propagators(b2_var=self.em_fields.b_field)
 
         # 4. assign variables to propagators
-        self.propagators.maxwell.variables.e = self.em_fields.e_field
-        self.propagators.maxwell.variables.b = self.em_fields.b_field
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
-        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
-        self.propagators.coupling_va.variables.e = self.em_fields.e_field
-        self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
+        self._link_propagator_variables()
 
         # 5. define scalars to be tracked during simulation
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
@@ -159,6 +154,18 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # property to measure violation of gauss law from control variate
         self.measure_gauss_law = measure_gauss_law
+
+    def _link_propagator_variables(self):
+        """Assign the species variables to the propagators (overridden by models with other propagators).
+
+        :meta private:
+        """
+        self.propagators.maxwell.variables.e = self.em_fields.e_field
+        self.propagators.maxwell.variables.b = self.em_fields.b_field
+        self.propagators.push_eta.variables.var = self.kinetic_ions.var
+        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+        self.propagators.coupling_va.variables.e = self.em_fields.e_field
+        self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
     @property
     def bulk_species(self):
@@ -251,17 +258,20 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        # the options of the initial Poisson solve go after those of the last propagator
+        last_prop = list(self.propagators.__dict__)[-1]
+        model_name = type(self).__name__
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "coupling_va.Options" in line:
+                if f"{last_prop}.Options" in line:
                     new_file += [line]
                     new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
                 elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                elif "VlasovMaxwellOneSpecies()" in line:
-                    new_file += ["\nmodel = VlasovMaxwellOneSpecies(measure_gauss_law=True)\n"]
+                elif f"{model_name}()" in line:
+                    new_file += [f"\nmodel = {model_name}(measure_gauss_law=True)\n"]
                 else:
                     new_file += [line]
 
