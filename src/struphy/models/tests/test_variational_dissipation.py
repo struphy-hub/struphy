@@ -1,4 +1,5 @@
 import pytest
+from maybempi import MPI
 
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, grids, perturbations
 from struphy.models import ViscoResistiveLinearMHD_with_q, ViscoResistiveMHD
@@ -7,7 +8,8 @@ from struphy.models import ViscoResistiveLinearMHD_with_q, ViscoResistiveMHD
 def _run(model, tmp_path):
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim"),
+        # tmp_path differs per rank: all ranks write to the folder of rank 0
+        env=EnvironmentOptions(out_folders=MPI.COMM_WORLD.bcast(str(tmp_path), root=0), sim_folder="sim"),
         time_opts=Time(dt=0.01, Tend=0.01),
         domain=domains.Cuboid(),
         equil=equils.HomogenSlab(),
