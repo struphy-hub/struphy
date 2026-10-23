@@ -38,10 +38,12 @@ def _all_markers(particles):
     return local[:, xp.lexsort(local[::-1])]
 
 
+@pytest.mark.parametrize("e_algo", ["explicit", "discrete_gradient_1st_order"])
 @pytest.mark.parametrize("name", ["PushGuidingCenterBxEstar", "PushGuidingCenterParallel"])
-def test_e_field_equals_minus_grad_phi(name):
+def test_e_field_equals_minus_grad_phi(name, e_algo):
     """A guiding-center pusher with ``e_field = -grad phi`` moves the markers exactly as with the potential ``phi``
-    (explicit algorithm, with the electric field evaluated from phi)."""
+    (explicit algorithm, with the electric field evaluated from phi). With ``e_field`` a discrete-gradient algorithm
+    is replaced by the explicit one (it would remove the work of E along the step)."""
     from struphy import models, propagators
 
     dt = 0.1
@@ -71,8 +73,9 @@ def test_e_field_equals_minus_grad_phi(name):
     e.update_ghost_regions()
     prop_e = getattr(propagators, name)(e_field=em.em_fields.e_field)
     prop_e.variables.ions = em.kinetic_ions.var
-    prop_e.options = prop_e.Options(algo="explicit")
+    prop_e.options = prop_e.Options(algo=e_algo)
     prop_e.allocate()
+    assert prop_e.options.algo == "explicit"
 
     p_em = em.kinetic_ions.var.particles
     assert xp.array_equal(initial, _all_markers(p_em))

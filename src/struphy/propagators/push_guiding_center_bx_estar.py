@@ -1,7 +1,7 @@
 "Only particle variables are updated."
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from line_profiler import profile
@@ -42,7 +42,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
         \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf{b}_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf{b}_0\,,
 
-    Here, :math:`\mathbf B = \mathbf{B}_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation). The electric potential :math:`\phi` and/or the magnetic perturbation :math:`\tilde{\mathbf B}` can be ignored by passing ``None``. Instead of the potential, an electric field :math:`\mathbf E \in H(\textnormal{curl})` can be passed (``e_field``); then :math:`\mathbf E^* = \mathbf E - \varepsilon \mu_p \nabla |\mathbf B|` (gauge-invariant electromagnetic formulation).
+    Here, :math:`\mathbf B = \mathbf{B}_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation). The electric potential :math:`\phi` and/or the magnetic perturbation :math:`\tilde{\mathbf B}` can be ignored by passing ``None``. Instead of the potential, an electric field :math:`\mathbf E \in H(\textnormal{curl})` can be passed (``e_field``, explicit algorithm); then :math:`\mathbf E^* = \mathbf E - \varepsilon \mu_p \nabla |\mathbf B|` (gauge-invariant electromagnetic formulation).
     In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
     .. math::
@@ -96,9 +96,9 @@ class PushGuidingCenterBxEstar(Propagator):
             If ``None``, the perturbation is ignored.
         e_field : FEECVariable, default=None
             Electric field in ``"Hcurl"`` space, used in :math:`E^* = E - \varepsilon \mu \nabla |B|` instead of
-            :math:`-\nabla \phi` (gauge-invariant electromagnetic formulation). Cannot be combined with ``phi``. The
-            discrete-gradient algorithms then apply the discrete gradient to :math:`\varepsilon \mu |B|` only and
-            evaluate :math:`E` (fixed in this step) like the other fields.
+            :math:`-\nabla \phi` (gauge-invariant electromagnetic formulation). Cannot be combined with ``phi``. Only the
+            explicit algorithm is consistent with a general :math:`E` (the discrete gradients conserve a Hamiltonian
+            with a potential); a discrete-gradient ``algo`` is replaced by ``"explicit"``, with a warning.
         """
         assert phi is None or e_field is None, "Pass either the potential phi or the electric field e_field, not both."
         if e_field is not None:
@@ -215,6 +215,14 @@ class PushGuidingCenterBxEstar(Propagator):
         self._evaluate_e_field = self.options.evaluate_e_field
         if self.e_field is not None:
             self._evaluate_e_field = True
+            # the discrete gradients conserve the Hamiltonian, which contains no potential for a general E:
+            # they would remove the work of E along the step (inconsistent scheme), hence the explicit algorithm
+            if "discrete_gradient" in self.options.algo:
+                logger.warning(
+                    f'{self.__class__.__name__} with e_field: algo="{self.options.algo}" needs a potential, '
+                    'using algo="explicit" (default Butcher tableau).'
+                )
+                self._options = replace(self.options, algo="explicit", butcher=None)
         self._e_field = self.derham.V1.zeros()
         self._e_field_pol = self.derham.grad.codomain.zeros()
 

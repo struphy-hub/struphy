@@ -218,7 +218,9 @@ class DriftKineticMaxwellCoupling(Propagator):
             Coefficient :math:`\chi \geq 0` of the polarization current
             :math:`\frac{n_0}{|B_0|^2} \partial_t \mathbf E_\perp`. If ``None``, :math:`\alpha^2` of the species
             (the polarization of the guiding centers themselves); a larger value mimics the polarization of a heavier
-            species. ``kappa + chi`` must be positive.
+            species. ``kappa + chi`` must be positive. The density :math:`n_0` is the one of the MHD equilibrium
+            (:attr:`~struphy.feec.mass.WeightedMassOperators.M1gyro`), not of the kinetic background: choose them
+            consistently.
 
         c1 : float, default=1.0
             Coefficient :math:`c_1 > 0` of :math:`\nabla \times \tilde{\mathbf B}` in Ampère's law.
@@ -261,7 +263,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         matrix_free : bool, default=False
             Apply the particle matrices :math:`\mathbb A_\parallel` and :math:`\mathbb S` matrix-free, with their
             fillings stored per marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead
-            of assembling them. Needs 7 auxiliary marker columns. Ignored on the CuPy backend.
+            of assembling them. Needs 7 auxiliary marker columns.
 
         initial_projection : bool, default=True
             Only for ``kappa=0``: in the setup (first :meth:`prepare_time_step`), replace
@@ -354,7 +356,8 @@ class DriftKineticMaxwellCoupling(Propagator):
             )
             logger.warning(
                 "DriftKineticMaxwellCoupling with control variate: the energy is not conserved exactly "
-                "(the weights change)."
+                "(the weights change), and the response of the background f0 (parallel response and E x B current) "
+                "is missing in the particle matrices."
             )
 
         self._info = self.options.solver_params.info
@@ -390,9 +393,9 @@ class DriftKineticMaxwellCoupling(Propagator):
             self._curl_unit_b_dot_b0._data,
         )
 
-        # accumulation of A_par and S (assembled, or matrix-free) and the vector j;
-        # the matrix-free kernels have no CUDA version
-        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        # accumulation of A_par and S (assembled, or matrix-free) and the vector j
+        assert xp.get_backend() != "cupy", "DriftKineticMaxwellCoupling has no CUDA kernels yet."
+        self._matrix_free = self.options.matrix_free
         if self._matrix_free:
             # the vector, and the fillings of the matrices per marker (in the first free columns of the marker array)
             column = particles.args_markers.first_free_idx
