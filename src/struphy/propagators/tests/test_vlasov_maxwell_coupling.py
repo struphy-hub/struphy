@@ -1,0 +1,194 @@
+import logging
+
+import cunumpy as xp
+import pytest
+
+from struphy import set_logging_level
+
+set_logging_level(logging.WARNING)
+
+
+def _model(model_name="VlasovMaxwellQuasiNeutral", control_variate=False, **options):
+    """Allocated model (1D-ish slab, full-f electrons with alpha=1, epsilon=-1, a density and a B perturbation) and
+    its coupling propagator(s) with the given options."""
+    from struphy import (
+        DerhamOptions,
+        LoadingParameters,
+        Simulation,
+        WeightsParameters,
+        domains,
+        grids,
+        maxwellians,
+        models,
+        perturbations,
+    )
+    from struphy.linear_algebra.solver import SolverParameters
+
+    model = getattr(models, model_name)(alpha=1.0, epsilon=-1.0)
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=40, seed=1234),
+        weights_params=WeightsParameters(control_variate=control_variate),
+    )
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    model.kinetic_ions.var.add_initial_condition(
+        maxwellians.Maxwellian3D(n=(1.0, perturbations.ModesCos(ls=(1,), amps=(1e-1,))))
+    )
+    model.em_fields.b_field.add_perturbation(
+        perturbations.ModesSin(ls=(1,), ms=(1,), given_in_basis="2", comp=2, amps=(1e-1,))
+    )
+
+    solver_params = SolverParameters(tol=1e-13, maxiter=3000)
+    if model_name == "VlasovMaxwellQuasiNeutral":
+        prop = model.propagators.coupling
+        prop.options = prop.Options(solver_params=solver_params, **options)
+    else:
+        for prop in (model.propagators.maxwell, model.propagators.coupling_va):
+            prop.options = prop.Options(solver_params=solver_params)
+
+    Simulation(
+        model=model,
+        domain=domains.Cuboid(r1=4.0, r2=2.0),
+        grid=grids.TensorProductGrid(num_elements=(8, 4, 1)),
+        derham_opts=DerhamOptions(degree=(2, 2, 1)),
+    ).allocate()
+    return model
+
+
+def _state(model):
+    e = model.em_fields.e_field.spline.vector.copy()
+    b = model.em_fields.b_field.spline.vector.copy()
+    v = model.kinetic_ions.var.particles.velocities.copy()
+    return e, b, v
+
+
+def _norm(x):
+    return x.inner(x) ** 0.5
+
+
+def _vnorm(v):
+    """Global 2-norm of the local marker velocities (a collective operation)."""
+    from maybempi import MPI
+
+    from struphy.propagators.base import Propagator
+
+    val = xp.array([float(xp.sum(v**2))])
+    comm = Propagator.derham.comm
+    if comm is not None and comm.Get_size() > 1:
+        comm.Allreduce(MPI.IN_PLACE, val, op=MPI.SUM)
+    return float(val[0]) ** 0.5
+
+
+@pytest.mark.parametrize("kappa", [1.0, 0.0])
+@pytest.mark.parametrize("precond", ["StiffnessPreconditioner", "MassMatrixPreconditioner"])
+def test_energy_conservation(kappa, precond):
+    """The coupling step conserves its energy H exactly (up to the solver tolerance), also for dt >> 1/omega_p and
+    in the quasi-neutral limit kappa=0."""
+    model = _model(kappa=kappa, precond=precond)
+    prop = model.propagators.coupling
+    b = model.em_fields.b_field.spline.vector
+    energy_0 = prop.energy()
+    energy_b_0 = 0.5 * b.inner(prop._M2.dot(b))
+    for _ in range(3):
+        prop(2.0)
+        assert prop._solver._info["success"]
+    # H is dominated by the thermal energy: compare its change also with the energy exchanged with the B field
+    exchanged = abs(0.5 * b.inner(prop._M2.dot(b)) - energy_b_0)
+    assert exchanged > 10 * energy_b_0
+    assert abs(prop.energy() - energy_0) < 1e-9 * exchanged
+
+
+def test_agrees_with_split_propagators():
+    """For kappa=1 and the species coefficients, one step agrees with MaxwellWeakAmpere followed by
+    VlasovAmpereCoupling up to the splitting error O(dt^2)."""
+    diffs = []
+    for dt in (0.1, 0.05):
+        coupled = _model()
+        coupled.propagators.coupling(dt)
+        split = _model("VlasovMaxwellOneSpecies")
+        split.propagators.maxwell(dt)
+        split.propagators.coupling_va(dt)
+        # the two simulations have different Derham objects: compare the arrays (global 2-norms)
+        diff = 0.0
+        for x_c, x_s in zip(_state(coupled), _state(split)):
+            x_c = x_c if isinstance(x_c, xp.ndarray) else x_c.toarray()
+            x_s = x_s if isinstance(x_s, xp.ndarray) else x_s.toarray()
+            diff += _vnorm(x_c - x_s) / _vnorm(x_s)
+        diffs.append(diff)
+    # local splitting error O(dt^2): halving dt divides the difference by about 4
+    assert 3.0 < diffs[0] / diffs[1] < 5.0, diffs
+
+
+def test_quasi_neutral_limit():
+    """b and V converge like kappa to the kappa=0 solution, and at kappa=0 the displacement-free Ampère law
+    c1 C^T M2 b_mid = c2 j_mid holds; the iteration counts stay bounded as kappa -> 0."""
+    dt = 0.5
+    results = {}
+    niter = {}
+    for kappa in (1e-2, 1e-4, 0.0):
+        model = _model(kappa=kappa)
+        prop = model.propagators.coupling
+        e0, b0, v0 = _state(model)
+        prop._accum()
+        j0 = prop._accum.vectors[0].copy()
+        prop(dt)
+        niter[kappa] = prop._solver._info["niter"]
+        e1, b1, v1 = _state(model)
+        results[kappa] = (b1.toarray(), v1)
+
+        if kappa == 0.0:
+            # j is linear in V at fixed positions: j_mid = (j(V^n) + j(V^{n+1})) / 2
+            prop._accum()
+            j_mid = (j0 + prop._accum.vectors[0]) * 0.5
+            b_mid = (b0 + b1) * 0.5
+            curl_b = prop._curl.T.dot(prop._M2.dot(b_mid)) * prop._c1
+            residual = curl_b - j_mid * prop._c2
+            assert _norm(residual) < 1e-8 * _norm(curl_b)
+            # weakly divergence-free mid-point current
+            div_j = prop.derham.grad.T.dot(j_mid)
+            assert _norm(div_j) < 1e-8 * _norm(j_mid)
+
+    b_ref, v_ref = results[0.0]
+    errs = [_vnorm(results[k][0] - b_ref) + _vnorm(results[k][1] - v_ref) for k in (1e-2, 1e-4)]
+    assert errs[1] < 3e-2 * errs[0], errs
+    assert max(niter.values()) <= 2 * min(niter.values()), niter
+
+
+def test_quasi_neutral_independent_of_e0():
+    """For kappa=0, the electric field at the beginning of the step does not enter: b, V and the stored
+    e = e_mid are the same for a different e^n."""
+    dt = 0.5
+    out = []
+    for scale in (1.0, -3.0):
+        model = _model(kappa=0.0)
+        model.em_fields.e_field.spline.vector *= scale
+        model.em_fields.e_field.spline.vector.update_ghost_regions()
+        model.propagators.coupling(dt)
+        out.append(_state(model))
+    for x, y in zip(out[0], out[1]):
+        x = x if isinstance(x, xp.ndarray) else x.toarray()
+        y = y if isinstance(y, xp.ndarray) else y.toarray()
+        assert _vnorm(x - y) < 1e-8 * _vnorm(x)
+
+
+def test_control_variate_quasi_neutral_rejected():
+    """The quasi-neutral limit needs full-f weights."""
+    with pytest.raises(AssertionError):
+        _model(control_variate=True, kappa=0.0)
+
+
+@pytest.mark.mpi_skip
+def test_options():
+    """Invalid coefficients are rejected; solver="cg" takes no preconditioner."""
+    from struphy.propagators.vlasov_maxwell_coupling import VlasovMaxwellCoupling
+
+    Options = VlasovMaxwellCoupling.Options
+    with pytest.raises(AssertionError):
+        Options(kappa=-1.0)
+    with pytest.raises(AssertionError):
+        Options(c1=0.0)
+    with pytest.raises(AssertionError):
+        Options(c2=1.0, c3=-1.0)
+    with pytest.raises(AssertionError):
+        Options(precond="HiptmairXu")
+    assert Options().precond == "StiffnessPreconditioner"
+    assert Options(solver="cg").precond is None
