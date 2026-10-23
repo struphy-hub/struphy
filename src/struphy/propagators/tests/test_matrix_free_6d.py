@@ -68,6 +68,8 @@ def test_vlasov_ampere_coupling_matrix_free():
 def test_vlasov_maxwell_coupling_matrix_free(kappa: float):
     """VlasovMaxwellCoupling: e-field, b-field and velocities after two steps (in a curved domain), with and without
     displacement current."""
+    import numpy as np
+
     from struphy import DerhamOptions, LoadingParameters, Simulation, domains, grids, maxwellians, perturbations
     from struphy.models import VlasovMaxwellQuasiNeutral
 
@@ -87,9 +89,11 @@ def test_vlasov_maxwell_coupling_matrix_free(kappa: float):
             derham_opts=DerhamOptions(degree=(2, 2, 1)),
         ).allocate()
         particles = model.kinetic_ions.var.particles
+        # the reference density of the preconditioner, from the assembled or the matrix-free particle matrix
+        n_ref = np.array([prop._n_ref])
         # one step for kappa=0: the initial data violate curl B = J, and the residual of this constraint changes sign
         # in every step, so b and V return to their initial values after two steps (period-2 oscillation)
-        return _steps(
+        return [n_ref] + _steps(
             prop,
             lambda: (
                 model.em_fields.e_field.spline.vector.toarray(),
