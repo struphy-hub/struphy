@@ -15,9 +15,9 @@ def test_variational_qb_evolve_step(linearize: bool, info: bool):
 
     from struphy import DerhamOptions, FieldsBackground, Simulation, domains, equils, grids, perturbations
     from struphy.linear_algebra.solver import NonlinearSolverParameters
-    from struphy.models import ViscoResistiveLinearMHD_with_q
+    from struphy.models import VariationalPerturbativeMHD_with_q
 
-    model = ViscoResistiveLinearMHD_with_q()
+    model = VariationalPerturbativeMHD_with_q(linear=True)
     sim = Simulation(
         model=model,
         domain=domains.Cuboid(),
@@ -26,6 +26,9 @@ def test_variational_qb_evolve_step(linearize: bool, info: bool):
         derham_opts=DerhamOptions(degree=(1, 1, 1)),
     )
 
+    for name in ("variat_dens", "variat_viscous", "variat_resist"):
+        prop = getattr(model.propagators, name)
+        prop.options = prop.Options(model="linear_q")
     prop = model.propagators.variat_qb
     prop.options = prop.Options(
         model="linear_q",
