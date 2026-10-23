@@ -54,9 +54,10 @@ kappa gamma^2 ~ 8e-4 is negligible against k^2 + 1 = 2.56: the Weibel instabilit
 Setup. As in the VlasovMaxwellOneSpecies Weibel example: periodic box of length 2 pi / k with k = 1.25, 32 cells
 and cubic splines in x, Maxwellian electrons with n = 1 and vth1 = 0.02 / sqrt(2), vth2 = sqrt(12) vth1 (v3 = 0),
 the seed field B3 = -1e-4 cos(k x), 100000 markers with full-f weights (the quasi-neutral limit needs full-f
-weights), loaded by an antithetic Sobol sequence (pairs of markers with opposite velocities), which removes most of
-the noise of the current. Time step dt = {args.dt:g} (20 times the dt = 0.05 of the VlasovMaxwellOneSpecies example; the
-implicit coupling step is stable for dt omega_p > 1) up to t = {args.tend:g}, Lie-Trotter splitting.
+weights), loaded by an antithetic Sobol sequence (each Sobol point reflected in all phase-space directions, so that
+the mean velocities of each group of markers vanish), which removes most of the noise of the current. Time step
+dt = {args.dt:g} (20 times the dt = 0.05 of the VlasovMaxwellOneSpecies example; the implicit coupling step is stable
+for dt omega_p > 1) up to t = {args.tend:g}, Lie-Trotter splitting.
 
 Expected result. For k = 1.25 the dispersion relation gives gamma = 0.02784 for both kappa = 1 and kappa = 0 (the
 growth rate of the amplitude of B3; the magnetic energy grows as exp(2 gamma t)). The energy en_H conserved by the
@@ -153,11 +154,10 @@ sim = Simulation(
 model.kinetic_ions.set_markers(
     loading_params=LoadingParameters(
         Np=2000 if args.test_run else 100000,
-        # markers in pairs with opposite velocities (quasi-random): much less noise in the current
+        # quasi-random markers reflected in all phase-space directions (no seed): much less noise in the current
         loading="sobol_antithetic",
         set_zero_velocity=(False, False, True),
         moments=(0.0, 0.0, 0.0, vth1_background_val, vth2_background_val, 1.0),
-        seed=1234,
     ),
     weights_params=WeightsParameters(control_variate=False),
     boundary_params=BoundaryParameters(),
