@@ -14,7 +14,10 @@ from struphy.feec.mass import L2Projector
 from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
+    NewtonConvergence,
     Pressure_transport_operator,
+    dot_normalized,
+    inv_norm2,
 )
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -228,9 +231,12 @@ class VariationalQBEvolve(Propagator):
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The Newton systems are solved for a normalized right-hand side, so ``tol`` is
+            relative to the norm of the residual.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear/Picard iteration controls.
+            Nonlinear/Picard iteration controls. The iteration stops when the norm of the residual is below ``tol`` times the
+            norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or when it
+            stagnates (with a warning).
         implicit_weights : bool, default=None
             If ``True``, the weights of the transport operators (:math:`\mathbf B` and :math:`q`) are taken at the
             midpoint :math:`t^{n+1/2}` and updated in every Picard iteration, which makes the step second-order
@@ -316,14 +322,6 @@ class VariationalQBEvolve(Propagator):
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
         self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
-        self._Mrho_inv = inverse(
-            self._Mrho,
-            "pcg",
-            pc=self._Mrho_pc,
-            tol=1e-10,
-            maxiter=500,
-            recycle=True,
-        )
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -398,7 +396,8 @@ class VariationalQBEvolve(Propagator):
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalQBEvolve", tol, self._get_error(mn, bn, qn))
 
         for it in range(self._nonlin_solver.maxiter):
             # Picard iteration
@@ -518,12 +517,12 @@ class VariationalQBEvolve(Propagator):
             mn_diff += advection
 
             # Get error
-            err = self._get_error(mn_diff, bn_diff, qn_diff)
+            stop = conv.stop(self._get_error(mn_diff, bn_diff, qn_diff), it)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if err < tol**2 or xp.isnan(err):
+            if stop:
                 break
 
             # Derivative for Newton
@@ -534,7 +533,8 @@ class VariationalQBEvolve(Propagator):
             self._tmp_f[1] = bn_diff
             self._tmp_f[2] = qn_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
@@ -544,12 +544,9 @@ class VariationalQBEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalQBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
 
-        if not err < tol**2:
+        if not conv.converged:
             # the last iteration applied an update after the residual: evaluate the midpoint velocity (and the
             # operators) at the final iterate, such that the updates below are consistent with it
             un12 = un.copy(out=self._tmp_un12)
@@ -698,7 +695,8 @@ class VariationalQBEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull3(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho_inv,
+            # fixed (linear) preconditioner: an inner iterative solve is expensive and not a linear operator
+            pc=self._Mrho_pc,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -764,10 +762,8 @@ class VariationalQBEvolve(Propagator):
         wq *= -2 / (self._gamma - 1)
 
     def _get_error(self, mn_diff, bn_diff, qn_diff):
-        err_u = self._inv_Mv.dot_inner(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            self.derham.boundary_ops["v"].dot(mn_diff),
-        )
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
         err_b = self.mass_ops.M2.dot_inner(
             bn_diff,
             bn_diff,
