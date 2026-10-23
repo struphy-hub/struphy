@@ -49,7 +49,9 @@ There are four possibilities:
 
 .. math::
     
-    \hat v = v_\textnormal{c, bulk} := \hat x \Omega_\textnormal{c, bulk}/(2\pi) = \hat x\, q_\textnormal{bulk} \hat B /(m_\textnormal{bulk}2\pi)\,.
+    \hat v = v_\textnormal{c, bulk} := \hat x\, \Omega_\textnormal{c, bulk} = \hat x\, q_\textnormal{bulk} \hat B /m_\textnormal{bulk}\,,
+
+so that :math:`\hat t = 1/\Omega_\textnormal{c, bulk}`.
 
 4. ``thermal`` velocity of the bulk species,
 
@@ -106,7 +108,8 @@ In Struphy models, the following equation parameters appear:
 
 .. math::
 
-        \alpha_\textrm{s} = \frac{\hat \Omega_\textnormal{ps}}{\hat \Omega_\textnormal{cs}}\,,\qquad \varepsilon_\textrm{s} = \frac{1}{\hat \Omega_\textnormal{cs} \hat t} \,,
+        \alpha_\textrm{s} = \frac{\hat \Omega_\textnormal{ps}}{\hat \Omega_\textnormal{cs}}\,,\qquad \varepsilon_\textrm{s} = \frac{1}{\hat \Omega_\textnormal{cs} \hat t} \,,\qquad
+        \lambda_\textrm{s} = \frac{\hat \Omega_\textnormal{cs} \hat x}{c}\,,\qquad \kappa_\textrm{s} = \frac{\hat \Omega_\textnormal{ps} \hat x}{c} = \alpha_\textrm{s} \lambda_\textrm{s}\,,
 
 featuring the plasma- and cyclotron frequency of species :math:`\textrm{s}`, respectively,
 
@@ -115,6 +118,23 @@ featuring the plasma- and cyclotron frequency of species :math:`\textrm{s}`, res
         \hat\Omega_\textnormal{ps} = \sqrt{\frac{\hat n (Z_\textrm{s}e)^2}{\epsilon_0 (A_\textrm{s} m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{cs}} = \frac{(Z_\textrm{s}e) \hat B}{(A_\textrm{s} m_\textnormal{H})}\,,
 
 where :math:`Z_\textrm{s}` and :math:`A_\textrm{s}` stand for the species' charge and mass number, respectively.
+
+The parameters :math:`\lambda_\textrm{s}` and :math:`\kappa_\textrm{s}` (``lam`` and ``kappa`` in the code) measure the
+length unit in units of the inertial lengths :math:`c/\hat \Omega_\textnormal{cs}` and :math:`c/\hat \Omega_\textnormal{ps}`.
+With the ``cyclotron`` velocity scale of species :math:`\textrm{s}` (hence :math:`\varepsilon_\textrm{s} = 1`), Ampère's law
+:math:`\frac{1}{c^2} \partial_t \mathbf E = \nabla \times \mathbf B - \mu_0 \mathbf J` becomes
+
+.. math::
+
+        \lambda_\textrm{s}^2 \frac{\partial \mathbf E'}{\partial t'} = \nabla' \times \mathbf B' - \kappa_\textrm{s}^2 \mathbf J'\,,
+
+with :math:`\hat E = \hat B \hat v` and :math:`\hat \jmath = q_\textrm{s} \hat n \hat v`, while the Vlasov equation and
+Faraday's law have no coefficients. :math:`\lambda_\textrm{s} \to 0` is the limit without displacement current
+(quasi-neutral limit). For a general velocity scale the coefficients are :math:`\varepsilon_\textrm{s}^2 \lambda_\textrm{s}^2`
+and :math:`\kappa_\textrm{s}^2 \varepsilon_\textrm{s}`, and :math:`1/\varepsilon_\textrm{s}` in the Vlasov equation; for the
+``light`` velocity scale :math:`\varepsilon_\textrm{s} \lambda_\textrm{s} = 1` and
+:math:`\kappa_\textrm{s}^2 \varepsilon_\textrm{s} = \alpha_\textrm{s}^2 / \varepsilon_\textrm{s}`.
+
 These equation parameters are defined in :class:`~struphy.models.species.Species.EquationParameters` and can be overridden
 in the model constructor.
 

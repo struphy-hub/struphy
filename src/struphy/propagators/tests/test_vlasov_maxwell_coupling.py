@@ -8,7 +8,9 @@ from struphy import set_logging_level
 set_logging_level(logging.WARNING)
 
 
-def _model(model_name="VlasovMaxwellQuasiNeutral", control_variate=False, **options):
+def _model(
+    model_name="VlasovMaxwellQuasiNeutral", control_variate=False, model_lam=1.0, measure_gauss_law=False, **options
+):
     """Allocated model (1D-ish slab, full-f electrons with alpha=1, epsilon=-1, a density and a B perturbation) and
     its coupling propagator(s) with the given options."""
     from struphy import (
@@ -24,7 +26,11 @@ def _model(model_name="VlasovMaxwellQuasiNeutral", control_variate=False, **opti
     )
     from struphy.linear_algebra.solver import SolverParameters
 
-    model = getattr(models, model_name)(alpha=1.0, epsilon=-1.0)
+    # electrons; lam = kappa = 1 in the cyclotron normalization equals alpha = 1 in the light normalization
+    if model_name == "VlasovMaxwellQuasiNeutral":
+        model = getattr(models, model_name)(epsilon=-1.0, lam=model_lam, kappa=1.0, measure_gauss_law=measure_gauss_law)
+    else:
+        model = getattr(models, model_name)(alpha=1.0, epsilon=-1.0)
     model.kinetic_ions.set_markers(
         loading_params=LoadingParameters(ppc=40, seed=1234),
         weights_params=WeightsParameters(control_variate=control_variate),
@@ -83,13 +89,13 @@ COEFFS = {"species": {}, "explicit": {"c1": 2.0, "c2": -0.5, "c3": -3.0}}
 
 
 @pytest.mark.parametrize("coeffs", list(COEFFS))
-@pytest.mark.parametrize("kappa", [1.0, 0.0])
+@pytest.mark.parametrize("lam", [1.0, 0.0])
 @pytest.mark.parametrize("precond", ["StiffnessPreconditioner", "MassMatrixPreconditioner"])
-def test_energy_conservation(kappa, precond, coeffs):
+def test_energy_conservation(lam, precond, coeffs):
     """The coupling step conserves its energy H exactly (up to the solver tolerance), also for dt >> 1/omega_p and
-    in the quasi-neutral limit kappa=0 (without the initial projection, after which the kappa=0 step at frozen
+    in the quasi-neutral limit lam=0 (without the initial projection, after which the lam=0 step at frozen
     positions exchanges no energy)."""
-    model = _model(kappa=kappa, precond=precond, initial_projection=False, **COEFFS[coeffs])
+    model = _model(lam=lam, precond=precond, initial_projection=False, **COEFFS[coeffs])
     prop = model.propagators.coupling
     b = model.em_fields.b_field.spline.vector
     energy_0 = prop.energy()
@@ -104,14 +110,14 @@ def test_energy_conservation(kappa, precond, coeffs):
 
 
 @pytest.mark.parametrize("matrix_free", [False, True])
-@pytest.mark.parametrize("kappa", [1.0, 0.0])
-def test_discrete_equations(kappa, matrix_free):
+@pytest.mark.parametrize("lam", [1.0, 0.0])
+def test_discrete_equations(lam, matrix_free):
     """The new state satisfies the Crank-Nicolson equations: Ampère's law
-    kappa M1 (e^{n+1} - e^n) / dt = c1 C^T M2 b_mid - c2 j(V_mid) (with V^{n+1} from the pusher, j linear in V at
-    fixed positions) and Faraday's law (b^{n+1} - b^n) / dt = -C e_mid, with e_mid = e^{n+1} for kappa = 0 (without
+    lam^2 M1 (e^{n+1} - e^n) / dt = c1 C^T M2 b_mid - c2 j(V_mid) (with V^{n+1} from the pusher, j linear in V at
+    fixed positions) and Faraday's law (b^{n+1} - b^n) / dt = -C e_mid, with e_mid = e^{n+1} for lam = 0 (without
     the initial projection, so that the step is not trivial)."""
     dt = 0.5
-    model = _model(kappa=kappa, matrix_free=matrix_free, initial_projection=False, **COEFFS["explicit"])
+    model = _model(lam=lam, matrix_free=matrix_free, initial_projection=False, **COEFFS["explicit"])
     prop = model.propagators.coupling
     e0, b0, _ = _state(model)
     prop._accum(*prop._args_accum)
@@ -121,17 +127,17 @@ def test_discrete_equations(kappa, matrix_free):
     prop._accum(*prop._args_accum)
     j_mid = (j0 + prop._accum.vectors[0]) * 0.5
     b_mid = (b0 + b1) * 0.5
-    e_mid = (e0 + e1) * 0.5 if kappa > 0.0 else e1
+    e_mid = (e0 + e1) * 0.5 if lam > 0.0 else e1
 
     curl_b = prop._curl.T.dot(prop._M2.dot(b_mid)) * prop._c1
     current = j_mid * prop._c2
-    residual = curl_b - current - prop._M1.dot(e1 - e0) * (kappa / dt)
+    residual = curl_b - current - prop._M1.dot(e1 - e0) * (lam**2 / dt)
     assert _norm(residual) < 1e-8 * (_norm(curl_b) + _norm(current))
 
     faraday = (b1 - b0) * (1 / dt) + prop._curl.dot(e_mid)
     assert _norm(faraday) < 1e-10 * _norm(b1 - b0) / dt
 
-    if kappa == 0.0:
+    if lam == 0.0:
         # weakly divergence-free mid-point current
         div_j = prop.derham.grad.T.dot(j_mid)
         assert _norm(div_j) < 1e-8 * _norm(j_mid)
@@ -154,7 +160,7 @@ def test_dt_change():
 
 
 def test_agrees_with_split_propagators():
-    """For kappa=1 and the species coefficients, one step agrees with MaxwellWeakAmpere followed by
+    """For lam=1 and the species coefficients, one step agrees with MaxwellWeakAmpere followed by
     VlasovAmpereCoupling up to the splitting error O(dt^2)."""
     diffs = []
     for dt in (0.1, 0.05):
@@ -175,21 +181,24 @@ def test_agrees_with_split_propagators():
 
 
 def test_quasi_neutral_limit():
-    """b and V converge like kappa to the kappa=0 solution (of the step without the initial projection); the
-    iteration counts stay bounded as kappa -> 0."""
+    """b and V converge like lam^2 to the lam=0 solution (of the step without the initial projection); the
+    iteration counts stay bounded as lam -> 0."""
     dt = 0.5
     results = {}
     niter = {}
-    for kappa in (1e-2, 1e-4, 0.0):
-        model = _model(kappa=kappa, initial_projection=False)
+    for lam in (1e-1, 1e-2, 0.0):
+        model = _model(lam=lam, initial_projection=False)
+        # the same initial data for all lam: the initial Poisson field (Gauss' law lam^2 div E = c2 rho) scales
+        # like 1 / lam^2, and lam^2 M1 e^n would not vanish
+        model.em_fields.e_field.spline.vector *= 0.0
         prop = model.propagators.coupling
         prop(dt)
-        niter[kappa] = prop._solver._info["niter"]
+        niter[lam] = prop._solver._info["niter"]
         _, b1, v1 = _state(model)
-        results[kappa] = (b1.toarray(), v1)
+        results[lam] = (b1.toarray(), v1)
 
     b_ref, v_ref = results[0.0]
-    errs = [_vnorm(results[k][0] - b_ref) + _vnorm(results[k][1] - v_ref) for k in (1e-2, 1e-4)]
+    errs = [_vnorm(results[k][0] - b_ref) + _vnorm(results[k][1] - v_ref) for k in (1e-1, 1e-2)]
     assert errs[1] < 3e-2 * errs[0], errs
     assert max(niter.values()) <= 2 * min(niter.values()), niter
 
@@ -203,11 +212,11 @@ def _constraint_residual(prop):
 
 @pytest.mark.parametrize("matrix_free", [False, True])
 def test_initial_projection(matrix_free):
-    """kappa=0: without the initial projection, the constraint residual r = c1 C^T M2 b - c2 j(V) changes sign in
+    """lam=0: without the initial projection, the constraint residual r = c1 C^T M2 b - c2 j(V) changes sign in
     every step (period-2 oscillation). The projection in the setup makes r vanish, does not depend on dt, keeps e,
     and the steps then leave b and V unchanged (frozen positions)."""
     # without projection: r^{n+1} = -r^n
-    model = _model(kappa=0.0, initial_projection=False, matrix_free=matrix_free)
+    model = _model(lam=0.0, initial_projection=False, matrix_free=matrix_free)
     prop = model.propagators.coupling
     r0 = _constraint_residual(prop)
     prop(0.5)
@@ -218,7 +227,7 @@ def test_initial_projection(matrix_free):
     # with projection (default), for two dt
     projected = []
     for dt in (0.5, 2.0):
-        model = _model(kappa=0.0, matrix_free=matrix_free)
+        model = _model(lam=0.0, matrix_free=matrix_free)
         prop = model.propagators.coupling
         # accumulate at the initial markers for the scale of the current
         prop._accum(*prop._args_accum)
@@ -244,7 +253,7 @@ def test_initial_projection(matrix_free):
 def test_control_variate_quasi_neutral_rejected():
     """The quasi-neutral limit needs full-f weights."""
     with pytest.raises(AssertionError, match="quasi-neutral"):
-        _model(control_variate=True, kappa=0.0)
+        _model(control_variate=True, lam=0.0)
 
 
 @pytest.mark.mpi_skip
@@ -254,7 +263,7 @@ def test_options():
 
     Options = VlasovMaxwellCoupling.Options
     with pytest.raises(AssertionError):
-        Options(kappa=-1.0)
+        Options(lam=-1.0)
     with pytest.raises(AssertionError):
         Options(c1=0.0)
     with pytest.raises(AssertionError):
@@ -269,3 +278,49 @@ def test_options():
     assert Options().initial_projection is True
     assert Options().precond == "StiffnessPreconditioner"
     assert Options(solver="cg").precond is None
+
+
+@pytest.mark.mpi_skip
+def test_equation_parameters():
+    """lam = Omega_c x / c and kappa = Omega_p x / c of the species: kappa = alpha lam; for the cyclotron velocity scale
+    (VlasovMaxwellQuasiNeutral) epsilon = 1, for the light velocity scale (VlasovMaxwellOneSpecies) epsilon lam = 1 and
+    kappa^2 epsilon = alpha^2 / epsilon, so that the propagator coefficients agree for both normalizations."""
+    import math
+
+    from struphy import BaseUnits
+    from struphy.models import VlasovMaxwellOneSpecies, VlasovMaxwellQuasiNeutral
+
+    base_units = BaseUnits(x=0.01, B=0.5, n=2.0)
+    for model in (VlasovMaxwellQuasiNeutral(base_units=base_units), VlasovMaxwellOneSpecies(base_units=base_units)):
+        params = model.kinetic_ions.equation_params
+        assert math.isclose(params.kappa, params.alpha * params.lam, rel_tol=1e-12)
+        if isinstance(model, VlasovMaxwellQuasiNeutral):
+            assert math.isclose(params.epsilon, 1.0, rel_tol=1e-12)
+        else:
+            assert math.isclose(params.epsilon * params.lam, 1.0, rel_tol=1e-12)
+            assert math.isclose(params.kappa**2 * params.epsilon, params.alpha**2 / params.epsilon, rel_tol=1e-12)
+
+    # overrides are passed to the species
+    params = VlasovMaxwellQuasiNeutral(lam=0.0, kappa=2.0).kinetic_ions.equation_params
+    assert params.lam == 0.0 and params.kappa == 2.0
+
+
+def test_model_coefficients():
+    """The default propagator coefficients come from the species: lam^2 = (epsilon lam_s)^2, c2 = kappa_s^2 epsilon,
+    c3 = 1 / epsilon; lam=0 in the model is the quasi-neutral limit (no initial Poisson solve, gauss_error NaN)."""
+    import math
+
+    model = _model(model_lam=0.5, lam=None, measure_gauss_law=True)
+    prop = model.propagators.coupling
+    epsilon = model.kinetic_ions.equation_params.epsilon
+    assert math.isclose(prop._lam2, (epsilon * 0.5) ** 2)
+    assert math.isclose(prop._c2, 1.0**2 * epsilon)
+    assert math.isclose(prop._c3, 1 / epsilon)
+    # Gauss' law of the initial Poisson solve: lam^2 div E = c2 rho
+    assert math.isclose(model.initial_poisson.coeffs[0], prop._c2 / prop._lam2)
+    assert not math.isnan(model.calculate_gauss_error())
+
+    model = _model(model_lam=0.0, lam=None, measure_gauss_law=True)
+    assert model.propagators.coupling._lam2 == 0.0
+    assert math.isnan(model.calculate_gauss_error())
+    assert _norm(model.em_fields.e_field.spline.vector) == 0.0
