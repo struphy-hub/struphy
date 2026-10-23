@@ -11,8 +11,10 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.accumulation.kernels.marker_operator_symm_dot import marker_operator_symm_dot
 from struphy.pic.accumulation.kernels.vlasov_maxwell import vlasov_maxwell
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.vlasov_maxwell_mf import vlasov_maxwell_mf
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
 from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
@@ -86,16 +88,23 @@ class VlasovAmpereCoupling(Propagator):
             Preconditioner for electric-field mass matrix block.
         solver_params : SolverParameters, default=None
             Solver controls.
+        matrix_free : bool, default=False
+            Apply the particle matrix matrix-free, with the filling :math:`w_p G^{-1}(\boldsymbol \eta_p)` stored per
+            marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it:
+            one spline evaluation and one deposition per marker and solver iteration instead of the products of all
+            pairs of basis functions per marker. Needs 6 auxiliary marker columns. Ignored on the CuPy backend.
         """
 
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        matrix_free: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            assert isinstance(self.matrix_free, bool)
 
             # defaults
             if self.solver_params is None:
@@ -124,21 +133,44 @@ class VlasovAmpereCoupling(Propagator):
 
         self._info = self.options.solver_params.info
 
-        # get accumulation kernel
-        accum_kernel = vlasov_maxwell
-
         # Initialize Accumulator object
         particles = self.variables.ions.particles
 
-        self._accum = Accumulator(
-            particles,
-            "Hcurl",
-            accum_kernel,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-        )
+        # the matrix-free kernels have no CUDA version
+        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        if self._matrix_free:
+            # the vector, and the filling of the matrix per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 6, "matrix_free needs 6 free (auxiliary) marker columns."
+            self._args_accum = (column,)
+            self._accum = AccumulatorVector(
+                particles,
+                "Hcurl",
+                vlasov_maxwell_mf,
+                self.mass_ops,
+                self.domain.args_domain,
+            )
+            self._A_particles = MarkerOperator(
+                particles,
+                "Hcurl",
+                marker_operator_symm_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (1, column),
+                symmetry="symm",
+            )
+        else:
+            self._args_accum = ()
+            self._accum = Accumulator(
+                particles,
+                "Hcurl",
+                vlasov_maxwell,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="symm",
+            )
+            self._A_particles = self._accum.operators[0]
 
         # Create buffers to store temporarily e and its sum with old e
         self._e_tmp = self.derham.V1.zeros()
@@ -158,7 +190,7 @@ class VlasovAmpereCoupling(Propagator):
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
-        _BC = -self._accum.operators[0]
+        _BC = -self._c1 * self._c2 / 4.0 * self._A_particles
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(
@@ -190,11 +222,12 @@ class VlasovAmpereCoupling(Propagator):
     @profile
     def __call__(self, dt):
         # accumulate
-        self._accum()
+        self._accum(*self._args_accum)
 
-        # Update Schur solver
-        self._schur_solver.BC = self._accum.operators[0]
-        self._schur_solver.BC *= -self._c1 * self._c2 / 4.0
+        # Update Schur solver (the matrix-free operator reads the new fillings from the markers)
+        if not self._matrix_free:
+            self._schur_solver.BC = self._accum.operators[0]
+            self._schur_solver.BC *= -self._c1 * self._c2 / 4.0
 
         # Vector for Schur solver
         self._e_scale *= 0.0

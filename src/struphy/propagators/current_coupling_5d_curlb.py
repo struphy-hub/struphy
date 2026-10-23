@@ -14,7 +14,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb import cc_lin_mhd_5d_curlb
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf import cc_lin_mhd_5d_curlb_mf
-from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf_dot import cc_lin_mhd_5d_curlb_mf_dot
+from struphy.pic.accumulation.kernels.marker_operator_rank1_dot import marker_operator_rank1_dot
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
 from struphy.pic.pushing.kernels.push_gc_cc_J1_H1vec import push_gc_cc_J1_H1vec
 from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
@@ -257,7 +257,7 @@ class CurrentCoupling5DCurlb(Propagator):
             self._A_particles = MarkerOperator(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_5d_curlb_mf_dot,
+                marker_operator_rank1_dot,
                 self.mass_ops,
                 self.domain.args_domain,
                 (self._u_form_int, column),
