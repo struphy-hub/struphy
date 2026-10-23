@@ -10,7 +10,7 @@ from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.feec.variational_utilities import InternalEnergyEvaluator, NewtonConvergence, dot_normalized, inv_norm2
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -129,9 +129,11 @@ class VariationalResistivity(Propagator):
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below
+            ``tol`` times the norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or
+            when it stagnates (with a warning).
         linearize_current : bool, default=False
             If ``True``, linearize current terms around background fields.
         eta : float, default=0.0
@@ -253,17 +255,19 @@ class VariationalResistivity(Propagator):
         self._scaled_stiffness._scalar = dt * self._eta
         # self.evol_op._multiplicands[1]._addends[0]._scalar = -dt*self._eta/2.
         if self._linearize_current:
-            bn1 = self.evol_op.dot(
+            # normalized: the tolerance of the implicit solve is relative to the size of b
+            bn1 = dot_normalized(
+                self.evol_op,
                 bn
                 + dt
                 * self._eta
                 * self.curl.dot(
                     self.Tcurl.dot(self._extracted_b2),
                 ),
-                out=self._tmp_bn1,
+                self._tmp_bn1,
             )
         else:
-            bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
+            bn1 = dot_normalized(self.evol_op, bn, self._tmp_bn1)
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
@@ -334,7 +338,8 @@ class VariationalResistivity(Propagator):
         sn1 = sn.copy(out=self._tmp_sn1)
 
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalResistivity", tol, self._get_error_newton(self._linear_form_tot_e))
 
         for it in range(self._nonlin_solver.maxiter):
             if self._model in ["perturbative_q", "linear_q"]:
@@ -385,12 +390,13 @@ class VariationalResistivity(Propagator):
             self.tot_rhs -= self._linear_form_en1
             self.tot_rhs += self._linear_form_tot_e
 
-            err = self._get_error_newton(self.tot_rhs)
+            # at least one iteration
+            stop = conv.stop(self._get_error_newton(self.tot_rhs), it, min_iter=1)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if (err < tol**2 and it > 0) or xp.isnan(err):
+            if stop:
                 break
 
             if self._model == "full":
@@ -418,7 +424,8 @@ class VariationalResistivity(Propagator):
                 if self.pc_jac is not None:
                     self.pc_jac.update_mass_operator(self.M_de_ds)
 
-            incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self.inv_jac, self.tot_rhs, self._tmp_sn_incr)
 
             if self._info:
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
@@ -429,10 +436,7 @@ class VariationalResistivity(Propagator):
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
 
         self.update_feec_variables(s=sn1, b=bn1)
 
@@ -723,7 +727,8 @@ class VariationalResistivity(Propagator):
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
     def _get_error_newton(self, sn_diff):
-        err_s = self._inv_M3.dot_inner(sn_diff, sn_diff)
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_s = inv_norm2(self._inv_M3, sn_diff)
         return err_s
 
     def _update_artificial_resistivity(self, bn, dt):

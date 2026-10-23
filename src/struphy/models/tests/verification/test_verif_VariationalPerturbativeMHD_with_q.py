@@ -124,12 +124,14 @@ def test_same_as_full_f(tmp_path):
     pert_0, pert_n = run(VariationalPerturbativeMHD_with_q, perturb_all_along_z(amp, Lz))
     full_0, full_n = run(VariationalMHD_with_q, perturb_all_along_z(amp, Lz))
 
+    # both runs are converged up to the nonlinear solver tolerance (1e-8, relative to the perturbation in the
+    # perturbative model and absolute in the full-f model, see NewtonConvergence), not to round-off
     for name, p0, p, f0, f in zip(("rho", "u", "q", "B"), pert_0, pert_n, full_0, full_n):
         # f0 - p0 are the background coefficients of the full-f model
         diff = norm(f - (f0 - p0) - p)
         scale = max(norm(p), 1e-12)
         logger.info(f"{name}: |full - background - pert| / |pert| = {diff / scale:.2e}")
-        assert diff < 1e-10 * scale + 1e-14, f"{name}: |full - background - pert| = {diff}, |pert| = {scale}"
+        assert diff < 1e-6 * scale + 1e-14, f"{name}: |full - background - pert| = {diff}, |pert| = {scale}"
 
 
 def test_same_as_p_model(tmp_path):
