@@ -15,7 +15,7 @@ from struphy import (
     grids,
     perturbations,
 )
-from struphy.models import VariationalCompressibleFluid, ViscoResistiveMHD
+from struphy.models import VariationalCompressibleFluid, VariationalMHD
 
 
 def _run(model, tmp_path, steps=5):
@@ -46,9 +46,9 @@ def _init(species):
 @pytest.mark.fluid
 @pytest.mark.parametrize("with_viscosity", [False, True])
 @pytest.mark.parametrize("divdiv_alpha", [0.0, 0.5])
-def test_visco_resistive_mhd_divdiv_energy(divdiv_alpha, with_viscosity, tmp_path):
+def test_variational_mhd_divdiv_energy(divdiv_alpha, with_viscosity, tmp_path):
     """The total energy (with the div-div part of the kinetic energy) is conserved, also with viscous heating."""
-    model = ViscoResistiveMHD(with_viscosity=with_viscosity, with_resistivity=False, divdiv_alpha=divdiv_alpha)
+    model = VariationalMHD(with_viscosity=with_viscosity, with_resistivity=False, divdiv_alpha=divdiv_alpha)
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="full")
     if with_viscosity:

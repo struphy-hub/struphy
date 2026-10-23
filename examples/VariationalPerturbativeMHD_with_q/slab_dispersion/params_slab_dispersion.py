@@ -1,14 +1,17 @@
-"""MHD waves in a homogeneous slab with the nonlinear variational ideal MHD model (ViscoResistiveMHD without
-viscosity and resistivity): Alfvén, slow and fast magnetosonic speeds from the space-time spectrum."""
+"""MHD waves in a homogeneous slab with the ideal perturbative MHD model in q = sqrt(p)
+(VariationalPerturbativeMHD_with_q without viscosity and resistivity): Alfvén, slow and fast magnetosonic speeds
+from the space-time spectrum."""
 
 # -----------------------------
 # Description of the simulation
 # -----------------------------
 
-name = "Slab MHD dispersion (ViscoResistiveMHD)"
+name = "Slab MHD dispersion (VariationalPerturbativeMHD_with_q)"
 description = """
-Small-amplitude MHD waves in a homogeneous slab, computed with the nonlinear variational MHD model ViscoResistiveMHD
-(density, entropy, velocity and magnetic field, here without viscosity and resistivity, i.e. ideal MHD).
+Small-amplitude MHD waves in a homogeneous slab, computed with the perturbative variational MHD model
+VariationalPerturbativeMHD_with_q (here without viscosity and resistivity, i.e. ideal MHD). Its unknowns are the
+perturbations of the density, of q = sqrt(p) and of the magnetic field with respect to the equilibrium, and the
+velocity; all nonlinear terms are kept. The pressure perturbation is p - p0 = 2 q0 q~ + q~^2.
 
 Physics. Linearized around a homogeneous state (n0, p0, B0), ideal MHD supports three waves with wave vector k.
 For k along z and B0 = (0, B0y, B0z), their phase speeds are
@@ -20,13 +23,17 @@ along x (perpendicular to k and B0), the slow and fast waves compress the plasma
 Setup. Cuboid of length Lz = 60 in z (one element in x and y), B0 = (0, 1, 1), plasma beta = 3, n0 = 0.7,
 gamma = 5/3 (HomogenSlab), 64 cubic elements in z, periodic. All velocity components start from noise of amplitude
 1e-3, which excites all three waves at all resolved wave numbers. Time step dt = 0.15 up to Tend = 180
-(1200 steps), with the default (Newton/Picard) options of the variational propagators.
+(1200 steps), with the default (Newton/Picard) options of the variational propagators. The total energy en_tot
+includes the auxiliary variables q^ and B^ (en_thermo_2, en_mag_2) and is conserved by the scheme.
 
 Expected result. The space-time Fourier transform of u_x (Alfvén) and of the pressure perturbation (slow and fast)
 shows the three branches omega = v k. The pproc fits the speeds and prints them with the exact values
-v_A |cos theta| = 1.195, v_slow = 1.074, v_fast = 2.974; a run gave 1.187, 1.112 and 2.916 (within a few percent,
-about one frequency bin 2 pi / Tend; the fast branch bends down at large k by numerical dispersion).
-The run takes about 10 minutes on one process.
+v_A |cos theta| = 1.195, v_slow = 1.074, v_fast = 2.974; a run gave 1.187, 1.072 and 2.935 (within about one
+frequency bin 2 pi / Tend; the fast branch bends down at large k by numerical dispersion), as the full-f model
+VariationalMHD in examples/VariationalMHD/slab_dispersion and the linear model in
+examples/VariationalPerturbativeMHD_with_q/slab_dispersion_linear. The energies oscillate around constant values;
+en_tot changed by 2e-6 (relative, nonlinear solver tolerance) over the run.
+The run takes about 15 minutes on one process.
 """
 
 import argparse
@@ -64,7 +71,6 @@ from struphy import (
     BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
-    FieldsBackground,
     Simulation,
     Time,
     domains,
@@ -72,7 +78,7 @@ from struphy import (
     grids,
     perturbations,
 )
-from struphy.models import ViscoResistiveMHD
+from struphy.models import VariationalPerturbativeMHD_with_q
 
 # ---------------------
 # Physical parameters (also used by the pproc)
@@ -89,12 +95,12 @@ Lz = 60.0
 # ---------------------
 
 base_units = BaseUnits()
-model = ViscoResistiveMHD(base_units=base_units, with_viscosity=False, with_resistivity=False)
+model = VariationalPerturbativeMHD_with_q(base_units=base_units, with_viscosity=False, with_resistivity=False)
 
 model.em_fields.b_field.save_data = True
 model.mhd.density.save_data = True
 model.mhd.velocity.save_data = True
-model.mhd.entropy.save_data = True
+model.mhd.sqrt_p.save_data = True
 
 # --------------------------
 # Instance of the simulation
@@ -131,19 +137,16 @@ sim = Simulation(
 # Propagator options
 # ------------------
 
-model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model="full")
+model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model="perturbative_q")
 model.propagators.variat_mom.options = model.propagators.variat_mom.Options()
-model.propagators.variat_ent.options = model.propagators.variat_ent.Options()
-model.propagators.variat_mag.options = model.propagators.variat_mag.Options()
+model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model="perturbative_q", gamma=gamma)
 
 # ------------------
 # Initial conditions
 # ------------------
 
-# full-f model: the backgrounds are the total initial fields, plus noise in the velocity
-model.mhd.density.add_background(FieldsBackground(type="FluidEquilibrium", variable="n3"))
-model.mhd.entropy.add_background(FieldsBackground(type="FluidEquilibrium", variable="s3_monoatomic"))
-model.em_fields.b_field.add_background(FieldsBackground(type="FluidEquilibrium", variable="b2"))
+# perturbative model: the equilibrium is not part of the variables (it enters through `equil`),
+# the perturbations start at zero except for noise in the velocity
 
 for component in range(3):
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=1e-3, comp=component, seed=123))

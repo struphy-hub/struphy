@@ -58,12 +58,14 @@ with `pip install "struphy[pproc]"`.
 | `DriftKineticElectrostaticAdiabatic` | `cyclone` (Cyclone base case ITG), `itg_cylindre` (ITG in a cylinder), `slab_drift_wave` |
 | `GuidingCenter` | `screw_pinch_equilibrium`, `tokamak_equilibrium` |
 | `GyrokineticPoisson` | `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
-| `LinearMHD` | `itpa_tae_benchmark` (toroidal Alfvén eigenmode) |
+| `LinearMHD` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes) |
 | `LinearMHDDriftkineticCC` | `lowmode_tae` (toroidal Alfvén eigenmode driven by energetic ions) |
 | `Poisson` | `gaussian_cube`, `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
 | `ShearAlfven` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes) |
 | `ToyDrift` | `diocotron_instability` |
-| `ViscoResistiveMHD` | `orszag_tang` (Orszag-Tang vortex), `slab_dispersion` (Alfvén, slow and fast waves) |
+| `VariationalMHD` | `orszag_tang` (Orszag-Tang vortex), `slab_dispersion` (Alfvén, slow and fast waves) |
+| `VariationalPerturbativeLinearMHD` | `with_p/lowmode_tae`, `with_q/lowmode_tae` (the `LinearMHD` low-mode TAE with `VariationalPerturbativeMHD` and `VariationalPerturbativeMHD_with_q`, `linear=True`) |
+| `VariationalPerturbativeMHD_with_q` | `slab_dispersion` (Alfvén, slow and fast waves), `slab_dispersion_linear` (the same with `linear=True`) |
 | `Vlasov` | `maxwellian_uniform_field` |
 | `VlasovAmpereOneSpecies` | `bump_on` (bump-on-tail), `strong_Landau_damping`, `two_stream`, `weak_Landau_damping` |
 | `VlasovMaxwellOneSpecies` | `weak_Landau_damping`, `weibel_instability` |
