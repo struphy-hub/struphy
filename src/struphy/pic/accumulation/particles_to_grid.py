@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 import cunumpy as xp
 from cunumpy.kernels import Kernel, PyccelKernel
-from feectools.linalg.block import BlockVector
+from feectools.linalg.basic import LinearOperator, Vector, VectorSpace
+from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 from maybempi import MPI
 from scope_profiler import ProfileManager
@@ -468,6 +469,12 @@ class AccumulatorVector:
     args_domain : DomainArguments
         Mapping infos.
 
+    filter_params : FilterParameters
+        Params for the accumulation filter.
+
+    n_vectors : int
+        Number of vectors accumulated by one kernel call (in the order of the kernel arguments), e.g. 3 for the
+        pressure coupling. Default=1.
     """
 
     def __init__(
@@ -478,6 +485,7 @@ class AccumulatorVector:
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         filter_params: FilterParameters = None,
+        n_vectors: int = 1,
     ):
         self._particles = particles
         self._space_id = space_id
@@ -500,32 +508,14 @@ class AccumulatorVector:
         self._args_data = ()
 
         if space_id in ("H1", "L2"):
-            self._vectors += [
-                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
-            ]
-            self._vectors_temp += [
-                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
-            ]
-            self._vectors_out += [
-                StencilVector(self.derham.fem_spaces[self.form].coeff_space),
-            ]
-
+            vector_class = StencilVector
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
-            self._vectors += [
-                BlockVector(
-                    self.derham.fem_spaces[self.form].coeff_space,
-                ),
-            ]
-            self._vectors_temp += [
-                BlockVector(
-                    self.derham.fem_spaces[self.form].coeff_space,
-                ),
-            ]
-            self._vectors_out += [
-                BlockVector(
-                    self.derham.fem_spaces[self.form].coeff_space,
-                ),
-            ]
+            vector_class = BlockVector
+        coeff_space = self.derham.fem_spaces[self.form].coeff_space
+        for _ in range(n_vectors):
+            self._vectors += [vector_class(coeff_space)]
+            self._vectors_temp += [vector_class(coeff_space)]
+            self._vectors_out += [vector_class(coeff_space)]
 
         for vec in self._vectors:
             if isinstance(vec, StencilVector):
@@ -766,3 +756,155 @@ class ParticlesToGrid:
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_no_defaults__(self)
+
+
+class MarkerOperator(LinearOperator):
+    r"""Matrix-free particle matrix: the matrix-free counterpart of the matrices assembled by :class:`Accumulator`.
+
+    For a vector-valued space :math:`V^\alpha_h` (:math:`\alpha = 1, 2, v`) with the basis functions
+    :math:`\Lambda^\alpha_{\mu, ijk}`, and a 3x3 matrix :math:`F_p` per marker (e.g. of rank one,
+    :math:`F_p = c_p\, \mathbf e_p \mathbf e_p^\top`, or antisymmetric), the particle matrix is
+
+    .. math::
+
+        A_{(\mu, ijk), (\nu, mno)} = \sum_p \Lambda^\alpha_{\mu, ijk}(\boldsymbol \eta_p)\, F_{p, \mu\nu}\,
+        \Lambda^\alpha_{\nu, mno}(\boldsymbol \eta_p)\,.
+
+    Assembling :math:`A` costs, per marker, the products of all pairs of basis functions that do not vanish at
+    :math:`\boldsymbol \eta_p` in each block. This operator is never assembled; with the spline function
+    :math:`S_h` of the coefficients :math:`s` (see :class:`~struphy.feec.psydac_derham.SplineFunction`),
+
+    .. math::
+
+        \sum_{\nu, mno} F_{p, \mu\nu}\, \Lambda^\alpha_{\nu, mno}(\boldsymbol \eta_p)\, s_{\nu, mno}
+        = \big(F_p\, S_h(\boldsymbol \eta_p)\big)_\mu\,,
+
+    it is applied as
+
+    .. math::
+
+        (A s)_{\mu, ijk} = \sum_p \Lambda^\alpha_{\mu, ijk}(\boldsymbol \eta_p)\,
+        \big(F_p\, S_h(\boldsymbol \eta_p)\big)_\mu\,,
+
+    i.e. one evaluation of :math:`S_h` and one deposition per marker (by ``kernel``, called through an
+    :class:`AccumulatorVector` without filter). The data of :math:`F_p` must be stored in the marker array
+    beforehand, e.g. by the accumulation kernel of a vector. Like the assembled particle matrices, the operator acts
+    on the coefficients with boundary conditions and polar extraction: with the extraction and boundary operators
+    :math:`\mathbb E` and :math:`\mathbb B` of the space,
+
+    .. math::
+
+        s \mapsto \mathbb B \mathbb E\, A\, \mathbb E^\top \mathbb B^\top s\,.
+
+    Parameters
+    ----------
+    particles : Particles
+        The markers.
+
+    space_id : str
+        The FE space of the coefficients (``"Hcurl"``, ``"Hdiv"`` or ``"H1vec"``).
+
+    kernel : Kernel
+        The kernel ``(args_markers, args_derham, args_domain, vec1, vec2, vec3, s1, s2, s3, *args)`` that deposits
+        :math:`A s` into ``vec``, where ``s1, s2, s3`` are the coefficient arrays of the three components of
+        :math:`s`.
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators (for the de Rham sequence).
+
+    args_domain : DomainArguments
+        Arguments of the mapping.
+
+    args : tuple
+        Further arguments of the kernel.
+
+    symmetry : str
+        ``"symm"`` (:math:`F_p^\top = F_p`) or ``"asym"`` (:math:`F_p^\top = -F_p`), for the transpose.
+
+    n_blocks : int
+        Number of copies of the space in the domain (and codomain). For ``n_blocks > 1``, the operator is the
+        ``n_blocks x n_blocks`` block matrix :math:`(A_{ab})_{a,b}` on the product space, e.g. the pressure coupling
+        with :math:`A_{ab} = \sum_p v_{p,a} v_{p,b}\, \vec \Lambda_p F_p \vec \Lambda_p^\top`; then ``kernel`` takes
+        the ``n_blocks`` output vectors followed by the ``n_blocks`` coefficient vectors (three arrays each), and
+        ``symmetry`` refers to the whole block matrix.
+    """
+
+    def __init__(
+        self,
+        particles: Particles,
+        space_id: str,
+        kernel: Kernel | PyccelKernel,
+        mass_ops: WeightedMassOperators,
+        args_domain: DomainArguments,
+        args: tuple = (),
+        symmetry: str = "symm",
+        n_blocks: int = 1,
+    ):
+        assert symmetry in ("symm", "asym")
+        assert n_blocks >= 1
+        derham = mass_ops.derham
+        form = derham.space_to_form[space_id]
+        self._E = derham.extraction_ops[form]
+        self._B = derham.boundary_ops[form]
+        # the transposes are new operators: built once (dot is called in every iteration of a solver)
+        self._ET = self._E.T
+        self._BT = self._B.T
+        self._acc = AccumulatorVector(particles, space_id, kernel, mass_ops, args_domain, n_vectors=n_blocks)
+        self._args = args
+        self._symmetry = symmetry
+        self._n_blocks = n_blocks
+        # one full coefficient vector per block (with ghost regions, evaluated at the markers)
+        self._x_full = [self._E.domain.zeros() for _ in range(n_blocks)]
+        self._x_tmp = self._B.domain.zeros()
+        if n_blocks == 1:
+            self._space = self._B.codomain
+        else:
+            self._space = BlockVectorSpace(*(self._B.codomain,) * n_blocks)
+        self._data = ()
+        for x_full in self._x_full:
+            blocks = x_full.blocks if hasattr(x_full, "blocks") else [x_full]
+            self._data += tuple(blk._data for blk in blocks)
+
+    @property
+    def domain(self) -> VectorSpace:
+        return self._space
+
+    @property
+    def codomain(self) -> VectorSpace:
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this operator calls (the kernel that applies the matrix)."""
+        return self._acc.kernels()
+
+    def tosparse(self):
+        raise NotImplementedError("MarkerOperator is matrix-free.")
+
+    def toarray(self):
+        raise NotImplementedError("MarkerOperator is matrix-free.")
+
+    def transpose(self, conjugate=False):
+        return self if self._symmetry == "symm" else -1.0 * self
+
+    def dot(self, v: Vector, out: Vector = None) -> Vector:
+        assert v.space == self._space
+        v_blocks = [v] if self._n_blocks == 1 else v.blocks
+        # coefficients of the full space, with ghost regions for the evaluation at the markers
+        for v_blk, x_full in zip(v_blocks, self._x_full):
+            self._BT.dot(v_blk, out=self._x_tmp)
+            self._ET.dot(self._x_tmp, out=x_full)
+            x_full.update_ghost_regions()
+        self._acc(*self._data, *self._args)
+        res = self._acc.vectors
+        if out is None:
+            out = self._space.zeros()
+        if self._n_blocks == 1:
+            res[0].copy(out=out)
+        else:
+            for res_blk, out_blk in zip(res, out.blocks):
+                res_blk.copy(out=out_blk)
+        return out

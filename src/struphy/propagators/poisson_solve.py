@@ -166,6 +166,7 @@ class PoissonSolve(ImplicitDiffusion):
         self,
         rho: FEECVariable | Callable | ParticlesToGrid | list = None,
         rho_coeffs: float | list = None,
+        delta_f_source: bool = False,
     ):
         """
         Parameters
@@ -184,8 +185,11 @@ class PoissonSolve(ImplicitDiffusion):
         rho_coeffs : float or list, default=None
             Multiplicative coefficient(s) applied to ``rho``.
             If ``None``, coefficients default to ``1.0`` for all sources.
+
+        delta_f_source : bool, default=False
+            Deposit particle sources with delta-f weights also for full-f markers, see :class:`ImplicitDiffusion`.
         """
-        super().__init__(rho=rho, rho_coeffs=rho_coeffs)
+        super().__init__(rho=rho, rho_coeffs=rho_coeffs, delta_f_source=delta_f_source)
 
     @property
     def options(self) -> Options:

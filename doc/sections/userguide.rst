@@ -869,7 +869,10 @@ Inside ``model.integrate`` the regions nest as follows:
    :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` call,
    containing the ``kernel: <kernel_name>`` region of the accumulation kernel
    and ``accum comm: <kernel_name>`` for the assembly/ghost-region exchange and
-   the inter-clone ``Allreduce``.
+   the inter-clone ``Allreduce``. A matrix-free particle matrix
+   (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`) adds
+   one ``accum: <kernel_name>`` region per application, i.e. per iteration of
+   the linear solver.
 4. Particle bookkeeping and communication, recorded wherever they are called
    from: ``mpi_sort_markers``, ``apply_kinetic_bc``, ``put_particles_in_boxes``
    and ``do_sort``.

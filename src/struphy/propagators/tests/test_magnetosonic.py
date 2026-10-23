@@ -1,9 +1,14 @@
 import cunumpy as xp
 import pytest
+from feectools.linalg.solvers import inverse
 
-from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, equils, perturbations
+from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, perturbations
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.io.options import DerhamOptions
-from struphy.models import LinearMHD
+from struphy.models import LinearMHD, LinearMHDCurlCurl
+from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
+from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.topology import grids
 
 
@@ -40,3 +45,50 @@ def test_magnetosonic_uses_shared_b_field(tmp_path, algo, with_equil_background)
     for prop in model.prop_list:
         prop(0.05)
     assert xp.max(xp.abs(model.em_fields.b_field.spline.vector.toarray() - b0)) > 0.0
+
+
+@pytest.mark.mpi_skip
+def test_b_field_space():
+    """Magnetosonic accepts a magnetic field in Hdiv or Hcurl only."""
+    Magnetosonic(b_field=FEECVariable(space="Hcurl"))
+    with pytest.raises(AssertionError):
+        Magnetosonic(b_field=FEECVariable(space="L2"))
+
+
+def _lorentz_force_difference(tmp_path, num_elements):
+    """L2 norms of the equilibrium force J0 x B0 (projected onto Hdiv) computed with M2J from the 2-form B0 and of its
+    difference to M21J applied to the 1-form B0, in a torus with J0 != 0."""
+    model = LinearMHDCurlCurl()
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond="MassMatrixPreconditioner")
+    sim = Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder=f"sim_{num_elements[0]}"),
+        time_opts=Time(dt=0.1, Tend=0.1),
+        domain=domains.HollowTorus(a1=0.1, a2=1.0, R0=3.0, tor_period=1),
+        equil=equils.AdhocTorus(a=1.0, R0=3.0, q0=1.05, q1=1.8, beta=0.1),
+        grid=grids.TensorProductGrid(num_elements=num_elements),
+        derham_opts=DerhamOptions(degree=(2, 2, 1), bcs=(("free", "free"), None, None)),
+    )
+    sim.allocate()
+
+    mass_ops = Propagator.mass_ops
+    equil = Propagator.projected_equil
+    assert model.propagators.mag_sonic._MJ is mass_ops.M21J
+
+    M2_inv = inverse(mass_ops.M2, "pcg", pc=MassMatrixPreconditioner(mass_ops.M2), tol=1e-12, maxiter=1000)
+    f2 = M2_inv.dot(mass_ops.M2J.dot(equil.b2))
+    f1 = M2_inv.dot(mass_ops.M21J.dot(equil.b1))
+    diff = f2 - f1
+    return xp.sqrt(f2.inner(mass_ops.M2.dot(f2))), xp.sqrt(diff.inner(mass_ops.M2.dot(diff)))
+
+
+def test_mixed_lorentz_force(tmp_path):
+    """M21J (Lorentz force of a 1-form) agrees with M2J (of a 2-form) for the same field, up to the projection error,
+    which decreases under mesh refinement (relative errors 5e-4 and 3e-5)."""
+    errors = []
+    for num_elements in ((8, 8, 1), (16, 16, 1)):
+        norm, error = _lorentz_force_difference(tmp_path, num_elements)
+        assert norm > 1.0
+        errors.append(error / norm)
+    assert errors[0] < 1e-3
+    assert errors[1] < errors[0] / 8

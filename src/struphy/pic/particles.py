@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import cunumpy as xp
 
@@ -18,6 +19,8 @@ from struphy.pic.diagnostics.kernels.eval_guiding_center_from_6d import eval_gui
 from struphy.pic.diagnostics.kernels.eval_magnetic_background_energy import eval_magnetic_background_energy
 from struphy.pic.diagnostics.kernels.eval_magnetic_energy_PBb import eval_magnetic_energy_PBb
 from struphy.pic.diagnostics.kernels.eval_magnetic_moment_5d import eval_magnetic_moment_5d
+
+logger = logging.getLogger("struphy")
 
 
 class Particles6D(Particles):
@@ -47,8 +50,10 @@ class Particles6D(Particles):
     """Marker columns saved as orbits, see :attr:`~struphy.pic.base.Particles.orbit_quantities`."""
     default_background = maxwellians.Maxwellian3D()
     """Default kinetic background is a 3D Cartesian Maxwellian."""
-    default_n_cols = {"diagnostics": 0, "aux": 5}
-    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
+    default_n_cols = {"diagnostics": 0, "aux": 6}
+    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use (6 for the symmetric
+    3x3 particle-matrix fillings stored per marker by the matrix-free accumulation, see
+    :class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`)."""
 
     @property
     def mu_idx(self):
@@ -238,6 +243,166 @@ class DeltaFParticles6D(Particles6D):
             assert isinstance(background, SumKineticBackground)
             self.set_n_to_zero(background._f1)
             self.set_n_to_zero(background._f2)
+
+
+class PauliParticles6D(Particles6D):
+    r"""
+    Classical Pauli particles (Xiao and Qin, Comput. Phys. Commun. 265, 107981 (2021)): full-orbit (6D) markers
+    with an additional, constant magnetic moment :math:`\mu_p`, stored in the first diagnostics column
+    (:attr:`mu_idx`).
+
+    The markers are loaded on the slow manifold of the classical Pauli particle, whose dynamics is that of the
+    guiding center: after drawing the markers from the initial condition as for :class:`Particles6D`
+    (and computing their initial weights and sampling densities), each marker gets the magnetic moment of its
+    perpendicular velocity and its velocity is reduced to the parallel component,
+
+    .. math::
+
+        \mu_p = \frac{|\mathbf v_p \times \mathbf b_0(\mathbf x_p)|^2}{2 |\mathbf B_0(\mathbf x_p)|}\,,\qquad
+        \mathbf v_p \to (\mathbf v_p \cdot \mathbf b_0)\, \mathbf b_0(\mathbf x_p)\,,
+
+    see :meth:`reduce_to_slow_manifold`. The marker position is from then on the guiding-center position, and
+    the markers represent the gyro-average of the initial condition. The magnetic moment of the remaining
+    perpendicular velocity, :math:`\mu'_p` (:meth:`mu_prime`), stays close to zero as long as the dynamics remains
+    on the slow manifold.
+
+    With the control variate, the distribution functions (background and initial condition) are evaluated at the
+    gyrotropic velocity :math:`v_\parallel \mathbf b_0 + \sqrt{2 \mu_p |\mathbf B_0|}\, \mathbf e_\perp` with some unit
+    vector :math:`\mathbf e_\perp \perp \mathbf b_0` (see :attr:`f_coords`), i.e. the background is the guiding-center
+    distribution :math:`f_0(\mathbf x, v_\parallel, \mu)`. It must therefore be gyrotropic: Maxwellians with
+    isotropic thermal velocities and a mean velocity parallel to :math:`\mathbf B_0` (no diamagnetic drift).
+    The polarization drift on the slow manifold is compressible, so the phase-space density of the markers is not
+    constant along their orbits, and subtracting :math:`f_0` along the markers removes the polarization density from
+    the deposited charge: it must then be added in the field equation (as for guiding centers, see
+    :class:`~struphy.propagators.adiabatic_poisson_solve.AdiabaticPoissonSolve` with ``polarization=True``).
+
+    See :class:`~struphy.pic.base.Particles` for the structure of the numpy marker array and the meaning of its columns.
+    """
+
+    orbit_quantities = Particles6D.orbit_quantities + ((9, "mu", "$\\mu$", "magnetic moment"),)
+    """Marker columns saved as orbits: those of :class:`Particles6D` and the magnetic moment."""
+    default_n_cols = {"diagnostics": 1, "aux": 6}
+    """One diagnostics column holds the magnetic moment."""
+
+    @property
+    def mu_idx(self):
+        """Column of the magnetic moment (the first diagnostics column)."""
+        return self.first_diagnostics_idx
+
+    def __post_init__(self):
+        """Check that there is a magnetic equilibrium and, with the control variate, that the kinetic backgrounds
+        are gyrotropic Maxwellians (isotropic thermal velocities)."""
+        super().__post_init__()
+        assert isinstance(self.equil, FluidEquilibriumWithB), "Classical Pauli particles need an equilibrium with B."
+        if self.weights_params.control_variate:
+            for f in (self.background, self.initial_condition):
+                for maxw in _maxwellians_in(f):
+                    assert isinstance(maxw, maxwellians.Maxwellian3D), (
+                        f"Classical Pauli particles need Maxwellian3D backgrounds, not {type(maxw).__name__}."
+                    )
+                    assert maxw.params["vth1"] == maxw.params["vth2"] == maxw.params["vth3"], (
+                        "Classical Pauli particles with the control variate need gyrotropic backgrounds: "
+                        "set vth1 = vth2 = vth3."
+                    )
+                    # a mean velocity must be parallel to B0, which cannot be checked on the parameters
+                    if any(maxw.params[u] != (0.0, None) for u in ("u1", "u2", "u3")):
+                        logger.warning(
+                            "PauliParticles6D with the control variate: the mean velocity of the background must be "
+                            "parallel to B0 (gyrotropic background), otherwise the delta-f weights are wrong."
+                        )
+
+    @property
+    def magnetic_moments(self):
+        """Array of shape ``(n_mks_loc,)`` holding the magnetic moments of the markers."""
+        return self.markers[self.mu_idx, self.valid_mks]
+
+    @magnetic_moments.setter
+    def magnetic_moments(self, new):
+        assert isinstance(new, xp.ndarray)
+        assert new.shape == (self.n_mks_loc,)
+        self._markers[self.mu_idx, self.valid_mks] = new
+
+    def _unit_b_and_absB(self, positions):
+        """Cartesian unit vector and strength of the equilibrium magnetic field at the marker positions
+        (array of shape ``(3, n)``)."""
+        # no kernel call without markers (e.g. on a process without markers)
+        if positions.shape[1] == 0:
+            return xp.zeros((3, 0), dtype=float), xp.zeros(0, dtype=float)
+        # the evaluation kernels need C-ordered positions with standard strides (a fancy-indexed single marker
+        # has the strides (8, 24) and is still flagged C-contiguous)
+        b, _ = self.equil.b_cart(positions.copy(order="C"))
+        absB = xp.sqrt(b[0] ** 2 + b[1] ** 2 + b[2] ** 2)
+        return b / absB, absB
+
+    def initialize_weights(self, **kwargs):
+        """Compute the initial weights and sampling densities as for :class:`Particles6D` with the drawn
+        velocities, then reduce the markers to the slow manifold (:meth:`reduce_to_slow_manifold`).
+        Markers loaded from a file (``loading="restart"`` or ``"external"``) are already on the slow manifold
+        and carry their magnetic moments (column :attr:`mu_idx`), so they are not reduced again."""
+        self._on_slow_manifold = False
+        super().initialize_weights(**kwargs)
+        if self.loading not in ("restart", "external"):
+            self.reduce_to_slow_manifold()
+        self._on_slow_manifold = True
+        # the gyrotropic velocity of f_coords is the drawn one up to its direction, so the weights stay the same
+        if self.control_variate:
+            self.update_weights()
+
+    def reduce_to_slow_manifold(self):
+        r"""Set the magnetic moments :math:`\mu_p = |\mathbf v_{\perp,p}|^2 / (2 |\mathbf B_0|)` and remove the
+        perpendicular velocities, :math:`\mathbf v_p \to (\mathbf v_p \cdot \mathbf b_0) \mathbf b_0`."""
+        if self.n_mks_loc > 0:
+            b, absB = self._unit_b_and_absB(self.positions)
+            v = self.velocities
+            v_par = xp.sum(v * b, axis=0)
+            v_perp = v - v_par * b
+            self.magnetic_moments = xp.sum(v_perp**2, axis=0) / (2.0 * absB)
+            self.velocities = v_par * b
+
+    def mu_prime(self):
+        r"""Magnetic moment of the perpendicular marker velocities, :math:`\mu'_p = |\mathbf v_p \times \mathbf b_0|^2 / (2 |\mathbf B_0|)`
+        (Eq. (7) of Xiao and Qin), array of shape ``(n_mks_loc,)``. It is close to zero on the slow manifold."""
+        if self.n_mks_loc == 0:
+            return xp.zeros(0, dtype=float)
+        b, absB = self._unit_b_and_absB(self.positions)
+        v = self.velocities
+        v_perp = v - xp.sum(v * b, axis=0) * b
+        return xp.sum(v_perp**2, axis=0) / (2.0 * absB)
+
+    @property
+    def f_coords(self):
+        r"""Coordinates of the distribution function: the positions and, on the slow manifold, the gyrotropic
+        velocities :math:`v_\parallel \mathbf b_0 + \sqrt{2 \mu_p |\mathbf B_0|}\, \mathbf e_\perp`."""
+        coords = super().f_coords
+        if not getattr(self, "_on_slow_manifold", False) or coords.shape[1] == 0:
+            return coords
+
+        b, absB = self._unit_b_and_absB(coords[:3])
+        v_par = xp.sum(coords[3:6] * b, axis=0)
+
+        # e_perp = b x e_k / |b x e_k| with the Cartesian unit vector e_k least aligned with b
+        k = xp.argmin(xp.abs(b), axis=0)
+        e_k = xp.zeros_like(b)
+        e_k[k, xp.arange(b.shape[1])] = 1.0
+        e_perp = xp.cross(b, e_k, axis=0)
+        e_perp /= xp.sqrt(xp.sum(e_perp**2, axis=0))
+
+        v_perp = xp.sqrt(2.0 * self.markers[self.mu_idx, self.valid_mks] * absB)
+        coords[3:6] = v_par * b + v_perp * e_perp
+        return coords
+
+    @f_coords.setter
+    def f_coords(self, new):
+        Particles6D.f_coords.fset(self, new)
+
+
+def _maxwellians_in(f):
+    """The Maxwellians of a kinetic background (summands of a :class:`~struphy.kinetic_background.base.SumKineticBackground`)."""
+    if f is None:
+        return []
+    if isinstance(f, SumKineticBackground):
+        return _maxwellians_in(f._f1) + _maxwellians_in(f._f2)
+    return [f]
 
 
 class Particles5D(Particles):
