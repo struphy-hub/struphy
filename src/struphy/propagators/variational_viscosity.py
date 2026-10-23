@@ -12,7 +12,7 @@ from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import CoordinateProjector
 from struphy.feec.mass import L2Projector
 from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.feec.variational_utilities import InternalEnergyEvaluator, kinetic_metric
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -67,6 +67,9 @@ class VariationalViscosity(Propagator):
     .. math::
         P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
 
+    With a div-div regularization (``divdiv_alpha`` :math:`> 0`), the mass matrix :math:`\mathbb M^v[\hat\rho]` is
+    replaced by the metric :math:`\mathbb A[\hat\rho]` of the regularized kinetic energy, see
+    :func:`~struphy.feec.variational_utilities.kinetic_metric`.
     """
 
     class Variables:
@@ -104,7 +107,7 @@ class VariationalViscosity(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
+    def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None, divdiv_alpha: float = 0.0):
         """
         Parameters
         ----------
@@ -113,10 +116,15 @@ class VariationalViscosity(Propagator):
         pt3 : FEECVariable, default=None
             Pressure or entropy 3-form (``"L2"`` space) evolved alongside the velocity.
             If ``None``, the thermodynamic equation is skipped.
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
         """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
         self.rho = rho
         self.pt3 = pt3
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -199,8 +207,8 @@ class VariationalViscosity(Propagator):
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
-        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        self._Mrho_pc = MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",

@@ -11,7 +11,7 @@ from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.feec.variational_utilities import Hdiv0_transport_operator
+from struphy.feec.variational_utilities import Hdiv0_transport_operator, kinetic_metric
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolverFull
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -63,6 +63,9 @@ class VariationalMagFieldEvolve(Propagator):
 
         \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \, \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
+    With a div-div regularization (``divdiv_alpha`` :math:`> 0`), the mass matrix :math:`\mathbb M^v[\hat\rho]` is
+    replaced by the metric :math:`\mathbb A[\hat\rho]` of the regularized kinetic energy, see
+    :func:`~struphy.feec.variational_utilities.kinetic_metric`.
     """
 
     class Variables:
@@ -100,8 +103,17 @@ class VariationalMagFieldEvolve(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, divdiv_alpha: float = 0.0):
+        """
+        Parameters
+        ----------
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
+        """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -164,8 +176,8 @@ class VariationalMagFieldEvolve(Propagator):
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
-        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        self._Mrho_pc = MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
