@@ -1,7 +1,5 @@
 import copy
 
-import cunumpy as xp
-
 from struphy.feec.mass import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -147,13 +145,10 @@ class VariationalMHD_with_p(StruphyModel):
         return "alfvén"
 
     def post_allocate(self):
+        # L2 dofs of sqrt(g), the linear form of the integral over the domain of a 3-form:
+        # p . vol_dofs = int p^3 d eta = int p dx (the pressure linear form of VariationalPBEvolve, up to -1/(gamma-1))
         projV3 = L2Projector("L2", Propagator.mass_ops)
-
-        def f(e1, e2, e3):
-            return 1
-
-        f = xp.vectorize(f)
-        self._integrator = projV3(f)
+        self._vol_dofs = projV3.get_dofs(Propagator.domain.jacobian_det)
 
         self._ones = Propagator.derham.V3pol.zeros()
         if isinstance(self._ones, PolarVector):
@@ -166,7 +161,7 @@ class VariationalMHD_with_p(StruphyModel):
     def _compute_en_thermo(self):
         p = self.mhd.pressure.spline.vector
         gamma = self.propagators.variat_pb.options.gamma
-        return Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
+        return p.inner(self._vol_dofs) / (gamma - 1.0)
 
     def _compute_tot_div_B(self):
         b = self.em_fields.b_field.spline.vector

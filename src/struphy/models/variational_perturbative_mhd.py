@@ -1,7 +1,5 @@
 import copy
 
-import cunumpy as xp
-
 from struphy.feec.mass import L2Projector
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
@@ -194,13 +192,10 @@ class VariationalPerturbativeMHD(StruphyModel):
                     f"{name}.Options(model='{variant}'), got model='{prop.options.model}'."
                 )
 
+        # L2 dofs of sqrt(g), the linear form of the integral over the domain of a 3-form:
+        # p . vol_dofs = int p^3 d eta = int p dx (the pressure linear form of VariationalPBEvolve, up to -1/(gamma-1))
         projV3 = L2Projector("L2", Propagator.mass_ops)
-
-        def f(e1, e2, e3):
-            return 1
-
-        f = xp.vectorize(f)
-        self._integrator = projV3(f)
+        self._vol_dofs = projV3.get_dofs(Propagator.domain.jacobian_det)
 
         self._ones = Propagator.derham.V3pol.zeros()
         if isinstance(self._ones, PolarVector):
@@ -213,12 +208,12 @@ class VariationalPerturbativeMHD(StruphyModel):
     def _compute_en_thermo(self):
         pt3 = self.propagators.variat_pb.pt3.spline.vector
         gamma = self.propagators.variat_pb.options.gamma
-        return Propagator.mass_ops.M3.dot_inner(pt3, self._integrator) / (gamma - 1.0)
+        return pt3.inner(self._vol_dofs) / (gamma - 1.0)
 
     def _compute_en_thermo_l1(self):
         p = self.mhd.pressure.spline.vector
         gamma = self.propagators.variat_pb.options.gamma
-        return Propagator.mass_ops.M3.dot_inner(p, self._integrator) / (gamma - 1.0)
+        return p.inner(self._vol_dofs) / (gamma - 1.0)
 
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
