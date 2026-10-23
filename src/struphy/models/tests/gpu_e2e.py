@@ -66,13 +66,18 @@ def device_context():
         yield
 
 
+# most inner products a feectools solver iteration copies to the host at once (pipelined PCG: 3)
+MAX_FUSED_REDUCTIONS = 3
+
+
 @dataclass
 class TransferBudget:
     """Transfers recorded per phase of the time loop (the setup before it is not counted).
 
-    ``integrate`` (the propagators) may only copy scalars to the host: the convergence test of the Krylov solvers
-    reads the 8-byte residual norm once per iteration (feectools keeps everything else of the solve on the device).
-    No arrays, no host-to-device copies, no host kernels. ``diagnostics`` (scalars, saved markers, binned
+    ``integrate`` (the propagators) may only copy scalars to the host: the Krylov solvers copy the inner products
+    of one iteration (residual norm and step coefficients, at most ``MAX_FUSED_REDUCTIONS`` of them) to the host
+    together, once per iteration (feectools keeps everything else of the solve on the device). No other arrays, no
+    host-to-device copies, no host kernels. ``diagnostics`` (scalars, saved markers, binned
     distribution functions) may copy small results to the host: at most one scalar per tracked scalar and call,
     never a host-to-device copy or a host kernel. ``output`` (``DataContainer.save_data``) may copy each saved
     dataset to the host once, nothing more.
@@ -99,10 +104,10 @@ class TransferBudget:
         report = self.report()
         assert self.n_integrate_calls == self.n_steps, report
 
-        # 1. the propagators: only scalars to the host (solver convergence tests), nothing else
+        # 1. the propagators: only (fused) scalars to the host (solver inner products), nothing else
         for e in self.integrate.events:
             if e.kind == "to_host":
-                assert e.nbytes is not None and e.nbytes <= 8, report
+                assert e.nbytes is not None and e.nbytes <= 8 * MAX_FUSED_REDUCTIONS, report
             else:
                 assert e.kind not in HOST_DEVICE_KINDS, report
 
