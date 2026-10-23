@@ -52,7 +52,7 @@ class PushGuidingCenterParallel(Propagator):
 
     where :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation).
     The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde`` 
-    can be ignored by passing ``None``.
+    can be ignored by passing ``None``. Instead of the potential, an electric field :math:`\mathbf E \in H(\textnormal{curl})` can be passed (``e_field``); then :math:`\mathbf E^* = \mathbf E - \varepsilon \mu_p \nabla |\mathbf B|` (gauge-invariant electromagnetic formulation).
     In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
     .. math::
@@ -99,6 +99,7 @@ class PushGuidingCenterParallel(Propagator):
         self,
         phi: FEECVariable = None,
         b_tilde: FEECVariable = None,
+        e_field: FEECVariable = None,
     ):
         """
         Parameters
@@ -109,7 +110,16 @@ class PushGuidingCenterParallel(Propagator):
         b_tilde : FEECVariable, default=None
             Magnetic perturbation in ``"Hcurl"`` space contributing to :math:`B^*`.
             If ``None``, the perturbation is ignored.
+        e_field : FEECVariable, default=None
+            Electric field in ``"Hcurl"`` space, used in :math:`E^* = E - \varepsilon \mu \nabla |B|` instead of
+            :math:`-\nabla \phi` (gauge-invariant electromagnetic formulation). Cannot be combined with ``phi``. The
+            discrete-gradient algorithms then apply the discrete gradient to :math:`\varepsilon \mu |B|` only and
+            evaluate :math:`E` (fixed in this step) like the other fields.
         """
+        assert phi is None or e_field is None, "Pass either the potential phi or the electric field e_field, not both."
+        if e_field is not None:
+            assert isinstance(e_field, FEECVariable) and e_field.space == "Hcurl", "e_field must be in Hcurl."
+        self.e_field = e_field
         self.variables = self.Variables()
         self.phi = phi if phi is not None else FEECVariable(space="H1")
         if phi is None:
@@ -220,6 +230,8 @@ class PushGuidingCenterParallel(Propagator):
         self._phi = self.derham.V0.zeros()
         self._update_phi()
         self._evaluate_e_field = self.options.evaluate_e_field
+        if self.e_field is not None:
+            self._evaluate_e_field = True
         self._e_field = self.derham.V1.zeros()
         self._e_field_pol = self.derham.grad.codomain.zeros()
 
@@ -535,7 +547,10 @@ class PushGuidingCenterParallel(Propagator):
 
         # electric field
         # TODO: add out to __neg__ of StencilVector
-        if self._evaluate_e_field:
+        if self.e_field is not None:
+            e_field = self._E1T.dot(self.e_field.spline.vector, out=self._e_field)
+            e_field.update_ghost_regions()
+        elif self._evaluate_e_field:
             e_field_pol = self.derham.grad.dot(-self.phi.spline.vector, out=self._e_field_pol)
             e_field = self._E1T.dot(e_field_pol, out=self._e_field)
             e_field.update_ghost_regions()
