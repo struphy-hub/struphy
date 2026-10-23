@@ -69,6 +69,8 @@ Accumulation kernels
 
 .. automodule:: struphy.pic.accumulation.kernels
 
+.. autofunction:: struphy.pic.accumulation.kernels.vlasov_maxwell.vlasov_maxwell_kernels.vlasov_maxwell
+
 
 Pusher class
 ^^^^^^^^^^^^
@@ -115,3 +117,9 @@ are zero. Initialization setups must use ``alpha=0`` (the default).
     :special-members:
     :show-inheritance:
     :exclude-members: __init__
+
+
+Pusher kernels
+^^^^^^^^^^^^^^
+
+.. autofunction:: struphy.pic.pushing.kernels.push_v_with_efield.push_v_with_efield_kernels.push_v_with_efield
