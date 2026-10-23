@@ -23,7 +23,7 @@ Read this before creating or renaming a model in `src/struphy/models/`. The gene
   0. `self.params = copy.deepcopy(locals())`. All constructor arguments need defaults, and only
      bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization.
   1. instantiate the species as attributes;
-  2. `self.setup_equation_params(base_units=base_units)` (derives units and `alpha`, `epsilon`, `kappa`);
+  2. `self.setup_equation_params(base_units=base_units)` (derives units and `alpha`, `epsilon`, `lam`, `kappa`);
   3. `self.propagators = self.Propagators()`;
   4. link variables: `self.propagators.<prop>.variables.<var> = self.<species>.<var>`;
   5. `self.scalars = Scalars(...)` with the tracked quantities (`scalars.py`, e.g. `BilinearEnergyFEEC`,

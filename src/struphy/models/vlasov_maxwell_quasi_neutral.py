@@ -37,6 +37,8 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
         Mass number (in units of Proton mass) of the species (default: 1.0)
     alpha: float, optional
         Dimensionless parameter: plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
+        It does not enter the equations of this model (which use lam and kappa = alpha lam); when overriding lam and
+        kappa, alpha is not adapted.
     epsilon: float, optional
         Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass
         numbers (equal to 1 for this model's cyclotron velocity scale; set -1 for electrons with the default charge
@@ -213,7 +215,10 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
             \frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0
 
         with :math:`\varepsilon = 1` in the cyclotron normalization (set :math:`\varepsilon = -1` for electrons with the
-        default charge number; then :math:`\kappa^2/\varepsilon` carries the sign of the charge). For
+        default charge number; then :math:`\kappa^2/\varepsilon` carries the sign of the charge). These forms assume
+        :math:`\varepsilon = \pm 1`; for an overridden :math:`\varepsilon` the coefficients of the displacement and
+        the plasma current are :math:`\varepsilon^2 \lambda^2` and :math:`\kappa^2 \varepsilon` (see
+        :ref:`equation_params`). For
         :math:`\lambda = 0` (quasi-neutral limit) Ampère's law becomes :math:`\nabla \times \mathbf B =
         \frac{\kappa^2}{\varepsilon} \int \mathbf v f \, \textrm d^3 \mathbf v`, which implies :math:`\nabla \cdot \mathbf J = 0`; the electric field is then determined by this
         constraint, not by its own evolution. The coefficients of the coupling terms can be changed by the options
@@ -250,7 +255,8 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
             \lambda = \frac{\hat\Omega_c \hat x}{c}\,,\qquad \kappa = \frac{\hat\Omega_p \hat x}{c} = \alpha \lambda\,,
             \qquad \varepsilon = \frac{1}{\hat\Omega_c \hat t} = 1\,,
 
-        where :math:`c/\hat\Omega_c` and :math:`c/\hat\Omega_p` are the inertial lengths. The Vlasov equation and
+        where :math:`c/\hat\Omega_c` and :math:`c/\hat\Omega_p` are the inertial lengths (:math:`\lambda` carries the
+        sign of the charge, like :math:`\hat\Omega_c`; only :math:`\lambda^2` enters). The Vlasov equation and
         Faraday's law then have no coefficients, and Ampère's law
         :math:`\frac{1}{c^2} \partial_t \mathbf E = \nabla \times \mathbf B - \mu_0 \mathbf J` becomes
         :math:`\lambda^2 \partial_t \mathbf E = \nabla \times \mathbf B - \kappa^2 \mathbf J`. The quasi-neutral limit is
