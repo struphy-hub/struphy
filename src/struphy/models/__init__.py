@@ -38,19 +38,18 @@ _LAZY_IMPORTS = {
     "TwoFluidQuasiNeutralToy": "struphy.models.two_fluid_quasi_neutral_toy",
     "VariationalBarotropicFluid": "struphy.models.variational_barotropic_fluid",
     "VariationalCompressibleFluid": "struphy.models.variational_compressible_fluid",
+    "VariationalMHD": "struphy.models.variational_mhd",
+    "VariationalMHD_with_p": "struphy.models.variational_mhd_with_p",
+    "VariationalMHD_with_q": "struphy.models.variational_mhd_with_q",
+    "VariationalPerturbativeMHD": "struphy.models.variational_perturbative_mhd",
+    "VariationalPerturbativeMHD_with_q": "struphy.models.variational_perturbative_mhd_with_q",
     "VariationalPressurelessFluid": "struphy.models.variational_pressureless_fluid",
-    "ViscoResistiveDeltafMHD": "struphy.models.visco_resistive_deltaf_mhd",
-    "ViscoResistiveDeltafMHD_with_q": "struphy.models.visco_resistive_deltaf_mhd_with_q",
-    "ViscoResistiveLinearMHD": "struphy.models.visco_resistive_linear_mhd",
-    "ViscoResistiveLinearMHD_with_q": "struphy.models.visco_resistive_linear_mhd_with_q",
-    "ViscoResistiveMHD": "struphy.models.visco_resistive_mhd",
-    "ViscoResistiveMHD_with_p": "struphy.models.visco_resistive_mhd_with_p",
-    "ViscoResistiveMHD_with_q": "struphy.models.visco_resistive_mhd_with_q",
     "ViscousEulerSPH": "struphy.models.viscous_euler_sph",
     "ViscousFluid": "struphy.models.viscous_fluid",
     "Vlasov": "struphy.models.vlasov",
     "VlasovAmpereOneSpecies": "struphy.models.vlasov_ampere_one_species",
     "VlasovMaxwellOneSpecies": "struphy.models.vlasov_maxwell_one_species",
+    "VlasovMaxwellQuasiNeutral": "struphy.models.vlasov_maxwell_quasi_neutral",
     "VlasovPoissonAdiabatic": "struphy.models.vlasov_poisson_adiabatic",
     "VlasovPoissonAdiabaticPauli": "struphy.models.vlasov_poisson_adiabatic_pauli",
 }
@@ -85,19 +84,18 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
     from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
     from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
+    from struphy.models.variational_mhd import VariationalMHD
+    from struphy.models.variational_mhd_with_p import VariationalMHD_with_p
+    from struphy.models.variational_mhd_with_q import VariationalMHD_with_q
+    from struphy.models.variational_perturbative_mhd import VariationalPerturbativeMHD
+    from struphy.models.variational_perturbative_mhd_with_q import VariationalPerturbativeMHD_with_q
     from struphy.models.variational_pressureless_fluid import VariationalPressurelessFluid
-    from struphy.models.visco_resistive_deltaf_mhd import ViscoResistiveDeltafMHD
-    from struphy.models.visco_resistive_deltaf_mhd_with_q import ViscoResistiveDeltafMHD_with_q
-    from struphy.models.visco_resistive_linear_mhd import ViscoResistiveLinearMHD
-    from struphy.models.visco_resistive_linear_mhd_with_q import ViscoResistiveLinearMHD_with_q
-    from struphy.models.visco_resistive_mhd import ViscoResistiveMHD
-    from struphy.models.visco_resistive_mhd_with_p import ViscoResistiveMHD_with_p
-    from struphy.models.visco_resistive_mhd_with_q import ViscoResistiveMHD_with_q
     from struphy.models.viscous_euler_sph import ViscousEulerSPH
     from struphy.models.viscous_fluid import ViscousFluid
     from struphy.models.vlasov import Vlasov
     from struphy.models.vlasov_ampere_one_species import VlasovAmpereOneSpecies
     from struphy.models.vlasov_maxwell_one_species import VlasovMaxwellOneSpecies
+    from struphy.models.vlasov_maxwell_quasi_neutral import VlasovMaxwellQuasiNeutral
     from struphy.models.vlasov_poisson_adiabatic import VlasovPoissonAdiabatic
     from struphy.models.vlasov_poisson_adiabatic_pauli import VlasovPoissonAdiabaticPauli
 
@@ -131,19 +129,18 @@ __all__ = [
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",
     "VariationalCompressibleFluid",
+    "VariationalMHD",
+    "VariationalMHD_with_p",
+    "VariationalMHD_with_q",
+    "VariationalPerturbativeMHD",
+    "VariationalPerturbativeMHD_with_q",
     "VariationalPressurelessFluid",
-    "ViscoResistiveDeltafMHD",
-    "ViscoResistiveDeltafMHD_with_q",
-    "ViscoResistiveLinearMHD",
-    "ViscoResistiveLinearMHD_with_q",
-    "ViscoResistiveMHD",
-    "ViscoResistiveMHD_with_p",
-    "ViscoResistiveMHD_with_q",
     "ViscousEulerSPH",
     "ViscousFluid",
     "Vlasov",
     "VlasovAmpereOneSpecies",
     "VlasovMaxwellOneSpecies",
+    "VlasovMaxwellQuasiNeutral",
     "VlasovPoissonAdiabatic",
     "VlasovPoissonAdiabaticPauli",
 ]

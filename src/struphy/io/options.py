@@ -80,6 +80,9 @@ class LiteralOptions:
     OptsShearAlfvenPrecond = Literal[
         "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", None
     ]
+    OptsMaxwellPrecond = Literal[
+        "StiffnessPreconditioner", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
+    ]
     OptsShearAlfvenCurlCurlPrecond = Literal[
         "HiptmairXu", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
     ]

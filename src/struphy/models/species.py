@@ -56,11 +56,14 @@ class Species(metaclass=ABCMeta):
     epsilon : float, optional
         Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
         If None, computed from units and charge/mass numbers.
+    lam : float, optional
+        Cyclotron frequency × length unit / speed of light.
+        If None, computed from units and charge/mass numbers.
     kappa : float, optional
-        Normalized plasma frequency: plasma frequency × time unit.
+        Plasma frequency × length unit / speed of light.
         If None, computed from units and charge/mass numbers.
     equation_params : EquationParameters
-        Object containing normalization parameters (alpha, epsilon, kappa) for scaled equations.
+        Object containing normalization parameters (alpha, epsilon, lam, kappa) for scaled equations.
 
     Methods
     -------
@@ -94,6 +97,7 @@ class Species(metaclass=ABCMeta):
             "mass_number": self.mass_number,
             "alpha": self.alpha,
             "epsilon": self.epsilon,
+            "lam": self.lam,
             "kappa": self.kappa,
             "variables": {name: variable.to_dict() for name, variable in self.variables.items()},
         }
@@ -105,11 +109,12 @@ class Species(metaclass=ABCMeta):
         alpha: float = None,
         epsilon: float = None,
         kappa: float = None,
+        lam: float = None,
     ):
         """Create variables dict and set physical and equation parameters for a plasma species.
 
         Sets the charge and mass numbers, and optionally overrides normalized equation parameters
-        (alpha, epsilon, kappa) that would otherwise be computed from physical units.
+        (alpha, epsilon, lam, kappa) that would otherwise be computed from physical units.
 
         Parameters
         ----------
@@ -124,7 +129,10 @@ class Species(metaclass=ABCMeta):
             Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
             If None, computed from units and charge/mass numbers (default = None).
         kappa : float, optional
-            Normalized plasma frequency: plasma frequency × time unit.
+            Plasma frequency × length unit / speed of light.
+            If None, computed from units and charge/mass numbers (default = None).
+        lam : float, optional
+            Cyclotron frequency × length unit / speed of light.
             If None, computed from units and charge/mass numbers (default = None)."""
 
         # create variables dict
@@ -141,6 +149,7 @@ class Species(metaclass=ABCMeta):
         self._alpha = alpha
         self._epsilon = epsilon
         self._kappa = kappa
+        self._lam = lam
 
     @property
     def variables(self) -> dict:
@@ -175,8 +184,15 @@ class Species(metaclass=ABCMeta):
         return self._epsilon
 
     @property
+    def lam(self) -> float:
+        """Cyclotron frequency times length unit over speed of light, Omega_c * x_unit / c (default = None)."""
+        if not hasattr(self, "_lam"):
+            self._lam = None
+        return self._lam
+
+    @property
     def kappa(self) -> float:
-        """The normalized plasma frequency, Omega_p * time_unit (default = None)."""
+        """Plasma frequency times length unit over speed of light, Omega_p * x_unit / c (default = None)."""
         if not hasattr(self, "_kappa"):
             self._kappa = None
         return self._kappa
@@ -191,6 +207,7 @@ class Species(metaclass=ABCMeta):
             alpha: float = None,
             epsilon: float = None,
             kappa: float = None,
+            lam: float = None,
         ):
             self.species = species
 
@@ -221,8 +238,17 @@ class Species(metaclass=ABCMeta):
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     warnings.warn(f"Override equation parameter {self.epsilon =}")
 
+            # lam and kappa: the coefficients lam^2 of the displacement current and kappa^2 of the plasma current in
+            # Ampere's law for the cyclotron velocity scale (kappa = alpha * lam)
+            if lam is None:
+                self.lam = om_c * units.x / con.c
+            else:
+                self.lam = lam
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    warnings.warn(f"Override equation parameter {self.lam =}")
+
             if kappa is None:
-                self.kappa = om_p * units.t
+                self.kappa = om_p * units.x / con.c
             else:
                 self.kappa = kappa
                 if MPI.COMM_WORLD.Get_rank() == 0:
@@ -243,7 +269,8 @@ class Species(metaclass=ABCMeta):
 
         * alpha = plasma-frequenca / cyclotron frequency
         * epsilon = 1 / (cyclotron frequency * time unit)
-        * kappa = plasma frequency * time unit
+        * lam = cyclotron frequency * length unit / speed of light
+        * kappa = plasma frequency * length unit / speed of light
         """
         self._equation_params = self.EquationParameters(
             species=self,
@@ -251,6 +278,7 @@ class Species(metaclass=ABCMeta):
             alpha=self.alpha,
             epsilon=self.epsilon,
             kappa=self.kappa,
+            lam=self.lam,
         )
 
 

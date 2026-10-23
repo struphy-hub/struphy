@@ -15,6 +15,9 @@ from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
+    NewtonConvergence,
+    dot_normalized,
+    inv_norm2,
     kinetic_metric,
 )
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -142,7 +145,7 @@ class VariationalDensityEvolve(Propagator):
 
         Parameters
         ----------
-        model : {"pressureless", "barotropic", "full", "full_p", "full_q", "linear", "deltaf", "linear_q", "deltaf_q"}, default="barotropic"
+        model : {"pressureless", "barotropic", "full", "full_p", "full_q", "linear", "perturbative", "linear_q", "perturbative_q"}, default="barotropic"
             Density/thermodynamic model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -152,9 +155,11 @@ class VariationalDensityEvolve(Propagator):
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below
+            ``tol`` times the norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or
+            when it stagnates (with a warning).
         """
 
         # specific literals
@@ -165,9 +170,9 @@ class VariationalDensityEvolve(Propagator):
             "full_p",
             "full_q",
             "linear",
-            "deltaf",
+            "perturbative",
             "linear_q",
-            "deltaf_q",
+            "perturbative_q",
         ]
         # propagator options
         model: OptsModel = "barotropic"
@@ -250,9 +255,9 @@ class VariationalDensityEvolve(Propagator):
         self._initialize_projectors_and_mass()
         if self._model in ["linear", "linear_q"]:
             rhotmp = self.projected_equil.n3
-        elif self._model in ["deltaf", "deltaf_q"]:
-            self._tmp_rho_deltaf = rho.space.zeros()
-            rhotmp = rho.copy(out=self._tmp_rho_deltaf)
+        elif self._model in ["perturbative", "perturbative_q"]:
+            self._tmp_rho_perturbative = rho.space.zeros()
+            rhotmp = rho.copy(out=self._tmp_rho_perturbative)
             rhotmp += self.projected_equil.n3
         else:
             rhotmp = rho
@@ -304,8 +309,8 @@ class VariationalDensityEvolve(Propagator):
             self.update_feec_variables(rho=rhon1, u=un)
             return
 
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon
@@ -318,8 +323,8 @@ class VariationalDensityEvolve(Propagator):
         else:
             s = None
 
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon
@@ -327,8 +332,8 @@ class VariationalDensityEvolve(Propagator):
 
         rhon1 = rhon.copy(out=self._tmp_rhon1)
         rhon1 += self._tmp_rhon_diff
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon1.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon1.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon1
@@ -337,7 +342,8 @@ class VariationalDensityEvolve(Propagator):
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalDensityEvolve", tol, self._get_error_newton(mn, rhon))
 
         for it in range(self._nonlin_solver.maxiter):
             # Newton iteration
@@ -349,7 +355,7 @@ class VariationalDensityEvolve(Propagator):
             # rhon12 = rhon.copy(out=self._tmp_rhon12)
             # rhon12 += rhon1
             # rhon12 *= 0.5
-            # if self._model == "deltaf":
+            # if self._model == "perturbative":
             #     rhon12 += self.projected_equil.n3
 
             # self._update_Pirho(rhon12)
@@ -380,12 +386,12 @@ class VariationalDensityEvolve(Propagator):
             mn_diff += advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, rhon_diff)
+            stop = conv.stop(self._get_error_newton(mn_diff, rhon_diff), it)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if err < tol**2 or xp.isnan(err):
+            if stop:
                 break
 
             # Derivative for Newton
@@ -395,7 +401,8 @@ class VariationalDensityEvolve(Propagator):
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = rhon_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
@@ -403,8 +410,8 @@ class VariationalDensityEvolve(Propagator):
 
             # Multiply by the mass matrix to get the momentum
 
-            if self._model in ["deltaf", "deltaf_q"]:
-                rho = rhon1.copy(out=self._tmp_rho_deltaf)
+            if self._model in ["perturbative", "perturbative_q"]:
+                rho = rhon1.copy(out=self._tmp_rho_perturbative)
                 rho += self.projected_equil.n3
                 self._update_weighted_MM(rho)
             else:
@@ -412,10 +419,7 @@ class VariationalDensityEvolve(Propagator):
 
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
 
         self._tmp_un_diff = un1 - un
         self._tmp_rhon_diff = rhon1 - rhon
@@ -655,9 +659,7 @@ class VariationalDensityEvolve(Propagator):
 
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""
-        err_u = self._inv_Mv.dot_inner(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            mn_diff,
-        )
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
         err_rho = self.mass_ops.M3.dot_inner(rhon_diff, rhon_diff)
         return max(err_rho, err_u)
