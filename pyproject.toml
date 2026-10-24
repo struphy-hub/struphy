@@ -49,7 +49,7 @@ dependencies = [
     "pytest-mpi<=0.6",
     "pytest-testmon<=2.2.0",
     "ruff==0.16.10",
-    "line_profiler<=5.0.2",
+    "line_profiler<=5.1.0",
     "scope-profiler>=0.5.0, <=0.7.3",
 ]
 
@@ -142,7 +142,6 @@ struphy = [
     "compile_struphy.mk",
     "**/*.cu",
     "**/*.cuh",
-    # usage guide for AI coding agents (not the coding guidelines AGENTS.md/CLAUDE.md in the source tree)
     "agent_guides/*.md",
     "agent_guides/skills/*/*.md",
 ]
@@ -151,14 +150,18 @@ struphy = [
 line-length = 120
 
 [tool.ruff.format]
-# ruff>=0.16 also formats code blocks in Markdown; README.md is generated from README.qmd
-# and the doc snippets are aligned by hand
-exclude = ["*.md"]
+exclude = [
+    "*.md",
+]
 
 [tool.ruff.lint]
-# Ruff's pre-0.16 default rules (pyflakes and basic pycodestyle errors), plus
-# "I": import sorting (replaces isort), fixed with `ruff check --fix`
-select = ["E4", "E7", "E9", "F", "I"]
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "I",
+]
 ignore = [
     "E265",
     "E402",
