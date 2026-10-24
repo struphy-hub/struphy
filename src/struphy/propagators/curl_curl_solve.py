@@ -191,7 +191,7 @@ class CurlCurlSolve(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsCurlCurlPrecond)
             if self.precond is not None:
-                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
 
             # defaults
             if self.precond_params is None:
@@ -323,8 +323,8 @@ class CurlCurlSolve(Propagator):
             pc_class = getattr(preconditioner, precond)
             pc = pc_class(self.mass_ops.M1, **self.options.precond_params)
 
-        # (only "pcg" takes a preconditioner)
-        pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
+        # (only "pcg" and "pcg_sr" take a preconditioner)
+        pc_kwargs = {"pc": pc} if self.options.solver in ("pcg", "pcg_sr") else {}
         self._solver = inverse(
             lhs,
             self.options.solver,
