@@ -217,7 +217,7 @@ class ImplicitDiffusion(Propagator):
             - ``None``: no preconditioner.
             - ``"MultiGrid"``: geometric multigrid V-cycle
               (:class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`,
-              requires ``solver="pcg"``).
+              requires ``solver="pcg"`` or ``"pcg_sr"``).
             - ``"MassMatrixPreconditioner"``: Kronecker
               approximation of the inverse of the 0-form mass matrix ``M0``
               (see :mod:`struphy.feec.preconditioner`).
@@ -300,7 +300,7 @@ class ImplicitDiffusion(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
             if self.precond is not None:
-                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
             if self.diffusion_mat is None:
                 assert self.precond not in ("MultiGrid", "StiffnessPreconditioner"), (
                     f"precond={self.precond!r} needs a diffusion term (diffusion_mat=None)."
@@ -470,8 +470,8 @@ class ImplicitDiffusion(Propagator):
             pc = pc_class(self.mass_ops.M0, **self.options.precond_params)
 
         # solver just with A_2, but will be set during call with dt
-        # (only "pcg" takes a preconditioner)
-        pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
+        # (only "pcg" and "pcg_sr" take a preconditioner)
+        pc_kwargs = {"pc": pc} if self.options.solver in ("pcg", "pcg_sr") else {}
         self._solver = inverse(
             stab_mat if self._diffusion_op is None else self._diffusion_op,
             self.options.solver,
