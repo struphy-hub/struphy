@@ -29,6 +29,20 @@ __device__ inline void reflect_velocity(long long ip, Array2D<double> markers,
 }
 
 /**
+ * Prepare marker ip for a push, as the kernel prepare_push (prepare_push_cuda.cu) does for every marker: copy the
+ * phase space coordinates (rows 0 to 3 + vdim of the buffer) to the rows from first_pusher_idx and zero the rows after
+ * them up to n_cols - 2. Called at stage 0 by the push kernels that take over the preparation from prepare_push
+ * (args_markers.prepare_rows, see Pusher._push), for every marker including holes, so that it is exactly the same.
+ */
+__device__ inline void prepare_marker_row(int ip, const MarkerArgs& args_markers) {
+    const int first = args_markers.first_pusher_idx;
+    const int n_init = 3 + args_markers.vdim;
+    const int end = (int)args_markers.markers.shape[0] - 2;
+    for (int j = first; j < end; ++j)
+        args_markers.markers(j, ip) = j < first + n_init ? args_markers.markers(j - first, ip) : 0.0;
+}
+
+/**
  * Apply kinetic boundary conditions, as in pusher_utilities_kernels.apply_kinetic_bc_marker.
  *
  * @param ip Row index of a marker that is neither a hole nor a ghost.

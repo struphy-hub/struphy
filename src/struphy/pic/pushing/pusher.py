@@ -18,6 +18,11 @@ from struphy.utils.cuda_arguments import check_mapping_on_device
 logger = logging.getLogger("struphy")
 
 
+# CUDA kernels that prepare each marker themselves at stage 0 when MarkerArgs.prepare_rows is set (see
+# pusher_utilities_kernels.prepare_marker_row), so that Pusher._push can skip the separate pass of prepare_push
+_KERNELS_PREPARING_ROWS = frozenset({"push_eta_stage", "push_vxb_analytic"})
+
+
 @cache
 def _prepare_push_cuda() -> CudaKernel:
     """The CUDA kernel that fuses the column-slice assignments at the start of :meth:`Pusher._push`
@@ -220,7 +225,19 @@ class Pusher:
         # only the markers (columns) that can hold markers; the columns after them are holes, which nothing reads
         used = markers[:, : self.particles.n_markers_used]
 
-        if self._cuda:
+        # On the GPU the kernels of _KERNELS_PREPARING_ROWS prepare each marker themselves at stage 0 (the same markers
+        # as below: one thread per used marker), saving a pass over the marker buffer; only if no other kernel runs
+        # before them (init and evaluation kernels may read the prepared rows).
+        prepare_in_kernel = (
+            self._cuda
+            and self.kernel.name in _KERNELS_PREPARING_ROWS
+            and not self.init_kernels
+            and not self.eval_kernels
+        )
+
+        if prepare_in_kernel:
+            pass
+        elif self._cuda:
             # the three assignments below in one launch
             n_cols, n_markers = used.shape
             _prepare_push_cuda()(
@@ -280,16 +297,21 @@ class Pusher:
                 # sort according to alpha-weighted average
                 self._sort_for_alpha(self._alpha_in_kernel)
 
-                # push markers
+                # push markers (the first call prepares the rows if prepare_in_kernel)
+                args_markers = self.particles.args_markers
+                if prepare_in_kernel and stage == 0 and k == 1:
+                    args_markers.prepare_rows = 1
                 with ProfileManager.profile_region("kernel: " + self.kernel.name):
                     self.kernel(
                         dt,
                         stage,
-                        self.particles.args_markers,
+                        args_markers,
                         self._args_domain,
                         *self._args_kernel,
                         n_threads=self.particles.args_markers.n_markers,  # CUDA: one thread per marker
                     )
+                if prepare_in_kernel and args_markers.prepare_rows:
+                    args_markers.prepare_rows = 0
 
                 # markers have moved
                 if self.pushes_eta:
