@@ -99,7 +99,7 @@ class ShearAlfvenPropagator(Propagator):
             (fast diagonalization) preconditioner (``"StiffnessPreconditioner"``, the default,
             :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`: block Jacobi in the velocity
             components with the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows if
-            ``exb_correction``, see there). Both need the implicit algorithm with ``solver="pcg"``. The Kronecker
+            ``exb_correction``, see there). Both need the implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"``. The Kronecker
             preconditioner also needs ``u_space="Hdiv"``, tensor-product splines (no polar splines) and the global
             commuting projectors; otherwise ``"StiffnessPreconditioner"`` falls back (with a warning) to
             ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). The Schur operator
@@ -147,7 +147,7 @@ class ShearAlfvenPropagator(Propagator):
             check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
             if self.precond == "MultiGrid":
                 assert self.algo == "implicit", f'precond="{self.precond}" requires algo="implicit".'
-                assert self.solver == "pcg", f'precond="{self.precond}" requires solver="pcg".'
+                assert self.solver in ("pcg", "pcg_sr"), f'precond="{self.precond}" requires solver="pcg" or "pcg_sr".'
             if self.precond == "MultiGrid" and self.multigrid is None:
                 self.multigrid = MultiGridOptions()
 

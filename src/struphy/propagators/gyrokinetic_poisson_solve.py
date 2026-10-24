@@ -178,7 +178,7 @@ class GyrokineticPoissonSolve(ImplicitDiffusion):
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
             check_option(self.which_geometry, self.OptsGeometry)
             if self.precond is not None:
-                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
 
             # defaults
             if self.precond_params is None:

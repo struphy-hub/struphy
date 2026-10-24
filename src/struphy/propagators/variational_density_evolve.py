@@ -223,7 +223,9 @@ class VariationalDensityEvolve(Propagator):
         self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
         # "cg" takes no preconditioner; the density-weighted mass matrix also preconditions the regularized metric
         self._Mrho_pc = (
-            MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None) if self.options.solver == "pcg" else None
+            MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
+            if self.options.solver in ("pcg", "pcg_sr")
+            else None
         )
         self._Mrho_inv = inverse(
             self._Mrho,
@@ -442,7 +444,7 @@ class VariationalDensityEvolve(Propagator):
             self.mass_ops.Mv,
             self.options.solver,
             # "cg" takes no preconditioner
-            **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
+            **({"pc": self.pc_Mv} if self.options.solver in ("pcg", "pcg_sr") else {}),
             tol=1e-10,
             maxiter=1000,
             verbose=False,

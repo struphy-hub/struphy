@@ -150,7 +150,9 @@ class VariationalMomentumAdvection(Propagator):
             )
         # "cg" takes no preconditioner
         self._Mrho_pc = (
-            MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None) if self.options.solver == "pcg" else None
+            MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
+            if self.options.solver in ("pcg", "pcg_sr")
+            else None
         )
         self._Mrho_inv = inverse(
             self._Mrho,
@@ -308,7 +310,7 @@ class VariationalMomentumAdvection(Propagator):
             self.mass_ops.Mv,
             self.options.solver,
             # "cg" takes no preconditioner
-            **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
+            **({"pc": self.pc_Mv} if self.options.solver in ("pcg", "pcg_sr") else {}),
             tol=1e-10,
             maxiter=1000,
             verbose=False,
