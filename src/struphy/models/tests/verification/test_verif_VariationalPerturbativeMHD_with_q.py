@@ -22,7 +22,9 @@ Linear model:
 7. it is the linear limit of the perturbative model, also around the sheared slab;
 8. it gives the analytic frequencies of the shear Alfvén, the fast magnetosonic and the sound wave in a homogeneous
    slab, with second-order convergence in the time step;
-9. the p-based linear model agrees up to its first-order time discretization error.
+9. the p-based linear model agrees up to its first-order time discretization error;
+10. with ``split_sound=True`` (the shear-Alfven/fast and the sound waves in two substeps) the energy is conserved;
+11. and the split model agrees with the unsplit one up to a splitting error of first order in the time step.
 """
 
 import logging
@@ -54,6 +56,7 @@ set_logging_level()
 logger = logging.getLogger("struphy")
 
 LINEAR = linear(VariationalPerturbativeMHD_with_q)
+LINEAR_SPLIT = linear(VariationalPerturbativeMHD_with_q, split_sound=True)
 
 
 def test_energy_conservation(tmp_path):
@@ -291,4 +294,36 @@ def test_linear_same_as_p_model(tmp_path):
     logger.info(f"relative difference q-model / p-model (u, B) per dt: {rel_diff}")
     for i, name in enumerate(("u", "B")):
         assert rel_diff[0.05][i] < 0.6, (name, rel_diff)
+        assert rel_diff[0.025][i] < 0.6 * rel_diff[0.05][i], (name, rel_diff)
+
+
+def test_linear_split_energy_conservation(tmp_path):
+    """With split_sound=True, each substep (u, B) and (u, q) conserves H, so the split step does too (sheared
+    slab, where the terms with grad q0 and curl B0 are active)."""
+    model = allocate_ideal(
+        tmp_path, "split_energy", LINEAR_SPLIT, sheared_slab(), dt=0.05, perturb=perturb_velocity(0.05)
+    )
+    energies = energy_history(model, dt=0.05, n_steps=10)
+
+    assert abs(model.scalars.host_value("en_thermo_2")[0]) > 1e-5
+    assert abs(model.scalars.host_value("en_mag_2")[0]) > 1e-5
+    drift = max(abs(en - energies[0]) for en in energies)
+    logger.info(f"split_sound: relative energy drift {drift / abs(energies[0]):.2e}")
+    assert drift < 2e-8 * abs(energies[0]), energies
+
+
+def test_linear_split_same_as_unsplit(tmp_path):
+    """The split step (Lie-Trotter splitting of the (u, B) and (u, q) substeps) agrees with the unsplit step up to a
+    splitting error of first order in the time step (sheared slab, where the two couplings do not commute)."""
+    setup = sheared_slab()
+    t_end = 0.5
+    rel_diff = {}
+    for dt in (0.05, 0.025):
+        n_steps = int(round(t_end / dt))
+        split = _final_state(tmp_path, LINEAR_SPLIT, setup, 0.05, dt, n_steps)
+        unsplit = _final_state(tmp_path, LINEAR, setup, 0.05, dt, n_steps)
+        rel_diff[dt] = [norm(split[i] - unsplit[i]) / norm(unsplit[i]) for i in (1, 2, 3)]
+    logger.info(f"relative difference split / unsplit (u, q, B) per dt: {rel_diff}")
+    for i, name in enumerate(("u", "q", "B")):
+        assert rel_diff[0.05][i] < 0.3, (name, rel_diff)
         assert rel_diff[0.025][i] < 0.6 * rel_diff[0.05][i], (name, rel_diff)

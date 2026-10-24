@@ -1877,3 +1877,60 @@ def inv_norm2(inv: LinearOperator, v: Vector) -> float:
     err = inv.dot_inner(v, v)
     v *= norm
     return norm**2 * err
+
+
+def alfven_schur_preconditioner(propagator, unmet: list[str]):
+    r"""The Kronecker preconditioner of the shear-Alfven Schur operator of a linear variational propagator,
+
+    .. math::
+
+        \mathcal S_A = \mathbb M^v[\rho_0] + \frac{\Delta t^2}{4}\, \mathbb T_0^\top \mathbb M^2\, \mathbb T_0 \,,
+        \qquad \mathbb T_0 = \mathbb C\, \hat\Pi^1[\hat{\mathbf B}_0 \times \vec\Lambda^v] \,,
+
+    as :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner` with ``u_space="H1vec"``: the
+    :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` of the Kronecker approximation of
+    :math:`\mathbb C\, \hat\Pi^1[\mathbf B_0 \times \cdot\,]` (``basis_ops.Tv``, analytic equilibrium) with the
+    stabilization ``Mvn`` (the velocity mass matrix with the analytic density), plus the auxiliary space correction of
+    the :math:`\mathbf E \times \mathbf B` flows if ``options.exb_correction``. Its :meth:`build` gives the
+    preconditioner for a time step.
+
+    Parameters
+    ----------
+    propagator : Propagator
+        The propagator, with the options ``schur_precond``, ``solver`` and ``exb_correction``.
+    unmet : list[str]
+        Requirements of the propagator that do not hold (e.g. ``'model="linear"'``).
+
+    Returns
+    -------
+    ShearAlfvenSchurPreconditioner | None
+        None if ``options.schur_precond`` is not ``"StiffnessPreconditioner"`` or if a requirement does not hold
+        (then with a warning: the mass-matrix preconditioner is used).
+    """
+    from struphy.feec.preconditioner import ShearAlfvenSchurPreconditioner
+
+    options = propagator.options
+    if options.schur_precond != "StiffnessPreconditioner":
+        return None
+    unmet = list(unmet)
+    if options.solver != "pcg":
+        unmet += ['solver="pcg"']
+    if propagator.derham.polar_splines:
+        unmet += ["tensor-product splines"]
+    if propagator.derham.with_local_projectors:
+        unmet += ["the global commuting projectors"]
+    if unmet:
+        logger.warning(
+            f'{propagator.__class__.__name__}: schur_precond="StiffnessPreconditioner" needs {", ".join(unmet)}; '
+            "falling back to the mass-matrix preconditioner."
+        )
+        return None
+    return ShearAlfvenSchurPreconditioner(
+        propagator.derham,
+        propagator.mass_ops,
+        propagator.basis_ops,
+        propagator.basis_ops.Tv,
+        "Mvn",
+        exb_correction=options.exb_correction,
+        u_space="H1vec",
+    )

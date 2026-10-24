@@ -38,6 +38,11 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         Whether to include viscous dissipation (default: True)
     with_resistivity: bool
         Whether to include resistive dissipation (default: True)
+    split_sound: bool
+        Whether to advance the coupling of the velocity to the magnetic field and to q in two substeps
+        (``variat_qb`` and ``variat_sound``, both energy conserving), instead of together in ``variat_qb``. The
+        Newton systems are then smaller (shear-Alfven/fast and sound waves separately), at the cost of a splitting
+        error (default: False)
     """
 
     @classmethod
@@ -79,11 +84,17 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
             linear: bool = False,
             with_viscosity: bool = True,
             with_resistivity: bool = True,
+            split_sound: bool = False,
         ):
             self.variat_dens = VariationalDensityEvolve()
             if not linear:
                 self.variat_mom = VariationalMomentumAdvection()
-            self.variat_qb = VariationalQBEvolve(div_u=div_u, u2=u2, qt3=qt3, bt2=bt2)
+            if split_sound:
+                # the shear-Alfven/fast waves (u, b) and the sound waves (u, q) in two substeps
+                self.variat_qb = VariationalQBEvolve(div_u=div_u, u2=u2, qt3=qt3, bt2=bt2, coupling="b")
+                self.variat_sound = VariationalQBEvolve(div_u=div_u, u2=u2, qt3=qt3, bt2=bt2, coupling="q")
+            else:
+                self.variat_qb = VariationalQBEvolve(div_u=div_u, u2=u2, qt3=qt3, bt2=bt2)
             if with_viscosity:
                 self.variat_viscous = VariationalViscosity(rho=rho, pt3=qt3)
             if with_resistivity:
@@ -98,6 +109,7 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         linear: bool = False,
         with_viscosity: bool = True,
         with_resistivity: bool = True,
+        split_sound: bool = False,
     ):
 
         # 0. store input parameters
@@ -121,6 +133,7 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
             linear=linear,
             with_viscosity=with_viscosity,
             with_resistivity=with_resistivity,
+            split_sound=split_sound,
         )
 
         # 4. assign variables to propagators
@@ -131,6 +144,10 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         self.propagators.variat_qb.variables.u = self.mhd.velocity
         self.propagators.variat_qb.variables.q = self.mhd.sqrt_p
         self.propagators.variat_qb.variables.b = self.em_fields.b_field
+        if split_sound:
+            self.propagators.variat_sound.variables.u = self.mhd.velocity
+            self.propagators.variat_sound.variables.q = self.mhd.sqrt_p
+            self.propagators.variat_sound.variables.b = self.em_fields.b_field
         if with_viscosity:
             self.propagators.variat_viscous.variables.s = self.mhd.sqrt_p
             self.propagators.variat_viscous.variables.u = self.mhd.velocity
@@ -165,7 +182,8 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
     def propagator_variants(self) -> dict:
         """The values of the option ``model`` of the variational propagators that match ``linear``."""
         variant = "linear_q" if self.params["linear"] else "perturbative_q"
-        return {name: variant for name in ("variat_dens", "variat_qb", "variat_viscous", "variat_resist")}
+        names = ("variat_dens", "variat_qb", "variat_sound", "variat_viscous", "variat_resist")
+        return {name: variant for name in names}
 
     def post_allocate(self):
         # the propagator options must match the flag `linear`
@@ -176,6 +194,13 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
                     f"{self.__class__.__name__}(linear={self.params['linear']}) needs "
                     f"{name}.Options(model='{variant}'), got model='{prop.options.model}'."
                 )
+        # both substeps of the split step and the energy diagnostics must use the same adiabatic index
+        sound = getattr(self.propagators, "variat_sound", None)
+        if sound is not None and sound.options.gamma != self.propagators.variat_qb.options.gamma:
+            raise ValueError(
+                f"{self.__class__.__name__}(split_sound=True) needs the same gamma in variat_qb and variat_sound, "
+                f"got {self.propagators.variat_qb.options.gamma} and {sound.options.gamma}."
+            )
 
         projV3 = L2Projector("L2", Propagator.mass_ops)
 
@@ -220,6 +245,10 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
                 elif "variat_qb.Options" in line:
                     new_file += [
                         f"model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='{variant}')\n",
+                    ]
+                elif "variat_sound.Options" in line:
+                    new_file += [
+                        f"model.propagators.variat_sound.options = model.propagators.variat_sound.Options(model='{variant}')\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
@@ -345,7 +374,7 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
 
     @classmethod
     def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
+        r"""Time integration is performed by the following propagators (in sequence):
 
         1. :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`
         2. :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection` (if :attr:`linear` is False)
@@ -354,7 +383,10 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
 
         The option ``model`` of the variational propagators is ``"perturbative_q"``, or ``"linear_q"`` if
-        :attr:`linear` is True.
+        :attr:`linear` is True. With :attr:`split_sound` the step 3 is done in two substeps of
+        :class:`~struphy.propagators.variational_qb_evolve.VariationalQBEvolve`: ``variat_qb`` with
+        ``coupling="b"`` (shear-Alfven/fast waves, :math:`q` fixed) and ``variat_sound`` with ``coupling="q"`` (sound
+        waves, :math:`\mathbf B` fixed), both energy conserving.
         """
         doc = rf"""**1. VariationalDensityEvolve:**
 
