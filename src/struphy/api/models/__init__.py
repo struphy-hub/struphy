@@ -7,6 +7,7 @@ from struphy.models.deterministic_particle_diffusion import (
 from struphy.models.drift_kinetic_electrostatic_adiabatic import (
     DriftKineticElectrostaticAdiabatic,
 )
+from struphy.models.drift_kinetic_maxwell import DriftKineticMaxwell
 from struphy.models.guiding_center import GuidingCenter
 from struphy.models.gyrokinetic_poisson import GyrokineticPoisson
 from struphy.models.hasegawa_wakatani import HasegawaWakatani
@@ -56,6 +57,7 @@ __all__ = [
     "CurlCurl",
     "DeterministicParticleDiffusion",
     "DriftKineticElectrostaticAdiabatic",
+    "DriftKineticMaxwell",
     "GuidingCenter",
     "GyrokineticPoisson",
     "HasegawaWakatani",

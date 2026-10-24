@@ -11,6 +11,7 @@ _LAZY_IMPORTS = {
     "CurrentCoupling5DGradB": "struphy.propagators.current_coupling_5d_gradb",
     "CurrentCoupling6DCurrent": "struphy.propagators.current_coupling_6d_current",
     "CurrentCoupling6DDensity": "struphy.propagators.current_coupling_6d_density",
+    "DriftKineticMaxwellCoupling": "struphy.propagators.drift_kinetic_maxwell_coupling",
     "EfieldWeightsCoupling": "struphy.propagators.efield_weights_coupling",
     "FaradayExtended": "struphy.propagators.faraday_extended",
     "GyrokineticPoissonSolve": "struphy.propagators.gyrokinetic_poisson_solve",
@@ -62,6 +63,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
     from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
     from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
+    from struphy.propagators.drift_kinetic_maxwell_coupling import DriftKineticMaxwellCoupling
     from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
     from struphy.propagators.faraday_extended import FaradayExtended
     from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
@@ -114,6 +116,7 @@ __all__ = [
     "CurrentCoupling5DGradB",
     "CurrentCoupling6DCurrent",
     "CurrentCoupling6DDensity",
+    "DriftKineticMaxwellCoupling",
     "EfieldWeightsCoupling",
     "FaradayExtended",
     "GyrokineticPoissonSolve",
