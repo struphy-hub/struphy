@@ -134,7 +134,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`, built from the equilibrium part
             :math:`\mathbb T` of the basis projection operator; with ``nonlinear=True`` it approximates the Schur
             operator with :math:`\mathbb T + \mathbb T^B`, since :math:`|\tilde{\mathbf B}| \ll |\mathbf B_0|`). The
-            Kronecker preconditioner needs ``algo="implicit"``, ``solver="pcg"``, ``u_space="Hdiv"``, tensor-product
+            Kronecker preconditioner needs ``algo="implicit"``, ``solver="pcg"`` or ``"pcg_sr"``, ``u_space="Hdiv"``, tensor-product
             splines (no polar splines) and the global commuting projectors; otherwise it falls back (with a warning) to
             ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). ``"MultiGrid"`` is
             not available here.
