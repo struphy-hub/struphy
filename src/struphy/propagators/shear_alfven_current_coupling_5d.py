@@ -111,7 +111,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`ShearAlfvenCurrentCoupling5D`.
+        r"""Configuration options for :class:`ShearAlfvenCurrentCoupling5D`.
 
         Parameters
         ----------
@@ -133,6 +133,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             Explicit Runge-Kutta tableau for ``algo="explicit"``.
         nonlinear : bool, default=True
             If ``True``, include nonlinear TB operator updates.
+        magnetization_coupling : bool, default=True
+            If ``False``, the energetic-particle magnetization term (accumulated :math:`\mu \hat{\mathbf b}_0`) is
+            dropped from the momentum equation and not accumulated. For diagnostics only: the particles still see
+            :math:`\tilde{\mathbf B}` in the other propagators, so the total energy is then no longer conserved.
         """
 
         # specific literals
@@ -147,6 +151,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         filter_params: FilterParameters = None
         butcher: ButcherTableau = None
         nonlinear: bool = True
+        magnetization_coupling: bool = True
 
         def __post_init__(self):
             # checks
@@ -156,6 +161,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             assert isinstance(self.ep_scale, float)
             assert isinstance(self.nonlinear, bool)
+            assert isinstance(self.magnetization_coupling, bool)
 
             # defaults
             if self.solver_params is None:
@@ -271,8 +277,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
             def f1(t, y1, y2, out: BlockVector = out1):
                 _f1.dot(y2, out=out)
-                _f1_acc.dot(self._ACC.vectors[0], out=out_acc)
-                out += out_acc
+                if self.options.magnetization_coupling:
+                    _f1_acc.dot(self._ACC.vectors[0], out=out_acc)
+                    out += out_acc
                 out.update_ghost_regions()
                 return out
 
@@ -295,13 +302,15 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         bn = self.variables.b.spline.vector
 
         # accumulate
-        self._ACC(self.options.ep_scale)
+        if self.options.magnetization_coupling:
+            self._ACC(self.options.ep_scale)
 
         if self.options.algo == "implicit":
             # solve for new u coeffs (no tmps created here)
             byn = self._B.dot(bn, out=self._byn)
-            b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
-            byn += b2acc
+            if self.options.magnetization_coupling:
+                b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
+                byn += b2acc
 
             un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 
