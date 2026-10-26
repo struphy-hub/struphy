@@ -1124,7 +1124,9 @@ class Output:
         if parallel and self._pproc_comm.Get_size() != self.mpi_ranks:
             raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")
         if parallel and self.num_clones > 1:
-            raise ValueError("Parallel post-processing of a run with domain clones is not supported, use parallel=False.")
+            raise ValueError(
+                "Parallel post-processing of a run with domain clones is not supported, use parallel=False."
+            )
         self._pproc_ranks = range(self._pproc_rank, self._pproc_rank + 1) if parallel else range(self.mpi_ranks)
         self._pproc_derham = None
         if self.grid is not None and self.derham_opts is not None:
