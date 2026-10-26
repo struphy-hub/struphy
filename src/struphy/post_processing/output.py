@@ -998,6 +998,11 @@ class Output:
         """Number of ranks that wrote the raw output (not the current communicator)."""
         return int(self.metadata["mpi_ranks"])
 
+    @cached_property
+    def num_clones(self) -> int:
+        """Number of domain clones of the saved run."""
+        return int(self.metadata.get("env", {}).get("num_clones", 1))
+
     @property
     def is_processed(self) -> bool:
         """Whether complete post-processing of the current raw output exists."""
@@ -1087,7 +1092,7 @@ class Output:
     def _processes_in_parallel(self) -> bool:
         """Whether processing by default uses every rank: those of a job as large as the saved run."""
         size = self.comm.Get_size()
-        return size > 1 and size == self.mpi_ranks
+        return size > 1 and size == self.mpi_ranks and self.num_clones == 1
 
     def _process(self, *, parallel: bool, **options):
         """Run one processing pass on this rank (serial) or with every rank (parallel)."""
@@ -1118,6 +1123,10 @@ class Output:
         self._pproc_rank = self._pproc_comm.Get_rank()
         if parallel and self._pproc_comm.Get_size() != self.mpi_ranks:
             raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")
+        if parallel and self.num_clones > 1:
+            raise ValueError(
+                "Parallel post-processing of a run with domain clones is not supported, use parallel=False."
+            )
         self._pproc_ranks = range(self._pproc_rank, self._pproc_rank + 1) if parallel else range(self.mpi_ranks)
         self._pproc_derham = None
         if self.grid is not None and self.derham_opts is not None:
