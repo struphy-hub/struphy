@@ -1890,7 +1890,8 @@ def alfven_schur_preconditioner(propagator, unmet: list[str]):
     as :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner` with ``u_space="H1vec"``: the
     :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` of the Kronecker approximation of
     :math:`\mathbb C\, \hat\Pi^1[\mathbf B_0 \times \cdot\,]` (``basis_ops.Tv``, analytic equilibrium) with the
-    stabilization ``Mvn`` (the velocity mass matrix with the analytic density), plus the auxiliary space correction of
+    stabilization :math:`\mathbb M^v[\rho_0]` with the projected density of the Schur operator (``WMMnew``), plus the
+    auxiliary space correction of
     the :math:`\mathbf E \times \mathbf B` flows if ``options.exb_correction``. Its :meth:`build` gives the
     preconditioner for a time step.
 
@@ -1925,12 +1926,23 @@ def alfven_schur_preconditioner(propagator, unmet: list[str]):
             "falling back to the mass-matrix preconditioner."
         )
         return None
+    # the velocity mass matrix of the Schur operator, G weighted with the projected density: WMMnew stores only G as
+    # weight and evaluates its density spline during the assembly, so the density is passed here as a function, which
+    # is evaluated into the weights seen by the separable approximation of the preconditioner
+    rho = propagator.mass_ops.WMMnew.spline_functions["l2_field"]
+    stab = propagator.mass_ops.create_weighted_mass(
+        "H1vec",
+        "H1vec",
+        weights=("G", lambda e1, e2, e3: rho(e1, e2, e3)),
+        name="WMM_alfven_precond",
+        assemble=False,
+    )
     return ShearAlfvenSchurPreconditioner(
         propagator.derham,
         propagator.mass_ops,
         propagator.basis_ops,
         propagator.basis_ops.Tv,
-        "Mvn",
+        stab,
         exb_correction=options.exb_correction,
         u_space="H1vec",
     )

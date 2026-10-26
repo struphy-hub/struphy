@@ -742,7 +742,8 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
 
     block_shapes : bool
         General operators only: approximate the weights of each diagonal block of ``mid`` and ``stab`` by their own
-        separable shape (default), instead of one shape common to all blocks. The blocks are inverted independently
+        separable shape, instead of one shape common to all blocks (default False; used by
+        :class:`ShearAlfvenSchurPreconditioner`). The blocks are inverted independently
         (block Jacobi), so this costs nothing and is exact for separable weights with different profiles per
         component, as the metric coefficients of curvilinear maps (e.g. :math:`G_{22} \sqrt g \propto r^3` for the
         poloidal component of a vector field in a torus); in a Cartesian geometry all blocks have the same shape.
@@ -776,7 +777,7 @@ class StiffnessPreconditioner(KroneckerPreconditioner):
         mid: str | LinearOperator | None = None,
         stab: str | LinearOperator | None = None,
         stab_average: str | None = None,
-        block_shapes: bool = True,
+        block_shapes: bool = False,
     ):
         derham = mass_ops.derham
         self._block_shapes = block_shapes
@@ -1209,7 +1210,7 @@ def _polar_stiffness_preconditioner(
     mid: str | LinearOperator | None = None,
     stab: str | LinearOperator | None = None,
     stab_average: str | None = None,
-    block_shapes: bool = True,
+    block_shapes: bool = False,
     **polar_kwargs,
 ) -> PolarStiffnessPreconditioner:
     """The PolarStiffnessPreconditioner for the arguments of StiffnessPreconditioner (plus its own options)."""
@@ -1917,8 +1918,8 @@ class ShearAlfvenSchurPreconditioner:
     T : BasisProjectionOperator
         The basis projection operator :math:`\mathbb T` of :math:`\mathbf B_0 \times` (on 2-forms).
 
-    id_M : str
-        Name of the weighted mass matrix of the velocity in ``mass_ops`` (e.g. ``"M2n"``).
+    id_M : str | WeightedMassOperator
+        The weighted mass matrix of the velocity: its name in ``mass_ops`` (e.g. ``"M2n"``) or the operator itself.
 
     exb_correction : bool
         Whether to add the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows.
@@ -1927,7 +1928,16 @@ class ShearAlfvenSchurPreconditioner:
         Space of the velocity, ``"Hdiv"`` (2-form) or ``"H1vec"`` (vector field), the domain of ``T``.
     """
 
-    def __init__(self, derham, mass_ops, basis_ops, T, id_M: str, exb_correction: bool = True, u_space: str = "Hdiv"):
+    def __init__(
+        self,
+        derham,
+        mass_ops,
+        basis_ops,
+        T,
+        id_M: str | WeightedMassOperator,
+        exb_correction: bool = True,
+        u_space: str = "Hdiv",
+    ):
         from struphy.feec.kronecker_block import basis_projection_operator, derivative_operator
         from struphy.feec.utilities import LocalRotationMatrix
 
@@ -2002,7 +2012,10 @@ class ShearAlfvenSchurPreconditioner:
     def build(self, dt: float) -> LinearOperator:
         """The preconditioner of the Schur operator for the time step ``dt``."""
         mid = (dt**2 / 4) * self._mass_ops.M2
-        pc = StiffnessPreconditioner(self._mass_ops, self._kron_curl_T, sigma=1.0, mid=mid, stab=self._id_M)
+        # separable weights per velocity component (their metric weights differ strongly in curvilinear geometry)
+        pc = StiffnessPreconditioner(
+            self._mass_ops, self._kron_curl_T, sigma=1.0, mid=mid, stab=self._id_M, block_shapes=True
+        )
         if self._exb_correction:
             # N^T S N = N^T M N + dt^2/4 (C T N)^T M2 (C T N) on V0
             pc_phi = StiffnessPreconditioner(
@@ -2010,6 +2023,7 @@ class ShearAlfvenSchurPreconditioner:
                 [self._kron_exb, self._kron_curl_T_exb],
                 sigma=0.0,
                 mid=[self._id_M, mid],
+                block_shapes=True,
             )
             pc = AuxiliarySpacePreconditioner(pc, [(self._exb_N, self._exb_NT, pc_phi)])
         return pc
