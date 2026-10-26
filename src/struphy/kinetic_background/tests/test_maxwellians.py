@@ -1788,6 +1788,39 @@ def test_canonical_maxwellian_unshifted():
         assert not xp.allclose(shifted.eval_psic(markers), exact)
 
 
+@pytest.mark.mpi_skip
+def test_canonical_maxwellian_correction_B():
+    """With ``correction_B="Bmax"``, markers that can bounce on the surface psi = P_phi (E <= mu B_max) keep
+    psi_c = P_phi."""
+    import cunumpy as xp
+
+    from struphy import domains, equils
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
+
+    epsilon, R0, B0 = 0.05, 5.0, 1.0
+    equil = equils.AdhocTorus(a=1.0, R0=R0, B0=B0, q0=1.25, q1=2.25)
+    equil.domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=R0)
+
+    n_mks = 100
+    xp.random.seed(0)
+    markers = xp.random.rand(5, n_mks)
+    markers[3] = (markers[3] - 0.5) * 2.0
+    markers[4] *= 0.5
+
+    etas = markers[:3]
+    x, y, z = equil.domain(etas)
+    R, _, Z = equil.inverse_map(x, y, z)
+    absB = equil.absB0(etas)
+    p_phi = equil.psi(R, Z) - epsilon * B0 * R0 / absB * markers[3]
+    energy = markers[3] ** 2 / 2 + markers[4] * absB
+
+    f_Bmax = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=n_mks, correction_B="Bmax")
+
+    can_bounce = energy <= markers[4] * f_Bmax._correction_field(p_phi, B0)
+    assert 0 < can_bounce.sum() < n_mks
+    assert xp.allclose(f_Bmax.eval_psic(markers)[can_bounce], p_phi[can_bounce])
+
+
 def test_moment_factors_and_division():
     """Tests the moment_factors setters and division of a background by a scalar."""
     import cunumpy as xp

@@ -464,8 +464,10 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         epsilon: float = 1.0,
         cache_size: int | None = None,
         shifted: bool = True,
+        correction_B: str = "B0",
     ):
         assert isinstance(equil, AxisymmMHDequilibrium)
+        assert correction_B in ("B0", "Bmax")
 
         super().__init__(
             n=n,
@@ -487,6 +489,17 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         self.params["epsilon"] = epsilon
         self.params["cache_size"] = cache_size
         self.params["shifted"] = shifted
+        self.params["correction_B"] = correction_B
+
+        if correction_B == "Bmax":
+            # |B| at the inboard midplane (R = R0 - r, Z = 0) as a function of psi
+            R0 = equil.params["R0"]
+            r = xp.linspace(1e-4, equil.params["a"], 1001)
+            psi_in = equil.psi(R0 - r, 0.0 * r)
+            bx, by, bz = equil.b_xyz(R0 - r, 0.0 * r, 0.0 * r)
+            order = xp.argsort(psi_in)
+            self._psi_in = psi_in[order]
+            self._B_in = xp.sqrt(bx**2 + by**2 + bz**2)[order]
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -648,6 +661,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                 cached = xp.allclose(self.psi_c.reshape(-1)[test_idx], cached_psi_c)
         return cached
 
+    def _correction_field(self, p_phi, B0):
+        """Field in the shift: on-axis B0, or B_max of the flux surface psi = P_phi."""
+        if self.params["correction_B"] == "B0":
+            return B0
+        return xp.interp(p_phi, self._psi_in, self._B_in)
+
     def eval_psic(self, *coords, use_cbufs: bool = True):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities.
 
@@ -700,12 +719,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
             if self._shifted:
-                positive_mask = (energy - mu * B0) > 0
+                B_corr = self._correction_field(psi_c, B0)
+                positive_mask = (energy - mu * B_corr) > 0
                 correction = xp.zeros_like(psi_c)
                 correction[positive_mask] = (
                     self._epsilon
                     * xp.sign(vparallel[positive_mask])
-                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                    * xp.sqrt(2 * (energy - mu * B_corr)[positive_mask])
                     * R0
                 )
                 psi_c += correction
@@ -727,12 +747,13 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
             if self._shifted:
-                positive_mask[:] = (energy - mu * B0) > 0
+                B_corr = self._correction_field(psi_c, B0)
+                positive_mask[:] = (energy - mu * B_corr) > 0
                 correction[:] = 0.0
                 correction[positive_mask] = (
                     self._epsilon
                     * xp.sign(vparallel[positive_mask])
-                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                    * xp.sqrt(2 * (energy - mu * B_corr)[positive_mask])
                     * R0
                 )
                 psi_c[:] += correction
