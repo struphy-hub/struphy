@@ -1,5 +1,5 @@
 """The Kronecker preconditioner of the shear-Alfven Schur operator of the linear variational propagators
-(``schur_precond="StiffnessPreconditioner"`` of VariationalPBEvolve and VariationalQBEvolve): it changes the
+(``schur_precond="StiffnessPreconditioner"`` of VariationalPBEvolve and VariationalAlfvenEvolve): it changes the
 iteration, not the solution, and it falls back to the mass-matrix preconditioner where it does not apply."""
 
 import pytest
@@ -20,7 +20,6 @@ N_STEPS = 3
 
 LINEAR_P = linear(VariationalPerturbativeMHD)
 LINEAR_Q_SPLIT = linear(VariationalPerturbativeMHD_with_q, split_sound=True)
-LINEAR_Q = linear(VariationalPerturbativeMHD_with_q)
 
 
 def _run(tmp_path, model_class, schur_precond):
@@ -42,7 +41,7 @@ def _run(tmp_path, model_class, schur_precond):
 
 @pytest.mark.parametrize(
     "model_class, name",
-    [(LINEAR_P, "variat_pb"), (LINEAR_Q_SPLIT, "variat_qb")],
+    [(LINEAR_P, "variat_pb"), (LINEAR_Q_SPLIT, "variat_alfven")],
     ids=["linear_p", "linear_q_split"],
 )
 def test_same_solution(tmp_path, model_class, name):
@@ -58,7 +57,11 @@ def test_same_solution(tmp_path, model_class, name):
 
 
 def test_fallback(tmp_path):
-    """Where the Schur operator is not the shear-Alfven one (the unsplit q model), the mass-matrix preconditioner is
-    used."""
-    model = _run(tmp_path, LINEAR_Q, "StiffnessPreconditioner")
-    assert model.propagators.variat_qb._schur_pc is None
+    """Where the Schur operator is not the linear shear-Alfven one (the perturbative models), the mass-matrix
+    preconditioner is used."""
+    for model_class, name in (
+        (VariationalPerturbativeMHD, "variat_pb"),
+        (VariationalPerturbativeMHD_with_q, "variat_alfven"),
+    ):
+        model = _run(tmp_path, model_class, "StiffnessPreconditioner")
+        assert getattr(model.propagators, name)._schur_pc is None, name

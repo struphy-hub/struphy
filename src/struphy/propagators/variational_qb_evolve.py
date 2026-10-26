@@ -16,7 +16,6 @@ from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
     NewtonConvergence,
     Pressure_transport_operator,
-    alfven_schur_preconditioner,
     dot_normalized,
     inv_norm2,
 )
@@ -27,10 +26,6 @@ from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
-
-
-# couplings to the velocity advanced by VariationalQBEvolve
-OptsCoupling = Literal["bq", "b", "q"]
 
 
 class VariationalQBEvolve(Propagator):
@@ -88,11 +83,6 @@ class VariationalQBEvolve(Propagator):
     models as :math:`\int \mathbf B_0 \cdot \hat{\mathbf B} + 2 q_0 \hat q / (\gamma - 1)`.
     For ``"full_q"`` the mass density :math:`\rho` is the variable of :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`,
     for ``"perturbative_q"`` it is :math:`\rho_0` plus that variable.
-
-    With the constructor argument ``coupling="b"`` (``"q"``) only the terms of the magnetic field (of :math:`q`) are
-    advanced, with :math:`q` (the magnetic field) and its auxiliary variable fixed; the Newton system is then a
-    :math:`2\times 2` block system in :math:`(\mathbf u, \mathbf B)` (:math:`(\mathbf u, q)`). Two such substeps split
-    the shear-Alfven/fast waves from the sound waves, and each substep conserves the energy.
 
     The scheme below is written for ``"full_q"``; for the other models the operators and linear forms are
     replaced by the sums above. Below, hats denote pullbacks to the logical domain (not the auxiliary variables).
@@ -203,7 +193,6 @@ class VariationalQBEvolve(Propagator):
         u2: FEECVariable = None,
         qt3: FEECVariable = None,
         bt2: FEECVariable = None,
-        coupling: OptsCoupling = "bq",
     ):
         r"""
         Parameters
@@ -220,22 +209,12 @@ class VariationalQBEvolve(Propagator):
             Auxiliary second-order variable :math:`\hat{\mathbf B}` (``"Hdiv"`` space) of the linear and perturbative
             models, advanced with :math:`\partial_t \hat{\mathbf B} + \mathcal T_{\mathbf B}(\mathbf u) = 0`. It enters
             only the energy, not the momentum equation.
-        coupling : {"bq", "b", "q"}, default="bq"
-            The couplings to the velocity advanced (implicitly) by this propagator: of the magnetic field and
-            :math:`q` together (``"bq"``), or only of the magnetic field (``"b"``) or only of :math:`q` (``"q"``), the
-            other variable (and its auxiliary variable) being kept fixed. Each choice conserves the energy, so two
-            instances with ``"b"`` and ``"q"`` give an energy-conserving splitting of the shear-Alfven/fast and the
-            sound waves, with a smaller linear system per substep.
         """
-        check_option(coupling, OptsCoupling)
         self.variables = self.Variables()
         self.div_u = div_u
         self.u2 = u2
         self.qt3 = qt3
         self.bt2 = bt2
-        self._coupling = coupling
-        self._with_b = coupling in ("bq", "b")
-        self._with_q = coupling in ("bq", "q")
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -267,22 +246,9 @@ class VariationalQBEvolve(Propagator):
             does not contain the dependence of the operators on their weights, so a step needs several iterations
             (typically 2 to 10, more for large time steps or amplitudes) instead of one, each with a Schur solve;
             ``False`` is the cheaper first-order choice.
-        schur_precond : {"MassMatrixPreconditioner", "StiffnessPreconditioner"}, default="MassMatrixPreconditioner"
-            Preconditioner of the Schur system of the Newton step: the mass-matrix preconditioner of the velocity
-            block, or the Kronecker (fast diagonalization) preconditioner of the whole shear-Alfven Schur operator
-            :math:`\mathbb M^v[\rho_0] + \frac{\Delta t^2}{4} \mathbb T_0^\top \mathbb M^2 \mathbb T_0`
-            (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, built from the equilibrium for
-            each time step in :meth:`prepare_time_step`). The latter needs ``model="linear_q"`` with ``coupling="b"`` (the Alfven substep of a split step), ``solver="pcg"``,
-            tensor-product splines and the global commuting projectors; otherwise the mass-matrix preconditioner is
-            used (with a warning).
-        exb_correction : bool, default=True
-            For ``schur_precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
-            :math:`\mathbf E \times \mathbf B` flows :math:`\mathbf B_0 \times \nabla \phi` (the incompressible shear
-            Alfven modes with small parallel wave number, which block Jacobi does not reduce).
         """
 
         # specific literals
-        OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
         OptsModel = Literal["full_q", "linear_q", "perturbative_q"]
         # propagator options
         model: OptsModel = "full_q"
@@ -292,15 +258,12 @@ class VariationalQBEvolve(Propagator):
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         implicit_weights: bool | None = None
-        schur_precond: OptsSchurPrecond = "MassMatrixPreconditioner"
-        exb_correction: bool = True
 
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            check_option(self.schur_precond, self.OptsSchurPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -363,14 +326,6 @@ class VariationalQBEvolve(Propagator):
         # Projector
         self._initialize_projectors_and_mass()
 
-        # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
-        self._schur_pc = alfven_schur_preconditioner(
-            self,
-            ([] if self._model == "linear_q" else ['model="linear_q"'])
-            + ([] if self._coupling == "b" else ['coupling="b"']),
-        )
-        self._schur_pc_dt = None
-
         # bunch of temporaries to avoid allocating in the loop
         u = self.variables.u.spline.vector
         q = self.variables.q.spline.vector
@@ -406,16 +361,7 @@ class VariationalQBEvolve(Propagator):
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
             self._extracted_q3 = self.derham.extraction_ops["3"].dot(self.projected_equil.q3)
 
-    def prepare_time_step(self, dt: float):
-        """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
-        ``schur_precond="StiffnessPreconditioner"``): built in the setup, rebuilt when dt changes."""
-        if self._schur_pc is not None and dt != self._schur_pc_dt:
-            self._inv_Jacobian.precond = self._schur_pc.build(dt)
-            self._schur_pc_dt = dt
-
     def __call__(self, dt):
-        # preconditioner for the current time step (no-op unless dt changed since the setup)
-        self.prepare_time_step(dt)
         # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
         self._Mrho_pc.refresh()
 
@@ -470,45 +416,88 @@ class VariationalQBEvolve(Propagator):
                 self._update_Pib(self._tmp_bn12)
                 self._update_Projq(self._tmp_qn12)
 
-            # Compute the advection terms of the couplings advanced here (the other variable is kept fixed)
-            advection = self._tmp_advection
-            advection *= 0.0
-            b_advection = self._tmp_b_advection
-            b_advection *= 0.0
-            q_advection = self._tmp_q_advection
-            q_advection *= 0.0
-
+            # Compute the advection terms
             if self._model == "linear_q":
-                if self._with_b:
-                    advection += self.curlPibT0.dot(self._linear_form_dl_db, out=self._tmp_advection2)
-                    advection += self.curlPibT.dot(self._linear_form_dl_db0, out=self._tmp_advection2)
-                    b_advection += self.curlPib0.dot(un12, out=self._tmp_b_advection2)
-                if self._with_q:
-                    advection += self._transop_q0T.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
-                    advection += self._transop_qT.dot(self._linear_form_dl_dq0, out=self._tmp_advection2)
-                    q_advection += self._transop_q0.dot(un12, out=self._tmp_q_advection2)
+                advection = self.curlPibT0.dot(
+                    self._linear_form_dl_db,
+                    out=self._tmp_advection,
+                )
+
+                advection += self.curlPibT.dot(
+                    self._linear_form_dl_db0,
+                    out=self._tmp_advection2,
+                )
+
+                advection += self._transop_q0T.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
+                advection += self._transop_qT.dot(self._linear_form_dl_dq0, out=self._tmp_advection2)
+
+                b_advection = self.curlPib0.dot(
+                    un12,
+                    out=self._tmp_b_advection,
+                )
+
+                q_advection = self._transop_q0.dot(
+                    un12,
+                    out=self._tmp_q_advection,
+                )
 
             elif self._model == "perturbative_q":
-                if self._with_b:
-                    advection += self.curlPibT0.dot(self._linear_form_dl_db, out=self._tmp_advection2)
-                    advection += self.curlPibT.dot(self._linear_form_dl_db0, out=self._tmp_advection2)
-                    advection += self.curlPibT.dot(self._linear_form_dl_db, out=self._tmp_advection2)
-                    b_advection += self.curlPib.dot(un12, out=self._tmp_b_advection2)
-                    b_advection += self.curlPib0.dot(un12, out=self._tmp_b_advection2)
-                if self._with_q:
-                    advection += self._transop_qT.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
-                    advection += self._transop_q0T.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
-                    advection += self._transop_qT.dot(self._linear_form_dl_dq0, out=self._tmp_advection2)
-                    q_advection += self._transop_q0.dot(un12, out=self._tmp_q_advection2)
-                    q_advection += self._transop_q.dot(un12, out=self._tmp_q_advection2)
+                advection = self.curlPibT0.dot(
+                    self._linear_form_dl_db,
+                    out=self._tmp_advection,
+                )
+
+                advection += self.curlPibT.dot(
+                    self._linear_form_dl_db0,
+                    out=self._tmp_advection2,
+                )
+
+                advection += self.curlPibT.dot(
+                    self._linear_form_dl_db,
+                    out=self._tmp_advection2,
+                )
+
+                advection += self._transop_qT.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
+                advection += self._transop_q0T.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
+                advection += self._transop_qT.dot(self._linear_form_dl_dq0, out=self._tmp_advection2)
+
+                b_advection = self.curlPib.dot(
+                    un12,
+                    out=self._tmp_b_advection,
+                )
+
+                b_advection += self.curlPib0.dot(
+                    un12,
+                    out=self._tmp_b_advection2,
+                )
+
+                q_advection = self._transop_q0.dot(
+                    un12,
+                    out=self._tmp_q_advection,
+                )
+
+                q_advection += self._transop_q.dot(
+                    un12,
+                    out=self._tmp_q_advection2,
+                )
 
             else:
-                if self._with_b:
-                    advection += self.curlPibT.dot(self._linear_form_dl_db, out=self._tmp_advection2)
-                    b_advection += self.curlPib.dot(un12, out=self._tmp_b_advection2)
-                if self._with_q:
-                    advection += self._transop_qT.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
-                    q_advection += self._transop_q.dot(un12, out=self._tmp_q_advection2)
+                advection = self.curlPibT.dot(
+                    self._linear_form_dl_db,
+                    out=self._tmp_advection,
+                )
+
+                advection += self._transop_qT.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
+
+                b_advection = self.curlPib.dot(
+                    un12,
+                    out=self._tmp_b_advection,
+                )
+
+                q_advection = self._transop_q.dot(
+                    un12,
+                    out=self._tmp_q_advection,
+                )
 
             advection *= dt
             b_advection *= dt
@@ -541,24 +530,16 @@ class VariationalQBEvolve(Propagator):
 
             # Newton step
             self._tmp_f[0] = mn_diff
-            if self._coupling == "bq":
-                self._tmp_f[1] = bn_diff
-                self._tmp_f[2] = qn_diff
-            else:
-                self._tmp_f[1] = bn_diff if self._with_b else qn_diff
+            self._tmp_f[1] = bn_diff
+            self._tmp_f[2] = qn_diff
 
             # normalized right-hand side: the tolerance of the linear solver is relative to the residual
             incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
-            if self._coupling == "bq":
-                bn1 -= incr[1]
-                qn1 -= incr[2]
-            elif self._with_b:
-                bn1 -= incr[1]
-            else:
-                qn1 -= incr[1]
+            bn1 -= incr[1]
+            qn1 -= incr[2]
 
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
@@ -587,7 +568,7 @@ class VariationalQBEvolve(Propagator):
 
         # Update the 2nd order variables
 
-        if self._qt3 is not None and self._with_q:
+        if self._qt3 is not None:
             q_advection = self._transop_q.dot(
                 un12,
                 out=self._tmp_q_advection,
@@ -595,7 +576,7 @@ class VariationalQBEvolve(Propagator):
             q_advection *= dt
             self._qt3 -= q_advection
 
-        if self._bt2 is not None and self._with_b:
+        if self._bt2 is not None:
             b_advection = self.curlPib.dot(
                 un12,
                 out=self._tmp_b_advection,
@@ -640,13 +621,11 @@ class VariationalQBEvolve(Propagator):
         self._I2 = IdentityOperator(self.derham.V2pol)
         self._I3 = IdentityOperator(self.derham.V3pol)
 
-        # unknowns of the Newton system: u and the coupled variables
-        if self._coupling == "bq":
-            Jacs = BlockVectorSpace(self.derham.Vvpol, self.derham.V2pol, self.derham.V3pol)
-        elif self._with_b:
-            Jacs = BlockVectorSpace(self.derham.Vvpol, self.derham.V2pol)
-        else:
-            Jacs = BlockVectorSpace(self.derham.Vvpol, self.derham.V3pol)
+        Jacs = BlockVectorSpace(
+            self.derham.Vvpol,
+            self.derham.V2pol,
+            self.derham.V3pol,
+        )
 
         self._tmp_f = Jacs.zeros()
         self._tmp_incr = Jacs.zeros()
@@ -703,29 +682,17 @@ class VariationalQBEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
 
-        from struphy.linear_algebra.schur_solver import SchurSolverFull, SchurSolverFull3
-
         self._Jacobian[0, 0] = self._Mrho
-        if self._coupling == "bq":
-            self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
-            self._Jacobian[0, 2] = self._mdt2_pc_transopT_M
-            self._Jacobian[1, 0] = self._dt2_curlPib
-            self._Jacobian[1, 1] = self._I2
-            self._Jacobian[2, 0] = self._dt2_transop
-            self._Jacobian[2, 2] = self._I3
-            schur_class = SchurSolverFull3
-        elif self._with_b:
-            self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
-            self._Jacobian[1, 0] = self._dt2_curlPib
-            self._Jacobian[1, 1] = self._I2
-            schur_class = SchurSolverFull
-        else:
-            self._Jacobian[0, 1] = self._mdt2_pc_transopT_M
-            self._Jacobian[1, 0] = self._dt2_transop
-            self._Jacobian[1, 1] = self._I3
-            schur_class = SchurSolverFull
+        self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
+        self._Jacobian[0, 2] = self._mdt2_pc_transopT_M
+        self._Jacobian[1, 0] = self._dt2_curlPib
+        self._Jacobian[1, 1] = self._I2
+        self._Jacobian[2, 0] = self._dt2_transop
+        self._Jacobian[2, 2] = self._I3
 
-        self._inv_Jacobian = schur_class(
+        from struphy.linear_algebra.schur_solver import SchurSolverFull3
+
+        self._inv_Jacobian = SchurSolverFull3(
             self._Jacobian,
             self.options.solver,
             # fixed (linear) preconditioner: an inner iterative solve is expensive and not a linear operator

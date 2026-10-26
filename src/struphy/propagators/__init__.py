@@ -41,6 +41,7 @@ _LAZY_IMPORTS = {
     "ShearAlfvenPropagator": "struphy.propagators.shear_alfven_propagator",
     "TimeDependentSource": "struphy.propagators.time_dependent_source",
     "TwoFluidQuasiNeutralFull": "struphy.propagators.two_fluid_quasi_neutral_full",
+    "VariationalAlfvenEvolve": "struphy.propagators.variational_alfven_evolve",
     "VariationalDensityEvolve": "struphy.propagators.variational_density_evolve",
     "VariationalEntropyEvolve": "struphy.propagators.variational_entropy_evolve",
     "VariationalMagFieldEvolve": "struphy.propagators.variational_mag_field_evolve",
@@ -48,6 +49,7 @@ _LAZY_IMPORTS = {
     "VariationalPBEvolve": "struphy.propagators.variational_pb_evolve",
     "VariationalQBEvolve": "struphy.propagators.variational_qb_evolve",
     "VariationalResistivity": "struphy.propagators.variational_resistivity",
+    "VariationalSoundEvolve": "struphy.propagators.variational_sound_evolve",
     "VariationalViscosity": "struphy.propagators.variational_viscosity",
     "VlasovAmpereCoupling": "struphy.propagators.vlasov_ampere_coupling",
     "VlasovMaxwellCoupling": "struphy.propagators.vlasov_maxwell_coupling",
@@ -94,6 +96,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
     from struphy.propagators.time_dependent_source import TimeDependentSource
     from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
+    from struphy.propagators.variational_alfven_evolve import VariationalAlfvenEvolve
     from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
     from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
     from struphy.propagators.variational_mag_field_evolve import VariationalMagFieldEvolve
@@ -101,6 +104,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
     from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
     from struphy.propagators.variational_resistivity import VariationalResistivity
+    from struphy.propagators.variational_sound_evolve import VariationalSoundEvolve
     from struphy.propagators.variational_viscosity import VariationalViscosity
     from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
     from struphy.propagators.vlasov_maxwell_coupling import VlasovMaxwellCoupling
@@ -144,6 +148,7 @@ __all__ = [
     "ShearAlfvenPropagator",
     "TimeDependentSource",
     "TwoFluidQuasiNeutralFull",
+    "VariationalAlfvenEvolve",
     "VariationalDensityEvolve",
     "VariationalEntropyEvolve",
     "VariationalMagFieldEvolve",
@@ -151,6 +156,7 @@ __all__ = [
     "VariationalPBEvolve",
     "VariationalQBEvolve",
     "VariationalResistivity",
+    "VariationalSoundEvolve",
     "VariationalViscosity",
     "VlasovAmpereCoupling",
     "VlasovMaxwellCoupling",
