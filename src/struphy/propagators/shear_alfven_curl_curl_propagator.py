@@ -187,7 +187,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
                 if self.algo == "explicit":
                     self.precond = "MassMatrixPreconditioner"
                 else:
-                    assert self.solver == "pcg", 'precond="HiptmairXu" requires solver="pcg".'
+                    assert self.solver in ("pcg", "pcg_sr"), 'precond="HiptmairXu" requires solver="pcg" or "pcg_sr".'
 
             # defaults
             if self.solver_params is None:

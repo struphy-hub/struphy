@@ -212,6 +212,11 @@ Vlasov-Maxwell coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.drift_kinetic_maxwell_coupling
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 MHD-kinetic coupling
 ^^^^^^^^^^^^^^^^^^^^
 

@@ -1984,7 +1984,7 @@ class ShearAlfvenSchurPreconditioner:
     @staticmethod
     def resolve(precond: str, derham, algo: str, solver: str, u_space: str) -> str:
         """The preconditioner to use for the option ``precond`` of a shear Alfven propagator:
-        ``"StiffnessPreconditioner"`` only if its requirements hold (implicit algorithm with ``solver="pcg"``,
+        ``"StiffnessPreconditioner"`` only if its requirements hold (implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"``,
         ``u_space="Hdiv"`` and :meth:`supported`), else the mass matrix preconditioner of the velocity space
         (``"PolarMassMatrixPreconditioner"`` with polar splines), with a warning. Other options are returned as
         they are."""
@@ -1993,8 +1993,8 @@ class ShearAlfvenSchurPreconditioner:
         missing = []
         if algo != "implicit":
             missing += ['algo="implicit"']
-        if solver != "pcg":
-            missing += ['solver="pcg"']
+        if solver not in ("pcg", "pcg_sr"):
+            missing += ['solver="pcg" or "pcg_sr"']
         if u_space != "Hdiv":
             missing += ['u_space="Hdiv"']
         if derham.polar_splines:

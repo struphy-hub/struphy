@@ -85,6 +85,13 @@ def load_plasma_plots() -> bool:
     return True
 
 
+def _to_host(value):
+    """`value` (an array, or a list/tuple of arrays for vector-valued fields) as NumPy array(s)."""
+    if isinstance(value, (list, tuple)):
+        return type(value)(_to_host(v) for v in value)
+    return xp.to_numpy(value)
+
+
 class ProductMapping(Mapping[str, xr.DataArray]):
     """A discoverable mapping whose products are loaded on first access."""
 
@@ -568,13 +575,14 @@ class Output:
         self, array: xr.DataArray, etas: tuple[Any, Any, Any], dims: tuple[str, ...]
     ) -> xr.DataArray:
         """Map a raw FEEC evaluation grid and attach its Cartesian coordinates."""
-        grids = [np.atleast_1d(np.asarray(eta, dtype=float)) for eta in etas]
-        mapped = self.domain(*grids)
+        # the logical grids may be device arrays (CuPy backend): map them where they live, keep the coordinates on the host
+        grids = [np.atleast_1d(np.asarray(xp.to_numpy(eta), dtype=float)) for eta in etas]
+        mapped = self.domain(*(xp.asarray(grid) for grid in grids))
         shape = tuple(len(grid) for grid in grids)
         keep = tuple(slice(None) if dim in dims else 0 for dim in ("eta1", "eta2", "eta3"))
         coordinates = {}
         for name, values in zip(("X", "Y", "Z"), mapped):
-            values = np.asarray(values).reshape(shape)[keep]
+            values = np.asarray(xp.to_numpy(values)).reshape(shape)[keep]
             coordinates[name] = (dims, values) if dims else values.item()
         return array.assign_coords(coordinates)
 
@@ -990,6 +998,11 @@ class Output:
         """Number of ranks that wrote the raw output (not the current communicator)."""
         return int(self.metadata["mpi_ranks"])
 
+    @cached_property
+    def num_clones(self) -> int:
+        """Number of domain clones of the saved run."""
+        return int(self.metadata.get("env", {}).get("num_clones", 1))
+
     @property
     def is_processed(self) -> bool:
         """Whether complete post-processing of the current raw output exists."""
@@ -1079,7 +1092,7 @@ class Output:
     def _processes_in_parallel(self) -> bool:
         """Whether processing by default uses every rank: those of a job as large as the saved run."""
         size = self.comm.Get_size()
-        return size > 1 and size == self.mpi_ranks
+        return size > 1 and size == self.mpi_ranks and self.num_clones == 1
 
     def _process(self, *, parallel: bool, **options):
         """Run one processing pass on this rank (serial) or with every rank (parallel)."""
@@ -1110,6 +1123,10 @@ class Output:
         self._pproc_rank = self._pproc_comm.Get_rank()
         if parallel and self._pproc_comm.Get_size() != self.mpi_ranks:
             raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")
+        if parallel and self.num_clones > 1:
+            raise ValueError(
+                "Parallel post-processing of a run with domain clones is not supported, use parallel=False."
+            )
         self._pproc_ranks = range(self._pproc_rank, self._pproc_rank + 1) if parallel else range(self.mpi_ranks)
         self._pproc_derham = None
         if self.grid is not None and self.derham_opts is not None:
@@ -1295,7 +1312,9 @@ class Output:
 
         # the physical grid is only needed for output, hence it is only built on rank 0
         if self._pproc_rank == 0:
-            grids_phy = list(self.domain(*grids_log))
+            # output coordinates, on the host (the logical grids stay on the device for the field evaluation)
+            grids_phy = [xp.to_numpy(grid) for grid in self.domain(*grids_log)]
+            grids_log_host = [xp.to_numpy(grid) for grid in grids_log]
         else:
             grids_phy = None
 
@@ -1327,8 +1346,9 @@ class Output:
                 if self._pproc_rank == 0:
                     for species, vars in vals.items():
                         for name, val in vars.items():
-                            point_data[species][name][t] = val
-                            point_data_phy[species][name][t] = vals_phy[species][name]
+                            # evaluated on the device on the CuPy backend; written to files from the host
+                            point_data[species][name][t] = _to_host(val)
+                            point_data_phy[species][name][t] = _to_host(vals_phy[species][name])
 
         # directory for the vtk files
         path_fields = os.path.join(self.path_pproc, "fields_data")
@@ -1338,10 +1358,10 @@ class Output:
             for species, vars in point_data.items():
                 variables = {}
                 for name, val in vars.items():
-                    variables[name] = wrap_field_data(val, grids_log, grids_phy=grids_phy, name=name)
+                    variables[name] = wrap_field_data(val, grids_log_host, grids_phy=grids_phy, name=name)
                     if physical:
                         variables[name + "_xyz"] = wrap_field_data(
-                            point_data_phy[species][name], grids_log, grids_phy=grids_phy, name=name + "_xyz"
+                            point_data_phy[species][name], grids_log_host, grids_phy=grids_phy, name=name + "_xyz"
                         )
                 store.write_group(store.store_path(self.path_pproc), f"/{species}", xr.Dataset(variables))
 
@@ -1517,7 +1537,7 @@ class Output:
                             s1 : e1 + 1,
                             s2 : e2 + 1,
                             s3 : e3 + 1,
-                        ] = ddset[n * step, p1:-p1, p2:-p2, p3:-p3]
+                        ] = xp.asarray(ddset[n * step, p1:-p1, p2:-p2, p3:-p3])  # HDF5 data is on the host
 
                     # vector-valued field
                     else:
@@ -1530,7 +1550,7 @@ class Output:
                                 s1 : e1 + 1,
                                 s2 : e2 + 1,
                                 s3 : e3 + 1,
-                            ] = ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3]
+                            ] = xp.asarray(ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3])
 
                     vector.update_ghost_regions()
                     if is_polar:

@@ -37,7 +37,7 @@ SPLINE_HEADER = ARGS_DIR / "spline_args.cuh"
 
 # (CUDA class, pyccel source, pyccel class, struct members that only the CUDA class has, its header)
 ARGUMENT_PAIRS = (
-    (CudaMarkerArguments, "pusher_args_kernels.py", "MarkerArguments", {"n_markers"}, HEADER),
+    (CudaMarkerArguments, "pusher_args_kernels.py", "MarkerArguments", {"n_markers", "prepare_rows"}, HEADER),
     (CudaDerhamArguments, "pusher_args_kernels.py", "DerhamArguments", {"nt1", "nt2", "nt3"}, HEADER),
     (CudaDomainArguments, "pusher_args_kernels.py", "DomainArguments", set(), HEADER),
     (
@@ -194,8 +194,8 @@ def test_catalog_signatures():
     for catalog in CATALOGS.values():
         catalog.check_signatures()
     assert {package.split(".", 1)[1]: len(catalog) for package, catalog in CATALOGS.items()} == {
-        "pic.pushing.kernels": 45,
-        "pic.accumulation.kernels": 27,
+        "pic.pushing.kernels": 46,
+        "pic.accumulation.kernels": 29,
         "pic.diagnostics.kernels": 10,
         "pic.sph.kernels": 4,
         "pic.kernels": 4,
