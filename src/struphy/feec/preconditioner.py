@@ -1209,6 +1209,7 @@ def _polar_stiffness_preconditioner(
     mid: str | LinearOperator | None = None,
     stab: str | LinearOperator | None = None,
     stab_average: str | None = None,
+    block_shapes: bool = True,
     **polar_kwargs,
 ) -> PolarStiffnessPreconditioner:
     """The PolarStiffnessPreconditioner for the arguments of StiffnessPreconditioner (plus its own options)."""

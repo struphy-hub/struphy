@@ -115,6 +115,15 @@ def test_variational_perturbative_linear(perturbative_model: str, tmp_path, test
     for name, variant in model.propagator_variants.items():
         assert getattr(params_model.propagators, name).options.model == variant, name
 
+    # the q model with split_sound: the flag is kept, and the sound substep gets the linear variant
+    if perturbative_model == "VariationalPerturbativeMHD_with_q":
+        split = model_class(linear=True, split_sound=True)
+        path_split = os.path.join(tmp_path, f"params_{perturbative_model}_split.py")
+        split.generate_default_parameter_file(path=path_split, prompt=False)
+        split_model = import_parameters_py(path_split).model
+        assert split_model.params["split_sound"] and split_model.params["linear"]
+        assert split_model.propagators.variat_sound.options.model == "linear_q"
+
     ut.call_test(model=model, test_profiling=test_profiling)
 
 

@@ -180,10 +180,11 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
 
     @property
     def propagator_variants(self) -> dict:
-        """The values of the option ``model`` of the variational propagators that match ``linear``."""
+        """The values of the option ``model`` of the variational propagators of this model that match ``linear``
+        (``variat_sound`` only with ``split_sound``, the dissipative propagators only if present)."""
         variant = "linear_q" if self.params["linear"] else "perturbative_q"
         names = ("variat_dens", "variat_qb", "variat_sound", "variat_viscous", "variat_resist")
-        return {name: variant for name in names}
+        return {name: variant for name in names if hasattr(self.propagators, name)}
 
     def post_allocate(self):
         # the propagator options must match the flag `linear`
@@ -233,11 +234,14 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
         variant = self.propagator_variants["variat_qb"]
         linear = self.params["linear"]
+        # the constructor arguments that differ from their defaults (they determine the propagators)
+        defaults = {"linear": False, "with_viscosity": True, "with_resistivity": True, "split_sound": False}
+        args = "".join(f", {k}={self.params[k]}" for k, v in defaults.items() if self.params[k] != v)
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if line.startswith("model = ") and linear:
-                    new_file += [line.replace("(base_units=base_units)", "(base_units=base_units, linear=True)")]
+                if line.startswith("model = ") and args:
+                    new_file += [line.replace("(base_units=base_units)", f"(base_units=base_units{args})")]
                 elif "variat_dens.Options" in line:
                     new_file += [
                         f"model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='{variant}')\n",
