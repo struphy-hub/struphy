@@ -72,6 +72,11 @@ Linear MHD solvers
 Nonlinear MHD solvers
 ^^^^^^^^^^^^^^^^^^^^^
 
+.. automodule:: struphy.propagators.variational_alfven_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.variational_density_evolve
     :members:
     :exclude-members: options, allocate
@@ -118,6 +123,11 @@ Nonlinear MHD solvers
     :show-inheritance:
 
 .. automodule:: struphy.propagators.variational_resistivity
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_sound_evolve
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
