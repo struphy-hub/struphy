@@ -34,6 +34,7 @@ name = "ITPA TAE (LinearMHDDriftkineticCC), Fourier filter, B_max canonical Maxw
 description = """
 ITPA benchmark TAE (n = 6, m = 10, 11, Koenies et al., Nucl. Fusion 58, 126027 (2018)) driven by energetic deuterons.
 Toroidal Fourier filter, canonical Maxwellian with correction_B="Bmax" (exact equilibrium), J0 x b term off.
+Markers that leave through the inner or outer wall are refilled at the opposite poloidal angle on the same field line.
 """
 
 import numpy as np
@@ -143,7 +144,7 @@ vth = 0.89740839
 
 loading_params = LoadingParameters(ppc=args.ppc, moments=(0.0, 0.0, vth, vth), seed=1234, B0=equil.params["B0"])
 weights_params = WeightsParameters(control_variate=True)
-boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"))
+boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"), bc_refill=("inner", "outer"))
 sorting_params = SortingParameters()
 
 vpar_max = 5 * vth
