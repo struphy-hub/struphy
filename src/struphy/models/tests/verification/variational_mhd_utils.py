@@ -30,10 +30,11 @@ SOLVER = SolverParameters()
 NONLIN = NonlinearSolverParameters()
 
 
-def linear(model_class):
-    """The linear version of a perturbative model class (a constructor with ``linear=True``)."""
-    constructor = functools.partial(model_class, linear=True)
-    constructor.__name__ = f"{model_class.__name__}_linear"
+def linear(model_class, **kwargs):
+    """The linear version of a perturbative model class (a constructor with ``linear=True`` and ``kwargs``)."""
+    constructor = functools.partial(model_class, linear=True, **kwargs)
+    suffix = "".join(f"_{key}" for key, value in kwargs.items() if value)
+    constructor.__name__ = f"{model_class.__name__}_linear{suffix}"
     return constructor
 
 
@@ -59,11 +60,21 @@ def homogeneous_slab(B0=(0.0, 1.0, 1.0), Lz=10.0, num_elements=16):
     return equil, domain, (1, 1, num_elements), (1, 1, 3)
 
 
-def allocate_ideal(tmp_path, name, model_class, setup, dt, perturb=None, implicit_weights=None):
+def allocate_ideal(
+    tmp_path,
+    name,
+    model_class,
+    setup,
+    dt,
+    perturb=None,
+    implicit_weights=None,
+    schur_precond="MassMatrixPreconditioner",
+):
     """Allocate an ideal model of `model_class` for the `setup` (equil, domain, num_elements, degree).
 
     `perturb(model)` adds the perturbations of the perturbative variables. The full-f model gets the equilibrium
-    as background in addition. `implicit_weights` is passed to VariationalQBEvolve (None: its default). Models must be
+    as background in addition. `implicit_weights` is passed to VariationalQBEvolve, VariationalAlfvenEvolve and
+    VariationalSoundEvolve (None: their default), `schur_precond` to VariationalPBEvolve and VariationalAlfvenEvolve. Models must be
     allocated and run one after the other, since they share the class attributes of Propagator (derham, ...)."""
     equil, domain, num_elements, degree = setup
     model = model_class(with_viscosity=False, with_resistivity=False)
@@ -76,12 +87,26 @@ def allocate_ideal(tmp_path, name, model_class, setup, dt, perturb=None, implici
         model.propagators.variat_mom.options = model.propagators.variat_mom.Options(
             solver_params=SOLVER, nonlin_solver=NONLIN
         )
-    if hasattr(model.propagators, "variat_pb"):
-        model.propagators.variat_pb.options = model.propagators.variat_pb.Options(
-            model=variant, solver_params=SOLVER, nonlin_solver=NONLIN
+    props = model.propagators
+    if hasattr(props, "variat_pb"):
+        props.variat_pb.options = props.variat_pb.Options(
+            model=variant, solver_params=SOLVER, nonlin_solver=NONLIN, schur_precond=schur_precond
         )
-    else:
-        model.propagators.variat_qb.options = model.propagators.variat_qb.Options(
+    if hasattr(props, "variat_qb"):
+        props.variat_qb.options = props.variat_qb.Options(
+            model=variant, solver_params=SOLVER, nonlin_solver=NONLIN, implicit_weights=implicit_weights
+        )
+    # the two substeps of split_sound=True (the Alfven step does not depend on the thermodynamic variable)
+    if hasattr(props, "variat_alfven"):
+        props.variat_alfven.options = props.variat_alfven.Options(
+            model=variant.removesuffix("_q"),
+            solver_params=SOLVER,
+            nonlin_solver=NONLIN,
+            implicit_weights=implicit_weights,
+            schur_precond=schur_precond,
+        )
+    if hasattr(props, "variat_sound"):
+        props.variat_sound.options = props.variat_sound.Options(
             model=variant, solver_params=SOLVER, nonlin_solver=NONLIN, implicit_weights=implicit_weights
         )
 
