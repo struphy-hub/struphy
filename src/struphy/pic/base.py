@@ -1555,6 +1555,12 @@ class Particles(metaclass=ABCMeta):
         else:
             self.weights = self.weights0
 
+    def _f_coords_of_valid(self, quantity, rows):
+        """Coordinates of the distribution function at the valid markers, as a list of arrays.
+        ``quantity(j)`` gives row ``j`` of the marker buffer; subclasses whose :attr:`f_coords` differs
+        from the stored rows override this."""
+        return [quantity(j) for j in rows]
+
     @profile
     def update_weights(self):
         """
@@ -1583,7 +1589,7 @@ class Particles(metaclass=ABCMeta):
             #     self.save_constants_of_motion()
             coords = self.f_coords_index
             rows = range(markers.shape[0])[coords] if isinstance(coords, slice) else np.atleast_1d(coords).tolist()
-            f0 = self.f0(*[quantity(j) for j in rows])
+            f0 = self.f0(*self._f_coords_of_valid(quantity, rows))
 
         # if f_init is vol-form, transform to 0-form
         if self.is_volume_form[0]:

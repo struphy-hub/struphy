@@ -395,6 +395,10 @@ class PauliParticles6D(Particles6D):
     def f_coords(self, new):
         Particles6D.f_coords.fset(self, new)
 
+    def _f_coords_of_valid(self, quantity, rows):
+        # the control variate is evaluated at the gyrotropic velocity of f_coords, not at the stored v_par b0
+        return list(self.f_coords)
+
 
 def _maxwellians_in(f):
     """The Maxwellians of a kinetic background (summands of a :class:`~struphy.kinetic_background.base.SumKineticBackground`)."""
