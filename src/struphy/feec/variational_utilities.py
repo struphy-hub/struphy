@@ -301,7 +301,11 @@ class L2_transport_operator(LinearOperator):
 
     .. math::
         \mathbf u \mapsto \nabla \cdot(\Pi^2(\rho \mathbf u)) \,
-    from H1vec to L2, where :math:`\rho` is a discrete 3-form which can be updated.
+    from H1vec (or H(div)) to L2, where :math:`\rho` is a discrete 3-form which can be updated.
+
+    For a velocity 2-form (``u_space="Hdiv"``) the projected 2-form is
+    :math:`\hat\Pi^2[\hat\rho^3 \vec{\boldsymbol\Lambda}^2/\sqrt g]`, as in
+    :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Q2`.
 
     Parameters
     ----------
@@ -310,23 +314,35 @@ class L2_transport_operator(LinearOperator):
 
     transposed : Bool
         Assemble the transposed operator
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+
+    phys_domain : Domain
+        The mapping (needed for the metric term with ``u_space="Hdiv"``).
     """
 
-    def __init__(self, derham, transposed=False, weights=None):
+    def __init__(self, derham, transposed=False, weights=None, u_space="H1vec", phys_domain=None):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        assert u_space == "H1vec" or phys_domain is not None, 'u_space="Hdiv" needs phys_domain.'
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
+        self._u_space = u_space
+        self._phys_domain = phys_domain
         if weights is None:
             weights = [[None] * 3] * 3
         self._weights = weights
+        u_form = self._derham.space_to_form[u_space]
+        Vu = getattr(self._derham, f"V{u_form}pol")
         if self._transposed:
-            self._codomain = self._derham.Vvpol
+            self._codomain = Vu
             self._domain = self._derham.V3pol
         else:
-            self._domain = self._derham.Vvpol
+            self._domain = Vu
             self._codomain = self._derham.V3pol
         P2 = self._derham.P2
-        Xh = self._derham.Vvfem
+        Xh = getattr(self._derham, f"V{u_form}fem")
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("rhof", "L2")
 
@@ -337,8 +353,8 @@ class L2_transport_operator(LinearOperator):
                 Xh,
                 self._weights,
                 transposed=transposed,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[u_form],
+                V_boundary_op=self._derham.boundary_ops[u_form],
                 P_boundary_op=IdentityOperator(self._derham.V2pol),
             )
 
@@ -349,8 +365,8 @@ class L2_transport_operator(LinearOperator):
                 self._weights,
                 transposed=transposed,
                 use_cache=True,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[u_form],
+                V_boundary_op=self._derham.boundary_ops[u_form],
                 P_boundary_op=IdentityOperator(self._derham.V2pol),
             )
 
@@ -388,6 +404,12 @@ class L2_transport_operator(LinearOperator):
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
         self._f_2_values = xp.zeros(grid_shape, dtype=float)
 
+        # 1/sqrt(g) on the histopolation grids of the three components, for a velocity 2-form
+        if u_space == "Hdiv":
+            self._inv_sqrt_g = [
+                1.0 / phys_domain.jacobian_det(*grid) for grid in (hist_grid_0, hist_grid_1, hist_grid_2)
+            ]
+
     @property
     def domain(self):
         return self._domain
@@ -401,7 +423,13 @@ class L2_transport_operator(LinearOperator):
         return self._dtype
 
     def transpose(self, conjugate=False):
-        return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
+        return L2_transport_operator(
+            self._derham,
+            not self._transposed,
+            weights=self._weights,
+            u_space=self._u_space,
+            phys_domain=self._phys_domain,
+        )
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -433,6 +461,10 @@ class L2_transport_operator(LinearOperator):
             out=self._f_2_values,
         )
 
+        if self._u_space == "Hdiv":
+            for values, inv_sqrt_g in zip((f0_values, f1_values, f2_values), self._inv_sqrt_g):
+                values *= inv_sqrt_g
+
         self._weights = [
             [f0_values, None, None],
             [None, f1_values, None],
@@ -448,7 +480,12 @@ class Hdiv0_transport_operator(LinearOperator):
 
     .. math::
         u \mapsto \nabla \times (\Pi^1(\mathbf B \times \mathbf u)) \,
-    from H1vec to H(div), where :math:`\mathbf B` is a discrete 2-form which can be updated.
+    from H1vec (or H(div)) to H(div), where :math:`\mathbf B` is a discrete 2-form which can be updated.
+
+    For a velocity 2-form :math:`\hat{\mathbf u}^2` (``u_space="Hdiv"``) the vector field is
+    :math:`\hat{\mathbf u}^2/\sqrt g`, i.e. the projected 1-form is
+    :math:`\hat\Pi^1[(\hat{\mathbf B}^2 \times \vec{\boldsymbol\Lambda}^2)/\sqrt g]`, as in
+    :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.T2`.
 
     Parameters
     ----------
@@ -457,23 +494,35 @@ class Hdiv0_transport_operator(LinearOperator):
 
     transposed : Bool
         Assemble the transposed operator
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+
+    phys_domain : Domain
+        The mapping (needed for the metric term with ``u_space="Hdiv"``).
     """
 
-    def __init__(self, derham, transposed=False, weights=None):
+    def __init__(self, derham, transposed=False, weights=None, u_space="H1vec", phys_domain=None):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        assert u_space == "H1vec" or phys_domain is not None, 'u_space="Hdiv" needs phys_domain.'
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
+        self._u_space = u_space
+        self._phys_domain = phys_domain
         if weights is None:
             weights = [[None] * 3] * 3
         self._weights = weights
+        u_form = self._derham.space_to_form[u_space]
+        Vu = getattr(self._derham, f"V{u_form}pol")
         if self._transposed:
-            self._codomain = self._derham.Vvpol
+            self._codomain = Vu
             self._domain = self._derham.V2pol
         else:
-            self._domain = self._derham.Vvpol
+            self._domain = Vu
             self._codomain = self._derham.V2pol
         P1 = self._derham.P1
-        Xh = self._derham.Vvfem
+        Xh = getattr(self._derham, f"V{u_form}fem")
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("Bf", "Hdiv")
 
@@ -484,8 +533,8 @@ class Hdiv0_transport_operator(LinearOperator):
                 Xh,
                 self._weights,
                 transposed=transposed,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[u_form],
+                V_boundary_op=self._derham.boundary_ops[u_form],
                 P_boundary_op=IdentityOperator(self._derham.V1pol),
             )
 
@@ -496,8 +545,8 @@ class Hdiv0_transport_operator(LinearOperator):
                 self._weights,
                 transposed=transposed,
                 use_cache=True,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[u_form],
+                V_boundary_op=self._derham.boundary_ops[u_form],
                 P_boundary_op=IdentityOperator(self._derham.V1pol),
             )
 
@@ -551,6 +600,12 @@ class Hdiv0_transport_operator(LinearOperator):
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
         self._bf2_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+
+        # 1/sqrt(g) on the histopolation grids of the three components, for a velocity 2-form
+        if u_space == "Hdiv":
+            self._inv_sqrt_g = [
+                1.0 / phys_domain.jacobian_det(*grid) for grid in (hist_grid_0, hist_grid_1, hist_grid_2)
+            ]
         self.hist_grid_2_b = [
             [self.hist_grid_2_bn[0], self.hist_grid_2_bd[1], self.hist_grid_2_bd[2]],
             [
@@ -574,7 +629,13 @@ class Hdiv0_transport_operator(LinearOperator):
         return self._dtype
 
     def transpose(self, conjugate=False):
-        return Hdiv0_transport_operator(self._derham, not self._transposed, weights=self._weights)
+        return Hdiv0_transport_operator(
+            self._derham,
+            not self._transposed,
+            weights=self._weights,
+            u_space=self._u_space,
+            phys_domain=self._phys_domain,
+        )
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -607,6 +668,11 @@ class Hdiv0_transport_operator(LinearOperator):
             out=self._bf2_values,
         )
 
+        if self._u_space == "Hdiv":
+            for values, inv_sqrt_g in zip((bf0_values, bf1_values, bf2_values), self._inv_sqrt_g):
+                for v in values:
+                    v *= inv_sqrt_g
+
         self._weights = [
             [None, -bf0_values[2], bf0_values[1]],
             [bf1_values[2], None, -bf1_values[0]],
@@ -622,7 +688,14 @@ class Pressure_transport_operator(LinearOperator):
 
     .. math::
         \mathbf u \mapsto \nabla \cdot (\Pi^2(p \mathbf u)) + (\gamma -1) \Pi^3(p \nabla \cdot \Pi^2(\mathbf u))  \,
-    from H1vec to L2, where :math:`p` is a discrete 3-form which can be updated.
+    from H1vec (or H(div)) to L2, where :math:`p` is a discrete 3-form which can be updated.
+
+    For a velocity 2-form (``u_space="Hdiv"``) the operator is
+    :math:`\mathbb D \hat\Pi^2[\hat p^3 \vec{\boldsymbol\Lambda}^2/\sqrt g]
+    + (\gamma - 1) \hat\Pi^3[\hat p^3 \Lambda^3/\sqrt g] \mathbb D`, without :math:`\mathbb U^v`, as built from
+    :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.S2` and
+    :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.K3` in
+    :class:`~struphy.propagators.magnetosonic.Magnetosonic`.
 
     Parameters
     ----------
@@ -633,20 +706,28 @@ class Pressure_transport_operator(LinearOperator):
         The domain in which the problem is discretized (needed for metric terms)
 
     Uv : BasisProjectionOperator
-        The projection from H1vec to H(div)
+        The projection from H1vec to H(div) (not used with ``u_space="Hdiv"``, where it is the identity)
 
     gamma : Float
         Thermodynamical constant
 
     transposed : Bool
         Assemble the transposed operator
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
     """
 
-    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False, weights1=None, weights2=None):
+    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False, weights1=None, weights2=None, u_space="H1vec"):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
         # Get the projector and the spaces
         self._derham = derham
         self._phys_domain = phys_domain
-        self._Uv = Uv
+        self._u_space = u_space
+        u_form = self._derham.space_to_form[u_space]
+        Vu = getattr(self._derham, f"V{u_form}pol")
+        # the velocity as a 2-form
+        self._Uv = Uv if u_space == "H1vec" else IdentityOperator(Vu)
         self._transposed = transposed
         self._gamma = gamma
         if weights1 is None:
@@ -656,14 +737,14 @@ class Pressure_transport_operator(LinearOperator):
             weights2 = [[lambda eta1, eta2, eta3: 0 * eta1]]
         self._weights2 = weights2
         if self._transposed:
-            self._codomain = self._derham.Vvpol
+            self._codomain = Vu
             self._domain = self._derham.V3pol
         else:
-            self._domain = self._derham.Vvpol
+            self._domain = Vu
             self._codomain = self._derham.V3pol
         P2 = self._derham.P2
         P3 = self._derham.P3
-        Xh = self._derham.Vvfem
+        Xh = getattr(self._derham, f"V{u_form}fem")
         V3h = self._derham.V3fem
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("pf", "L2")
@@ -674,8 +755,8 @@ class Pressure_transport_operator(LinearOperator):
             self._weights1,
             transposed=transposed,
             use_cache=True,
-            V_extraction_op=self._derham.extraction_ops["v"],
-            V_boundary_op=self._derham.boundary_ops["v"],
+            V_extraction_op=self._derham.extraction_ops[u_form],
+            V_boundary_op=self._derham.boundary_ops[u_form],
             P_boundary_op=IdentityOperator(self._derham.V2pol),
         )
 
@@ -694,7 +775,7 @@ class Pressure_transport_operator(LinearOperator):
 
         div = self._derham.div
 
-        self.div = div @ Uv
+        self.div = div @ Uv if u_space == "H1vec" else div
 
         # Initialize the transport operator and transposed
         if self._transposed:
@@ -743,6 +824,12 @@ class Pressure_transport_operator(LinearOperator):
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_22])
         self._pf_2_values = xp.zeros(grid_shape, dtype=float)
 
+        # 1/sqrt(g) on the histopolation grids of the three components, for a velocity 2-form
+        if u_space == "Hdiv":
+            self._inv_sqrt_g = [
+                1.0 / phys_domain.jacobian_det(*grid) for grid in (hist_grid_20, hist_grid_21, hist_grid_22)
+            ]
+
     @property
     def domain(self):
         return self._domain
@@ -764,6 +851,7 @@ class Pressure_transport_operator(LinearOperator):
             not self._transposed,
             weights1=self._weights1,
             weights2=self._weights2,
+            u_space=self._u_space,
         )
 
     def dot(self, v, out=None):
@@ -812,6 +900,10 @@ class Pressure_transport_operator(LinearOperator):
             self.hist_grid_22_bd,
             out=self._pf_2_values,
         )
+
+        if self._u_space == "Hdiv":
+            for values, inv_sqrt_g in zip((pf0_values, pf1_values, pf2_values), self._inv_sqrt_g):
+                values *= inv_sqrt_g
 
         self._weights1 = [
             [pf0_values, None, None],
@@ -1879,7 +1971,7 @@ def inv_norm2(inv: LinearOperator, v: Vector) -> float:
     return norm**2 * err
 
 
-def alfven_schur_preconditioner(propagator, unmet: list[str]):
+def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1vec"):
     r"""The Kronecker preconditioner of the shear-Alfven Schur operator of a linear variational propagator,
 
     .. math::
@@ -1893,7 +1985,9 @@ def alfven_schur_preconditioner(propagator, unmet: list[str]):
     stabilization :math:`\mathbb M^v[\rho_0]` with the projected density of the Schur operator (``WMMnew``), plus the
     auxiliary space correction of
     the :math:`\mathbf E \times \mathbf B` flows if ``options.exb_correction``. Its :meth:`build` gives the
-    preconditioner for a time step.
+    preconditioner for a time step. For a velocity in :math:`H(\textnormal{div})` (``u_space="Hdiv"``), the operators
+    are ``basis_ops.T2`` and ``mass_ops.M2n``, as in
+    :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`.
 
     Parameters
     ----------
@@ -1901,6 +1995,8 @@ def alfven_schur_preconditioner(propagator, unmet: list[str]):
         The propagator, with the options ``schur_precond``, ``solver`` and ``exb_correction``.
     unmet : list[str]
         Requirements of the propagator that do not hold (e.g. ``'model="linear"'``).
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
 
     Returns
     -------
@@ -1926,6 +2022,16 @@ def alfven_schur_preconditioner(propagator, unmet: list[str]):
             "falling back to the mass-matrix preconditioner."
         )
         return None
+    if u_space == "Hdiv":
+        return ShearAlfvenSchurPreconditioner(
+            propagator.derham,
+            propagator.mass_ops,
+            propagator.basis_ops,
+            propagator.basis_ops.T2,
+            "M2n",
+            exb_correction=options.exb_correction,
+            u_space="Hdiv",
+        )
     # the velocity mass matrix of the Schur operator, G weighted with the projected density: WMMnew stores only G as
     # weight and evaluates its density spline during the assembly, so the density is passed here as a function, which
     # is evaluated into the weights seen by the separable approximation of the preconditioner

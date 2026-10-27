@@ -41,7 +41,10 @@ class VariationalDensityEvolve(Propagator):
 
     Where :math:`\tilde{\rho}` is either :math:`\rho` for full-f models, :math:`\rho_0` for linear models or :math:`\rho_0+\rho` for :math:`\delta f` models.
 
-    In the case of linear model, the second equation is not updated.
+    In the case of linear model, the second equation is not updated. The linear models also accept a velocity
+    2-form, :math:`\mathbf u \in H(\textnormal{div})`; the density is then advected with
+    :math:`\mathbb D \mathcal Q^2` (:attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Q2`, as in
+    :class:`~struphy.propagators.magnetosonic.Magnetosonic`).
 
     On the logical domain:
 
@@ -95,7 +98,7 @@ class VariationalDensityEvolve(Propagator):
         rho : FEECVariable
             Density variable in ``"L2"`` space.
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space.
+            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space for ``model="linear"`` and ``"linear_q"``.
         """
 
         def __init__(self):
@@ -119,7 +122,7 @@ class VariationalDensityEvolve(Propagator):
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1vec"
+            assert new.space in ("H1vec", "Hdiv")
             self._u = new
 
     def __init__(self, s: FEECVariable = None, divdiv_alpha: float = 0.0):
@@ -219,6 +222,18 @@ class VariationalDensityEvolve(Propagator):
         self._linearize = self.options.nonlin_solver.linearize
 
         self._info = self.options.nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
+
+        self._u_space = self.variables.u.space
+        if self._u_space == "Hdiv":
+            assert self._model in ("linear", "linear_q"), (
+                f'A velocity in "Hdiv" space needs model="linear" or "linear_q", got model="{self._model}".'
+            )
+            # only the explicit advection of the linear models, with the equilibrium density as in Magnetosonic
+            self.divPirho = self.derham.div @ self.basis_ops.Q2
+            rho = self.variables.rho.spline.vector
+            self._tmp_rhon1 = rho.space.zeros()
+            self._tmp_rho_advection = rho.space.zeros()
+            return
 
         self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
         # "cg" takes no preconditioner; the density-weighted mass matrix also preconditions the regularized metric

@@ -41,11 +41,17 @@ class VariationalLinearEvolve(Propagator):
 
     by :class:`~struphy.linear_algebra.schur_solver.SchurSolverFull`. The subclasses define the variables, the options
     and the operators.
+
+    The velocity can also be a 2-form, :math:`\mathbf u \in H(\textnormal{div})` (velocity variable in ``"Hdiv"``
+    space); then :math:`\mathbb M^v[\hat\rho_0]` is replaced by :attr:`~struphy.feec.mass.WeightedMassOperators.M2n`, as
+    in :class:`~struphy.models.linear_mhd.LinearMHD`.
     """
 
     def _allocate_mass(self, precond: str | None):
-        """The density-weighted mass matrix (assembled in VariationalDensityEvolve) and its preconditioner."""
-        self._Mrho = self.mass_ops.WMMnew
+        """The density-weighted mass matrix of the velocity and its preconditioner: WMMnew (assembled in
+        VariationalDensityEvolve), or M2n (constant) for a velocity in Hdiv."""
+        self._u_space = self.variables.u.space
+        self._Mrho = self.mass_ops.M2n if self._u_space == "Hdiv" else self.mass_ops.WMMnew
         self._Mrho_pc = None if precond is None else MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
 
     def _refresh_mass_pc(self):
@@ -73,7 +79,7 @@ class VariationalLinearEvolve(Propagator):
         self._J01 = 2 * A0T_Mx
         self._J10 = 2 * A0
 
-        Jacs = BlockVectorSpace(self.derham.Vvpol, space_x)
+        Jacs = BlockVectorSpace(self._Mrho.domain, space_x)
         self._tmp_f = Jacs.zeros()
         self._tmp_incr = Jacs.zeros()
         self._J = BlockLinearOperator(Jacs, Jacs)

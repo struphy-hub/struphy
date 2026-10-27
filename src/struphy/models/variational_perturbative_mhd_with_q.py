@@ -51,6 +51,10 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         Only for ``linear=True``: whether to advance the velocity, the magnetic field and q with one linear solve per
         substep (``variat_lin_alfven`` and ``variat_lin_sound``, energy conserving, first order in time) instead of the
         Picard iteration of ``variat_qb`` (default: False)
+    u_space: str
+        Space of the velocity, ``"H1vec"`` (vector field) or, only for the ideal linear model with one linear solve per
+        substep (``linear=True``, ``crank_nicolson=True``, ``with_viscosity=False``, ``with_resistivity=False``),
+        ``"Hdiv"`` (2-form, as in :class:`~struphy.models.linear_mhd.LinearMHD`) (default: ``"H1vec"``)
     """
 
     @classmethod
@@ -65,9 +69,9 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
             self.init_variables()
 
     class MHD(FluidSpecies):
-        def __init__(self, mass_number: float = 1.0):
+        def __init__(self, mass_number: float = 1.0, u_space: str = "H1vec"):
             self.density = FEECVariable(space="L2")
-            self.velocity = FEECVariable(space="H1vec")
+            self.velocity = FEECVariable(space=u_space)
             self.sqrt_p = FEECVariable(space="L2")
             self.init_variables(mass_number=mass_number)
 
@@ -124,16 +128,22 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         with_resistivity: bool = True,
         split_sound: bool = True,
         crank_nicolson: bool = False,
+        u_space: str = "H1vec",
     ):
         if crank_nicolson and not linear:
             raise ValueError(f"{self.__class__.__name__}: crank_nicolson=True needs linear=True.")
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        assert u_space == "H1vec" or (linear and crank_nicolson and not with_viscosity and not with_resistivity), (
+            'u_space="Hdiv" is only available for the ideal linear model with one linear solve per substep '
+            "(linear=True, crank_nicolson=True, with_viscosity=False, with_resistivity=False)."
+        )
 
         # 0. store input parameters
         self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
         self.em_fields = self.EMFields()
-        self.mhd = self.MHD(mass_number=mass_number)
+        self.mhd = self.MHD(mass_number=mass_number, u_space=u_space)
         self.diagnostics = self.Diagnostics()
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
@@ -180,7 +190,10 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
         # 5. define scalars to be tracked during simulation
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="WMMnew")
+        # the velocity mass matrix of the propagators (density-weighted)
+        kinetic_energy = BilinearEnergyFEEC(
+            self.mhd.velocity, bilinear_form_name="M2n" if u_space == "Hdiv" else "WMMnew"
+        )
         magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
         magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", normalization=2.0)
         thermo_energy_1 = FunctionScalarFEEC(self._compute_en_thermo_1)
@@ -280,8 +293,9 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
             "with_resistivity": True,
             "split_sound": True,
             "crank_nicolson": False,
+            "u_space": "H1vec",
         }
-        args = "".join(f", {k}={self.params[k]}" for k, v in defaults.items() if self.params[k] != v)
+        args = "".join(f", {k}={self.params[k]!r}" for k, v in defaults.items() if self.params[k] != v)
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
@@ -386,6 +400,14 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         a conserved quantity. Note that the heat produced by viscosity and resistivity goes into :math:`\hat q`,
         not into :math:`\tilde q` (in the linear model, the heating is skipped with the option ``fast=True`` of the
         dissipative propagators).
+
+        **Velocity in** :math:`H(\textnormal{div})` (``linear=True, crank_nicolson=True, u_space="Hdiv"``): the linear model can also be
+        discretized with the velocity as a 2-form, as in :class:`~struphy.models.linear_mhd.LinearMHD`; this is possible
+        because the linear model has no advection of the momentum (no commutator), the only term that needs
+        :math:`\mathbf u \in (H^1)^3`. The variational structure is the same, so the energy is conserved up to the
+        solver tolerances; the boundary condition is :math:`\mathbf u \cdot \mathbf n = 0` instead of
+        :math:`\mathbf u = 0`. It is available for the ideal model with one linear solve per substep only
+        (``crank_nicolson=True``, ``with_viscosity=False``, ``with_resistivity=False``).
         """
 
     @classmethod
@@ -424,7 +446,12 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         6. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
 
         The option ``model`` of the variational propagators is ``"perturbative_q"``, or ``"linear_q"`` if
-        :attr:`linear` is True (``"perturbative"`` or ``"linear"`` for VariationalAlfvenEvolve).
+        :attr:`linear` is True (``"perturbative"`` or ``"linear"`` for VariationalAlfvenEvolve). With
+        ``u_space="Hdiv"`` the propagators use the velocity mass matrix
+        :attr:`~struphy.feec.mass.WeightedMassOperators.M2n` and, for the equilibrium terms of the magnetic field and of
+        the density, the basis projection operators of
+        :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` and
+        :class:`~struphy.propagators.magnetosonic.Magnetosonic`.
         """
         doc = rf"""**1. VariationalDensityEvolve:**
 
@@ -489,6 +516,9 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
             linear_cn_model = VariationalPerturbativeMHD_with_q(
                 linear=True, crank_nicolson=True, with_viscosity=False, with_resistivity=False
             )
+            linear_model_hdiv = VariationalPerturbativeMHD_with_q(
+                linear=True, crank_nicolson=True, with_viscosity=False, with_resistivity=False, u_space="Hdiv"
+            )
             model.mhd.sqrt_p
             model.em_fields.b_field
         """
@@ -498,7 +528,8 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         r"""This model is appropriate for:
 
         - nonlinear MHD dynamics around a given (possibly non-uniform) zero-flow equilibrium
-        - linear MHD waves and instabilities (``linear=True``)
+        - linear MHD waves and instabilities (``linear=True``), also with the velocity in
+          :math:`H(\textnormal{div})` (``u_space="Hdiv"``)
         - instabilities and waves where the discrete equilibrium force must not drive spurious flows
         - comparison with :class:`~struphy.models.variational_mhd_with_q.VariationalMHD_with_q` (full-f), with
           :class:`~struphy.models.variational_perturbative_mhd.VariationalPerturbativeMHD` (pressure) and with
