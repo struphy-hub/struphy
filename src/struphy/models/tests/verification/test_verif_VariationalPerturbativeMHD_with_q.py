@@ -22,9 +22,17 @@ Linear model:
 7. it is the linear limit of the perturbative model, also around the sheared slab;
 8. it gives the analytic frequencies of the shear Alfvén, the fast magnetosonic and the sound wave in a homogeneous
    slab, with second-order convergence in the time step;
-9. the p-based linear model agrees up to its first-order time discretization error.
+9. the p-based linear model agrees up to its first-order time discretization error;
+10. with ``split_sound=True`` (the default: the shear-Alfven/fast and the sound waves in two substeps,
+    VariationalAlfvenEvolve and VariationalSoundEvolve) the energy is conserved, for the perturbative (1.) and the
+    linear model;
+11. and the split model agrees with the unsplit one up to a splitting error of first order in the time step.
+
+Tests 1.-9. use the unsplit step (``split_sound=False``, VariationalQBEvolve), which gives the same scheme as the
+full-f model (3.) and second-order convergence in the time step (8.).
 """
 
+import functools
 import logging
 
 import cunumpy as xp
@@ -53,16 +61,21 @@ from struphy.models.tests.verification.variational_mhd_utils import (
 set_logging_level()
 logger = logging.getLogger("struphy")
 
-LINEAR = linear(VariationalPerturbativeMHD_with_q)
+# the unsplit step (VariationalQBEvolve) and the split step (the default)
+PERT = functools.partial(VariationalPerturbativeMHD_with_q, split_sound=False)
+PERT.__name__ = "VariationalPerturbativeMHD_with_q_unsplit"
+LINEAR = linear(VariationalPerturbativeMHD_with_q, split_sound=False)
+LINEAR_SPLIT = linear(VariationalPerturbativeMHD_with_q, split_sound=True)
 
 
-def test_energy_conservation(tmp_path):
+@pytest.mark.parametrize("split_sound", [False, True])
+def test_energy_conservation(tmp_path, split_sound):
     """The energy H = int rho |u|^2/2 + (q~^2 + 2 q0 q^)/(gamma-1) + |B~|^2/2 + B0.B^ is conserved, around a
-    non-uniform equilibrium and for a nonlinear amplitude."""
+    non-uniform equilibrium and for a nonlinear amplitude, with the unsplit and the split step."""
     model = allocate_ideal(
         tmp_path,
-        "energy",
-        VariationalPerturbativeMHD_with_q,
+        f"energy_{split_sound}",
+        functools.partial(VariationalPerturbativeMHD_with_q, split_sound=split_sound),
         sheared_slab(),
         dt=0.05,
         perturb=perturb_velocity(0.05),
@@ -86,7 +99,7 @@ def test_equilibrium_preservation(tmp_path):
     setup = sheared_slab()
     dt, n_steps = 0.05, 5
 
-    pert = allocate_ideal(tmp_path, "pert", VariationalPerturbativeMHD_with_q, setup, dt)
+    pert = allocate_ideal(tmp_path, "pert", PERT, setup, dt)
     for _ in range(n_steps):
         pert.integrate(dt)
     for vec in state(pert):
@@ -121,7 +134,7 @@ def test_same_as_full_f(tmp_path):
             model.integrate(dt)
         return initial, state(model)
 
-    pert_0, pert_n = run(VariationalPerturbativeMHD_with_q, perturb_all_along_z(amp, Lz))
+    pert_0, pert_n = run(PERT, perturb_all_along_z(amp, Lz))
     full_0, full_n = run(VariationalMHD_with_q, perturb_all_along_z(amp, Lz))
 
     # both runs are converged up to the nonlinear solver tolerance (1e-8, relative to the perturbation in the
@@ -151,7 +164,7 @@ def test_same_as_p_model(tmp_path):
 
     rel_diff = {}
     for dt in (0.05, 0.025):
-        q_n = finalstate(VariationalPerturbativeMHD_with_q, dt)
+        q_n = finalstate(PERT, dt)
         p_n = finalstate(VariationalPerturbativeMHD, dt)
         rel_diff[dt] = [norm(q_n[i] - p_n[i]) / norm(q_n[i]) for i in (1, 3)]
 
@@ -184,7 +197,7 @@ def test_linear_limit_and_waves(tmp_path, wave):
     u_lin, omega_lin = run(LINEAR, 1.0)
     rel_diff = []
     for amp in (1e-2, 1e-3):
-        u_pert, omega_pert = run(VariationalPerturbativeMHD_with_q, amp)
+        u_pert, omega_pert = run(PERT, amp)
         rel_diff.append(norm(u_pert / amp - u_lin) / norm(u_lin))
         logger.info(f"{wave}: amp {amp}, omega {omega_pert:.5f}")
         assert abs(omega_pert - omega_exact) < 2e-3 * omega_exact, (omega_pert, omega_exact)
@@ -243,7 +256,7 @@ def test_limit_of_perturbative_model(tmp_path):
     u_lin = _final_state(tmp_path, LINEAR, setup, 1.0, 0.05, 10)[1]
     rel_diff = []
     for amp in (1e-2, 1e-3):
-        u_pert = _final_state(tmp_path, VariationalPerturbativeMHD_with_q, setup, amp, 0.05, 10)[1]
+        u_pert = _final_state(tmp_path, PERT, setup, amp, 0.05, 10)[1]
         rel_diff.append(norm(u_pert / amp - u_lin) / norm(u_lin))
     logger.info(f"relative difference perturbative / linear for amplitudes 1e-2, 1e-3: {rel_diff}")
     assert rel_diff[0] < 5e-2, rel_diff
@@ -291,4 +304,36 @@ def test_linear_same_as_p_model(tmp_path):
     logger.info(f"relative difference q-model / p-model (u, B) per dt: {rel_diff}")
     for i, name in enumerate(("u", "B")):
         assert rel_diff[0.05][i] < 0.6, (name, rel_diff)
+        assert rel_diff[0.025][i] < 0.6 * rel_diff[0.05][i], (name, rel_diff)
+
+
+def test_linear_split_energy_conservation(tmp_path):
+    """With split_sound=True, each substep (u, B) and (u, q) conserves H, so the split step does too (sheared
+    slab, where the terms with grad q0 and curl B0 are active)."""
+    model = allocate_ideal(
+        tmp_path, "split_energy", LINEAR_SPLIT, sheared_slab(), dt=0.05, perturb=perturb_velocity(0.05)
+    )
+    energies = energy_history(model, dt=0.05, n_steps=10)
+
+    assert abs(model.scalars.host_value("en_thermo_2")[0]) > 1e-5
+    assert abs(model.scalars.host_value("en_mag_2")[0]) > 1e-5
+    drift = max(abs(en - energies[0]) for en in energies)
+    logger.info(f"split_sound: relative energy drift {drift / abs(energies[0]):.2e}")
+    assert drift < 2e-8 * abs(energies[0]), energies
+
+
+def test_linear_split_same_as_unsplit(tmp_path):
+    """The split step (Lie-Trotter splitting of the (u, B) and (u, q) substeps) agrees with the unsplit step up to a
+    splitting error of first order in the time step (sheared slab, where the two couplings do not commute)."""
+    setup = sheared_slab()
+    t_end = 0.5
+    rel_diff = {}
+    for dt in (0.05, 0.025):
+        n_steps = int(round(t_end / dt))
+        split = _final_state(tmp_path, LINEAR_SPLIT, setup, 0.05, dt, n_steps)
+        unsplit = _final_state(tmp_path, LINEAR, setup, 0.05, dt, n_steps)
+        rel_diff[dt] = [norm(split[i] - unsplit[i]) / norm(unsplit[i]) for i in (1, 2, 3)]
+    logger.info(f"relative difference split / unsplit (u, q, B) per dt: {rel_diff}")
+    for i, name in enumerate(("u", "q", "B")):
+        assert rel_diff[0.05][i] < 0.3, (name, rel_diff)
         assert rel_diff[0.025][i] < 0.6 * rel_diff[0.05][i], (name, rel_diff)
