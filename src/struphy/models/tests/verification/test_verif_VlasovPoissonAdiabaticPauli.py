@@ -85,8 +85,12 @@ def _gather_RZ(particles, domain, comm):
     """(R, Z) of the test markers, ordered by marker ID, on all ranks."""
     valid = particles.valid_mks
     ids = particles.markers[-1, valid].astype(int)
-    x, y, z = domain(particles.markers[:3, valid].copy(), remove_outside=False)
-    local = np.stack((ids, np.sqrt(x**2 + y**2), z), axis=1)
+    # a rank can hold none of the test markers; kernels compiled with --language c reject zero-size arrays
+    if ids.size > 0:
+        x, y, z = domain(particles.markers[:3, valid].copy(), remove_outside=False)
+        local = np.stack((ids, np.sqrt(x**2 + y**2), z), axis=1)
+    else:
+        local = np.empty((0, 3))
     rows = np.concatenate(comm.allgather(local)) if comm.Get_size() > 1 else local
     out = np.full((MARKERS.shape[0], 2), np.nan)
     out[rows[:, 0].astype(int)] = rows[:, 1:]
