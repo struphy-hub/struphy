@@ -100,6 +100,19 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
     In both cases the weight at :math:`t^n` is the same in the momentum equation and in the update of :math:`\hat s`,
     which makes the step energy conserving; it is first order in time.
 
+    With ``weights="midpoint"``, the weight is :math:`\mathbf s^{n+\frac12}` instead of :math:`\mathbf s^n`, in the
+    momentum equation and in the update of :math:`\hat s`. The map :math:`\mathbb R \mathbf s = \mathbb S[\mathbf s]^\top
+    \mathbf l` (:math:`\mathbf l = \mathbb M^3 \mathbf q_0`, respectively :math:`\hat l^3(1)`, with the factors above)
+    is linear in the weight and is assembled once
+    (:meth:`~struphy.feec.variational_utilities.Pressure_transport_operator.weight_map`), so the step is still one
+    linear solve, with the (not symmetric) Schur complement
+    :math:`\mathbb M^v[\hat\rho_0] + \frac{\Delta t^2}{2(\gamma - 1)} (\mathbb S[q_0]^\top \mathbb M^3 +
+    \mathbb S[\cdot]^\top \mathbb M^3 \mathbf q_0)\, \mathbb S[q_0]`, respectively
+    :math:`\mathbb M^v[\hat\rho_0] - \frac{\Delta t^2}{4 (\gamma - 1)} \mathbb S[\cdot]^\top \hat l^3(1)\,
+    \mathbb S[p_0]`; the sound waves are then implicit for ``"linear_p"`` too. The step is energy conserving and
+    second order in time (implicit midpoint rule), without the numerical damping (``"linear_q"``) or growth
+    (``"linear_p"``) of the frozen weight.
+
     The velocity can also be a 2-form, :math:`\mathbf u \in H(\textnormal{div})` (velocity variable in ``"Hdiv"``
     space). The scheme is the same, with :math:`\mathbb M^v[\hat\rho_0] \to \mathbb M^{2,n}` and
     :math:`\mathbb S[\bar s] = \mathbb D \hat\Pi^2[\hat{\bar s} \vec{\boldsymbol\Lambda}^2/\sqrt g]
@@ -171,8 +184,14 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             Thermodynamic variable: :math:`q = \sqrt p` or :math:`p`.
         gamma : float, default=5/3
             Adiabatic index.
-        solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Linear solver of the Schur system (``"linear_q"``) or of the mass matrix (``"linear_p"``).
+        weights : {"frozen", "midpoint"}, default="midpoint"
+            Weight of the second-order term: :math:`\mathbf s^n` (first order in time) or :math:`\mathbf s^{n+1/2}`
+            (second order, with the assembled map :math:`\mathbb R`).
+        solver : {"pcg", "pcg_sr", "cg", "pbicgstab"}, default=None
+            Linear solver of the Schur system (``"linear_q"``, or ``"linear_p"`` with midpoint weights) or of the
+            mass matrix (``"linear_p"``, frozen weight); None gives ``"pcg"`` for ``weights="frozen"`` and
+            ``"pbicgstab"`` for ``weights="midpoint"``, whose Schur complement is not symmetric (only
+            ``"pbicgstab"``).
         precond : {"MassMatrixPreconditioner", None}, default="MassMatrixPreconditioner"
             Preconditioner of the linear solve (of the velocity block).
         solver_params : SolverParameters, default=None
@@ -190,10 +209,13 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         # specific literals
         OptsModel = Literal["linear_q", "linear_p"]
         OptsPrecond = Literal["MassMatrixPreconditioner", None]
+        OptsWeights = Literal["frozen", "midpoint"]
+        OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab"]
         # propagator options
         model: OptsModel = "linear_q"
         gamma: float = 5.0 / 3.0
-        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        weights: OptsWeights = "midpoint"
+        solver: OptsSolver = None
         precond: OptsPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         info: bool = False
@@ -202,7 +224,13 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.weights, self.OptsWeights)
+            if self.solver is None:
+                self.solver = "pcg" if self.weights == "frozen" else "pbicgstab"
+            check_option(self.solver, self.OptsSolver)
+            assert self.weights == "frozen" or self.solver == "pbicgstab", (
+                f'weights="midpoint" needs solver="pbicgstab" (not symmetric), got {self.solver!r}.'
+            )
             check_option(self.precond, self.OptsPrecond)
             assert self.gamma > 1.0, f"gamma must be larger than 1, got {self.gamma}."
 
@@ -258,11 +286,21 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         u = self.variables.u.spline.vector
         s = self.variables.s.spline.vector
         if self._model == "linear_q":
+            # linear form of the equilibrium, -2/(gamma-1) M3 q0
+            self._lf0 = -2.0 / (self._gamma - 1.0) * self.mass_ops.M3.dot(s0)
+        else:
+            # linear form of the thermal energy, -1/(gamma-1) l3(1)
+            self._lf0 = L2Projector("L2", self.mass_ops).get_dofs(self.domain.jacobian_det)
+            self._lf0 *= -1.0 / (self._gamma - 1.0)
+
+        # midpoint weights: the second-order term R s = S[s]^T lf0, assembled once
+        self._midpoint = self.options.weights == "midpoint"
+        self._R = self._SsT.weight_map(self._lf0) if self._midpoint else None
+
+        if self._model == "linear_q":
             S0T = self._S0.T
             S0T.update_coeffs(s0)
             self._S0T = S0T
-            # linear form of the equilibrium, -2/(gamma-1) M3 q0
-            self._lf0 = -2.0 / (self._gamma - 1.0) * self.mass_ops.M3.dot(s0)
             self._allocate_schur_solver(
                 self._S0,
                 S0T @ self.mass_ops.M3,
@@ -270,11 +308,20 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
                 self.derham.V3pol,
                 self.options.solver,
                 self.options.solver_params,
+                R=self._R,
+            )
+        elif self._midpoint:
+            # the pressure enters the momentum equation only through the second-order term
+            self._allocate_schur_solver(
+                self._S0,
+                None,
+                1.0,
+                self.derham.V3pol,
+                self.options.solver,
+                self.options.solver_params,
+                R=self._R,
             )
         else:
-            # linear form of the thermal energy, -1/(gamma-1) l3(1)
-            self._lf0 = L2Projector("L2", self.mass_ops).get_dofs(self.domain.jacobian_det)
-            self._lf0 *= -1.0 / (self._gamma - 1.0)
             self._allocate_mass_solver(self.options.solver, self.options.solver_params)
 
         # temporaries
@@ -283,6 +330,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         self._tmp_fu = u.space.zeros()
         self._tmp_fu2 = u.space.zeros()
         self._tmp_sn1 = s.space.zeros()
+        self._tmp_sn12 = s.space.zeros()
         self._tmp_fs = s.space.zeros()
         self._tmp_M3s = s.space.zeros()
 
@@ -294,16 +342,25 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         un = self.variables.u.spline.vector
         sn = self.variables.s.spline.vector
 
-        # weight of the second-order term at t^n
-        self._Ss.update_coeffs(sn)
-        self._SsT.update_coeffs(sn)
+        if not self._midpoint:
+            # weight of the second-order term at t^n
+            self._Ss.update_coeffs(sn)
+            self._SsT.update_coeffs(sn)
 
-        if self._model == "linear_q":
-            # residual at (u^n, q^n): the force -2/(gamma-1) (S0^T M3 q^n + S[q^n]^T M3 q0) and S0 u^n (times dt)
-            M3s = self.mass_ops.M3.dot(sn, out=self._tmp_M3s)
-            M3s *= -2.0 / (self._gamma - 1.0)
-            f_u = self._S0T.dot(M3s, out=self._tmp_fu)
-            f_u += self._SsT.dot(self._lf0, out=self._tmp_fu2)
+        if self._model == "linear_q" or self._midpoint:
+            # residual at (u^n, s^n): the force -2/(gamma-1) (S0^T M3 q^n + S[q^n]^T M3 q0), respectively
+            # -1/(gamma-1) S[p^n]^T l3(1), and S0 u^n (times dt)
+            if self._model == "linear_q":
+                M3s = self.mass_ops.M3.dot(sn, out=self._tmp_M3s)
+                M3s *= -2.0 / (self._gamma - 1.0)
+                f_u = self._S0T.dot(M3s, out=self._tmp_fu)
+            else:
+                f_u = self._tmp_fu
+                f_u *= 0.0
+            if self._midpoint:
+                f_u += self._R.dot(sn, out=self._tmp_fu2)
+            else:
+                f_u += self._SsT.dot(self._lf0, out=self._tmp_fu2)
             f_u *= dt
             f_s = self._S0.dot(un, out=self._tmp_fs)
             f_s *= dt
@@ -344,8 +401,13 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         if self._u2 is not None:
             self._Ss._Uv.dot(un1, out=self._u2)
 
-        # auxiliary second-order variable, with the same weight s^n
+        # auxiliary second-order variable, with the same weight as the momentum equation (s^n or s^{n+1/2})
         if self._pt3 is not None:
+            if self._midpoint:
+                sn12 = sn.copy(out=self._tmp_sn12)
+                sn12 += sn1
+                sn12 *= 0.5
+                self._Ss.update_coeffs(sn12)
             s_advection = self._Ss.dot(un12, out=self._tmp_fs)
             s_advection *= dt
             self._pt3 -= s_advection

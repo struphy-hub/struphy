@@ -681,6 +681,31 @@ class Hdiv0_transport_operator(LinearOperator):
 
         self.Proj.update_weights(self._weights)
 
+    def weight_map(self, lin_form: BlockVector) -> LinearOperator:
+        r"""The matrix of the map :math:`\mathbf b \mapsto \mathbb T[\mathbf b]^\top \mathbf l`, linear in the
+        weight :math:`\mathbf b`, for a fixed linear form :math:`\mathbf l` (e.g. :math:`\mathbb M^2 \mathbf b_0`).
+
+        Assembled once by :func:`assemble_by_probing`; applying the map directly re-assembles the weights of the
+        operator in every product. Only for the transposed operator. The weights of the operator are changed.
+
+        Parameters
+        ----------
+        lin_form : BlockVector
+            The linear form :math:`\mathbf l` (in the space of the weight).
+
+        Returns
+        -------
+        LinearOperator
+            The map from the space of the weight to the space of the velocity.
+        """
+        assert self._transposed, "weight_map needs the transposed operator."
+
+        def apply(b):
+            self.update_coeffs(b)
+            return self.dot(lin_form)
+
+        return assemble_by_probing(apply, self._domain, self._codomain)
+
 
 class Pressure_transport_operator(LinearOperator):
     r"""
@@ -912,6 +937,45 @@ class Pressure_transport_operator(LinearOperator):
         ]
 
         self.Pip.update_weights(self._weights1)
+
+    def weight_map(self, lin_form) -> LinearOperator:
+        r"""The matrix of the map :math:`\mathbf s \mapsto \mathbb S[\mathbf s]^\top \mathbf l`, linear in the
+        weight :math:`\mathbf s`, for a fixed linear form :math:`\mathbf l` (e.g. :math:`\mathbb M^3 \mathbf q_0`).
+
+        Assembled once by :func:`assemble_by_probing`; applying the map directly re-assembles the weights of the
+        operator in every product. With
+        :math:`\mathbb S[\mathbf s]^\top \mathbf l = \hat\Pi^2[\dots]^\top \mathbb D^\top \mathbf l
+        + (\mathbb D \mathcal U^v)^\top \hat\Pi^3[\dots]^\top \mathbf l`, the parts without :math:`\mathcal U^v`
+        are assembled (banded) and, for a velocity in H1vec, :math:`(\mathcal U^v)^\top` is applied as an operator.
+        Only for the transposed operator. The weights of the operator are changed.
+
+        Parameters
+        ----------
+        lin_form : StencilVector
+            The linear form :math:`\mathbf l` (in L2).
+
+        Returns
+        -------
+        LinearOperator
+            The map from L2 to the space of the velocity.
+        """
+        assert self._transposed, "weight_map needs the transposed operator."
+        div = self._derham.div
+        Dl = div.T.dot(lin_form)
+
+        def apply(s):
+            self.update_coeffs(s)
+            r1 = self.Pip.dot(Dl)
+            r2 = div.T.dot(self.Pip_div.dot(lin_form))
+            if self._u_space == "Hdiv":
+                r1 += r2
+                return r1
+            return [r1, r2]
+
+        if self._u_space == "Hdiv":
+            return assemble_by_probing(apply, self._domain, self._codomain)
+        R1, R2 = assemble_by_probing(apply, self._domain, [self._codomain, self._derham.V2pol])
+        return R1 + self._Uv.T @ R2
 
 
 class InternalEnergyEvaluator:
@@ -1971,6 +2035,106 @@ def inv_norm2(inv: LinearOperator, v: Vector) -> float:
     return norm**2 * err
 
 
+def assemble_by_probing(apply, domain, codomain):
+    r"""Assemble a linear map between (block) stencil vector spaces, given only by its action, as a
+    :class:`~feectools.linalg.stencil.StencilMatrix` (or a :class:`~feectools.linalg.block.BlockLinearOperator` of
+    them), by probing with colored unit vectors.
+
+    The matrix must have the band of a stencil matrix of ``domain``: an entry :math:`(i, j)` is non-zero only for
+    :math:`|j_d - i_d| \leq p_d` (modulo the number of points in periodic directions), with the pads :math:`p_d`. The
+    columns :math:`j` with :math:`j_d \equiv c_d` modulo :math:`m_d \geq 2 p_d + 1` (for each color :math:`c`) are
+    probed together, so the number of applications is :math:`\prod_d m_d` per block of the domain, independent of
+    the grid size. Each process assembles its own rows (``apply`` must be collective).
+
+    Used for the auxiliary terms of the linear variational propagators, e.g.
+    :math:`\mathbf p \mapsto \mathbb S[\mathbf p]^\top \hat l^3(1)`, which are linear in the weight of a transport
+    operator: applied directly, every product re-assembles the weights of the operator.
+
+    Parameters
+    ----------
+    apply : callable
+        The map, ``apply(v)`` for a vector ``v`` of ``domain`` returns a vector of ``codomain`` (a list of vectors
+        if ``codomain`` is a list).
+    domain : StencilVectorSpace | BlockVectorSpace
+        The domain (of stencil vector spaces, with shifts 1).
+    codomain : StencilVectorSpace | BlockVectorSpace | list
+        The codomain, or a list of codomains: several maps with the same domain, assembled with the same
+        applications.
+
+    Returns
+    -------
+    StencilMatrix | BlockLinearOperator | list
+        The assembled matrix (one per codomain if ``codomain`` is a list).
+    """
+    from itertools import product
+
+    from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
+    from feectools.linalg.stencil import StencilMatrix
+
+    cod_list = list(codomain) if isinstance(codomain, (list, tuple)) else [codomain]
+    dom_block = isinstance(domain, BlockVectorSpace)
+    dom_spaces = list(domain.spaces) if dom_block else [domain]
+    cod_spaces = [list(W.spaces) if isinstance(W, BlockVectorSpace) else [W] for W in cod_list]
+    mats = [[[StencilMatrix(V, W) for V in dom_spaces] for W in Ws] for Ws in cod_spaces]
+
+    for b, V in enumerate(dom_spaces):
+        assert all(s == 1 for s in V.shifts), "assemble_by_probing needs shifts 1."
+        pads, npts, periods = V.pads, V.npts, V.periods
+        # number of colors per direction: 2p + 1, a divisor of the number of points if periodic (wrap-around)
+        ms = []
+        for p, n, per in zip(pads, npts, periods):
+            if per:
+                ms.append(next((m for m in range(2 * p + 1, n + 1) if n % m == 0), n))
+            else:
+                ms.append(min(2 * p + 1, n))
+        loc_dom = [xp.arange(s, e + 1) for s, e in zip(V.starts, V.ends)]
+
+        for color in product(*[range(m) for m in ms]):
+            e = domain.zeros()
+            eb = e[b] if dom_block else e
+            mask = [(g % m) == c for g, m, c in zip(loc_dom, ms, color)]
+            vals = xp.zeros(tuple(len(g) for g in loc_dom))
+            vals[xp.ix_(*mask)] = 1.0
+            eb[tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))] = vals
+            e.update_ghost_regions()
+            r = apply(e)
+            r = list(r) if isinstance(codomain, (list, tuple)) else [r]
+
+            for ic, Ws in enumerate(cod_spaces):
+                for a, W in enumerate(Ws):
+                    ra = r[ic][a] if len(Ws) > 1 or isinstance(cod_list[ic], BlockVectorSpace) else r[ic]
+                    rows = [xp.arange(s, e + 1) for s, e in zip(W.starts, W.ends)]
+                    # offset k = j - i of the probed column of each row (the first one if several alias, periodic)
+                    ks, valid = [], []
+                    for i, p, n, per, m, c in zip(rows, pads, npts, periods, ms, color):
+                        k = xp.full(i.shape, 2 * p + 1)
+                        for kk in range(p, -p - 1, -1):
+                            j = i + kk
+                            ok = (j % m == c) if per else ((j >= 0) & (j < n) & (j % m == c))
+                            k[ok] = kk
+                        ks.append(k)
+                        valid.append(k <= p)
+                    if not all(v.any() for v in valid):
+                        continue
+                    vals = ra[tuple(slice(s, e + 1) for s, e in zip(W.starts, W.ends))]
+                    sel = [xp.nonzero(v)[0] for v in valid]
+                    ii = xp.ix_(*[rw[s] for rw, s in zip(rows, sel)])
+                    kk = xp.ix_(*[k[s] for k, s in zip(ks, sel)])
+                    mats[ic][a][b][(*ii, *kk)] = vals[xp.ix_(*sel)]
+
+    out = []
+    for W, Ws, m in zip(cod_list, cod_spaces, mats):
+        if not dom_block and not isinstance(W, BlockVectorSpace):
+            out.append(m[0][0])
+            continue
+        op = BlockLinearOperator(domain, W)
+        for a in range(len(Ws)):
+            for b in range(len(dom_spaces)):
+                op[a, b] = m[a][b]
+        out.append(op)
+    return out if isinstance(codomain, (list, tuple)) else out[0]
+
+
 def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1vec"):
     r"""The Kronecker preconditioner of the shear-Alfven Schur operator of a linear variational propagator,
 
@@ -2010,8 +2174,8 @@ def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1
     if options.schur_precond != "StiffnessPreconditioner":
         return None
     unmet = list(unmet)
-    if options.solver != "pcg":
-        unmet += ['solver="pcg"']
+    if options.solver not in ("pcg", "pbicgstab"):
+        unmet += ['solver="pcg" or "pbicgstab"']
     if propagator.derham.polar_splines:
         unmet += ["tensor-product splines"]
     if propagator.derham.with_local_projectors:

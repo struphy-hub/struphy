@@ -64,6 +64,16 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
     \mathbb T[\mathbf B_0]`, constant in time; the option ``schur_precond`` provides a Kronecker preconditioner of it
     (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`).
 
+    With ``weights="midpoint"``, the weight of the second-order term is :math:`\mathbf b^{n+\frac12}` instead of
+    :math:`\mathbf b^n`, in the momentum equation and in the update of :math:`\hat{\mathbf b}`. The map
+    :math:`\mathbb R \mathbf b = \mathbb T[\mathbf b]^\top \mathbb M^2 \mathbf b_0` is linear in the weight and is
+    assembled once
+    (:meth:`~struphy.feec.variational_utilities.Hdiv0_transport_operator.weight_map`): still one linear solve, with
+    the (not symmetric) Schur complement :math:`\mathbb M^v[\hat\rho_0] + \frac{\Delta t^2}{4}
+    (\mathbb T[\mathbf B_0]^\top \mathbb M^2 + \mathbb R)\, \mathbb T[\mathbf B_0]`. The step is energy
+    conserving and second order in time (implicit midpoint rule), without the numerical damping or growth of the
+    frozen weight.
+
     The velocity can also be a 2-form, :math:`\mathbf u \in H(\textnormal{div})` (velocity variable in ``"Hdiv"``
     space). The scheme is the same, with the operators of
     :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` for the equilibrium terms,
@@ -125,8 +135,12 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
 
         Parameters
         ----------
-        solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Linear solver of the Schur system.
+        weights : {"frozen", "midpoint"}, default="midpoint"
+            Weight of the second-order term: :math:`\mathbf b^n` (first order in time) or :math:`\mathbf b^{n+1/2}`
+            (second order, with the assembled map :math:`\mathbb R`).
+        solver : {"pcg", "pcg_sr", "cg", "pbicgstab"}, default=None
+            Linear solver of the Schur system; None gives ``"pcg"`` for ``weights="frozen"`` and ``"pbicgstab"`` for
+            ``weights="midpoint"``, whose Schur complement is not symmetric (only ``"pbicgstab"``).
         precond : {"MassMatrixPreconditioner", None}, default="MassMatrixPreconditioner"
             Preconditioner of the Schur system (of its velocity block).
         solver_params : SolverParameters, default=None
@@ -143,7 +157,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             Preconditioner of the Schur system: the one of ``precond`` (velocity block), or the Kronecker (fast
             diagonalization) preconditioner of the whole shear-Alfven Schur operator
             (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, rebuilt when the time step
-            changes). The latter needs ``solver="pcg"``, tensor-product splines and the global commuting projectors;
+            changes). The latter needs ``solver="pcg"`` (or ``"pbicgstab"``), tensor-product splines and the global commuting projectors;
             otherwise ``precond`` is used (with a warning).
         exb_correction : bool, default=True
             For ``schur_precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
@@ -153,8 +167,11 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         # specific literals
         OptsPrecond = Literal["MassMatrixPreconditioner", None]
         OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
+        OptsWeights = Literal["frozen", "midpoint"]
+        OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab"]
         # propagator options
-        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        weights: OptsWeights = "midpoint"
+        solver: OptsSolver = None
         precond: OptsPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         info: bool = False
@@ -164,7 +181,13 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.weights, self.OptsWeights)
+            if self.solver is None:
+                self.solver = "pcg" if self.weights == "frozen" else "pbicgstab"
+            check_option(self.solver, self.OptsSolver)
+            assert self.weights == "frozen" or self.solver == "pbicgstab", (
+                f'weights="midpoint" needs solver="pbicgstab" (not symmetric), got {self.solver!r}.'
+            )
             check_option(self.precond, self.OptsPrecond)
             check_option(self.schur_precond, self.OptsSchurPrecond)
 
@@ -208,6 +231,10 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         # linear form of the equilibrium field, -M2 b0
         self._M2b0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
 
+        # midpoint weights: the second-order term R b = T[b]^T (-M2 b0), assembled once
+        self._midpoint = self.options.weights == "midpoint"
+        self._R = self._TbT.weight_map(self._M2b0) if self._midpoint else None
+
         self._allocate_schur_solver(
             self._T0,
             self._T0T @ self.mass_ops.M2,
@@ -215,6 +242,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             self.derham.V2pol,
             self.options.solver,
             self.options.solver_params,
+            R=self._R,
         )
 
         # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
@@ -229,6 +257,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         self._tmp_fu = u.space.zeros()
         self._tmp_fu2 = u.space.zeros()
         self._tmp_bn1 = b.space.zeros()
+        self._tmp_bn12 = b.space.zeros()
         self._tmp_fb = b.space.zeros()
         self._tmp_M2b = b.space.zeros()
 
@@ -249,15 +278,17 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         un = self.variables.u.spline.vector
         bn = self.variables.b.spline.vector
 
-        # weight of the second-order term at t^n
-        self._Tb.update_coeffs(bn)
-        self._TbT.update_coeffs(bn)
-
         # residual at (u^n, b^n): the force -T0^T M2 b^n - T[b^n]^T M2 b0 and the induction T0 u^n (times dt)
         M2b = self.mass_ops.M2.dot(bn, out=self._tmp_M2b)
         M2b *= -1.0
         f_u = self._T0T.dot(M2b, out=self._tmp_fu)
-        f_u += self._TbT.dot(self._M2b0, out=self._tmp_fu2)
+        if self._midpoint:
+            f_u += self._R.dot(bn, out=self._tmp_fu2)
+        else:
+            # weight of the second-order term at t^n
+            self._Tb.update_coeffs(bn)
+            self._TbT.update_coeffs(bn)
+            f_u += self._TbT.dot(self._M2b0, out=self._tmp_fu2)
         f_u *= dt
         f_b = self._T0.dot(un, out=self._tmp_fb)
         f_b *= dt
@@ -268,8 +299,13 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 -= incr[1]
 
-        # auxiliary second-order variable, with the same weight b^n
+        # auxiliary second-order variable, with the same weight as the momentum equation (b^n or b^{n+1/2})
         if self._bt2 is not None:
+            if self._midpoint:
+                bn12 = bn.copy(out=self._tmp_bn12)
+                bn12 += bn1
+                bn12 *= 0.5
+                self._Tb.update_coeffs(bn12)
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
