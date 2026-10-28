@@ -46,6 +46,8 @@ class CudaMarkerArguments(CudaStructArguments):
         ("mu_idx", "int"),
         ("bc_type", "long long*"),
         ("pole", "bool"),
+        # CUDA-only: 1 while a pusher has its kernel prepare each marker at stage 0 (Pusher._push), else 0
+        ("prepare_rows", "int"),
     )
 
     def __init__(
@@ -81,6 +83,7 @@ class CudaMarkerArguments(CudaStructArguments):
         self.mu_idx = mu_idx
         self.bc_type = _device_array("bc_type", bc_type, np.int64)
         self.pole = pole
+        self.prepare_rows = 0
         self.pack()
 
 
