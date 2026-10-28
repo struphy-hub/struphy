@@ -13,10 +13,10 @@ description = """
 Toroidal Alfven eigenmode (TAE) with the ShearAlfven model: the shear Alfven part of linear ideal MHD around a
 static (zero-flow) equilibrium, without pressure and density perturbations (no coupling to the magnetosonic waves;
 compare with the LinearMHD version of this benchmark). No energetic particles: the TAE is excited by the initial
-condition, not driven. With --model ShearAlfvenCurlCurl, the magnetic field is in H(curl) and the implicit step
+condition, not driven. With --b-space Hcurl, the magnetic field is in H(curl) and the implicit step
 solves a curl-curl system for it, preconditioned by Hiptmair-Xu
 (same physics, same expected frequency; the time step is not exactly energy conserving and damps the wave
-numerically). --model ShearAlfvenCurlCurlwithProj is the exactly energy conserving version (mass matrix
+numerically). --b-space Hcurl --projected is the exactly energy conserving version (mass matrix
 preconditioner).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
@@ -47,7 +47,7 @@ Expected result. With n = 6 and m = 10 the gap is at q(r_c) = 21/12 = 1.75, i.e.
 a period of about 73 time units (about 30 kHz with the default base units x_unit = 1 m, B = 1 T, n = 1e20 m^-3 and
 hydrogen, where v_unit = 2.2e6 m/s). The run up to t = 500 covers about 6.8 periods; the pproc script asserts the
 measured frequency within 10% of omega_TAE and shows the energies, the components of the fields and the radial
-profiles of the (m, n) harmonics. With --model ShearAlfvenCurlCurl on the default grid (4 elements per poloidal
+profiles of the (m, n) harmonics. With --b-space Hcurl on the default grid (4 elements per poloidal
 mode), the 5000 time steps take 1-2 h on 4 MPI ranks.
 
 References:
@@ -76,23 +76,28 @@ parser.add_argument(
 parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
 parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 44, 8], help="Number of elements per direction.")
 parser.add_argument(
-    "--model",
-    default="ShearAlfven",
-    choices=["ShearAlfven", "ShearAlfvenCurlCurl", "ShearAlfvenCurlCurlwithProj"],
-    help="ShearAlfven (default, magnetic field in H(div), implicit solve for the velocity), ShearAlfvenCurlCurl "
-    "(magnetic field in H(curl), implicit curl-curl solve for the magnetic field, numerically damped) or "
-    "ShearAlfvenCurlCurlwithProj (as ShearAlfvenCurlCurl, exactly energy conserving).",
+    "--b-space",
+    default="Hdiv",
+    choices=["Hdiv", "Hcurl"],
+    help="Space of the magnetic field (model flag b_space): Hdiv (default, implicit solve for the velocity) or Hcurl "
+    "(implicit curl-curl solve for the magnetic field, numerically damped unless --projected).",
+)
+parser.add_argument(
+    "--projected",
+    action="store_true",
+    help="With --b-space Hcurl: projection of the Lorentz force in the curl-curl term, exactly energy conserving "
+    "(model flag projected).",
 )
 parser.add_argument(
     "--precond",
     default=None,
     choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
-    help="Preconditioner of the shear Alfven solve: of the mass matrix (default for ShearAlfvenCurlCurlwithProj), a geometric "
-    "multigrid V-cycle of the whole Schur operator (ShearAlfven only; experimental, currently slower here), the "
+    help="Preconditioner of the shear Alfven solve: of the mass matrix (default with --projected), a geometric "
+    "multigrid V-cycle of the whole Schur operator (Hdiv only; experimental, currently slower here), the "
     "Kronecker (fast diagonalization) preconditioner of the whole Schur operator with the E x B auxiliary space "
-    "correction (ShearAlfven only, its default; 8x32x4, dt = 0.1: about 11 instead of 31 PCG iterations per step, 2x faster; "
-    "larger gains for larger time steps), or Hiptmair-Xu for the curl-curl operator (curl-curl models only; the "
-    "default of ShearAlfvenCurlCurl).",
+    "correction (Hdiv only, its default; 8x32x4, dt = 0.1: about 11 instead of 31 PCG iterations per step, 2x faster; "
+    "larger gains for larger time steps), or Hiptmair-Xu for the curl-curl operator (Hcurl only; the "
+    "default of --b-space Hcurl).",
 )
 parser.add_argument(
     "--test-run",
@@ -101,20 +106,19 @@ parser.add_argument(
     "(test_examples.py).",
 )
 args, _ = parser.parse_known_args()
+if args.projected and args.b_space != "Hcurl":
+    parser.error("--projected requires --b-space Hcurl.")
 if args.precond is None:
-    args.precond = {"ShearAlfven": "StiffnessPreconditioner", "ShearAlfvenCurlCurl": "HiptmairXu"}.get(
-        args.model, "MassMatrixPreconditioner"
-    )
-only = {"MultiGrid": "ShearAlfven", "StiffnessPreconditioner": "ShearAlfven"}
-if (
-    args.precond in only
-    and args.model != only[args.precond]
-    or args.precond == "HiptmairXu"
-    and args.model == "ShearAlfven"
-):
-    parser.error(f"--precond {args.precond} is not available for --model {args.model}.")
-if args.model != "ShearAlfven":
-    name = f"ITPA TAE benchmark ({args.model})"
+    if args.b_space == "Hdiv":
+        args.precond = "StiffnessPreconditioner"
+    else:
+        args.precond = "MassMatrixPreconditioner" if args.projected else "HiptmairXu"
+if args.precond in ("MultiGrid", "StiffnessPreconditioner") and args.b_space != "Hdiv":
+    parser.error(f"--precond {args.precond} requires --b-space Hdiv.")
+if args.precond == "HiptmairXu" and args.b_space != "Hcurl":
+    parser.error("--precond HiptmairXu requires --b-space Hcurl.")
+if args.b_space == "Hcurl":
+    name = f"ITPA TAE benchmark (ShearAlfven, b_space=Hcurl{', projected' if args.projected else ''})"
 if args.test_run:
     args.num_elements = [8, 32, 4]
 
@@ -145,18 +149,13 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-from struphy.models import ShearAlfven, ShearAlfvenCurlCurl, ShearAlfvenCurlCurlwithProj
+from struphy.models import ShearAlfven
 
 # Units
 base_units = BaseUnits()
 
 # Model instance
-model_class = {
-    "ShearAlfven": ShearAlfven,
-    "ShearAlfvenCurlCurl": ShearAlfvenCurlCurl,
-    "ShearAlfvenCurlCurlwithProj": ShearAlfvenCurlCurlwithProj,
-}[args.model]
-model = model_class(base_units=base_units)
+model = ShearAlfven(base_units=base_units, b_space=args.b_space, projected=args.projected)
 
 # List all variables and decide whether to save their data
 model.em_fields.b_field.save_data = True
@@ -185,12 +184,11 @@ equil = equils.AdhocTorus(
 grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 
 # Derham options
-# Boundary conditions at the walls (flux surfaces, B0.n = 0): ShearAlfven (magnetic field in H(div)) imposes
-# b.n = 0 and u.n = 0 strongly (Dirichlet). The curl-curl models (magnetic field in H(curl)) use free boundary
-# conditions: dropping the boundary term of the weak induction equation imposes u.n = 0 weakly, while Dirichlet would
-# force the tangential magnetic field to zero (unphysical; its radial Lorentz force at the walls damps the TAE in
-# ShearAlfvenCurlCurl).
-bcs_eta1 = ("dirichlet", "dirichlet") if args.model == "ShearAlfven" else ("free", "free")
+# Boundary conditions at the walls (flux surfaces, B0.n = 0): with b_space="Hdiv", b.n = 0 and u.n = 0 are imposed
+# strongly (Dirichlet). With b_space="Hcurl", free boundary conditions are used: dropping the boundary term of the weak
+# induction equation imposes u.n = 0 weakly, while Dirichlet would force the tangential magnetic field to zero
+# (unphysical; its radial Lorentz force at the walls damps the TAE).
+bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "free")
 derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
 
 # Profiling options
