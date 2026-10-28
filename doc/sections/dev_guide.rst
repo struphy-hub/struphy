@@ -104,7 +104,7 @@ indices such as :math:`\mathbb M^{21}` for mixed matrices), the subscript :math:
 :math:`\mathbb M^2_{\rho_0}` for :math:`\int \rho_0 \mathbf W \cdot \mathbf V \,\textnormal d \mathbf x` or
 :math:`\mathbb M^2_{B_0}` for :math:`\int (\mathbf B_0 \times \mathbf W) \cdot \mathbf V \,\textnormal d \mathbf x`.
 Unweighted mass matrices have no subscript (:math:`\mathbb M^1`). In mixed matrices, the first index is the space
-of the test functions (rows), e.g. :math:`\mathbb M^{21}_{J_0}` maps 1-forms to 2-forms. A weight
+of the test functions (rows), e.g. :math:`\mathbb M^{21}_{J_0}` (``M21J``, weight :math:`\mathbf J_0 \times`) maps 1-forms to 2-forms. A weight
 that is too long for the subscript may be abbreviated (e.g. :math:`\mathbb M^2_\perp`) if it is written out next to
 the symbol. The space is always the superscript and the weight
 always the subscript; give the corresponding attribute of
