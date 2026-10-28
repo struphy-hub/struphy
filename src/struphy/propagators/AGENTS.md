@@ -60,7 +60,9 @@ always has these three sections:
 Mass matrices are written `\mathbb M^\alpha_{w}`: the superscript `\alpha` (0, 1, 2, 3; `v` for (H^1)^3, two indices
 such as `21` for mixed matrices) is the space of the de Rham sequence, the subscript `w` the weight under the integral
 (e.g. `\mathbb M^2_{\rho_0}` for `M2n`, `\mathbb M^2_{\mathbf B_0 \times}` for `M2B`); unweighted ones have no
-subscript (`\mathbb M^1`). Never put the weight in the superscript (not `\mathbb M^{2,n}`).
+subscript (`\mathbb M^1`). In mixed matrices the first index is the test (row) space (`M21J`: 1-forms to 2-forms).
+Long weights may be abbreviated (`\mathbb M^2_\perp` for `M2gyro`) if written out next to the symbol. Never put the
+weight in the superscript (not `\mathbb M^{2,n}`).
 
 It is embedded verbatim into the docs of every model that uses the propagator (`doc_discretization`).
 See "Docstrings of models and propagators" in `doc/sections/dev_guide.rst`.

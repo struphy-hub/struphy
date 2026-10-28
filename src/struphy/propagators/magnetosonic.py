@@ -33,7 +33,9 @@ class Magnetosonic(Propagator):
         \frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) + \frac{2}{3}\,p_0\nabla\cdot\tilde{\mathbf{U}} &= 0\,.
 
     The continuity and pressure equations hold strongly in :math:`L^2`, the momentum equation is weak (integration by
-    parts of the pressure gradient; with free boundary conditions this imposes :math:`\tilde p = 0` weakly). The
+    parts of the pressure gradient; with free boundary conditions this imposes :math:`\tilde p = 0` weakly). For
+    :math:`V_U = H(\textnormal{curl})` or :math:`(H^1)^3`, the divergence acts on the projection of the velocity
+    (and of :math:`\mathbf V`) onto :math:`H(\textnormal{div})` (operator :math:`\mathbb U^\alpha` below). The
     magnetic field perturbation :math:`\tilde{\mathbf B}` is not updated (it enters only the Lorentz force); it is the
     constructor argument ``b_field``, either a 2-form (:math:`H(\textnormal{div})`, default) or a 1-form
     (:math:`H(\textnormal{curl})`, only for :math:`V_U = H(\textnormal{div})`).

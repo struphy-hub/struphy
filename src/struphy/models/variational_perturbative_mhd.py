@@ -224,9 +224,7 @@ class VariationalPerturbativeMHD(StruphyModel):
         with open(params_path, "r") as f:
             for line in f:
                 name = next((n for n in variants if f"{n}.Options" in line), None)
-                if line.startswith("model = ") and linear:
-                    new_file += [line.replace("(base_units=base_units)", "(base_units=base_units, linear=True)")]
-                elif name is not None:
+                if name is not None:
                     new_file += [
                         f"model.propagators.{name}.options = model.propagators.{name}.Options(model='{variants[name]}')\n",
                     ]

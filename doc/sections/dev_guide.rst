@@ -103,7 +103,10 @@ model documentation (``doc_discretization``), so together they describe the mode
 indices such as :math:`\mathbb M^{21}` for mixed matrices), the subscript :math:`w` the weight under the integral, e.g.
 :math:`\mathbb M^2_{\rho_0}` for :math:`\int \rho_0 \mathbf W \cdot \mathbf V \,\textnormal d \mathbf x` or
 :math:`\mathbb M^2_{\mathbf B_0 \times}` for :math:`\int (\mathbf B_0 \times \mathbf W) \cdot \mathbf V \,\textnormal d \mathbf x`.
-Unweighted mass matrices have no subscript (:math:`\mathbb M^1`). The space is always the superscript and the weight
+Unweighted mass matrices have no subscript (:math:`\mathbb M^1`). In mixed matrices, the first index is the space
+of the test functions (rows), e.g. :math:`\mathbb M^{21}_{\mathbf J_0 \times}` maps 1-forms to 2-forms. A weight
+that is too long for the subscript may be abbreviated (e.g. :math:`\mathbb M^2_\perp`) if it is written out next to
+the symbol. The space is always the superscript and the weight
 always the subscript; give the corresponding attribute of
 :class:`~struphy.feec.mass.WeightedMassOperators` (e.g. ``M2n``, ``M2B``) next to it.
 
