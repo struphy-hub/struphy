@@ -42,12 +42,20 @@ preconditioner through `Literal` options.
 
 ## Docstring
 
-The class docstring is a raw string (`r"""..."""`) in reST:
-- the equations solved (strong or weak form) in `.. math::`, with the function spaces;
-- the discrete system and the time discretization (implicit/explicit, Butcher tableau, ...);
-- the available algorithms/options and the solver used, with `:class:` cross-references.
+The class docstring is a raw string (`r"""..."""`) in reST, with math in `.. math::` / `:math:`. It is more
+mathematical than the model docstrings (which state the PDE textbook-style, without spaces or weak forms) and
+always has these three sections:
+1. **Continuous problem:** the substep solved, for the unknowns that the propagator updates, with their solution
+   spaces (e.g. `E \in H(curl)`) and the weak formulation if one is used.
+2. **Semi-discrete problem:** the space-discrete system for the FE coefficients and/or markers. Define or reference
+   (`:class:`, `:ref:`) every operator that appears: mass matrices, discrete derivatives, projectors, basis
+   operators, accumulation matrices, ...
+3. **Time discretization:** all available time-stepping options (implicit midpoint, explicit Runge-Kutta with Butcher
+   tableau, discrete gradient, analytic, ...), each with its update formula, the option value that selects it and the
+   solver it needs.
 
 It is embedded verbatim into the docs of every model that uses the propagator (`doc_discretization`).
+See "Docstrings of models and propagators" in `doc/sections/dev_guide.rst`.
 
 ## Registration and docs
 

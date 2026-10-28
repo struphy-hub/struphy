@@ -47,6 +47,40 @@ are generated from the classes defined in these packages. After adding, renaming
 This command is only available when Struphy is installed in editable mode, and it formats the generated files with ruff.
 
 
+.. _docstrings_models_propagators:
+
+Docstrings of models and propagators
+------------------------------------
+
+Models and propagators are documented at two levels of detail. A model states the physics,
+and its propagators state the mathematics and numerics. The propagator docstrings are embedded in the
+model documentation (``doc_discretization``), so together they describe the model from the PDE down to the time stepping.
+
+**Models** (``doc_pde`` and ``doc_scalar_quantities``) are written in the style of a physics textbook:
+
+* ``doc_pde`` always shows the PDE system solved by the model, in strong form and with the usual physics notation
+  (e.g. :math:`\nabla \times`, :math:`\nabla \cdot`, :math:`\mathbf v \times \mathbf B`).
+  It names the unknowns and the parameters (as defined in ``doc_normalization``), but contains
+  **no** solution spaces, weak formulations or discrete operators. These belong to the propagators.
+* If the system has conserved quantities, such as energy, momentum, magnetic helicity, mass or charge,
+  they are always stated as formulas (e.g. :math:`\frac{d}{dt} \frac{1}{2} \int (|\mathbf E|^2 + |\mathbf B|^2)\,\textrm d \mathbf x = 0`),
+  in ``doc_pde`` below the equations under a heading **Conserved quantities**, together with the conditions under which they hold
+  (e.g. boundary conditions, absence of sources). ``doc_scalar_quantities`` lists the scalars tracked during a simulation.
+
+**Propagators** are more mathematical. The class docstring always contains three sections:
+
+1. **Continuous problem:** the substep solved by the propagator, stated for the unknowns that it updates,
+   with their solution spaces (e.g. :math:`\mathbf E \in H(\textrm{curl})`, :math:`\mathbf B \in H(\textrm{div})`)
+   and the weak formulation where one is used (find :math:`\mathbf E \in H(\textrm{curl})` such that ... for all
+   :math:`\mathbf F \in H(\textrm{curl})`).
+2. **Semi-discrete problem:** the space-discrete version of the substep, as a system for the FE coefficients and/or the
+   markers. Every operator that appears (mass matrices, discrete derivatives, projectors, basis operators,
+   accumulation matrices, ...) is defined or referenced, e.g. with ``:class:`` or ``:ref:`` links into the documentation.
+3. **Time discretization:** all available time-stepping options (e.g. implicit midpoint/Crank-Nicolson, explicit
+   Runge-Kutta with Butcher tableau, discrete gradient, analytic solution), each with its update formula,
+   the option that selects it and the linear or nonlinear solver it requires.
+
+
 .. toctree::
    :maxdepth: 1
    :caption: FEEC tutorials:

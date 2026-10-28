@@ -48,6 +48,13 @@ Read this before creating or renaming a model in `src/struphy/models/`. The gene
   normalization defines the parameters appearing in the PDEs.
   `doc_discretization` must **return** a string: list the propagators in splitting order with `:class:` links and
   embed each propagator's `__doc__` (see `maxwell.py`). `test_all_models_expose_new_doc_api` fails if any is missing or empty.
+- `doc_pde` is written like a physics textbook: always the full PDE system in strong form, with the unknowns and
+  parameters named, but **no** solution spaces, weak formulations or discrete operators (those belong in the
+  propagator docstrings, which `doc_discretization` embeds).
+- Conserved quantities (energy, momentum, helicity, mass, charge, ...), whenever the system has them, are always
+  given as formulas in `doc_pde` below the equations under a heading **Conserved quantities**, with the conditions
+  under which they hold (boundary conditions, no sources, ...). `doc_scalar_quantities` lists the tracked scalars.
+  See "Docstrings of models and propagators" in `doc/sections/dev_guide.rst`.
 - Add an `.. autoclass:: struphy.models.<Name>` block (same options as its neighbours) under the matching category in
   `doc/sections/subsections/models-all.rst`. `doc/check_models_doc.py` fails in CI otherwise.
 
