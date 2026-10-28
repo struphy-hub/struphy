@@ -100,6 +100,9 @@ class CuPyJSONEncoder(json.JSONEncoder):
             return obj.tolist()
         if isinstance(obj, (np.integer, np.floating)):
             return float(obj) if isinstance(obj, np.floating) else int(obj)
+        # callables (e.g. LoadingParameters.B0 = equil.absB0) are recorded by name
+        if callable(obj):
+            return f"<callable {getattr(obj, '__qualname__', type(obj).__name__)}>"
         return super().default(obj)
 
 

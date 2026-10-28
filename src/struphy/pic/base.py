@@ -1362,6 +1362,10 @@ class Particles(metaclass=ABCMeta):
                         + u_mean[0]
                     )
 
+                    # mu is drawn with the field strength B0 of the sampling density, evaluated at the marker positions
+                    # if callable (e.g. equil.absB0: v_perp Maxwellian at the local |B|)
+                    if callable(B0):
+                        B0 = B0(self._markers[:3, :n_mks_load_loc])
                     self._markers[4, :n_mks_load_loc] = -xp.log(1.0 - self.velocities[1]) * v_th[1] ** 2 / B0
 
                     # mu is a magnetic moment and must be >= 0.
