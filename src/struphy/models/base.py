@@ -161,7 +161,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
             out += " " * 4
-            out += f"{k}={v},\n"
+            out += f"{k}={v!r},\n"
         out += ")"
         return out
 

@@ -15,12 +15,13 @@ def test_options():
     with pytest.raises(ValueError):
         ShearAlfven(projected=True)
     assert ShearAlfven(b_space="Hcurl").em_fields.b_field.space == "Hcurl"
-    assert ShearAlfvenCurlCurlPropagator.Options().precond == "HiptmairXu"
+    assert ShearAlfvenCurlCurlPropagator.Options().precond == "auto"
     assert not ShearAlfvenCurlCurlPropagator.Options().aux_correction
     with pytest.raises(AssertionError):
-        ShearAlfvenCurlCurlPropagator.Options(solver="cg")
-    options = ShearAlfvenCurlCurlPropagator.Options(algo="explicit")
+        ShearAlfvenCurlCurlPropagator.Options(solver="cg", precond="HiptmairXu")
+    options = ShearAlfvenCurlCurlPropagator.Options(algo="explicit", precond="HiptmairXu")
     assert options.precond == "MassMatrixPreconditioner"
+    options = ShearAlfvenCurlCurlPropagator.Options(algo="explicit")
     assert options.butcher is not None
 
 
@@ -205,3 +206,26 @@ def test_explicit(tmp_path):
         sols[algo] = state(model)
     for a, b in zip(sols["implicit"], sols["explicit"]):
         assert xp.linalg.norm(a - b) < 1e-5 * xp.linalg.norm(b)
+
+
+@pytest.mark.parametrize("projected, expected", [(False, "HiptmairXu"), (True, "MassMatrixPreconditioner")])
+def test_auto_precond(tmp_path, projected, expected):
+    """precond="auto" resolves to Hiptmair-Xu without and to the mass matrix preconditioner with the projection."""
+    options = ShearAlfvenCurlCurlPropagator.Options(solver_params=SolverParameters(tol=1e-13, maxiter=1000))
+    model = allocate_model(tmp_path, f"auto_{projected}", options, projected=projected)
+    assert model.propagators.shear_alf._precond == expected
+
+
+def test_script_round_trip(tmp_path):
+    """The non-default model flags survive the generated script (string flags must be quoted)."""
+    model = ShearAlfven(b_space="Hcurl", projected=True)
+    code = f"from struphy.models import ShearAlfven\nmodel = {model.__repr_no_defaults__()}\n"
+    namespace = {}
+    exec(code, namespace)
+    assert namespace["model"].params == model.params
+    namespace = {}
+    exec(
+        f"from struphy.io.options import BaseUnits\nfrom struphy.models import ShearAlfven\nmodel = {model!r}\n",
+        namespace,
+    )
+    assert namespace["model"].em_fields.b_field.space == "Hcurl"

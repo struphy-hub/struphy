@@ -97,13 +97,7 @@ def test_slab_waves_1d(model_class, algo: str, do_plot: bool = False):
     derham_opts = DerhamOptions(degree=(1, 1, 3))
 
     # propagator options
-    if model_class is LinearMHDCurlCurlwithProj:
-        # Hiptmair-Xu does not pay off with the projection in the curl-curl term
-        model.propagators.shear_alf.options = model.propagators.shear_alf.Options(
-            algo=algo, precond="MassMatrixPreconditioner"
-        )
-    else:
-        model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)
 
     # initial conditions (background + perturbation)
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))

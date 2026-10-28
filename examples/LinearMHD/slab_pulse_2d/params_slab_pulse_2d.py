@@ -182,12 +182,9 @@ sim = Simulation(
 # Propagator options
 # ------------------
 
-# the default preconditioners: StiffnessPreconditioner (LinearMHD), HiptmairXu (LinearMHDCurlCurl); the mass matrix
-# preconditioner for LinearMHDCurlCurlwithProj (Hiptmair-Xu does not pay off with the projection)
-if args.model == "LinearMHDCurlCurlwithProj":
-    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond="MassMatrixPreconditioner")
-else:
-    model.propagators.shear_alf.options = model.propagators.shear_alf.Options()
+# the default preconditioners: StiffnessPreconditioner (LinearMHD), HiptmairXu (LinearMHDCurlCurl) and the mass
+# matrix preconditioner (LinearMHDCurlCurlwithProj), the latter two through precond="auto"
+model.propagators.shear_alf.options = model.propagators.shear_alf.Options()
 model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
 
 # ------------------

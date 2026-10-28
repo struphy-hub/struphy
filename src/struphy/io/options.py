@@ -84,7 +84,7 @@ class LiteralOptions:
         "StiffnessPreconditioner", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
     ]
     OptsShearAlfvenCurlCurlPrecond = Literal[
-        "HiptmairXu", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
+        "auto", "HiptmairXu", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
     ]
     OptsPoloidalSolver = Literal["schur", "lu", "ilu"]
     OptsDiffusionPrecond = Literal[

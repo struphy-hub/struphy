@@ -39,7 +39,9 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
 
     The momentum equation is the :math:`\rho_0`-weighted :math:`L^2` projection of the Lorentz force onto
     :math:`H(\textnormal{div})`; the induction equation is weak, its boundary term is dropped, which imposes
-    :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` weakly (free boundary conditions of the de Rham sequence;
+    :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` weakly if :math:`\mathbf B_0 \cdot \mathbf n = 0`, since
+    :math:`\mathbf n \times (\tilde{\mathbf U} \times \mathbf B_0) = \tilde{\mathbf U} (\mathbf B_0 \cdot \mathbf n) - \mathbf B_0 (\tilde{\mathbf U} \cdot \mathbf n)`
+    (free boundary conditions of the de Rham sequence;
     essential ones set the tangential components of :math:`\tilde{\mathbf B}` to zero on the boundary).
 
     **Semi-discrete problem.** With the FE coefficients :math:`\mathbf u \in \mathbb R^{N_2}` of
@@ -73,7 +75,8 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
       where :math:`(\mathbb M^{2,n})^{-1}` is an inner iterative solve (``solver_M2n``, ``precond_M2n``). The
       curl-curl operator with :math:`\mathbb M^{2,\textnormal{gyro}}` below is not spectrally equivalent to :math:`S`
       (it overestimates :math:`S` on the fields whose Lorentz force is removed by the projection), so
-      ``precond="HiptmairXu"`` does not pay off here; use ``precond="MassMatrixPreconditioner"``.
+      ``precond="HiptmairXu"`` does not pay off here; ``precond="auto"`` (default) selects the mass matrix
+      preconditioner.
     - ``algo="implicit"``, ``projected=False`` (default): Crank-Nicolson **without the projection in the curl-curl
       term**: the velocity update
       :math:`\tilde{\mathbf U}^{n+1} = \tilde{\mathbf U}^n + \frac{\Delta t}{2 \rho_0} (\nabla \times
@@ -93,7 +96,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
       The perturbed energy does not increase, but is not exactly conserved (the projection error of the Lorentz force
       enters): numerical damping that vanishes with the resolution along :math:`\mathbf B_0`. The system is solved
       by :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with :math:`x = \mathbf b`, :math:`y = \mathbf u`.
-      With ``precond="HiptmairXu"`` (default), it is preconditioned by
+      With ``precond="HiptmairXu"`` (selected by the default ``"auto"``), it is preconditioned by
       :class:`~struphy.feec.preconditioner.HiptmairXuPreconditioner` for the curl-curl operator (scaled by
       :math:`\sigma = 4/\Delta t^2`; TAE example 8x32x4: 37 instead of 706 PCG iterations per step for
       :math:`\Delta t = 2`), optionally (``aux_correction``) plus the field-aligned auxiliary space corrections of
@@ -161,16 +164,18 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             Time stepping algorithm.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Solver of the Schur system in ``b`` (implicit) or of ``M1`` (explicit).
-        precond : LiteralOptions.OptsShearAlfvenCurlCurlPrecond, default="HiptmairXu"
+        precond : LiteralOptions.OptsShearAlfvenCurlCurlPrecond, default="auto"
             Preconditioner of the Schur system: Hiptmair-Xu for the curl-curl operator with ``M2gyro`` in the middle
             (``"HiptmairXu"``, implicit algorithm with ``solver="pcg"`` only, no polar splines; it depends on the time
             step, so it is built in the setup (:meth:`prepare_time_step`) and rebuilt when the time step changes), or a
             preconditioner
-            of the mass matrix ``M1`` (``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``; recommended
-            with ``projected=True``). With ``algo="explicit"``, ``"HiptmairXu"`` is replaced by
-            ``"MassMatrixPreconditioner"`` (for ``M1``).
+            of the mass matrix ``M1`` (``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``). With
+            ``algo="explicit"``, ``"HiptmairXu"`` is replaced by ``"MassMatrixPreconditioner"`` (for ``M1``).
+            ``"auto"`` selects ``"HiptmairXu"`` for the implicit algorithm with ``projected=False``, ``solver="pcg"``
+            or ``"pcg_sr"`` and tensor-product splines, and the mass matrix preconditioner otherwise
+            (``"PolarMassMatrixPreconditioner"`` with polar splines).
         aux_correction : bool, default=False
-            With ``precond="HiptmairXu"``: add the field-aligned auxiliary space corrections of the perturbations
+            With Hiptmair-Xu (``precond="HiptmairXu"``, or ``"auto"`` resolving to it): add the field-aligned auxiliary space corrections of the perturbations
             :math:`\mathbf B_0 \times \nabla \psi` and :math:`\phi \mathbf B_0` (:math:`\psi, \phi \in V^0_h`), which the
             Hiptmair-Xu preconditioner of the anisotropic curl-curl operator reduces only slowly. They lower the
             condition number (TAE geometry, 4x12x3, dt = 1: 34 to 19) but hardly the PCG iterations (tilted slab
@@ -198,7 +203,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
         # propagator options
         algo: OptsAlgo = "implicit"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsShearAlfvenCurlCurlPrecond = "HiptmairXu"
+        precond: LiteralOptions.OptsShearAlfvenCurlCurlPrecond = "auto"
         aux_correction: bool = False
         hx_aux_weight: float = 1.0
         solver_params: SolverParameters = None
@@ -214,8 +219,8 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             check_option(self.precond, LiteralOptions.OptsShearAlfvenCurlCurlPrecond)
             check_option(self.solver_M2n, LiteralOptions.OptsSymmSolver)
             check_option(self.precond_M2n, LiteralOptions.OptsMassPrecond)
-            if self.aux_correction and self.precond != "HiptmairXu":
-                raise ValueError('aux_correction=True requires precond="HiptmairXu".')
+            if self.aux_correction and self.precond not in ("HiptmairXu", "auto"):
+                raise ValueError('aux_correction=True requires precond="HiptmairXu" or "auto".')
             if self.precond == "HiptmairXu":
                 if self.algo == "explicit":
                     self.precond = "MassMatrixPreconditioner"
@@ -244,11 +249,31 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
         self._options = new
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
+    def _resolve_precond(self):
+        """The preconditioner of the Schur system, with ``precond="auto"`` resolved (see :class:`Options`)."""
+        precond = self.options.precond
+        if precond == "auto":
+            if (
+                self.options.algo == "implicit"
+                and not self._projected
+                and self.options.solver in ("pcg", "pcg_sr")
+                and not self.derham.polar_splines
+            ):
+                precond = "HiptmairXu"
+            elif self.derham.polar_splines:
+                precond = "PolarMassMatrixPreconditioner"
+            else:
+                precond = "MassMatrixPreconditioner"
+        if self.options.aux_correction and precond != "HiptmairXu":
+            raise ValueError(f'aux_correction=True requires Hiptmair-Xu, but the preconditioner is "{precond}".')
+        return precond
+
     @profile
     def allocate(self):
-        if self.options.precond == "HiptmairXu" and self.derham.polar_splines:
+        self._precond = self._resolve_precond()
+        if self._precond == "HiptmairXu" and self.derham.polar_splines:
             raise NotImplementedError('precond="HiptmairXu" does not support polar splines.')
-        if self.options.precond == "HiptmairXu" and self.options.aux_correction:
+        if self._precond == "HiptmairXu" and self.options.aux_correction:
             assert not self.derham.with_local_projectors, "The auxiliary space correction needs the global projectors."
 
         _M1 = self.mass_ops.M1
@@ -273,10 +298,10 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
 
         # preconditioner of the mass matrix M1 (Hiptmair-Xu depends on dt and is built in __call__)
         self._hx_dt = None
-        if self.options.precond is None or self.options.precond == "HiptmairXu":
+        if self._precond is None or self._precond == "HiptmairXu":
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.options.precond)
+            pc_class = getattr(preconditioner, self._precond)
             pc = pc_class(_M1)
 
         if self.options.algo == "implicit":
@@ -293,7 +318,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             else:
                 _BC = -1 / 4 * curl.T @ self.mass_ops.M2gyro @ curl
 
-            if self.options.precond == "HiptmairXu" and self.options.aux_correction:
+            if self._precond == "HiptmairXu" and self.options.aux_correction:
                 self._allocate_aux_spaces()
 
             self._schur_solver = SchurSolver(
@@ -402,7 +427,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
         """Hiptmair-Xu preconditioner of S ~ dt^2/4 (C^T M2gyro C + 4/dt^2 M1) for the time step ``dt``: built in the
         setup, rebuilt when dt changes (sigma = 4/dt^2 with the unscaled M2gyro in the middle, as the vector auxiliary
         space correction of Hiptmair-Xu assumes a unit-scale curl-curl term)."""
-        if self.options.algo == "implicit" and self.options.precond == "HiptmairXu" and dt != self._hx_dt:
+        if self.options.algo == "implicit" and self._precond == "HiptmairXu" and dt != self._hx_dt:
             with ProfileManager.profile_region("build_HiptmairXu_precond"):
                 self._schur_solver.precond = self._build_precond(dt)
             self._hx_dt = dt
@@ -434,8 +459,8 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             self._ode_solver(0.0, dt)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"Status     for ShearAlfvenCurlCurl: {info['success']}")
-            logger.info(f"Iterations for ShearAlfvenCurlCurl: {info['niter']}")
-            logger.info(f"Maxdiff up for ShearAlfvenCurlCurl: {diffs['u']}")
-            logger.info(f"Maxdiff b1 for ShearAlfvenCurlCurl: {diffs['b']}")
+            logger.info(f"Status     for ShearAlfvenCurlCurlPropagator: {info['success']}")
+            logger.info(f"Iterations for ShearAlfvenCurlCurlPropagator: {info['niter']}")
+            logger.info(f"Maxdiff up for ShearAlfvenCurlCurlPropagator: {diffs['u']}")
+            logger.info(f"Maxdiff b1 for ShearAlfvenCurlCurlPropagator: {diffs['b']}")
             logger.info("")

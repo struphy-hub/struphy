@@ -6,7 +6,6 @@ A propagator advances some variables of a model from t to t + dt; models chain p
 ## Start from an existing propagator
 
 - One module per propagator, snake_case module name, CamelCase class name (e.g. `push_vxb.py` → `PushVxB`).
-  Closely related variants may share a module (e.g. `shear_alfven_curl_curl_propagator.py`).
   Particle pushers are named `Push...`, variational propagators `Variational...`.
 - Copy the structure of a clean, recent propagator: `push_vxb.py` (particles), `shear_alfven_propagator.py` or
   `shear_alfven_curl_curl_propagator.py` (FEEC with linear solvers and preconditioners).
@@ -22,6 +21,10 @@ All of the following are abstract; the class can't be instantiated without them.
   (e.g. `assert new.space in ("Hcurl", "Hdiv")`). The model links its species' variables here.
 - **`__init__`**: sets `self.variables = self.Variables()`. Variables that are only **read** (not updated) are
   constructor arguments with default `None` (e.g. `PushVxB(b2_var=...)`), not options.
+  Exception: a discretization choice that a model fixes (a model flag or a subclass model) is a constructor
+  argument too, e.g. `ShearAlfvenCurlCurlPropagator(projected=True)`, because the generated params files always
+  write the default `Options()` and would drop it. Make option defaults that depend on it resolve in `allocate()`
+  (e.g. `precond="auto"`).
 - **`Options`**: `@dataclass(repr=False)` subclass of `OptionsBase`.
   - Every field has a default, and **the default options must give a working propagator**, because the generic
     model tests run every model with default `Options()`.
