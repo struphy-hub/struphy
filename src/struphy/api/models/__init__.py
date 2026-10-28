@@ -44,6 +44,7 @@ from struphy.models.vlasov import Vlasov
 from struphy.models.vlasov_ampere_one_species import VlasovAmpereOneSpecies
 from struphy.models.vlasov_maxwell_one_species import VlasovMaxwellOneSpecies
 from struphy.models.vlasov_maxwell_quasi_neutral import VlasovMaxwellQuasiNeutral
+from struphy.models.vlasov_pauli import VlasovPauli
 from struphy.models.vlasov_poisson_adiabatic import VlasovPoissonAdiabatic
 from struphy.models.vlasov_poisson_adiabatic_pauli import VlasovPoissonAdiabaticPauli
 
@@ -86,6 +87,7 @@ __all__ = [
     "VlasovAmpereOneSpecies",
     "VlasovMaxwellOneSpecies",
     "VlasovMaxwellQuasiNeutral",
+    "VlasovPauli",
     "VlasovPoissonAdiabatic",
     "VlasovPoissonAdiabaticPauli",
 ]

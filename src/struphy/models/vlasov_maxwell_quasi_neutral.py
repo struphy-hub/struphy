@@ -2,21 +2,18 @@ import copy
 import logging
 
 from struphy import BaseUnits
+from struphy.models.initial_poisson import InitialPoissonMixin
 from struphy.models.scalars import FunctionScalarFEEC, Scalars
-from struphy.models.species import ParticleSpecies
-from struphy.models.variables import PICVariable
-from struphy.models.vlasov_maxwell_one_species import VlasovMaxwellOneSpecies
-from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
-from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
-from struphy.propagators.poisson_solve import PoissonSolve
-from struphy.propagators.push_eta import PushEta
+from struphy.models.species import FieldSpecies
+from struphy.models.variables import FEECVariable, PICVariable
+from struphy.models.vlasov import Vlasov
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.vlasov_maxwell_coupling import VlasovMaxwellCoupling
 
 logger = logging.getLogger("struphy")
 
 
-class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
+class VlasovMaxwellQuasiNeutral(InitialPoissonMixin, Vlasov):
     """Vlasov-Maxwell equations for one kinetic species in the cyclotron normalization, with an implicit, energy
     conserving field-particle coupling that also holds in the quasi-neutral limit (no displacement current).
 
@@ -25,7 +22,8 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
     displacement current and :math:`\\kappa^2` of the plasma current appear in Ampère's law. Ampère's law, Faraday's
     law and the electric force on the particles are solved together in one Crank-Nicolson step
     (:class:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling`); ``lam=0.0`` is the quasi-neutral
-    limit.
+    limit. It inherits the particle propagators of :class:`~struphy.models.Vlasov` (with the Lorentz force of the
+    total magnetic field :math:`\\mathbf B_0 + \\mathbf B`).
 
     Parameters
     ----------
@@ -54,7 +52,14 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
 
     ## species
 
-    class KineticIons(ParticleSpecies):
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.e_field = FEECVariable(space="Hcurl")
+            self.b_field = FEECVariable(space="Hdiv")
+            self.phi = FEECVariable(space="H1")
+            self.init_variables()
+
+    class KineticIons(Vlasov.KineticIons):
         def __init__(
             self,
             charge_number: int = 1,
@@ -76,14 +81,17 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
 
     ## propagators
 
-    class Propagators:
+    class Propagators(Vlasov.Propagators):
+        splitting_order = ("coupling", "push_eta", "push_vxb")
+
         def __init__(
             self,
-            b2_var=None,
+            b2_var: FEECVariable = None,
         ):
-            self.coupling = VlasovMaxwellCoupling()
-            self.push_eta = PushEta()
+            super().__init__()
+            # the Lorentz force of the total magnetic field B0 + B
             self.push_vxb = PushVxB(b2_var=b2_var)
+            self.coupling = VlasovMaxwellCoupling()
 
     ## abstract methods
 
@@ -133,17 +141,7 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
 
         # initial Poisson (not a propagator used in time stepping); its charge coefficient c2 / lam^2 is set in
         # post_allocate, from the coefficients of the coupling propagator
-        particles_to_grid = ParticlesToGrid(
-            self.kinetic_ions.var,
-            "H1",
-            charge_density_0form,
-        )
-        self.initial_poisson = PoissonSolve(
-            rho=particles_to_grid,
-            rho_coeffs=None,
-            delta_f_source=True,
-        )
-        self.initial_poisson.variables.phi = self.em_fields.phi
+        self._create_initial_poisson(rho_coeffs=None)
 
         # property to measure violation of gauss law from control variate
         self.measure_gauss_law = measure_gauss_law
@@ -157,11 +155,10 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
 
         :meta private:
         """
+        super()._link_propagator_variables()
         self.propagators.coupling.variables.e = self.em_fields.e_field
         self.propagators.coupling.variables.b = self.em_fields.b_field
         self.propagators.coupling.variables.ions = self.kinetic_ions.var
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
-        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
 
     def post_allocate(self):
         """Solve the initial Poisson equation lam^2 div E = c2 rho (Gauss' law consistent with the coupling step),
@@ -180,12 +177,14 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
             return
 
         self.initial_poisson.rho_coeffs = coupling._c2 / coupling._lam2
-        super().post_allocate()
+        self._solve_initial_poisson()
+        if self.measure_gauss_law:
+            self._setup_gauss_law()
 
     def calculate_gauss_error(self):
         r"""Maximum norm of the weak Gauss-law residual
         :math:`\mathbb G^\top \mathbb M^1 \mathbf e + \frac{c_2}{\lambda^2} \boldsymbol \rho`, see
-        :meth:`~struphy.models.vlasov_maxwell_one_species.VlasovMaxwellOneSpecies.calculate_gauss_error`
+        :meth:`~struphy.models.initial_poisson.InitialPoissonMixin.calculate_gauss_error`
         (NaN for :math:`\lambda = 0`)."""
         if self._quasi_neutral:
             return float("nan")
@@ -267,28 +266,6 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
           (:math:`\frac{\kappa^2}{2} \sum_p w_p |\mathbf v_p|^2` for the default coefficients)
         - Total energy: ``en_tot`` (conserved by the coupling step up to the solver tolerance)
         - Optional Gauss-law diagnostic: ``gauss_error`` (NaN for :math:`\lambda = 0`)"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling`
-        2. :class:`~struphy.propagators.push_eta.PushEta`
-        3. :class:`~struphy.propagators.push_vxb.PushVxB`
-        """
-        doc = rf"""**1. VlasovMaxwellCoupling:**
-
-{VlasovMaxwellCoupling.__doc__}
-
-**2. PushEta:**
-
-{PushEta.__doc__}
-
-**3. PushVxB:**
-
-{PushVxB.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

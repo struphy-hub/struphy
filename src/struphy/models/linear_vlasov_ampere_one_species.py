@@ -7,17 +7,14 @@ from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.models.base import StruphyModel
+from struphy.models.initial_poisson import InitialPoissonMixin
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
 from struphy.models.species import (
     FieldSpecies,
     ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
-from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
-from struphy.propagators.base import Propagator
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
-from struphy.propagators.poisson_solve import PoissonSolve
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_v_in_force_field import PushVinForceField
 from struphy.propagators.push_vxb import PushVxB
@@ -25,7 +22,7 @@ from struphy.propagators.push_vxb import PushVxB
 logger = logging.getLogger("struphy")
 
 
-class LinearVlasovAmpereOneSpecies(StruphyModel):
+class LinearVlasovAmpereOneSpecies(InitialPoissonMixin, StruphyModel):
     """Linearized Vlasov-Ampère equations for one kinetic species around a Maxwellian background.
 
     Parameters
@@ -40,10 +37,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         Dimensionless parameter: plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
     epsilon: float, optional
         Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
-    with_B0: bool
-        Whether to include the effect of a background magnetic field B0 (default: True)
-    with_E0: bool
-        Whether to include the effect of a background electric field E0 (default: True)
     """
 
     @classmethod
@@ -77,17 +70,11 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(
-            self,
-            with_B0: bool = True,
-            with_E0: bool = True,
-        ):
+        def __init__(self):
             self.push_eta = PushEta()
-            if with_E0:
-                self.push_vinE = PushVinForceField()
+            self.push_vinE = PushVinForceField()
             self.coupling_Eweights = EfieldWeightsCoupling()
-            if with_B0:
-                self.push_vxb = PushVxB()
+            self.push_vxb = PushVxB()
 
     ## abstract methods
 
@@ -98,8 +85,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         mass_number: float = 1.0,
         alpha: float = None,
         epsilon: float = None,
-        with_B0: bool = True,
-        with_E0: bool = True,
     ):
 
         # 0. store input parameters
@@ -118,16 +103,10 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(with_B0=with_B0, with_E0=with_E0)
+        self.propagators = self.Propagators()
 
         # 4. assign variables to propagators
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
-        if with_E0:
-            self.propagators.push_vinE.variables.var = self.kinetic_ions.var
-        self.propagators.coupling_Eweights.variables.e = self.em_fields.e_field
-        self.propagators.coupling_Eweights.variables.ions = self.kinetic_ions.var
-        if with_B0:
-            self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+        self._link_propagator_variables()
 
         # 5. define scalars to be tracked during simulation
         electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
@@ -144,17 +123,18 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # initial Poisson (not a propagator used in time stepping)
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
-        particles_to_grid = ParticlesToGrid(
-            self.kinetic_ions.var,
-            "H1",
-            charge_density_0form,
-        )
+        self._create_initial_poisson(rho_coeffs=alpha**2 / epsilon, delta_f_source=False)
 
-        self.initial_poisson = PoissonSolve(
-            rho=particles_to_grid,
-            rho_coeffs=alpha**2 / epsilon,
-        )
-        self.initial_poisson.variables.phi = self.em_fields.phi
+    def _link_propagator_variables(self):
+        """Assign the species variables to the propagators.
+
+        :meta private:
+        """
+        self.propagators.push_eta.variables.var = self.kinetic_ions.var
+        self.propagators.push_vinE.variables.var = self.kinetic_ions.var
+        self.propagators.coupling_Eweights.variables.e = self.em_fields.e_field
+        self.propagators.coupling_Eweights.variables.ions = self.kinetic_ions.var
+        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
 
     @property
     def bulk_species(self):
@@ -171,25 +151,12 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         """
         self._tmp = xp.empty(1, dtype=float)
 
-        logger.info("\nINITIAL POISSON SOLVE:")
-
         # No control variate here: the markers of a DeltaFParticles6D species already carry
         # delta_f alone (w = delta_f / s0 / Np, set by initialize_weights), so subtracting the
         # background f0 a second time -- which is what update_weights does -- would leave every
         # weight offset by the constant -f0 / s0 / Np. That constant is a net charge, and it makes
         # the periodic Poisson problem below singular.
-        self.initial_poisson.allocate()
-
-        # Solve with dt=1. and compute electric field
-        logger.info("\nSolving initial Poisson problem...")
-        self.initial_poisson(1.0)
-
-        phi = self.initial_poisson.variables.phi.spline.vector
-        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        # The pushers evaluate e at the markers, including in the ghost cells: grad.dot does not fill them,
-        # so without this sync the first time step pushes with a wrong field (and breaks energy conservation).
-        self.em_fields.e_field.spline.vector.update_ghost_regions()
-        logger.info("... Done.")
+        self._solve_initial_poisson()
 
     def _compute_en_w(self):
         particles = self.kinetic_ions.var.particles
@@ -235,15 +202,13 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                     new_file += ["background = maxwellian_1\n"]
                 elif "maxwellian_1pt =" in line:
                     new_file += ["maxwellian_1pt = maxwellians.Maxwellian3D(n=(0.0, perturbation))\n"]
-                elif "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
                 else:
                     new_file += [line]
 
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+        return params_path
 
     @classmethod
     def doc_pde(cls):
@@ -308,33 +273,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         - Electric field energy: ``en_E``
         - Perturbation particle energy: ``en_w``
         - Total energy: ``en_tot``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_eta.PushEta`
-        2. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField` (if :attr:`with_E0` is True)
-        3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
-        4. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
-        """
-        doc = rf"""**1. push_eta.PushEta:**
-
-    {PushEta.__doc__}
-
-    **2. push_v_in_force_field.PushVinForceField:**
-
-    {PushVinForceField.__doc__}
-
-**3. efield_weights_coupling.EfieldWeightsCoupling:**
-
-{EfieldWeightsCoupling.__doc__}
-
-**4. push_vxb.PushVxB:**
-
-{PushVxB.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

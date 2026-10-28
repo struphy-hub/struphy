@@ -75,12 +75,19 @@ class Vlasov(StruphyModel):
         self.propagators = self.Propagators()
 
         # 4. assign variables to propagators
-        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
+        self._link_propagator_variables()
 
         # 5. define scalars to be tracked during simulation
         kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
         self.scalars = Scalars(kinetic_energy=kinetic_energy)
+
+    def _link_propagator_variables(self):
+        """Assign the species variables to the propagators (extended by the models inheriting from Vlasov).
+
+        :meta private:
+        """
+        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+        self.propagators.push_eta.variables.var = self.kinetic_ions.var
 
     @property
     def bulk_species(self):
@@ -118,23 +125,6 @@ class Vlasov(StruphyModel):
         r"""**The following scalars are tracked during simulation:**
 
         - Particle kinetic energy: ``kinetic_energy``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_vxb.PushVxB`
-        2. :class:`~struphy.propagators.push_eta.PushEta`
-        """
-        doc = rf"""**1. push_vxb.PushVxB:**
-
-    {PushVxB.__doc__}
-
-    **2. push_eta.PushEta:**
-
-    {PushEta.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

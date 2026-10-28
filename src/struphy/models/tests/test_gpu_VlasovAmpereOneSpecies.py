@@ -71,7 +71,7 @@ def make_simulation(out_folders: str, sim_folder: str) -> Simulation:
     the control variate, ``kinetic_energy`` at t=0 is computed with the full-f weights and afterwards with the delta-f
     weights, so ``total_energy`` cannot be checked.
     """
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     env = EnvironmentOptions(out_folders=out_folders, sim_folder=sim_folder, save_restart=False)
     time_opts = Time(dt=DT, Tend=round(N_STEPS * DT, 14))

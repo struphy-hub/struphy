@@ -27,6 +27,37 @@ from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_clas
 logger = logging.getLogger("struphy")
 
 
+def apply_splitting_order(propagators) -> None:
+    """Reorder the propagators of a ``Propagators`` instance in place, according to its ``splitting_order``.
+
+    ``splitting_order`` is an optional tuple with the names of all propagator attributes, defined as class
+    attribute of ``Propagators`` or in its ``__init__``. It allows a model that inherits ``Propagators`` from a parent
+    model (and adds propagators to it) to change the order of the propagators in the time splitting. The instance
+    ``__dict__`` is reordered, so that all code iterating over the propagators (time stepping, parameter files,
+    serialization) uses the splitting order. Without ``splitting_order``, the order is the attribute order.
+
+    Parameters
+    ----------
+    propagators : object
+        Instance of the inner class ``Propagators`` of a model.
+    """
+    attrs = vars(propagators)
+    order = attrs.pop("splitting_order", None)
+    if order is None:
+        order = getattr(propagators, "splitting_order", None)
+    if order is None:
+        return
+
+    order = tuple(order)
+    names = tuple(attrs)
+    assert len(set(order)) == len(order) and set(order) == set(names), (
+        f"splitting_order {order} of {type(propagators).__qualname__} must contain each propagator {names} once."
+    )
+    reordered = {name: attrs[name] for name in order}
+    attrs.clear()
+    attrs.update(reordered)
+
+
 class StruphyModelMeta(ABCMeta):
     def __iter__(cls):
         # struphy.models imports its models lazily: load them all so that every subclass is registered
@@ -76,7 +107,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
     post_allocate : method
         Must perform operations after main allocation and before time stepping.
     Propagators : class
-        Must define the propagators used for time integration.
+        Must define the propagators used for time integration, as attributes created in its ``__init__``.
+        The splitting order is the attribute order, unless ``Propagators`` defines a tuple
+        ``splitting_order`` with the attribute names (as class attribute or in its ``__init__``), see
+        :func:`apply_splitting_order`.
     __init__ : method
         Must perform a light-weight initialization of the model.
 
@@ -299,6 +333,43 @@ class StruphyModel(metaclass=StruphyModelMeta):
     @classmethod
     def scalar_quantities(cls):
         return display(HTML(cls.scalar_quantities_html()))
+
+    @classmethod
+    def doc_discretization(cls) -> str:
+        """Time integration is performed by the following propagators (in sequence):"""
+        return cls.propagators_doc()
+
+    @classmethod
+    def propagators_in_splitting_order(cls) -> dict[str, Propagator]:
+        """The propagators of the model in splitting order, as ``{attribute name: propagator}``.
+
+        ``Propagators`` is instantiated with its default arguments (light-weight, nothing is allocated).
+        """
+        propagators = cls.Propagators()
+        apply_splitting_order(propagators)
+        return dict(vars(propagators))
+
+    @classmethod
+    def propagators_links(cls) -> str:
+        """Numbered reST list of the propagator classes of the model in splitting order."""
+        lines = []
+        for n, (name, prop) in enumerate(cls.propagators_in_splitting_order().items(), start=1):
+            prop_cls = type(prop)
+            lines += [f"{n}. ``{name}``: :class:`~{prop_cls.__module__}.{prop_cls.__name__}`"]
+        return "\n".join(lines)
+
+    @classmethod
+    def propagators_doc(cls) -> str:
+        """Documentation of the propagators of the model in splitting order: the docstring of
+        :meth:`doc_discretization` (a model overrides it to describe the time stepping), followed by the docstring
+        of each propagator class."""
+        intro = inspect.cleandoc(cls.doc_discretization.__doc__ or "")
+        doc = intro + "\n\n"
+        for n, (name, prop) in enumerate(cls.propagators_in_splitting_order().items(), start=1):
+            prop_cls = type(prop)
+            doc += f"**{n}. {name}** (:class:`~{prop_cls.__module__}.{prop_cls.__name__}`):\n\n"
+            doc += f"{prop_cls.__doc__}\n\n"
+        return doc
 
     @classmethod
     def _discretization_doc(cls) -> str:
@@ -1140,6 +1211,18 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     def clone_config(self, new):
         assert isinstance(new, CloneConfig) or new is None
         self._clone_config = new
+
+    @property
+    def propagators(self):
+        """Instance of the inner class ``Propagators``; its attributes are the propagators in splitting order."""
+        return self._propagators
+
+    @propagators.setter
+    def propagators(self, new):
+        apply_splitting_order(new)
+        self._propagators = new
+        if hasattr(self, "_prop_list"):
+            del self._prop_list
 
     @property
     def prop_list(self):

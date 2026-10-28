@@ -30,7 +30,13 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
   `PICVariable`, `SPHVariable` from `variables.py`) and then calls `self.init_variables(...)` with charge and mass
   numbers (no arguments for field species). A particle species holds exactly one variable.
 - **`Propagators`** inner class. Its `__init__` creates propagator instances as attributes. **The attribute order is
-  the splitting order** used by Lie-Trotter/Strang.
+  the splitting order** used by Lie-Trotter/Strang, unless `Propagators` defines a tuple `splitting_order` with the
+  names of all propagators (class attribute, or set in `__init__`); `apply_splitting_order` in `base.py` reorders them.
+- **Inheritance** (a parent model plus new terms, e.g. `Vlasov` → `VlasovAmpereOneSpecies` → `VlasovMaxwellOneSpecies`):
+  `class Propagators(Parent.Propagators)` calls `super().__init__()` and adds the new propagators (an attribute of
+  the same name replaces a parent propagator), with `splitting_order` if the order changes. Species classes inherit
+  too (`class KineticIons(Parent.KineticIons)`). Link the variables in `_link_propagator_variables()`, which calls
+  `super()` first. The model `__init__` keeps the numbered steps below (no `super().__init__()`).
 - **`__init__`**, keeping the numbered steps of the existing models:
   0. `self.params = copy.deepcopy(locals())`. All constructor arguments need defaults, and only
      bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization.
@@ -58,8 +64,11 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
   `doc_use_cases`, `doc_cannot_be_used_for`, and `doc_discretization`.
   Put `doc_normalization` directly below `doc_pde` (also in subclasses that change the normalization), since the
   normalization defines the parameters appearing in the PDEs.
-  `doc_discretization` must **return** a string: list the propagators in splitting order with `:class:` links and
-  embed each propagator's `__doc__` (see `maxwell.py`). `test_all_models_expose_new_doc_api` fails if any is missing or empty.
+  `doc_discretization` must **return** a string. The default in `StruphyModel` generates it from `Propagators` (the
+  propagators in splitting order with their `__doc__`; the Sphinx docs list them via a hook in `doc/conf.py`), so
+  `Propagators()` must be constructible with its default arguments. Override it only to describe the time stepping in
+  its docstring, returning `cls.propagators_doc()` (see `vlasov_poisson_adiabatic.py`).
+  `test_all_models_expose_new_doc_api` fails if any is missing or empty.
 - `doc_pde` is written like a physics textbook: always the full PDE system in strong form, with the unknowns and
   parameters named, but **no** solution spaces, weak formulations or discrete operators (those belong in the
   propagator docstrings, which `doc_discretization` embeds).

@@ -118,7 +118,6 @@ Example with optional model arguments:
     model = VlasovAmpereOneSpecies(
         alpha=1.0,
         epsilon=-1.0,
-        with_B0=False,
     )
 
 Example with explicit normalization units:

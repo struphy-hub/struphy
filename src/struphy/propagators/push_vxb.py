@@ -36,6 +36,8 @@ class PushVxB(Propagator):
 
     - ``analytic``
     - ``implicit``.
+
+    Without magnetic field (no equilibrium field or a zero one, and no ``b2_var``) the propagator does nothing.
     """
 
     class Variables:
@@ -121,6 +123,12 @@ class PushVxB(Propagator):
         if self.b2_var is not None:
             assert self.b2_var.spline.vector.space == self._E2T.domain
 
+        # without magnetic field the velocities do not change (inner is collective: computed on all ranks)
+        self._no_field = self.b2_var is None and self.b2_0.inner(self.b2_0) == 0.0
+        if self._no_field:
+            logger.info(f"{self.__class__.__name__}: no magnetic field, the propagator does nothing.")
+            return
+
         # allocate dummy vectors to avoid temporary array allocations
         self._tmp = self.derham.V2.zeros()
         self._b_full = self.derham.V2.zeros()
@@ -152,6 +160,9 @@ class PushVxB(Propagator):
 
     @profile
     def __call__(self, dt):
+        if self._no_field:
+            return
+
         # sum up total magnetic field in the tensor-product space (the variable is extracted first); without a
         # magnetic field variable it is the equilibrium field alone, which does not change: computed once, so that the
         # step has no ghost exchange (an MPI synchronization point) before the kernel

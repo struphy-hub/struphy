@@ -48,7 +48,7 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
     amplitude = 1e-3
     r1 = 12.56  # a box of length 4*pi, i.e. k = 2*pi/r1 = 0.5
 
-    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False, with_E0=False)
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
@@ -147,7 +147,7 @@ def test_energy_conservation(exit_before_run: bool = False):
     amplitude = 0.1
     r1 = 12.56
 
-    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False, with_E0=False)
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
@@ -222,7 +222,7 @@ def test_initial_poisson_no_background():
     initial potential. Subtracting :math:`n_0` gives :math:`-\Delta \phi = -\alpha^2 n_0 / \varepsilon`, i.e.
     :math:`\phi = -x(1 - x)/2` with root mean square 0.09. This runs zero time steps.
     """
-    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False, with_E0=False)
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")

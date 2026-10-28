@@ -37,7 +37,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
     The computed damping rate is compared to the analytical rate.
     """
     # light-weight model instance
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
@@ -78,8 +78,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
 
     # propagator options
     model.propagators.push_eta.options = model.propagators.push_eta.Options()
-    if model.with_B0:
-        model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
     model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
     model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 
@@ -192,7 +191,7 @@ def test_energy_conservation(control_variate: bool, exit_before_run: bool = Fals
     amplitude = 0.1
     ppc = 400 if control_variate else 40
 
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
@@ -271,7 +270,7 @@ def test_initial_poisson_full_f():
     :math:`-\Delta \phi = -\alpha^2 n_0 / \varepsilon`, i.e. :math:`\phi = -x(1 - x)/2` with root mean square 0.09.
     This runs zero time steps.
     """
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
@@ -321,7 +320,7 @@ def test_initial_poisson_full_f_noise():
     of :math:`f - f_0` (relative error of about 1% here), with the full-f weights minus the background :math:`n_0` it
     is that of :math:`f` (relative error of about 400%). This runs zero time steps.
     """
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")

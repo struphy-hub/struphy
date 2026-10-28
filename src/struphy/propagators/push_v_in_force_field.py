@@ -43,6 +43,8 @@ class PushVinForceField(Propagator):
 
     i.e. :math:`\mathbf F = -\nabla(\phi + \varepsilon \mu_p |\mathbf B_0|)`, where :math:`\nabla |\mathbf B_0|`
     is the projected 1-form ``gradB1`` of the equilibrium (the same as in the guiding-center pushers).
+
+    Without force field, potential and magnetic moment the propagator does nothing.
     """
 
     class Variables:

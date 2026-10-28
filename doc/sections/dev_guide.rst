@@ -64,6 +64,22 @@ Before adding a new model, check the docstrings of the existing models (:ref:`mo
 * There are **no flags or options that switch propagators**, i.e. terms of the equations, **on or off**.
   A model with a term switched off is a different model, and this is expressed by inheritance as above.
 
+Inheritance in practice (see e.g. :class:`~struphy.models.Vlasov` →
+:class:`~struphy.models.VlasovAmpereOneSpecies` → :class:`~struphy.models.VlasovMaxwellOneSpecies`):
+
+* The inner class ``Propagators`` of the new model inherits from the parent's ``Propagators``. Its ``__init__`` calls
+  ``super().__init__()`` and adds the propagators of the new terms as attributes. It may replace a parent propagator
+  by an attribute of the same name, e.g. ``PushVxB(b2_var=...)`` for the Lorentz force of the total magnetic field.
+* The splitting order is the attribute order. To change it, ``Propagators`` defines a tuple ``splitting_order`` with
+  the names of all propagators, as class attribute or in its ``__init__``
+  (see :func:`~struphy.models.base.apply_splitting_order`).
+* Species classes can inherit too, e.g. ``class KineticIons(Vlasov.KineticIons)``. The species variables are linked
+  to the propagators in ``_link_propagator_variables()``, which calls ``super()`` and links the new propagators.
+* ``doc_discretization`` is generated from ``Propagators`` (the propagators in splitting order, with their docstrings).
+  A model overrides it only to describe its time stepping in the docstring and returns ``cls.propagators_doc()``.
+* A propagator whose term vanishes for the given input (e.g. :class:`~struphy.propagators.push_vxb.PushVxB` without
+  magnetic field) does nothing, instead of being switched off by a flag.
+
 
 .. _docstrings_models_propagators:
 
