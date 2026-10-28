@@ -69,6 +69,9 @@ def test_push_parallel_along_full_b(algo):
     model = _model()
     prop = model.propagators.push_para
     prop.options = prop.Options(algo=algo)
+    # re-allocate with the new options: drop the kernels registered by the first allocation
+    prop._init_kernels = ()
+    prop._eval_kernels = ()
     prop.allocate()
 
     particles = model.kinetic_ions.var.particles
