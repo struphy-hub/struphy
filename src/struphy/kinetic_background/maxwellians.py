@@ -618,7 +618,9 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             logger.debug(f"{'Using cached psi_c' if cached else 'Evaluating psi_c'} for background evaluation.")
 
             if not cached:
-                self.psi_c = self.eval_psic(*coords)
+                # own copies: eval_psic may return a view of the cache buffers, which later evaluations overwrite
+                self.psi_c = xp.array(self.eval_psic(*coords), copy=True)
+                self._psi_c_coords = [xp.array(c, copy=True) for c in coords]
             out += background(self.psi_c)
 
         # add perturbation
@@ -643,23 +645,14 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         return out
 
     def _check_psi_c_cached(self, *coords):
-        """Check if psi_c has been cached for the given coordinates."""
-        cached = False
-        if getattr(self, "psi_c", None) is not None:
-            # markers: coords[0] is (5, n_markers) and psi_c is (n_markers,); meshgrid: all have the same 5d shape
-            shape = coords[0].shape[1:] if len(coords) == 1 else coords[0].shape
-            if self.psi_c.shape == shape and self.psi_c.size > 0:
-                # compare the cached values with a fresh evaluation at a few test points
-                size = self.psi_c.size
-                test_idx = xp.unique(xp.array([0, size // 3, 2 * size // 3, size - 1]))
-                if len(coords) == 1:
-                    test_coords = coords[0][:, test_idx]
-                else:
-                    test_coords = xp.stack([c.reshape(-1)[test_idx] for c in coords], axis=0)
-                # do not use the cache buffers here, self.psi_c may point to them
-                cached_psi_c = self.eval_psic(test_coords, use_cbufs=False)
-                cached = xp.allclose(self.psi_c.reshape(-1)[test_idx], cached_psi_c)
-        return cached
+        """Check if psi_c has been cached for the given coordinates.
+
+        The cache is only valid for exactly the same coordinates: psi_c is nearly conserved along the orbits, so a
+        comparison at a few test points cannot detect markers that have moved, been sorted or exchanged."""
+        cached_coords = getattr(self, "_psi_c_coords", None)
+        if getattr(self, "psi_c", None) is None or cached_coords is None or len(cached_coords) != len(coords):
+            return False
+        return all(c.shape == cc.shape and bool(xp.array_equal(c, cc)) for c, cc in zip(coords, cached_coords))
 
     def _correction_field(self, p_phi, B0):
         """Field in the shift: on-axis B0, or B_max of the flux surface psi = P_phi."""
