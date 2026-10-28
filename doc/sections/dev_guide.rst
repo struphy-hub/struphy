@@ -47,6 +47,24 @@ are generated from the classes defined in these packages. After adding, renaming
 This command is only available when Struphy is installed in editable mode, and it formats the generated files with ruff.
 
 
+.. _models_defined_by_equations:
+
+Models are defined by their equations
+-------------------------------------
+
+A Struphy model is defined by the PDE system in its docstring (``doc_pde``), not by its discretization.
+Before adding a new model, check the docstrings of the existing models (:ref:`models`) for the same equations:
+
+* **Same equations, new discretization** (other solution spaces, propagators, solvers or time stepping):
+  no new model is created. The new discretization is added to the existing model through model flags
+  (constructor arguments) or propagator options.
+* **Existing equations plus a new term** (e.g. a dissipative term added to the MHD equations): a new model is created
+  that inherits from the existing one. It adds the propagator(s) for the new term and shows the extended PDE system,
+  including the new term, in its own ``doc_pde``.
+* There are **no flags or options that switch propagators**, i.e. terms of the equations, **on or off**.
+  A model with a term switched off is a different model, and this is expressed by inheritance as above.
+
+
 .. _docstrings_models_propagators:
 
 Docstrings of models and propagators

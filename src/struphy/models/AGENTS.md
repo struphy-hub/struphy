@@ -7,9 +7,21 @@ Read this before creating or renaming a model in `src/struphy/models/`. The gene
 - One model per file, snake_case file name, CamelCase class name (e.g. `curl_curl.py` → `CurlCurl`).
 - Copy the structure of a clean, recent model rather than starting from scratch:
   `maxwell.py` (pure fields, smallest), `curl_curl.py`, `vlasov_ampere_one_species.py` (particles + fields).
-- If the new model differs from an existing one only in its propagators, subclass it and override
-  `Propagators` (see `shear_alfven_curl_curl_with_proj.py`).
 - Reuse existing propagators where possible. For a new propagator, follow `src/struphy/propagators/AGENTS.md`.
+
+## New model or not? (a model is defined by its equations)
+
+A Struphy model is defined by the PDE system in its `doc_pde`, not by its discretization.
+Before adding a model, search the `doc_pde` of the existing models for the same equations.
+- **Same equations, new discretization** (other spaces, propagator, solver, time stepping): don't create a new
+  model. Add the discretization to the existing model through model flags (constructor arguments) or propagator
+  options.
+- **Existing equations plus a new term** (e.g. a dissipative term added to the MHD equations): create a new model
+  that **inherits** from the existing one, adds the propagator(s) for the new term (override `Propagators`, keeping
+  the parent's propagators) and shows the extended system, including the new term, in its own `doc_pde`.
+- **No flags or options that switch propagators (i.e. terms of the equations) on or off.** A model with a term
+  switched off is a different model; express it by inheritance as above.
+See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
 
 ## Required structure (`StruphyModel` in `base.py`)
 
