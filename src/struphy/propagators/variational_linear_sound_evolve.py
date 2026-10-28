@@ -91,7 +91,11 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
       with :math:`\hat l^3(1)_{ijk} = \int_{\hat\Omega} \Lambda^3_{ijk} \sqrt g \,\textrm d \boldsymbol\eta`. The
       thermal energy :math:`p/(\gamma - 1)` is linear in :math:`p`, so the pressure enters the momentum equation only
       through the weight :math:`\mathbf p^n`: the velocity is advanced with one mass-matrix solve, then the pressure.
-      The sound waves are explicit (stable for :math:`\Delta t\, \omega_s < 2`).
+      The sound waves are explicit and, with the weight :math:`\mathbf p^n` at :math:`t^n`, not stable for any
+      :math:`\Delta t`: the amplitude of a sound wave of frequency :math:`\omega_s` grows by
+      :math:`|\lambda|^2 = 1 + (\Delta t\, \omega_s)^2 / 2` per step, so :math:`\Delta t\, \omega_s` must be small
+      over the simulated time. (``"linear_q"`` is stable for :math:`\gamma \leq 2`, with a numerical damping of
+      order :math:`\Delta t\, \omega_s^2` for :math:`\gamma < 2`.)
 
     In both cases the weight at :math:`t^n` is the same in the momentum equation and in the update of :math:`\hat s`,
     which makes the step energy conserving; it is first order in time.
