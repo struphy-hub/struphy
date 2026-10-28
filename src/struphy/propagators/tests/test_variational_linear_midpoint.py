@@ -13,11 +13,19 @@ from struphy import set_logging_level
 set_logging_level(logging.WARNING)
 
 # tolerance of the linear solvers, and the accepted relative energy error after the steps
+NUM_EL = (6, 4, 2)
 SOLVER_TOL = 1e-13
 ENERGY_TOL = 1e-10
 
 
-def _setup(thermo: str, u_space: str, weights: str = "midpoint", homogeneous: bool = False, noise_b: bool = True):
+def _setup(
+    thermo: str,
+    u_space: str,
+    weights: str = "midpoint",
+    homogeneous: bool = False,
+    noise_b: bool = True,
+    dirichlet: bool = False,
+):
     """Ideal linear model on a Colella mapping (non-constant metric) with a sheared slab equilibrium (non-uniform B0,
     p0, n0), or on a cuboid with a homogeneous equilibrium, and a random initial perturbation."""
     from struphy import DerhamOptions, FieldsBackground, Simulation, domains, equils, grids, perturbations
@@ -38,8 +46,10 @@ def _setup(thermo: str, u_space: str, weights: str = "midpoint", homogeneous: bo
         model=model,
         domain=domain,
         equil=equil,
-        grid=grids.TensorProductGrid(num_elements=(6, 4, 2)),
-        derham_opts=DerhamOptions(degree=(2, 2, 1)),
+        grid=grids.TensorProductGrid(num_elements=NUM_EL),
+        derham_opts=DerhamOptions(
+            degree=(2, 2, 1), bcs=(("dirichlet", "dirichlet"), None, None) if dirichlet else (None, None, None)
+        ),
     )
 
     lin = SolverParameters(tol=SOLVER_TOL, maxiter=3000)
@@ -111,12 +121,14 @@ def test_assemble_by_probing(bcs):
         assert np.sqrt(d.inner(d) / y.inner(y)) < 1e-13
 
 
+@pytest.mark.parametrize("dirichlet", [False, True])
 @pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
 @pytest.mark.parametrize("thermo", ["q", "p"])
-def test_weight_map(u_space: str, thermo: str):
+def test_weight_map(u_space: str, thermo: str, dirichlet: bool):
     """The assembled maps b -> T[b]^T l and s -> S[s]^T l (Hdiv0_transport_operator.weight_map,
-    Pressure_transport_operator.weight_map) agree with the operators with updated weights."""
-    model = _setup(thermo, u_space, weights="frozen")
+    Pressure_transport_operator.weight_map) agree with the operators with updated weights, periodic and with
+    Dirichlet boundary conditions in eta1."""
+    model = _setup(thermo, u_space, weights="frozen", dirichlet=dirichlet)
     A, S = model.propagators.variat_lin_alfven, model.propagators.variat_lin_sound
     rng = np.random.default_rng(0)
     for op, lin_form in ((A._Tb.T, A._M2b0), (S._Ss.T, S._lf0)):
@@ -172,7 +184,7 @@ def test_midpoint_options(prop_name: str):
     from struphy import propagators
 
     Options = getattr(propagators, prop_name).Options
-    assert Options().weights == "midpoint" and Options().solver == "pbicgstab"
+    assert Options().weights == "midpoint" and Options().solver == "rpbicgstab"
     assert Options(weights="frozen").solver == "pcg"
     with pytest.raises(AssertionError):
         Options(weights="midpoint", solver="pcg")

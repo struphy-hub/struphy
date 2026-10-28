@@ -699,12 +699,32 @@ class Hdiv0_transport_operator(LinearOperator):
             The map from the space of the weight to the space of the velocity.
         """
         assert self._transposed, "weight_map needs the transposed operator."
+        if not (self._derham._with_local_projectors or self._derham.polar_splines):
+            return self._weight_map_direct(lin_form)
 
         def apply(b):
             self.update_coeffs(b)
             return self.dot(lin_form)
 
         return assemble_by_probing(apply, self._domain, self._codomain)
+
+    def _weight_map_direct(self, lin_form: BlockVector) -> LinearOperator:
+        r"""The matrix of :meth:`weight_map`, assembled at the quadrature points of :math:`\hat\Pi^1` by
+        :func:`assemble_dof_pairing`: with the weights :math:`\pm b_c\, s` of :meth:`update_coeffs`
+        (:math:`s = 1/\sqrt g` for a 2-form velocity, else 1),
+
+        .. math::
+
+            \mathbb R_{(a, j), (c, m)} = \epsilon_{dac} \sum_q g_{d, k(q)}\, w_q\, s(x_q)\,
+            \Lambda^v_{a, j}(x_q)\, \Lambda^2_{c, m}(x_q) \,, \qquad
+            \mathbf g = (\hat\Pi^1)^{-\top} \mathbb C^\top \mathbf l \,."""
+        # (component d of Pi^1, row component a, column component c, sign): the weights of update_coeffs
+        terms = [(0, 1, 2, -1.0), (0, 2, 1, 1.0), (1, 0, 2, 1.0), (1, 2, 0, -1.0), (2, 0, 1, -1.0), (2, 1, 0, 1.0)]
+        scale = self._inv_sqrt_g_at if self._u_space == "Hdiv" else None
+        return assemble_dof_pairing(self.Proj, self.curl.T.dot(lin_form), self._derham.V2fem, terms, scale)
+
+    def _inv_sqrt_g_at(self, d, pts):
+        return 1.0 / self._phys_domain.jacobian_det(*pts)
 
 
 class Pressure_transport_operator(LinearOperator):
@@ -962,6 +982,19 @@ class Pressure_transport_operator(LinearOperator):
         assert self._transposed, "weight_map needs the transposed operator."
         div = self._derham.div
         Dl = div.T.dot(lin_form)
+
+        if not (self._derham._with_local_projectors or self._derham.polar_splines):
+            # assembled at the quadrature points of Pi^2 and Pi^3 (assemble_dof_pairing), with the weights
+            # p s_d (s_d = 1/sqrt(g) for a 2-form velocity, else 1) and (gamma - 1) p / sqrt(g) of update_coeffs
+            def inv_sqrt_g(d, pts):
+                return 1.0 / self._phys_domain.jacobian_det(*pts)
+
+            V3fem = self._derham.V3fem
+            R1 = assemble_dof_pairing(
+                self.Pip, Dl, V3fem, [(d, d, 0, 1.0) for d in range(3)], inv_sqrt_g if self._u_space == "Hdiv" else None
+            )
+            R2 = assemble_dof_pairing(self.Pip_div, lin_form, V3fem, [(0, 0, 0, self._gamma - 1.0)], inv_sqrt_g)
+            return R1 + self._Uv.T @ div.T @ R2
 
         def apply(s):
             self.update_coeffs(s)
@@ -2035,6 +2068,146 @@ def inv_norm2(inv: LinearOperator, v: Vector) -> float:
     return norm**2 * err
 
 
+def assemble_dof_pairing(proj, lin, col_fem, terms, scale=None):
+    r"""Assemble the map :math:`\mathbf c \mapsto \mathbb P[w(\mathbf c)]^\top \mathbf y` of a transposed
+    :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` :math:`\mathbb P[w] = \hat\Pi^{-1}
+    \mathbb D[w]` (global commuting projector, tensor-product splines) whose weights are linear in a spline
+    :math:`\mathbf c`: :math:`w_{d, a} = f_{dac}\, s_d\, c_c` for the terms :math:`(d, a, c, f_{dac})`, a
+    factor :math:`s_d` of the points (e.g. :math:`1/\sqrt g`) and the components :math:`c_c` of the spline. With
+    :math:`\mathbf g = (\hat\Pi^{-1})^\top \mathbf y` the matrix is
+
+    .. math::
+
+        \mathbb R_{(a, j), (c, m)} = \sum_d f_{dac} \sum_q g_{d, k(q)}\, w_q\, s_d(x_q)\,
+        \Lambda^V_{a, j}(x_q)\, \Lambda^c_{c, m}(x_q) \,,
+
+    summed over the quadrature points :math:`x_q` (weights :math:`w_q`) of the degrees of freedom :math:`k(q)` of
+    the component :math:`d` of :math:`\hat\Pi`, with the basis :math:`\Lambda^V` of the domain of
+    :math:`\mathbb P` and the basis :math:`\Lambda^c` of :math:`\mathbf c`. The kernel
+    :func:`~struphy.feec.kernels.assemble_bilinear_at_points_3d.assemble_bilinear_at_points_3d` assembles the rows of
+    each process from the points of the degrees of freedom in the ghost region of :math:`\mathbf g`.
+
+    Parameters
+    ----------
+    proj : BasisProjectionOperator
+        The (transposed or not) operator, for its projector, spaces, extraction and boundary operators.
+    lin : Vector
+        The vector :math:`\mathbf y` in the codomain of :math:`\mathbb P` (dual).
+    col_fem : TensorFemSpace | VectorFemSpace
+        The space of the spline :math:`\mathbf c`.
+    terms : list[tuple]
+        The terms :math:`(d, a, c, f_{dac})` (component indices 0 for a scalar space).
+    scale : callable, optional
+        ``scale(d, pts)``: the factor :math:`s_d` at the tensor-product points ``pts`` (three 1d arrays) of the
+        component :math:`d` of the projector (default 1).
+
+    Returns
+    -------
+    StencilMatrix | BlockLinearOperator
+        The map from the coefficients of :math:`\mathbf c` to the domain of :math:`\mathbb P`.
+    """
+    import numpy as np
+    from feectools.fem.tensor import TensorFemSpace
+    from feectools.linalg.block import BlockLinearOperator
+    from feectools.linalg.stencil import StencilMatrix
+
+    from struphy.feec.basis_projection_ops import prepare_projection_of_basis
+    from struphy.feec.kernels.assemble_bilinear_at_points_3d import assemble_bilinear_at_points_3d
+
+    def comps(fem):
+        if isinstance(fem, TensorFemSpace):
+            return [fem.spaces], [fem.coeff_space], False
+        return [comp.spaces for comp in fem.spaces], list(fem.coeff_space.spaces), True
+
+    P = proj._P
+    Pt = P.projector_tensor
+    W1ds, Wspaces, _ = comps(Pt.space)
+    U1ds, Uspaces, u_block = comps(proj._V)
+    C1ds, Cspaces, c_block = comps(col_fem)
+
+    # g = E_P^T B_P^T Pi^{-T} y, with its ghost regions
+    g = P.solve(lin, True, apply_bc=True)
+    g = proj._P_extraction_op.T.dot(proj._P_boundary_op.T.dot(g))
+    g.update_ghost_regions()
+    g_comps = list(g.blocks) if isinstance(g, BlockVector) else [g]
+
+    mats = {}
+    for d, a, c, factor in terms:
+        Wd, Ua, Cc = Wspaces[d], Uspaces[a], Cspaces[c]
+        nq = [Pt.grid_x[d][direction].shape[1] for direction in range(3)]
+        # all points of the degrees of freedom of the projector (global, per direction)
+        zeros, ends = [0, 0, 0], [n - 1 for n in Wd.npts]
+        pts, wts, spans_u, bases_u, subs = prepare_projection_of_basis(U1ds[a], W1ds[d], zeros, ends, nq)
+        _, _, spans_c, bases_c, _ = prepare_projection_of_basis(C1ds[c], W1ds[d], zeros, ends, nq)
+
+        # the points of the degrees of freedom within the ghost region of g: they contain all points in the support
+        # of the rows (basis functions) of the process; the index of g of their degree of freedom
+        sel, g_idx = [], []
+        for direction, (sub, n, st, e, p, per) in enumerate(
+            zip(subs, Wd.npts, Ua.starts, Ua.ends, Wd.pads, Wd.periods)
+        ):
+            dof = np.arange(sub.size) - np.cumsum(sub)
+            # offset to the start of the process, periodic representative in [-p, n - p)
+            off = dof - st
+            if per:
+                off = (off + p) % n - p
+            keep = (off >= -p) & (off <= e - st + p)
+            sel += [np.nonzero(keep)[0]]
+            g_idx += [off[keep] + st - Wd.starts[direction] + p]
+        sel_pts = [np.repeat(s_i, n) * n + np.tile(np.arange(n), s_i.size) for s_i, n in zip(sel, nq)]
+        sel_g = [np.repeat(gi, n) for gi, n in zip(g_idx, nq)]
+
+        weight = factor * np.asarray(g_comps[d]._data)[np.ix_(*sel_g)]
+        for direction, (w, sp) in enumerate(zip(wts, sel_pts)):
+            shape = [1, 1, 1]
+            shape[direction] = -1
+            weight = weight * np.asarray(w).flatten()[sp].reshape(shape)
+        if scale is not None:
+            weight = weight * scale(d, [np.asarray(x).flatten()[sp] for x, sp in zip(pts, sel_pts)])
+
+        mat = mats.get((a, c))
+        if mat is None:
+            mat = mats[(a, c)] = StencilMatrix(Cc, Ua)
+        assemble_bilinear_at_points_3d(
+            mat._data,
+            np.array(Ua.starts),
+            np.array(Ua.ends),
+            np.array(Ua.pads),
+            np.array(mat.pads),
+            np.array(Ua.npts),
+            np.array(Cc.npts),
+            np.array(Ua.periods, dtype=int),
+            *[sp.flatten()[i].astype(int) for sp, i in zip(spans_u, sel_pts)],
+            *[bs.reshape(-1, bs.shape[-1])[i] for bs, i in zip(bases_u, sel_pts)],
+            *[sp.flatten()[i].astype(int) for sp, i in zip(spans_c, sel_pts)],
+            *[bs.reshape(-1, bs.shape[-1])[i] for bs, i in zip(bases_c, sel_pts)],
+            np.ascontiguousarray(weight),
+        )
+
+    # boundary operator of the domain of P (the extraction is the identity without polar splines): zero rows
+    ones = proj._V.coeff_space.zeros()
+    for blk in ones.blocks if u_block else [ones]:
+        blk._data[:] = 1.0
+    mask = proj._V_boundary_op.dot(proj._V_extraction_op.dot(ones))
+    mask = list(mask.blocks) if u_block else [mask]
+    for (a, c), mat in mats.items():
+        Ua = Uspaces[a]
+        own = tuple(slice(p, p + e - st + 1) for p, st, e in zip(Ua.pads, Ua.starts, Ua.ends))
+        mat._data[own][np.asarray(mask[a]._data[own]) == 0.0] = 0.0
+
+    if not u_block and not c_block:
+        return mats[(0, 0)]
+    R = BlockLinearOperator(col_fem.coeff_space, proj._V.coeff_space)
+    for (a, c), mat in mats.items():
+        if u_block and c_block:
+            R[a, c] = mat
+        elif u_block:
+            R[a, 0] = mat
+        else:
+            R[0, c] = mat
+    return R
+
+
 def assemble_by_probing(apply, domain, codomain):
     r"""Assemble a linear map between (block) stencil vector spaces, given only by its action, as a
     :class:`~feectools.linalg.stencil.StencilMatrix` (or a :class:`~feectools.linalg.block.BlockLinearOperator` of
@@ -2071,8 +2244,10 @@ def assemble_by_probing(apply, domain, codomain):
     """
     from itertools import product
 
+    import numpy as np
     from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
     from feectools.linalg.stencil import StencilMatrix
+    from maybempi import MPI
 
     cod_list = list(codomain) if isinstance(codomain, (list, tuple)) else [codomain]
     dom_block = isinstance(domain, BlockVectorSpace)
@@ -2138,10 +2313,17 @@ def assemble_by_probing(apply, domain, codomain):
         if not dom_block and not isinstance(W, BlockVectorSpace):
             out.append(m[0][0])
             continue
+        # blocks that are zero on all processes are left out (e.g. the diagonal of b -> T[b]^T l)
+        comm = dom_spaces[0].cart.global_comm
+        nonzero = np.array([[float(xp.abs(blk._data).max()) for blk in row] for row in m])
+        if comm is not None:
+            comm.Allreduce(MPI.IN_PLACE, nonzero, op=MPI.MAX)
+        nonzero = nonzero > 0.0
         op = BlockLinearOperator(domain, W)
         for a in range(len(Ws)):
             for b in range(len(dom_spaces)):
-                op[a, b] = m[a][b]
+                if nonzero[a, b]:
+                    op[a, b] = m[a][b]
         out.append(op)
     return out if isinstance(codomain, (list, tuple)) else out[0]
 
@@ -2185,8 +2367,8 @@ def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1
     if options.schur_precond != "StiffnessPreconditioner":
         return None
     unmet = list(unmet)
-    if options.solver not in ("pcg", "pbicgstab"):
-        unmet += ['solver="pcg" or "pbicgstab"']
+    if options.solver not in ("pcg", "pbicgstab", "rpbicgstab"):
+        unmet += ['solver="pcg", "pbicgstab" or "rpbicgstab"']
     if propagator.derham.polar_splines:
         unmet += ["tensor-product splines"]
     if propagator.derham.with_local_projectors:

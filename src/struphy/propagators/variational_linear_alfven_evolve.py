@@ -138,9 +138,11 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         weights : {"frozen", "midpoint"}, default="midpoint"
             Weight of the second-order term: :math:`\mathbf b^n` (first order in time) or :math:`\mathbf b^{n+1/2}`
             (second order, with the assembled map :math:`\mathbb R`).
-        solver : {"pcg", "pcg_sr", "cg", "pbicgstab"}, default=None
-            Linear solver of the Schur system; None gives ``"pcg"`` for ``weights="frozen"`` and ``"pbicgstab"`` for
-            ``weights="midpoint"``, whose Schur complement is not symmetric (only ``"pbicgstab"``).
+        solver : {"pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"}, default=None
+            Linear solver of the Schur system; None gives ``"pcg"`` for ``weights="frozen"`` and ``"rpbicgstab"``
+            (BiCGStab with right preconditioning, see :class:`~struphy.linear_algebra.schur_solver.SchurSolverFull`)
+            for ``weights="midpoint"``, whose Schur complement is not symmetric (only ``"rpbicgstab"`` or
+            ``"pbicgstab"``).
         precond : {"MassMatrixPreconditioner", None}, default="MassMatrixPreconditioner"
             Preconditioner of the Schur system (of its velocity block).
         solver_params : SolverParameters, default=None
@@ -157,7 +159,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             Preconditioner of the Schur system: the one of ``precond`` (velocity block), or the Kronecker (fast
             diagonalization) preconditioner of the whole shear-Alfven Schur operator
             (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, rebuilt when the time step
-            changes). The latter needs ``solver="pcg"`` (or ``"pbicgstab"``), tensor-product splines and the global commuting projectors;
+            changes). The latter needs ``solver="pcg"`` (or ``"rpbicgstab"``, ``"pbicgstab"``), tensor-product splines and the global commuting projectors;
             otherwise ``precond`` is used (with a warning).
         exb_correction : bool, default=True
             For ``schur_precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
@@ -168,7 +170,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         OptsPrecond = Literal["MassMatrixPreconditioner", None]
         OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
         OptsWeights = Literal["frozen", "midpoint"]
-        OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab"]
+        OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"]
         # propagator options
         weights: OptsWeights = "midpoint"
         solver: OptsSolver = None
@@ -183,10 +185,10 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             # checks
             check_option(self.weights, self.OptsWeights)
             if self.solver is None:
-                self.solver = "pcg" if self.weights == "frozen" else "pbicgstab"
+                self.solver = "pcg" if self.weights == "frozen" else "rpbicgstab"
             check_option(self.solver, self.OptsSolver)
-            assert self.weights == "frozen" or self.solver == "pbicgstab", (
-                f'weights="midpoint" needs solver="pbicgstab" (not symmetric), got {self.solver!r}.'
+            assert self.weights == "frozen" or self.solver in ("pbicgstab", "rpbicgstab"), (
+                f'weights="midpoint" needs solver="rpbicgstab" or "pbicgstab" (not symmetric), got {self.solver!r}.'
             )
             check_option(self.precond, self.OptsPrecond)
             check_option(self.schur_precond, self.OptsSchurPrecond)

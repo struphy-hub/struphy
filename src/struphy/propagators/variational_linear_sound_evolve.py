@@ -187,11 +187,12 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         weights : {"frozen", "midpoint"}, default="midpoint"
             Weight of the second-order term: :math:`\mathbf s^n` (first order in time) or :math:`\mathbf s^{n+1/2}`
             (second order, with the assembled map :math:`\mathbb R`).
-        solver : {"pcg", "pcg_sr", "cg", "pbicgstab"}, default=None
+        solver : {"pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"}, default=None
             Linear solver of the Schur system (``"linear_q"``, or ``"linear_p"`` with midpoint weights) or of the
-            mass matrix (``"linear_p"``, frozen weight); None gives ``"pcg"`` for ``weights="frozen"`` and
-            ``"pbicgstab"`` for ``weights="midpoint"``, whose Schur complement is not symmetric (only
-            ``"pbicgstab"``).
+            mass matrix (``"linear_p"``, frozen weight, not ``"rpbicgstab"``); None gives ``"pcg"`` for
+            ``weights="frozen"`` and ``"rpbicgstab"`` (BiCGStab with right preconditioning, see
+            :class:`~struphy.linear_algebra.schur_solver.SchurSolverFull`) for ``weights="midpoint"``, whose Schur
+            complement is not symmetric (only ``"rpbicgstab"`` or ``"pbicgstab"``).
         precond : {"MassMatrixPreconditioner", None}, default="MassMatrixPreconditioner"
             Preconditioner of the linear solve (of the velocity block).
         solver_params : SolverParameters, default=None
@@ -210,7 +211,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         OptsModel = Literal["linear_q", "linear_p"]
         OptsPrecond = Literal["MassMatrixPreconditioner", None]
         OptsWeights = Literal["frozen", "midpoint"]
-        OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab"]
+        OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"]
         # propagator options
         model: OptsModel = "linear_q"
         gamma: float = 5.0 / 3.0
@@ -226,10 +227,13 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             check_option(self.model, self.OptsModel)
             check_option(self.weights, self.OptsWeights)
             if self.solver is None:
-                self.solver = "pcg" if self.weights == "frozen" else "pbicgstab"
+                self.solver = "pcg" if self.weights == "frozen" else "rpbicgstab"
             check_option(self.solver, self.OptsSolver)
-            assert self.weights == "frozen" or self.solver == "pbicgstab", (
-                f'weights="midpoint" needs solver="pbicgstab" (not symmetric), got {self.solver!r}.'
+            assert self.weights == "frozen" or self.solver in ("pbicgstab", "rpbicgstab"), (
+                f'weights="midpoint" needs solver="rpbicgstab" or "pbicgstab" (not symmetric), got {self.solver!r}.'
+            )
+            assert not (self.model == "linear_p" and self.weights == "frozen" and self.solver == "rpbicgstab"), (
+                '"rpbicgstab" is a solver of the Schur system, not of the mass matrix ("linear_p", frozen weight).'
             )
             check_option(self.precond, self.OptsPrecond)
             assert self.gamma > 1.0, f"gamma must be larger than 1, got {self.gamma}."
