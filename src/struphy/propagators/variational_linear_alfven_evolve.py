@@ -134,6 +134,11 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             the norm of the residual at :math:`t^n`.
         info : bool, default=False
             Log the information of the linear solver in every step.
+        relative_tol : bool, default=True
+            Whether the tolerance of ``solver_params`` is relative to the norm of the right-hand side (the residual at
+            :math:`t^n`, normalized before the solve), or absolute, as in the non-variational propagators (e.g.
+            :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`). The energy is conserved up
+            to the residual of the linear solve.
         schur_precond : {"MassMatrixPreconditioner", "StiffnessPreconditioner"}, default="MassMatrixPreconditioner"
             Preconditioner of the Schur system: the one of ``precond`` (velocity block), or the Kronecker (fast
             diagonalization) preconditioner of the whole shear-Alfven Schur operator
@@ -153,6 +158,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         precond: OptsPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         info: bool = False
+        relative_tol: bool = True
         schur_precond: OptsSchurPrecond = "MassMatrixPreconditioner"
         exb_correction: bool = True
 

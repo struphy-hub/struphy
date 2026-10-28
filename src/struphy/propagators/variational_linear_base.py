@@ -117,11 +117,15 @@ class VariationalLinearEvolve(Propagator):
 
     def _solve_increment(self, dt: float, f_u, f_x):
         r"""The increment :math:`\mathbb J^{-1} (\mathbf f_u, \mathbf f_x)`, solved for the normalized right-hand side
-        (the tolerance of the linear solver is relative to it)."""
+        if ``options.relative_tol`` (the tolerance of the linear solver is then relative to it), else as it is
+        (absolute tolerance)."""
         self._set_dt(dt)
         self._tmp_f[0] = f_u
         self._tmp_f[1] = f_x
-        incr = dot_normalized(self._inv_J, self._tmp_f, self._tmp_incr)
+        if self.options.relative_tol:
+            incr = dot_normalized(self._inv_J, self._tmp_f, self._tmp_incr)
+        else:
+            incr = self._inv_J.dot(self._tmp_f, out=self._tmp_incr)
         if self._info:
             logger.info(f"{self.__class__.__name__}, linear solver: {self._inv_J._solver._info}")
         return incr

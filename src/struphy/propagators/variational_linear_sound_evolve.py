@@ -176,6 +176,11 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             its norm.
         info : bool, default=False
             Log the information of the linear solver in every step.
+        relative_tol : bool, default=True
+            Whether the tolerance of ``solver_params`` is relative to the norm of the right-hand side (the residual at
+            :math:`t^n`, normalized before the solve), or absolute, as in the non-variational propagators (e.g.
+            :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`). The energy is conserved up
+            to the residual of the linear solve.
         """
 
         # specific literals
@@ -188,6 +193,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         precond: OptsPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         info: bool = False
+        relative_tol: bool = True
 
         def __post_init__(self):
             # checks
@@ -311,7 +317,10 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             f_u = self._SsT.dot(self._lf0, out=self._tmp_fu)
             f_u *= dt
             # normalized right-hand side: the tolerance of the linear solver is relative to it
-            incr = dot_normalized(self._inv_Mrho, f_u, self._tmp_fu2)
+            if self.options.relative_tol:
+                incr = dot_normalized(self._inv_Mrho, f_u, self._tmp_fu2)
+            else:
+                incr = self._inv_Mrho.dot(f_u, out=self._tmp_fu2)
             if self._info:
                 logger.info(f"{self.__class__.__name__}, linear solver: {self._inv_Mrho._info}")
             un1 = un.copy(out=self._tmp_un1)
