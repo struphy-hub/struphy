@@ -147,7 +147,7 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         field_energy = FunctionScalarFEEC(self._compute_en_phi)
         phi_integral_ITGtest = FunctionScalarFEEC(self._compute_phi_integral_ITGtest)
         particle_kinetic = KineticEnergyPIC(self.kinetic_ions.var)
-        particle_magnetic = FunctionScalarPIC(self._compute_en_particle_magnetic, self.kinetic_ions.var)
+        particle_magnetic = FunctionScalarPIC(self._compute_en_fB, self.kinetic_ions.var)
         particle_energy = particle_kinetic + particle_magnetic
         self.scalars = Scalars(
             phi_integral=phi_integral_ITGtest,
@@ -204,14 +204,6 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         self.phi_squared_averaged_feec.spline.vector = self.phi_squared_average
         return self.phi_squared_averaged_feec.spline(0.5, 0.5, 0.5)[0, 0, 0]
 
-    def _compute_en_particle_magnetic(self):
-        particles = self.kinetic_ions.var.particles
-        particles.save_magnetic_background_energy()
-        # The weights (column 5) already carry the 1/N_p of the Monte-Carlo estimate, see KineticEnergyPIC.
-        # only the two columns needed, not the whole rows of the valid markers
-        valid_mks = particles.valid_mks
-        return particles.markers[5, valid_mks].dot(particles.markers[8, valid_mks])
-
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
@@ -229,6 +221,7 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+        return params_path
 
     @classmethod
     def doc_pde(cls):
@@ -277,6 +270,17 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         - Field energy: ``en_phi``
         - Guiding-center particle energy: ``en_particles``
         - Total energy: ``en_tot``"""
+
+    @classmethod
+    def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence).
+        The Poisson solve sits between the two pushers, which both move the guiding centers. With Strang
+        splitting, bxe(dt/2), poisson, para(dt), poisson, bxe(dt/2), the parallel push and the closing bxe(dt/2) use a
+        freshly solved potential; the two bxe(dt/2) at a step boundary act as one bxe(dt) with the potential solved
+        before it. With Lie-Trotter splitting the parallel push uses a fresh potential and the E* x b push the one of
+        the previous step. Since a time step ends with a push, the saved potential and ``en_phi`` belong to the marker
+        positions before that last push."""
+        return cls.propagators_doc()
 
     @classmethod
     def doc_long_description(cls):

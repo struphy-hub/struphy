@@ -115,3 +115,22 @@ def test_renamed_propagators_in_old_metadata():
     dct["propagator_options"]["push_para"] = dct["propagator_options"].pop("push_parallel")
     restored = StruphyModel.from_dict(dct)
     assert restored.propagators.push_parallel.options.algo == "explicit"
+
+
+@pytest.mark.mpi_skip
+def test_renamed_propagators_of_dkea_in_old_metadata():
+    from struphy.models import DriftKineticElectrostaticAdiabatic
+    from struphy.models.base import StruphyModel
+
+    model = DriftKineticElectrostaticAdiabatic()
+    model.propagators.push_bxe.options = model.propagators.push_bxe.Options(algo="explicit")
+    model.propagators.push_parallel.options = model.propagators.push_parallel.Options(algo="explicit")
+    dct = model.to_dict()
+
+    # metadata written before push_gc_bxe and push_gc_para were renamed
+    options = dct["propagator_options"]
+    options["push_gc_bxe"] = options.pop("push_bxe")
+    options["push_gc_para"] = options.pop("push_parallel")
+    restored = StruphyModel.from_dict(dct)
+    assert restored.propagators.push_bxe.options.algo == "explicit"
+    assert restored.propagators.push_parallel.options.algo == "explicit"

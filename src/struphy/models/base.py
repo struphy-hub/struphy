@@ -68,12 +68,11 @@ _REMOVED_MODEL_FLAGS = {
 }
 
 
-# propagators of the guiding-center models renamed to the names of GuidingCenter (old name -> new name),
+# propagators of the guiding-center models renamed to the names of GuidingCenter, per model (old name -> new name),
 # for the propagator options in old run metadata
 _RENAMED_PROPAGATORS = {
-    "push_gc_bxe": "push_bxe",
-    "push_gc_para": "push_parallel",
-    "push_para": "push_parallel",
+    "DriftKineticElectrostaticAdiabatic": {"push_gc_bxe": "push_bxe", "push_gc_para": "push_parallel"},
+    "DriftKineticMaxwell": {"push_para": "push_parallel"},
 }
 
 
@@ -1174,8 +1173,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             return value
 
         for prop_name, options in dct.get("propagator_options", {}).items():
-            if not hasattr(model.propagators, prop_name):
-                prop_name = _RENAMED_PROPAGATORS.get(prop_name, prop_name)
+            prop_name = _RENAMED_PROPAGATORS.get(dct["model"], {}).get(prop_name, prop_name)
             propagator = getattr(model.propagators, prop_name, None)
             if propagator is not None:
                 restore_option(options, propagator.options)

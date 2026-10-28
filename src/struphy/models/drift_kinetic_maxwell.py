@@ -265,6 +265,24 @@ class DriftKineticMaxwell(GuidingCenter):
         - Total energy: ``en_tot`` (conserved by the coupling step up to the solver tolerance)"""
 
     @classmethod
+    def doc_discretization(cls):
+        r"""Time integration is performed by the following propagators (in sequence).
+        Each term of the drift-kinetic equation is applied by exactly one propagator; the parallel electric
+        force only by the coupling step (the model passes no potential and no electric field to ``push_parallel``, and
+        asserts this):
+
+        - :math:`\dot v_\parallel \ni \frac{1}{\varepsilon} \mathbf b^* \cdot \mathbf E`: coupling step
+          (``push_vpar_with_efield``);
+        - :math:`\dot v_\parallel \ni -\mu\, \mathbf b^* \cdot \nabla |B|` (mirror force): ``push_parallel``;
+        - :math:`\dot{\mathbf X} \ni v_\parallel \mathbf b^*` (streaming, curvature drift): ``push_parallel``; its
+          current enters Ampère's law in the coupling step;
+        - :math:`\dot{\mathbf X} \ni \mathbf E \times \mathbf b_0 / B^*_\parallel`: ``push_bxe``; its current
+          enters Ampère's law in the coupling step (option ``exb_current``);
+        - :math:`\dot{\mathbf X} \ni -\varepsilon \mu \nabla |B| \times \mathbf b_0 / B^*_\parallel`
+          (grad-:math:`B` drift): ``push_bxe``; its current is not included."""
+        return cls.propagators_doc()
+
+    @classmethod
     def doc_long_description(cls):
         r"""DriftKineticMaxwell couples one drift-kinetic (guiding-center) species to Maxwell's equations in the
         gauge-invariant :math:`v_\parallel` formulation (the electric field, not a potential, enters
