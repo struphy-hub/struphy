@@ -48,14 +48,14 @@ class Magnetosonic(Propagator):
     .. math::
 
         \dot{\mathbf n} = - \mathbb D \mathbb Q^\alpha \mathbf u\,, \qquad
-        \mathbb M^\alpha_{\rho_0} \dot{\mathbf u} = (\mathbb D \mathbb U^\alpha)^\top \mathbb M^3 \mathbf p + \mathbb M^{\alpha\beta}_{\mathbf J_0 \times} \mathbf b\,, \qquad
+        \mathbb M^\alpha_{\rho_0} \dot{\mathbf u} = (\mathbb D \mathbb U^\alpha)^\top \mathbb M^3 \mathbf p + \mathbb M^{\alpha\beta}_{J_0} \mathbf b\,, \qquad
         \dot{\mathbf p} = - \left(\mathbb D \mathbb S^\alpha + \frac 23 \mathbb K^3 \mathbb D \mathbb U^\alpha\right) \mathbf u\,,
 
     with the discrete divergence :math:`\mathbb D` (:attr:`~struphy.feec.psydac_derham.Derham.div`), the mass matrix
     :math:`\mathbb M^3` (:attr:`~struphy.feec.mass.WeightedMassOperators.M3`), the density-weighted mass matrix
     :math:`\mathbb M^\alpha_{\rho_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1n`,
     :attr:`~struphy.feec.mass.WeightedMassOperators.M2n`, :attr:`~struphy.feec.mass.WeightedMassOperators.Mvn`), the
-    current mass matrix :math:`\mathbb M^{\alpha\beta}_{\mathbf J_0 \times}` of :math:`\int (\mathbf J_0 \times \mathbf W) \cdot \mathbf V
+    current mass matrix :math:`\mathbb M^{\alpha\beta}_{J_0}` of :math:`\int (\mathbf J_0 \times \mathbf W) \cdot \mathbf V
     \,\textnormal d \mathbf x`, :math:`\mathbf J_0 = \nabla \times \mathbf B_0`
     (:attr:`~struphy.feec.mass.WeightedMassOperators.M1J`, :attr:`~struphy.feec.mass.WeightedMassOperators.M2J`,
     :attr:`~struphy.feec.mass.WeightedMassOperators.MvJ`; :attr:`~struphy.feec.mass.WeightedMassOperators.M21J` for

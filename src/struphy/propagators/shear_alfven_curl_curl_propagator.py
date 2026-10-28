@@ -50,13 +50,13 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
 
     .. math::
 
-        \mathbb M^2_{\rho_0} \dot{\mathbf u} = - \mathbb M^2_{\mathbf B_0 \times} \mathbb C \mathbf b\,, \qquad
-        \mathbb M^1 \dot{\mathbf b} = - \mathbb C^\top \mathbb M^2_{\mathbf B_0 \times} \mathbf u\,,
+        \mathbb M^2_{\rho_0} \dot{\mathbf u} = - \mathbb M^2_{B_0} \mathbb C \mathbf b\,, \qquad
+        \mathbb M^1 \dot{\mathbf b} = - \mathbb C^\top \mathbb M^2_{B_0} \mathbf u\,,
 
     with the discrete curl :math:`\mathbb C` (:attr:`~struphy.feec.psydac_derham.Derham.curl`), the mass matrix
     :math:`\mathbb M^1` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1`), the mass matrix of
     2-forms weighted with the density :math:`\mathbb M^2_{\rho_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2n`) and the antisymmetric
-    mass matrix :math:`\mathbb M^2_{\mathbf B_0 \times}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2B`) of
+    mass matrix :math:`\mathbb M^2_{B_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2B`) of
     :math:`\int (\mathbf B_0 \times \mathbf W) \cdot \mathbf V \,\textnormal d \mathbf x`. This is the semi-discrete
     system of :class:`~struphy.propagators.shear_alfven_b1.ShearAlfvenB1`. It conserves the perturbed energy
     :math:`\frac 12 \mathbf u^\top \mathbb M^2_{\rho_0} \mathbf u + \frac 12 \mathbf b^\top \mathbb M^1 \mathbf b`.
@@ -70,7 +70,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
 
       .. math::
 
-          S = \mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top (\mathbb M^2_{\mathbf B_0 \times})^\top (\mathbb M^2_{\rho_0})^{-1} \mathbb M^2_{\mathbf B_0 \times} \mathbb C\,,
+          S = \mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top (\mathbb M^2_{B_0})^\top (\mathbb M^2_{\rho_0})^{-1} \mathbb M^2_{B_0} \mathbb C\,,
 
       where :math:`(\mathbb M^2_{\rho_0})^{-1}` is an inner iterative solve (``solver_M2n``, ``precond_M2n``). The
       curl-curl operator with :math:`\mathbb M^2_\perp` below is not spectrally equivalent to :math:`S`
@@ -87,7 +87,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
 
           \left(\mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^2_\perp \mathbb C\right) \mathbf b^{n+1}
           = \left(\mathbb M^1 - \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^2_\perp \mathbb C\right) \mathbf b^n
-          - \Delta t \, \mathbb C^\top \mathbb M^2_{\mathbf B_0 \times} \mathbf u^n\,,
+          - \Delta t \, \mathbb C^\top \mathbb M^2_{B_0} \mathbf u^n\,,
 
       with the mass matrix :math:`\mathbb M^2_\perp` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2gyro`) of
       :math:`\int \frac{1}{\rho_0} (\mathbf B_0 \times \mathbf W) \cdot (\mathbf B_0 \times \mathbf V) \,\textnormal d \mathbf x`,
@@ -95,7 +95,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
       :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|`, acts perpendicular to :math:`\mathbf B_0` (here
       :math:`\mathbf W = \nabla \times \tilde{\mathbf B}`, :math:`\mathbf V = \nabla \times \mathbf C`).
       The velocity is then updated with the projection,
-      :math:`\mathbf u^{n+1} = \mathbf u^n - \frac{\Delta t}{2} (\mathbb M^2_{\rho_0})^{-1} \mathbb M^2_{\mathbf B_0 \times} \mathbb C (\mathbf b^{n+1} + \mathbf b^n)`.
+      :math:`\mathbf u^{n+1} = \mathbf u^n - \frac{\Delta t}{2} (\mathbb M^2_{\rho_0})^{-1} \mathbb M^2_{B_0} \mathbb C (\mathbf b^{n+1} + \mathbf b^n)`.
       The perturbed energy does not increase, but is not exactly conserved (the projection error of the Lorentz force
       enters): numerical damping that vanishes with the resolution along :math:`\mathbf B_0`. The system is solved
       by :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with :math:`x = \mathbf b`, :math:`y = \mathbf u`.
