@@ -197,14 +197,15 @@ def _append_propagator_links(app, what, name, obj, options, lines):
     """Append the propagators of a model in splitting order to the docstring of ``doc_discretization``.
 
     The list is generated from the model's ``Propagators`` (see ``StruphyModel.propagators_links``), so that inherited
-    models show their own propagators. Docstrings that already list the propagators are left as they are.
+    models show their own propagators. Docstrings that already list the propagators (a numbered list starting with
+    ``1. :class:`~struphy.propagators.``) are left as they are.
     """
     if not name.endswith(".doc_discretization"):
         return
     model = getattr(obj, "__self__", None)
     if model is None or not hasattr(model, "propagators_links"):
         return
-    if any(":class:`~struphy.propagators." in line for line in lines):
+    if any(line.strip().startswith("1. :class:`~struphy.propagators.") for line in lines):
         return
     try:
         links = model.propagators_links()

@@ -98,6 +98,11 @@ class InitialPoissonMixin:
         conserves) minus the constant offset :math:`\boldsymbol \rho_\textnormal{full}(0) - \boldsymbol \rho_{\delta f}(0)`
         of the initial solve, which used the delta-f weights. Since :math:`\mathbf e = -\mathbb G \boldsymbol \phi` it
         vanishes at :math:`t=0`, up to the net charge (the kernel of the periodic Poisson problem)."""
+        if not hasattr(self, "charge_accum"):
+            raise RuntimeError(
+                f"{type(self).__name__}: the Gauss-law diagnostic is not prepared, call _setup_gauss_law() in "
+                "post_allocate (e.g. with measure_gauss_law=True)."
+            )
         particles = self.kinetic_ions.var.particles
         if particles.control_variate:
             particles.update_weights()

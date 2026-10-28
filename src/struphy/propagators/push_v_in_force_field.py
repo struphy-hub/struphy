@@ -146,8 +146,11 @@ class PushVinForceField(Propagator):
             self.force_vector = self.derham.grad.dot(self.potential_vector)
             self.force_vector *= -1.0
             self.force_vector.update_ghost_regions()
-        else:
+        elif self.magnetic_moment:
             self.force_vector = self.derham.V1.zeros()
+        else:
+            # no force: the propagator does nothing
+            return
 
         # instantiate Pusher
         args_kernel = (

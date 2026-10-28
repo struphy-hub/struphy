@@ -66,7 +66,7 @@ def test_splitting_order_set_in_init():
 def test_invalid_splitting_order(order):
     props = _Child.Propagators()
     props.splitting_order = order
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         apply_splitting_order(props)
 
 
@@ -82,3 +82,21 @@ def test_model_propagators_in_splitting_order():
     # the documentation lists the propagators in splitting order
     links = VlasovMaxwellOneSpecies.propagators_links().splitlines()
     assert [line.split("``")[1] for line in links] == ["maxwell", "push_eta", "push_vxb", "coupling_va"]
+
+
+@pytest.mark.mpi_skip
+def test_removed_model_flags_in_old_metadata():
+    from struphy.models import VlasovAmpereOneSpecies
+    from struphy.models.base import _drop_removed_model_flags
+
+    params = {"alpha": 1.0, "with_B0": False}
+    _drop_removed_model_flags("VlasovAmpereOneSpecies", params)
+    assert params == {"alpha": 1.0}
+    VlasovAmpereOneSpecies(**params)
+
+    params = {"with_poisson": True}
+    _drop_removed_model_flags("VlasovPoissonAdiabaticPauli", params)
+    assert params == {}
+
+    with pytest.raises(ValueError, match="VlasovPauli"):
+        _drop_removed_model_flags("VlasovPoissonAdiabaticPauli", {"with_poisson": False})

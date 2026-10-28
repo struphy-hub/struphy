@@ -50,12 +50,38 @@ def apply_splitting_order(propagators) -> None:
 
     order = tuple(order)
     names = tuple(attrs)
-    assert len(set(order)) == len(order) and set(order) == set(names), (
-        f"splitting_order {order} of {type(propagators).__qualname__} must contain each propagator {names} once."
-    )
+    if len(set(order)) != len(order) or set(order) != set(names):
+        raise ValueError(
+            f"splitting_order {order} of {type(propagators).__qualname__} must contain each propagator {names} once."
+        )
     reordered = {name: attrs[name] for name in order}
     attrs.clear()
     attrs.update(reordered)
+
+
+# model flags that switched propagators (terms of the equations) on or off, removed in favour of models defined by
+# their equations (see "Models are defined by their equations" in the developer guide), with a hint for old metadata
+_REMOVED_MODEL_FLAGS = {
+    "with_B0": "the Lorentz force of the equilibrium magnetic field is always included (none without equil)",
+    "with_E0": "the background electric field force is always included (none without background field)",
+    "with_poisson": "for VlasovPoissonAdiabaticPauli(with_poisson=False) use the model VlasovPauli",
+}
+
+
+def _drop_removed_model_flags(model_name: str, params: dict) -> None:
+    """Remove the obsolete flags ``with_B0``, ``with_E0`` and ``with_poisson`` from the model parameters of run
+    metadata written before they were removed, with a warning. The propagators of ``with_B0`` and ``with_E0`` are
+    now always included and do nothing without background field; ``with_poisson=False`` raises an error."""
+    from struphy.models.utils import get_model_by_name
+
+    accepted = inspect.signature(get_model_by_name(model_name).__init__).parameters
+    for flag, hint in _REMOVED_MODEL_FLAGS.items():
+        if flag not in params or flag in accepted:
+            continue
+        value = params.pop(flag)
+        if flag == "with_poisson" and not value:
+            raise ValueError(f"{model_name}({flag}={value}) has been removed: {hint}.")
+        logger.warning(f"Ignoring the removed parameter {flag}={value} of {model_name}: {hint}.")
 
 
 class StruphyModelMeta(ABCMeta):
@@ -1082,6 +1108,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             if isinstance(value, dict) and set(value) == {"BaseUnits"}:
                 value = BaseUnits.from_dict(value["BaseUnits"])
             params[key] = value
+        _drop_removed_model_flags(dct["model"], params)
         model = get_model_by_name(dct["model"])(**params)
 
         parameter_types = {
