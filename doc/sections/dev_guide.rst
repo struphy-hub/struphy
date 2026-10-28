@@ -98,6 +98,15 @@ model documentation (``doc_discretization``), so together they describe the mode
    Runge-Kutta with Butcher tableau, discrete gradient, analytic solution), each with its update formula,
    the option that selects it and the linear or nonlinear solver it requires.
 
+**Notation of mass matrices.** Mass matrices are written as :math:`\mathbb M^\alpha_{w}`: the superscript
+:math:`\alpha \in \{0, 1, 2, 3\}` denotes the space of the de Rham sequence (:math:`v` for :math:`(H^1)^3`, two
+indices such as :math:`\mathbb M^{21}` for mixed matrices), the subscript :math:`w` the weight under the integral, e.g.
+:math:`\mathbb M^2_{\rho_0}` for :math:`\int \rho_0 \mathbf W \cdot \mathbf V \,\textnormal d \mathbf x` or
+:math:`\mathbb M^2_{\mathbf B_0 \times}` for :math:`\int (\mathbf B_0 \times \mathbf W) \cdot \mathbf V \,\textnormal d \mathbf x`.
+Unweighted mass matrices have no subscript (:math:`\mathbb M^1`). The space is always the superscript and the weight
+always the subscript; give the corresponding attribute of
+:class:`~struphy.feec.mass.WeightedMassOperators` (e.g. ``M2n``, ``M2B``) next to it.
+
 
 .. toctree::
    :maxdepth: 1

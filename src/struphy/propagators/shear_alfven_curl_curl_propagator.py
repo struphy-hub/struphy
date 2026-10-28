@@ -50,16 +50,16 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
 
     .. math::
 
-        \mathbb M^{2,n} \dot{\mathbf u} = - \mathbb M^{2,B} \mathbb C \mathbf b\,, \qquad
-        \mathbb M^1 \dot{\mathbf b} = - \mathbb C^\top \mathbb M^{2,B} \mathbf u\,,
+        \mathbb M^2_{\rho_0} \dot{\mathbf u} = - \mathbb M^2_{\mathbf B_0 \times} \mathbb C \mathbf b\,, \qquad
+        \mathbb M^1 \dot{\mathbf b} = - \mathbb C^\top \mathbb M^2_{\mathbf B_0 \times} \mathbf u\,,
 
     with the discrete curl :math:`\mathbb C` (:attr:`~struphy.feec.psydac_derham.Derham.curl`), the mass matrix
-    :math:`\mathbb M^1` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1`), the density-weighted mass matrix of
-    2-forms :math:`\mathbb M^{2,n}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2n`) and the antisymmetric
-    mass matrix :math:`\mathbb M^{2,B}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2B`) of
+    :math:`\mathbb M^1` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1`), the mass matrix of
+    2-forms weighted with the density :math:`\mathbb M^2_{\rho_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2n`) and the antisymmetric
+    mass matrix :math:`\mathbb M^2_{\mathbf B_0 \times}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2B`) of
     :math:`\int (\mathbf B_0 \times \mathbf W) \cdot \mathbf V \,\textnormal d \mathbf x`. This is the semi-discrete
     system of :class:`~struphy.propagators.shear_alfven_b1.ShearAlfvenB1`. It conserves the perturbed energy
-    :math:`\frac 12 \mathbf u^\top \mathbb M^{2,n} \mathbf u + \frac 12 \mathbf b^\top \mathbb M^1 \mathbf b`.
+    :math:`\frac 12 \mathbf u^\top \mathbb M^2_{\rho_0} \mathbf u + \frac 12 \mathbf b^\top \mathbb M^1 \mathbf b`.
 
     **Time discretization.** Selected by ``Options.algo`` and the constructor argument ``projected``:
 
@@ -70,10 +70,10 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
 
       .. math::
 
-          S = \mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top (\mathbb M^{2,B})^\top (\mathbb M^{2,n})^{-1} \mathbb M^{2,B} \mathbb C\,,
+          S = \mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top (\mathbb M^2_{\mathbf B_0 \times})^\top (\mathbb M^2_{\rho_0})^{-1} \mathbb M^2_{\mathbf B_0 \times} \mathbb C\,,
 
-      where :math:`(\mathbb M^{2,n})^{-1}` is an inner iterative solve (``solver_M2n``, ``precond_M2n``). The
-      curl-curl operator with :math:`\mathbb M^{2,\textnormal{gyro}}` below is not spectrally equivalent to :math:`S`
+      where :math:`(\mathbb M^2_{\rho_0})^{-1}` is an inner iterative solve (``solver_M2n``, ``precond_M2n``). The
+      curl-curl operator with :math:`\mathbb M^2_\perp` below is not spectrally equivalent to :math:`S`
       (it overestimates :math:`S` on the fields whose Lorentz force is removed by the projection), so
       ``precond="HiptmairXu"`` does not pay off here; ``precond="auto"`` (default) selects the mass matrix
       preconditioner.
@@ -85,14 +85,17 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
 
       .. math::
 
-          \left(\mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^{2,\textnormal{gyro}} \mathbb C\right) \mathbf b^{n+1}
-          = \left(\mathbb M^1 - \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^{2,\textnormal{gyro}} \mathbb C\right) \mathbf b^n
-          - \Delta t \, \mathbb C^\top \mathbb M^{2,B} \mathbf u^n\,,
+          \left(\mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^2_\perp \mathbb C\right) \mathbf b^{n+1}
+          = \left(\mathbb M^1 - \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^2_\perp \mathbb C\right) \mathbf b^n
+          - \Delta t \, \mathbb C^\top \mathbb M^2_{\mathbf B_0 \times} \mathbf u^n\,,
 
-      with :attr:`~struphy.feec.mass.WeightedMassOperators.M2gyro`, the mass matrix of
-      :math:`\int \frac{1}{\rho_0} \left[(\nabla \times \mathbf C) \times \mathbf B_0\right] \cdot \left[(\nabla \times \tilde{\mathbf B}) \times \mathbf B_0\right] \textnormal d \mathbf x`.
+      with the mass matrix :math:`\mathbb M^2_\perp` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2gyro`) of
+      :math:`\int \frac{1}{\rho_0} (\mathbf B_0 \times \mathbf W) \cdot (\mathbf B_0 \times \mathbf V) \,\textnormal d \mathbf x`,
+      whose weight :math:`\frac{|\mathbf B_0|^2}{\rho_0} (I - \mathbf b_0 \mathbf b_0^\top)`,
+      :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|`, acts perpendicular to :math:`\mathbf B_0` (here
+      :math:`\mathbf W = \nabla \times \tilde{\mathbf B}`, :math:`\mathbf V = \nabla \times \mathbf C`).
       The velocity is then updated with the projection,
-      :math:`\mathbf u^{n+1} = \mathbf u^n - \frac{\Delta t}{2} (\mathbb M^{2,n})^{-1} \mathbb M^{2,B} \mathbb C (\mathbf b^{n+1} + \mathbf b^n)`.
+      :math:`\mathbf u^{n+1} = \mathbf u^n - \frac{\Delta t}{2} (\mathbb M^2_{\rho_0})^{-1} \mathbb M^2_{\mathbf B_0 \times} \mathbb C (\mathbf b^{n+1} + \mathbf b^n)`.
       The perturbed energy does not increase, but is not exactly conserved (the projection error of the Lorentz force
       enters): numerical damping that vanishes with the resolution along :math:`\mathbf B_0`. The system is solved
       by :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with :math:`x = \mathbf b`, :math:`y = \mathbf u`.

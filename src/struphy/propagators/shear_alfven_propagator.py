@@ -44,19 +44,19 @@ class ShearAlfvenPropagator(Propagator):
 
     .. math::
 
-        \mathbb M^{\alpha,n} \dot{\mathbf u} = (\mathbb T^\alpha)^\top \mathbb C^\top \mathbb M^2 \mathbf b\,, \qquad
+        \mathbb M^\alpha_{\rho_0} \dot{\mathbf u} = (\mathbb T^\alpha)^\top \mathbb C^\top \mathbb M^2 \mathbf b\,, \qquad
         \dot{\mathbf b} = - \mathbb C \mathbb T^\alpha \mathbf u\,,
 
     with the discrete curl :math:`\mathbb C` (:attr:`~struphy.feec.psydac_derham.Derham.curl`), the mass matrix
     :math:`\mathbb M^2` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2`), the density-weighted mass matrix
-    :math:`\mathbb M^{\alpha,n}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1n`,
+    :math:`\mathbb M^\alpha_{\rho_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1n`,
     :attr:`~struphy.feec.mass.WeightedMassOperators.M2n`, :attr:`~struphy.feec.mass.WeightedMassOperators.Mvn`)
     and the basis projection operator :math:`\mathbb T^\alpha \approx \hat \Pi^1[\mathbf B_0 \times \,\cdot\,]`
     (:attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.T1`,
     :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.T2`,
     :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Tv`). The induction equation holds exactly in
     :math:`V^2_h`, so the discrete divergence of :math:`\mathbf b` stays constant, and the system conserves the
-    perturbed energy :math:`\frac 12 \mathbf u^\top \mathbb M^{\alpha,n} \mathbf u + \frac 12 \mathbf b^\top \mathbb M^2 \mathbf b`.
+    perturbed energy :math:`\frac 12 \mathbf u^\top \mathbb M^\alpha_{\rho_0} \mathbf u + \frac 12 \mathbf b^\top \mathbb M^2 \mathbf b`.
 
     **Time discretization.** Selected by ``Options.algo``:
 
@@ -67,7 +67,7 @@ class ShearAlfvenPropagator(Propagator):
 
       .. math::
 
-          S = \mathbb M^{\alpha,n} + \frac{\Delta t^2}{4} (\mathbb T^\alpha)^\top \mathbb C^\top \mathbb M^2 \mathbb C \mathbb T^\alpha\,,
+          S = \mathbb M^\alpha_{\rho_0} + \frac{\Delta t^2}{4} (\mathbb T^\alpha)^\top \mathbb C^\top \mathbb M^2 \mathbb C \mathbb T^\alpha\,,
 
       solved by ``Options.solver`` with the preconditioner ``Options.precond`` (by default the Kronecker
       :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`; also multigrid or mass matrix
@@ -75,7 +75,7 @@ class ShearAlfvenPropagator(Propagator):
       :math:`\mathbf b^{n+1} = \mathbf b^n - \frac{\Delta t}{2} \mathbb C \mathbb T^\alpha (\mathbf u^{n+1} + \mathbf u^n)`.
     - ``algo="explicit"``: explicit Runge-Kutta method of the semi-discrete system, with the tableau
       ``Options.butcher`` (:class:`~struphy.ode.utils.ButcherTableau`); each stage inverts
-      :math:`\mathbb M^{\alpha,n}` with ``Options.solver``.
+      :math:`\mathbb M^\alpha_{\rho_0}` with ``Options.solver``.
     """
 
     class Variables:
@@ -132,7 +132,7 @@ class ShearAlfvenPropagator(Propagator):
         precond : LiteralOptions.OptsShearAlfvenPrecond, default="StiffnessPreconditioner"
             Preconditioner of the linear solve: of the mass-matrix block (``"MassMatrixPreconditioner"``,
             ``"PolarMassMatrixPreconditioner"``), or of the whole Schur operator
-            :math:`\mathbb M^{2,n} + \frac{\Delta t^2}{4} \mathbb T^\top \mathbb C^\top \mathbb M^2 \mathbb C \mathbb T`:
+            :math:`\mathbb M^2_{\rho_0} + \frac{\Delta t^2}{4} \mathbb T^\top \mathbb C^\top \mathbb M^2 \mathbb C \mathbb T`:
             a geometric multigrid V-cycle (``"MultiGrid"``,
             :class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`) or the Kronecker
             (fast diagonalization) preconditioner (``"StiffnessPreconditioner"``, the default,
