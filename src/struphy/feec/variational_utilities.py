@@ -2042,9 +2042,12 @@ def assemble_by_probing(apply, domain, codomain):
 
     The matrix must have the band of a stencil matrix of ``domain``: an entry :math:`(i, j)` is non-zero only for
     :math:`|j_d - i_d| \leq p_d` (modulo the number of points in periodic directions), with the pads :math:`p_d`. The
-    columns :math:`j` with :math:`j_d \equiv c_d` modulo :math:`m_d \geq 2 p_d + 1` (for each color :math:`c`) are
-    probed together, so the number of applications is :math:`\prod_d m_d` per block of the domain, independent of
-    the grid size. Each process assembles its own rows (``apply`` must be collective).
+    columns with the same color, at least :math:`2 p_d + 1` apart in each direction (also across the periodic
+    boundary), are probed together. The number of colors :math:`m_d` per direction is :math:`2 p_d + 1`, in periodic
+    directions at most :math:`2 (2 p_d + 1) - 1` (the remainder of the division of the number of points by
+    :math:`2 p_d + 1` gets its own colors, unless a divisor of the number of points is a smaller choice), so the
+    number of applications is :math:`\prod_d m_d` per block of the domain, independent of the grid size. Each process
+    assembles its own rows (``apply`` must be collective).
 
     Used for the auxiliary terms of the linear variational propagators, e.g.
     :math:`\mathbf p \mapsto \mathbb S[\mathbf p]^\top \hat l^3(1)`, which are linear in the weight of a transport
@@ -2080,19 +2083,27 @@ def assemble_by_probing(apply, domain, codomain):
     for b, V in enumerate(dom_spaces):
         assert all(s == 1 for s in V.shifts), "assemble_by_probing needs shifts 1."
         pads, npts, periods = V.pads, V.npts, V.periods
-        # number of colors per direction: 2p + 1, a divisor of the number of points if periodic (wrap-around)
-        ms = []
+        # color of each point per direction: g mod (2p + 1); if periodic, the n mod (2p + 1) last points get their own
+        # colors (same colors are then also 2p + 1 apart across the boundary), or g mod m with a divisor m of n
+        colmaps = []
         for p, n, per in zip(pads, npts, periods):
-            if per:
-                ms.append(next((m for m in range(2 * p + 1, n + 1) if n % m == 0), n))
-            else:
-                ms.append(min(2 * p + 1, n))
+            m0 = min(2 * p + 1, n)
+            g = xp.arange(n)
+            colmap = g % m0
+            if per and n % m0 != 0:
+                nfull = (n // m0) * m0
+                colmap = xp.where(g < nfull, g % m0, m0 + g - nfull)
+                m_div = next(m for m in range(m0, n + 1) if n % m == 0)
+                if m_div <= m0 + n - nfull:
+                    colmap = g % m_div
+            colmaps.append(colmap)
+        ms = [int(cm.max()) + 1 for cm in colmaps]
         loc_dom = [xp.arange(s, e + 1) for s, e in zip(V.starts, V.ends)]
 
         for color in product(*[range(m) for m in ms]):
             e = domain.zeros()
             eb = e[b] if dom_block else e
-            mask = [(g % m) == c for g, m, c in zip(loc_dom, ms, color)]
+            mask = [cm[g] == c for g, cm, c in zip(loc_dom, colmaps, color)]
             vals = xp.zeros(tuple(len(g) for g in loc_dom))
             vals[xp.ix_(*mask)] = 1.0
             eb[tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))] = vals
@@ -2106,11 +2117,11 @@ def assemble_by_probing(apply, domain, codomain):
                     rows = [xp.arange(s, e + 1) for s, e in zip(W.starts, W.ends)]
                     # offset k = j - i of the probed column of each row (the first one if several alias, periodic)
                     ks, valid = [], []
-                    for i, p, n, per, m, c in zip(rows, pads, npts, periods, ms, color):
+                    for i, p, n, per, cm, c in zip(rows, pads, npts, periods, colmaps, color):
                         k = xp.full(i.shape, 2 * p + 1)
                         for kk in range(p, -p - 1, -1):
                             j = i + kk
-                            ok = (j % m == c) if per else ((j >= 0) & (j < n) & (j % m == c))
+                            ok = (cm[j % n] == c) if per else ((j >= 0) & (j < n) & (cm[j % n] == c))
                             k[ok] = kk
                         ks.append(k)
                         valid.append(k <= p)

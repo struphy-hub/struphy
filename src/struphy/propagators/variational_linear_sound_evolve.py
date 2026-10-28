@@ -108,7 +108,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
     linear solve, with the (not symmetric) Schur complement
     :math:`\mathbb M^v[\hat\rho_0] + \frac{\Delta t^2}{2(\gamma - 1)} (\mathbb S[q_0]^\top \mathbb M^3 +
     \mathbb S[\cdot]^\top \mathbb M^3 \mathbf q_0)\, \mathbb S[q_0]`, respectively
-    :math:`\mathbb M^v[\hat\rho_0] - \frac{\Delta t^2}{4 (\gamma - 1)} \mathbb S[\cdot]^\top \hat l^3(1)\,
+    :math:`\mathbb M^v[\hat\rho_0] + \frac{\Delta t^2}{4 (\gamma - 1)} \mathbb S[\cdot]^\top \hat l^3(1)\,
     \mathbb S[p_0]`; the sound waves are then implicit for ``"linear_p"`` too. The step is energy conserving and
     second order in time (implicit midpoint rule), without the numerical damping (``"linear_q"``) or growth
     (``"linear_p"``) of the frozen weight.
@@ -354,13 +354,12 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
                 M3s = self.mass_ops.M3.dot(sn, out=self._tmp_M3s)
                 M3s *= -2.0 / (self._gamma - 1.0)
                 f_u = self._S0T.dot(M3s, out=self._tmp_fu)
+                if self._midpoint:
+                    f_u += self._R.dot(sn, out=self._tmp_fu2)
+                else:
+                    f_u += self._SsT.dot(self._lf0, out=self._tmp_fu2)
             else:
-                f_u = self._tmp_fu
-                f_u *= 0.0
-            if self._midpoint:
-                f_u += self._R.dot(sn, out=self._tmp_fu2)
-            else:
-                f_u += self._SsT.dot(self._lf0, out=self._tmp_fu2)
+                f_u = self._R.dot(sn, out=self._tmp_fu)
             f_u *= dt
             f_s = self._S0.dot(un, out=self._tmp_fs)
             f_s *= dt

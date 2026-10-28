@@ -80,11 +80,43 @@ def _random(V, rng):
     return v
 
 
+@pytest.mark.parametrize("bcs", [(None, None, None), (("dirichlet", "dirichlet"), None, None)])
+def test_assemble_by_probing(bcs):
+    """A random stencil matrix, assembled from its action: periodic directions whose number of points is a multiple
+    of 2p + 1 (10, p = 2), or not (13, p = 2: extra colors for the remainder), and a non-periodic direction."""
+    from feectools.linalg.stencil import StencilMatrix
+    from maybempi import MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.variational_utilities import assemble_by_probing
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(
+        TensorProductGrid(num_elements=[10, 13, 4]), DerhamOptions(degree=[2, 2, 1], bcs=bcs), comm=MPI.COMM_WORLD
+    )
+    V = derham.fem_spaces["H1"].coeff_space
+    rng = np.random.default_rng(MPI.COMM_WORLD.Get_rank())
+    M = StencilMatrix(V, V)
+    # random entries in the rows of the process only (not in the ghost rows)
+    rows = tuple(slice(p, p + e - s + 1) for p, s, e in zip(V.pads, V.starts, V.ends))
+    M._data[rows] = rng.standard_normal(M._data[rows].shape)
+    # no columns outside of the domain in the non-periodic direction
+    M.remove_spurious_entries()
+    A = assemble_by_probing(M.dot, V, V)
+    for _ in range(2):
+        x = _random(V, rng)
+        d = A.dot(x) - M.dot(x)
+        y = M.dot(x)
+        assert np.sqrt(d.inner(d) / y.inner(y)) < 1e-13
+
+
 @pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
-def test_weight_map(u_space: str):
+@pytest.mark.parametrize("thermo", ["q", "p"])
+def test_weight_map(u_space: str, thermo: str):
     """The assembled maps b -> T[b]^T l and s -> S[s]^T l (Hdiv0_transport_operator.weight_map,
     Pressure_transport_operator.weight_map) agree with the operators with updated weights."""
-    model = _setup("q", u_space, weights="frozen")
+    model = _setup(thermo, u_space, weights="frozen")
     A, S = model.propagators.variat_lin_alfven, model.propagators.variat_lin_sound
     rng = np.random.default_rng(0)
     for op, lin_form in ((A._Tb.T, A._M2b0), (S._Ss.T, S._lf0)):
