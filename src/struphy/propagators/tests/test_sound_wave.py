@@ -138,6 +138,55 @@ def test_agrees_with_magnetosonic(tmp_path):
         assert diff < 1e-9
 
 
+def _changes(model, props, dt):
+    """Changes of u and p (as arrays) by the given propagators applied in sequence, and the change by each one."""
+    u = model.mhd.velocity.spline.vector
+    p = model.mhd.pressure.spline.vector
+    u0, p0 = u.toarray().copy(), p.toarray().copy()
+    single = []
+    for prop in props:
+        u_before, p_before = u.toarray().copy(), p.toarray().copy()
+        prop(dt)
+        single.append((u.toarray() - u_before, p.toarray() - p_before))
+    return u.toarray() - u0, p.toarray() - p0, single
+
+
+def _set_b_from_u(model):
+    """Magnetic field perturbation (2-form) equal to the velocity perturbation."""
+    b = model.mhd.velocity.spline.vector.copy(out=model.em_fields.b_field.spline.vector)
+    b.update_ghost_regions()
+
+
+def test_split_agrees_with_magnetosonic_inhomogeneous(tmp_path):
+    """In a sheared slab (grad p0 != 0, J0 != 0, rho0 non-uniform), one small step of the split propagators
+    (background current, sound wave, background pressure gradient) changes u and p like the magnetosonic step, up to
+    the difference of the spatial discretizations (weak vs. projected pressure equation) and O(dt^2). The background
+    steps contribute much more than this difference, so a wrong sign or operator in them fails the test."""
+    equil = equils.ShearedSlab(beta=1.0, n1=2.0, n2=1.0, na=0.5, R0=1.0)
+    bcs = (("free", "free"), None, None)
+    dt = 1e-3
+
+    model = allocate_model(tmp_path, "split_inhom", equil, split_sound=True, bcs=bcs, noise=False)
+    _set_b_from_u(model)
+    props = model.propagators
+    du_s, dp_s, single = _changes(model, (props.bg_current, props.sound, props.bg_pressure), dt)
+    du_current = single[0][0]
+    dp_gradient = single[2][1]
+
+    model = allocate_model(tmp_path, "combined_inhom", equil, split_sound=False, bcs=bcs, noise=False)
+    _set_b_from_u(model)
+    du_c, dp_c, _ = _changes(model, (model.propagators.mag_sonic,), dt)
+
+    def rel(a, b):
+        return xp.max(xp.abs(a)) / xp.max(xp.abs(b))
+
+    diff_u, diff_p = rel(du_s - du_c, du_c), rel(dp_s - dp_c, dp_c)
+    contrib_u, contrib_p = rel(du_current, du_c), rel(dp_gradient, dp_c)
+    print(f"{diff_u = :.2e}, {diff_p = :.2e}, {contrib_u = :.2e}, {contrib_p = :.2e}")
+    assert diff_u < 0.05 and diff_p < 0.05
+    assert contrib_u > 4 * diff_u and contrib_p > 4 * diff_p
+
+
 @pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
 def test_split_model_energy_homogeneous(tmp_path, b_space):
     """LinearMHD(split_sound=True) conserves the total perturbed energy in a homogeneous slab (the background steps

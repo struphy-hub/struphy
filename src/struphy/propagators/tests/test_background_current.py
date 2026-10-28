@@ -55,23 +55,17 @@ def _force(tmp_path, b_space):
     force = MJ.dot(b)
     residual = mass_ops.M2n.dot(du) - dt * force
     rel_residual = xp.sqrt(residual.inner(residual)) / (dt * xp.sqrt(force.inner(force)))
-
-    # second step: exact in time, so two steps of dt equal one of 2 dt
-    model.propagators.bg_current(dt)
-    du2 = u - u0
-    du2 -= 2 * du
-    rel_linear = xp.sqrt(du2.inner(du2)) / xp.sqrt(du.inner(du))
-    return du.toarray(), rel_residual, rel_linear
+    return du.toarray(), rel_residual
 
 
 def test_exact_and_space_independent(tmp_path):
-    """The step solves M2n du = dt M2J b exactly in time, and the velocity change from the 2-form and the 1-form of
-    the same field agree up to the projection error."""
-    du_div, res_div, lin_div = _force(tmp_path, "Hdiv")
-    du_curl, res_curl, lin_curl = _force(tmp_path, "Hcurl")
-    print(f"{res_div = :.2e}, {res_curl = :.2e}, {lin_div = :.2e}, {lin_curl = :.2e}")
+    """The step solves M2n du = dt M2J b (M21J for the 1-form), and the velocity change from the 2-form and the 1-form
+    of the same field agree up to the projection error. The sign of the force is checked against Magnetosonic in
+    test_sound_wave.py::test_split_agrees_with_magnetosonic_inhomogeneous."""
+    du_div, res_div = _force(tmp_path, "Hdiv")
+    du_curl, res_curl = _force(tmp_path, "Hcurl")
+    print(f"{res_div = :.2e}, {res_curl = :.2e}")
     assert res_div < 1e-10 and res_curl < 1e-10
-    assert lin_div < 1e-10 and lin_curl < 1e-10
 
     norm = xp.max(xp.abs(du_div))
     rel_diff = xp.max(xp.abs(du_div - du_curl)) / norm

@@ -21,7 +21,8 @@ preconditioned by Hiptmair-Xu (not energy conserving: the wave is damped numeric
 Hcurl --projected has the exactly energy conserving shear Alfven step. On 2 MPI ranks, the 1200 time steps
 take about 20 min with --b-space Hdiv and with --b-space Hcurl (1 s per step each) and about 2 h with
 --b-space Hcurl --projected (5.6 s per step). With --split-sound (any --b-space), the magnetosonic step is split into
-the energy conserving sound wave step and the exact steps of the background current and pressure gradient.
+the energy conserving sound wave step and the exact steps of the background current and pressure gradient (about the
+same cost per step as the single magnetosonic step).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),

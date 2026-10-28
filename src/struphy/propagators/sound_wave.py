@@ -205,7 +205,7 @@ class SoundWave(Propagator):
             pc_M3 = None
         else:
             pc_M3 = getattr(preconditioner, self.options.precond_M3)(self.mass_ops.M3p_inv)
-        M3p_inv_inv = inverse(
+        self._M3p_inv_inv = inverse(
             self.mass_ops.M3p_inv,
             self.options.solver_M3,
             pc=pc_M3,
@@ -216,7 +216,7 @@ class SoundWave(Propagator):
 
         # block matrix [[A B], [C I]] (without time step size dt in the off-diagonals)
         self._B = -1 / 2 * div.T @ _M3
-        self._C = self.gamma / 2 * M3p_inv_inv @ _M3 @ div
+        self._C = self.gamma / 2 * self._M3p_inv_inv @ _M3 @ div
         self._DQ = div @ self.basis_ops.Q2
 
         # preconditioner
@@ -258,6 +258,11 @@ class SoundWave(Propagator):
         pn1 *= -dt
         pn1 += pn
 
+        # the inner solve is ill-conditioned where p0 is small (e.g. p0 = 0 at a wall): warn if it did not converge
+        info_M3 = self._M3p_inv_inv.get_info()
+        if not info_M3["success"] and MPI.COMM_WORLD.Get_rank() == 0:
+            logger.warning(f"Inner M3p_inv solve of SoundWave not converged in {info_M3['niter']} iterations.")
+
         nn1 = self._DQ.dot(_u, out=self._n_tmp1)
         nn1 *= -dt / 2
         nn1 += nn
@@ -267,6 +272,7 @@ class SoundWave(Propagator):
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             logger.info(f"Status     for SoundWave: {info['success']}")
             logger.info(f"Iterations for SoundWave: {info['niter']}")
+            logger.info(f"Iterations of the inner M3p_inv solve (last) for SoundWave: {info_M3['niter']}")
             logger.info(f"Maxdiff n3 for SoundWave: {diffs['n']}")
             logger.info(f"Maxdiff u2 for SoundWave: {diffs['u']}")
             logger.info(f"Maxdiff p3 for SoundWave: {diffs['p']}")

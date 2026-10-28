@@ -39,20 +39,21 @@ class BackgroundCurrent(Propagator):
 
     .. math::
 
-        \mathbb M^2_{\rho_0} \dot{\mathbf u} = \mathbb M^{2\beta}_{J_0} \mathbf b\,,
+        \mathbb M^2_{\rho_0} \dot{\mathbf u} = \mathbb M_{J_0} \mathbf b\,,
 
     with the density-weighted mass matrix :math:`\mathbb M^2_{\rho_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2n`)
-    and the current mass matrix :math:`\mathbb M^{2\beta}_{J_0}` of
+    and the current mass matrix :math:`\mathbb M_{J_0}` of
     :math:`\int (\mathbf J_0 \times \mathbf W) \cdot \mathbf V \,\textnormal d \mathbf x`
-    (:attr:`~struphy.feec.mass.WeightedMassOperators.M2J` for :math:`\beta = 2`,
-    :attr:`~struphy.feec.mass.WeightedMassOperators.M21J` for :math:`\beta = 1`).
+    , i.e. :math:`\mathbb M_{J_0} = \mathbb M^2_{J_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2J`) for
+    :math:`\beta = 2` and the mixed :math:`\mathbb M_{J_0} = \mathbb M^{21}_{J_0}`
+    (:attr:`~struphy.feec.mass.WeightedMassOperators.M21J`) for :math:`\beta = 1`.
 
     **Time discretization.** Exact in time, the only option, since the right-hand side does not change during the
     step:
 
     .. math::
 
-        \mathbf u^{n+1} = \mathbf u^n + \Delta t \, (\mathbb M^2_{\rho_0})^{-1} \mathbb M^{2\beta}_{J_0} \mathbf b\,,
+        \mathbf u^{n+1} = \mathbf u^n + \Delta t \, (\mathbb M^2_{\rho_0})^{-1} \mathbb M_{J_0} \mathbf b\,,
 
     where :math:`(\mathbb M^2_{\rho_0})^{-1}` is applied with ``Options.solver`` and ``Options.precond``.
     """

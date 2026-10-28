@@ -43,10 +43,13 @@ class BackgroundPressureGradient(Propagator):
 
     .. math::
 
-        \mathbb G \mathbf u = \hat \Pi^3 \left[ \nabla \cdot (p_0 \tilde{\mathbf U}_h) - p_0 \nabla \cdot \tilde{\mathbf U}_h \right]
+        \mathbb G \mathbf u \approx \hat \Pi^3 \left[ \nabla \cdot (p_0 \tilde{\mathbf U}_h) - p_0 \nabla \cdot \tilde{\mathbf U}_h \right]
         = \hat \Pi^3 \left[ \tilde{\mathbf U}_h \cdot \nabla p_0 \right]\,,
 
-    so no gradient of :math:`p_0` is needed.
+    up to the quadrature in the projectors (exact for exact integration), so no gradient of :math:`p_0` is needed.
+    This is the same operator splitting as in :class:`~struphy.propagators.magnetosonic.Magnetosonic`, whose pressure
+    operator :math:`\mathbb D \mathbb S^2 + \frac 23 \mathbb K^3 \mathbb D` equals
+    :math:`\mathbb G + \gamma \mathbb K^3 \mathbb D`.
 
     **Time discretization.** Exact in time, the only option, since the right-hand side does not change during the
     step:
