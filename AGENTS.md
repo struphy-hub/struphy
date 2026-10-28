@@ -17,6 +17,8 @@ General contributor information is in `CONTRIBUTING.md` and `doc/sections/dev_gu
 - Never push to `main`/`devel`, never force-push a shared branch. Merge `devel` into a feature branch instead of rebasing it.
 - Keep unrelated work out of an open PR: put it on a separate (possibly stacked) branch.
 - Fetch before pushing. GitHub "Update branch" creates merge commits on the remote.
+- In PR descriptions (GitHub Markdown), escape `*` and `_` in formulas as `\*` and `\_` (e.g. `M\_2`, `dt\*\*2`),
+  otherwise GitHub renders them as italics/bold; or put the formula in backticks.
 
 ## Adding a model or propagator
 

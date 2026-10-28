@@ -1,4 +1,4 @@
-"""Post-process, plot and compare runs of the 2D slab pulse (LinearMHD models).
+"""Post-process, plot and compare runs of the 2D slab pulse (LinearMHD).
 
 Run as ``python pproc_slab_pulse_2d.py [path_out ...] [flags of params_slab_pulse_2d.py] [--show]``. For each run, the
 pressure and the out-of-plane velocity u_z are plotted at the first, middle and last saved time, with the analytic
@@ -8,7 +8,7 @@ MHD system (velocity, magnetic field and pressure) evolves with the matrix expon
 the saved initial state of the run. Measured at the last saved time: the relative L2 errors of the pressure and of u_z
 with respect to this solution, and the maximal relative change of the perturbed energy en_tot over the run. They are
 printed, saved to ``<path_out>/results/metrics.json`` and asserted (errors below ERROR_TOL, energy conservation for
-LinearMHD and LinearMHDCurlCurlwithProj up to the solver tolerances) after the figures are saved (not with
+--b-space Hdiv and --b-space Hcurl --projected up to the solver tolerances) after the figures are saved (not with
 ``--test-run``). With several output folders, the cuts across and along B0 and the energies of all runs are also
 compared in ``<first path_out>/results/compare_runs.png``. The energy plots use plasma-plots
 (``pip install "struphy[pproc]"``).
@@ -43,7 +43,6 @@ ERROR_TOL = {"p": 0.03, "u_z": 0.06}
 # relative change of en_tot for the energy conserving models (5e-6 with solver tolerance 1e-8); en_tot is the
 # conserved energy only in a uniform equilibrium with periodic boundaries, as here
 ENERGY_RTOL = 1e-4
-CONSERVING = ("LinearMHD", "LinearMHDCurlCurlwithProj")
 
 
 def equilibrium(run):
@@ -77,7 +76,17 @@ def friedrichs(v_a, c_s, b0, t, num=721):
 
 
 def model_name(run):
-    return type(run.model).__name__
+    """Model name with its non-default flags (b_space, projected)."""
+    params = run.model.params
+    if params.get("b_space", "Hdiv") == "Hdiv":
+        return type(run.model).__name__
+    return f"{type(run.model).__name__} Hcurl{' projected' if params.get('projected') else ''}"
+
+
+def is_conserving(run):
+    """Whether both splitting steps conserve en_tot up to the solver tolerances."""
+    params = run.model.params
+    return params.get("b_space", "Hdiv") == "Hdiv" or params.get("projected", False)
 
 
 def evaluate(run, n):
@@ -146,6 +155,7 @@ def metrics(run):
     en_tot = run.scalars["en_tot"].to_numpy()
     return {
         "model": model_name(run),
+        "conserving": is_conserving(run),
         "t": float(run.time[n]),
         "p_error": relative_error(fields["p"], reference["p"]),
         "u_z_error": relative_error(fields["u"][2], reference["u"][2]),
@@ -254,7 +264,7 @@ def main(paths_out=(DEFAULT_OUTPUT,), save_figs=True):
                 assert res[f"{key}_error"] <= tol, (
                     f"{res['model']}: relative L2 error {res[f'{key}_error']:.3g} of {key} above {tol}."
                 )
-            if res["model"] in CONSERVING:
+            if res["conserving"]:
                 assert res["energy_change"] <= ENERGY_RTOL, (
                     f"{res['model']}: relative change {res['energy_change']:.3g} of en_tot above {ENERGY_RTOL:.0e}."
                 )
