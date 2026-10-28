@@ -130,6 +130,12 @@ parser.add_argument(
     action="store_true",
     help="With --crank-nicolson: absolute tolerance of the linear solves (as LinearMHD) instead of relative.",
 )
+parser.add_argument(
+    "--dt",
+    type=float,
+    default=0.5,
+    help="Time step (default 0.5); the data is saved every 2 time units, or every step for dt > 2.",
+)
 args, _ = parser.parse_known_args()
 if args.u_space == "Hdiv" and not args.crank_nicolson:
     parser.error("--u-space Hdiv needs --crank-nicolson.")
@@ -192,10 +198,12 @@ model.mhd.pressure.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=args.out_folder, save_step=4, sim_folder=args.sim_folder)
+env = EnvironmentOptions(
+    out_folders=args.out_folder, save_step=max(1, round(2.0 / args.dt)), sim_folder=args.sim_folder
+)
 
 # Time stepping
-dt = 0.5
+dt = args.dt
 # --test-run: the initial, a middle and a final saved time step
 time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else 600.0)
 
