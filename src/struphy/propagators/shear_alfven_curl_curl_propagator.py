@@ -25,8 +25,10 @@ logger = logging.getLogger("struphy")
 
 
 class ShearAlfvenCurlCurlPropagator(Propagator):
-    r""":ref:`FEEC <gempic>` discretization of the following equations:
-    find :math:`\tilde{\mathbf U} \in H(\textnormal{div})` and :math:`\tilde{\mathbf B} \in H(\textnormal{curl})` such that
+    r"""Shear-Alfvén step of linear MHD (zero-flow equilibrium) with the magnetic field in :math:`H(\textnormal{curl})`.
+
+    **Continuous problem.** Find :math:`\tilde{\mathbf U} \in H(\textnormal{div})` and
+    :math:`\tilde{\mathbf B} \in H(\textnormal{curl})` such that
 
     .. math::
 
@@ -35,39 +37,63 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
         \\[2mm]
         &\int_\Omega \frac{\partial \tilde{\mathbf{B}}}{\partial t} \cdot \mathbf C\,\textnormal d \mathbf x = - \int_\Omega \left[(\nabla \times \mathbf C) \times \mathbf B_0\right] \cdot \tilde{\mathbf{U}} \,\textrm d \mathbf x \qquad \forall \, \mathbf C \in H(\textrm{curl})\,.
 
-    The momentum equation holds strongly up to the :math:`\rho_0`-weighted :math:`L^2` projection onto
-    :math:`H(\textnormal{div})`, the induction equation is weak. In discrete form,
+    The momentum equation is the :math:`\rho_0`-weighted :math:`L^2` projection of the Lorentz force onto
+    :math:`H(\textnormal{div})`; the induction equation is weak, its boundary term is dropped, which imposes
+    :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` weakly (free boundary conditions of the de Rham sequence;
+    essential ones set the tangential components of :math:`\tilde{\mathbf B}` to zero on the boundary).
+
+    **Semi-discrete problem.** With the FE coefficients :math:`\mathbf u \in \mathbb R^{N_2}` of
+    :math:`\tilde{\mathbf U}_h \in V^2_h` and :math:`\mathbf b \in \mathbb R^{N_1}` of
+    :math:`\tilde{\mathbf B}_h \in V^1_h`,
 
     .. math::
 
-        \mathbb M^\rho_2 \dot{\mathbf u} = - \mathbb M^{2,B} \mathbb C \mathbf b\,, \qquad
-        \mathbb M_1 \dot{\mathbf b} = - \mathbb C^\top \mathbb M^{2,B} \mathbf u\,,
+        \mathbb M^{2,n} \dot{\mathbf u} = - \mathbb M^{2,B} \mathbb C \mathbf b\,, \qquad
+        \mathbb M^1 \dot{\mathbf b} = - \mathbb C^\top \mathbb M^{2,B} \mathbf u\,,
 
-    where :math:`\mathbb M^{2,B}` (antisymmetric) is :attr:`~struphy.feec.mass.WeightedMassOperators.M2B`. This is the
-    discrete system of :class:`~struphy.propagators.shear_alfven_b1.ShearAlfvenB1`.
+    with the discrete curl :math:`\mathbb C` (:attr:`~struphy.feec.psydac_derham.Derham.curl`), the mass matrix
+    :math:`\mathbb M^1` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1`), the density-weighted mass matrix of
+    2-forms :math:`\mathbb M^{2,n}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2n`) and the antisymmetric
+    mass matrix :math:`\mathbb M^{2,B}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M2B`) of
+    :math:`\int (\mathbf B_0 \times \mathbf W) \cdot \mathbf V \,\textnormal d \mathbf x`. This is the semi-discrete
+    system of :class:`~struphy.propagators.shear_alfven_b1.ShearAlfvenB1`. It conserves the perturbed energy
+    :math:`\frac 12 \mathbf u^\top \mathbb M^{2,n} \mathbf u + \frac 12 \mathbf b^\top \mathbb M^1 \mathbf b`.
 
-    :ref:`time_discret`:
+    **Time discretization.** Selected by ``Options.algo`` and the constructor argument ``projected``:
 
-    - implicit: Crank-Nicolson (implicit mid-point) **without the projection in the curl-curl term**: the update of the
-      velocity, :math:`\tilde{\mathbf U}^{n+1} = \tilde{\mathbf U}^n + \frac{\Delta t}{2 \rho_0} (\nabla \times
-      (\tilde{\mathbf B}^{n+1} + \tilde{\mathbf B}^n)) \times \mathbf B_0`, is inserted into the weak induction
+    - ``algo="implicit"``, ``projected=True``: Crank-Nicolson (implicit mid-point) of the semi-discrete system, which
+      conserves the perturbed energy exactly (up to the solver tolerances). The velocity is eliminated with
+      :class:`~struphy.linear_algebra.schur_solver.SchurSolver` (:math:`x = \mathbf b`, :math:`y = \mathbf u`), with
+      the Schur complement
+
+      .. math::
+
+          S = \mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top (\mathbb M^{2,B})^\top (\mathbb M^{2,n})^{-1} \mathbb M^{2,B} \mathbb C\,,
+
+      where :math:`(\mathbb M^{2,n})^{-1}` is an inner iterative solve (``solver_M2n``, ``precond_M2n``). The
+      curl-curl operator with :math:`\mathbb M^{2,\textnormal{gyro}}` below is not spectrally equivalent to :math:`S`
+      (it overestimates :math:`S` on the fields whose Lorentz force is removed by the projection), so
+      ``precond="HiptmairXu"`` does not pay off here; use ``precond="MassMatrixPreconditioner"``.
+    - ``algo="implicit"``, ``projected=False`` (default): Crank-Nicolson **without the projection in the curl-curl
+      term**: the velocity update
+      :math:`\tilde{\mathbf U}^{n+1} = \tilde{\mathbf U}^n + \frac{\Delta t}{2 \rho_0} (\nabla \times
+      (\tilde{\mathbf B}^{n+1} + \tilde{\mathbf B}^n)) \times \mathbf B_0` is inserted into the weak induction
       equation before the projection, which gives the curl-curl system
 
       .. math::
 
-          \left(\mathbb M_1 + \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^{2,\textnormal{gyro}} \mathbb C\right) \mathbf b^{n+1}
-          = \left(\mathbb M_1 - \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^{2,\textnormal{gyro}} \mathbb C\right) \mathbf b^n
+          \left(\mathbb M^1 + \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^{2,\textnormal{gyro}} \mathbb C\right) \mathbf b^{n+1}
+          = \left(\mathbb M^1 - \frac{\Delta t^2}{4} \mathbb C^\top \mathbb M^{2,\textnormal{gyro}} \mathbb C\right) \mathbf b^n
           - \Delta t \, \mathbb C^\top \mathbb M^{2,B} \mathbf u^n\,,
 
       with :attr:`~struphy.feec.mass.WeightedMassOperators.M2gyro`, the mass matrix of
       :math:`\int \frac{1}{\rho_0} \left[(\nabla \times \mathbf C) \times \mathbf B_0\right] \cdot \left[(\nabla \times \tilde{\mathbf B}) \times \mathbf B_0\right] \textnormal d \mathbf x`.
       The velocity is then updated with the projection,
-      :math:`\mathbf u^{n+1} = \mathbf u^n - \frac{\Delta t}{2} (\mathbb M^\rho_2)^{-1} \mathbb M^{2,B} \mathbb C (\mathbf b^{n+1} + \mathbf b^n)`.
-      The perturbed energy :math:`\frac 12 \mathbf u^\top \mathbb M^\rho_2 \mathbf u + \frac 12 \mathbf b^\top \mathbb M_1 \mathbf b`
-      is therefore not exactly conserved (the projection error of the Lorentz force enters); see
-      :class:`ShearAlfvenCurlCurlwithProjPropagator` for the exactly energy conserving version. The system is solved by
-      :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with :math:`x = \mathbf b`, :math:`y = \mathbf u`. With
-      ``precond="HiptmairXu"``, it is preconditioned by
+      :math:`\mathbf u^{n+1} = \mathbf u^n - \frac{\Delta t}{2} (\mathbb M^{2,n})^{-1} \mathbb M^{2,B} \mathbb C (\mathbf b^{n+1} + \mathbf b^n)`.
+      The perturbed energy does not increase, but is not exactly conserved (the projection error of the Lorentz force
+      enters): numerical damping that vanishes with the resolution along :math:`\mathbf B_0`. The system is solved
+      by :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with :math:`x = \mathbf b`, :math:`y = \mathbf u`.
+      With ``precond="HiptmairXu"`` (default), it is preconditioned by
       :class:`~struphy.feec.preconditioner.HiptmairXuPreconditioner` for the curl-curl operator (scaled by
       :math:`\sigma = 4/\Delta t^2`; TAE example 8x32x4: 37 instead of 706 PCG iterations per step for
       :math:`\Delta t = 2`), optionally (``aux_correction``) plus the field-aligned auxiliary space corrections of
@@ -75,11 +101,15 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
       :math:`\mathbf B_0 \times \nabla \psi` and parallel perturbations :math:`\phi \mathbf B_0` with
       :math:`\psi, \phi \in V^0_h`, whose operators are approximated by the Kronecker
       :class:`~struphy.feec.preconditioner.StiffnessPreconditioner`.
-    - explicit: explicit RK methods from ButcherTableau (for the semi-discrete system above).
-    """
+    - ``algo="explicit"``: explicit Runge-Kutta method of the semi-discrete system, with the tableau
+      ``Options.butcher`` (:class:`~struphy.ode.utils.ButcherTableau`); ``projected`` has no effect.
 
-    # whether the curl-curl term contains the projection of the Lorentz force (exact energy conservation)
-    _projected = False
+    Parameters
+    ----------
+    projected : bool, default=False
+        Whether the curl-curl term of the implicit step contains the projection of the Lorentz force (exactly energy
+        conserving step, see above).
+    """
 
     class Variables:
         """Container for variables advanced by :class:`ShearAlfvenCurlCurlPropagator`.
@@ -116,8 +146,10 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             assert new.space == "Hcurl"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, projected: bool = False):
         self.variables = self.Variables()
+        # whether the curl-curl term contains the projection of the Lorentz force (exact energy conservation)
+        self._projected = projected
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -134,8 +166,9 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             (``"HiptmairXu"``, implicit algorithm with ``solver="pcg"`` only, no polar splines; it depends on the time
             step, so it is built in the setup (:meth:`prepare_time_step`) and rebuilt when the time step changes), or a
             preconditioner
-            of the mass matrix ``M1`` (``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``). With
-            ``algo="explicit"``, ``"HiptmairXu"`` is replaced by ``"MassMatrixPreconditioner"`` (for ``M1``).
+            of the mass matrix ``M1`` (``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``; recommended
+            with ``projected=True``). With ``algo="explicit"``, ``"HiptmairXu"`` is replaced by
+            ``"MassMatrixPreconditioner"`` (for ``M1``).
         aux_correction : bool, default=False
             With ``precond="HiptmairXu"``: add the field-aligned auxiliary space corrections of the perturbations
             :math:`\mathbf B_0 \times \nabla \psi` and :math:`\phi \mathbf B_0` (:math:`\psi, \phi \in V^0_h`), which the
@@ -406,38 +439,3 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             logger.info(f"Maxdiff up for ShearAlfvenCurlCurl: {diffs['u']}")
             logger.info(f"Maxdiff b1 for ShearAlfvenCurlCurl: {diffs['b']}")
             logger.info("")
-
-
-class ShearAlfvenCurlCurlwithProjPropagator(ShearAlfvenCurlCurlPropagator):
-    r""":ref:`FEEC <gempic>` discretization of the equations of :class:`ShearAlfvenCurlCurlPropagator` (same semi-discrete
-    system, :math:`\tilde{\mathbf U} \in H(\textnormal{div})`, :math:`\tilde{\mathbf B} \in H(\textnormal{curl})`),
-    with the projection in the curl-curl term, which conserves the perturbed energy
-    :math:`\frac 12 \mathbf u^\top \mathbb M^\rho_2 \mathbf u + \frac 12 \mathbf b^\top \mathbb M_1 \mathbf b` exactly (up to
-    the solver tolerances).
-
-    :ref:`time_discret`:
-
-    - implicit: Crank-Nicolson (implicit mid-point). System size reduction via
-      :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with :math:`x = \mathbf b`, :math:`y = \mathbf u`;
-      the Schur complement is
-
-      .. math::
-
-          S = \mathbb M_1 + \frac{\Delta t^2}{4} \mathbb C^\top (\mathbb M^{2,B})^\top (\mathbb M^\rho_2)^{-1} \mathbb M^{2,B} \mathbb C\,,
-
-      where :math:`(\mathbb M^\rho_2)^{-1}` is an inner iterative solve. The curl-curl operator with
-      :attr:`~struphy.feec.mass.WeightedMassOperators.M2gyro` (the continuous counterpart) is not spectrally equivalent
-      to :math:`S` (it overestimates :math:`S` on the fields whose Lorentz force is removed by the projection), so
-      the Hiptmair-Xu preconditioner (``precond="HiptmairXu"``) does not pay off here; the default is the mass matrix
-      preconditioner of :math:`\mathbb M_1`.
-    - explicit: explicit RK methods from ButcherTableau.
-    """
-
-    _projected = True
-
-    @dataclass(repr=False)
-    class Options(ShearAlfvenCurlCurlPropagator.Options):
-        """Configuration options for :class:`ShearAlfvenCurlCurlwithProjPropagator`: as for
-        :class:`ShearAlfvenCurlCurlPropagator`, with the default ``precond="MassMatrixPreconditioner"``."""
-
-        precond: LiteralOptions.OptsShearAlfvenCurlCurlPrecond = "MassMatrixPreconditioner"

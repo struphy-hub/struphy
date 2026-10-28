@@ -10,7 +10,7 @@ class LinearMHDCurlCurl(LinearMHD):
 
     Same equations as :class:`~struphy.models.linear_mhd.LinearMHD`, but with a weak induction equation, such that the
     implicit shear-Alfvén step leads to a curl-curl system for the magnetic field, which is preconditioned by the
-    Hiptmair-Xu preconditioner (as in :class:`~struphy.models.shear_alfven_curl_curl.ShearAlfvenCurlCurl`).
+    Hiptmair-Xu preconditioner (as in :class:`~struphy.models.shear_alfven.ShearAlfven` with ``b_space="Hcurl"``).
 
     Parameters
     ----------
@@ -112,7 +112,7 @@ class LinearMHDCurlCurl(LinearMHD):
         r"""LinearMHDCurlCurl solves the same equations as :class:`~struphy.models.linear_mhd.LinearMHD`, with the
         perturbed magnetic field in :math:`H(\textnormal{curl})` instead of :math:`H(\textnormal{div})`. The splitting is
         the same: the shear-Alfvén step of
-        :class:`~struphy.models.shear_alfven_curl_curl.ShearAlfvenCurlCurl` (weak induction equation, field-aligned
+        :class:`~struphy.models.shear_alfven.ShearAlfven` with ``b_space="Hcurl"`` (weak induction equation, field-aligned
         curl-curl system for the magnetic field, Hiptmair-Xu preconditioner by default), followed by the magnetosonic
         step, in which the force :math:`(\nabla \times \mathbf B_0) \times \tilde{\mathbf B}` of the 1-form
         :math:`\tilde{\mathbf B}` enters through the mixed mass matrix

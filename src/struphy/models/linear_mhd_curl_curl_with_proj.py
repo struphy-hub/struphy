@@ -1,7 +1,7 @@
 from struphy.models.linear_mhd_curl_curl import LinearMHDCurlCurl
 from struphy.models.variables import FEECVariable
 from struphy.propagators.magnetosonic import Magnetosonic
-from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlwithProjPropagator
+from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
 
 
 class LinearMHDCurlCurlwithProj(LinearMHDCurlCurl):
@@ -10,7 +10,7 @@ class LinearMHDCurlCurlwithProj(LinearMHDCurlCurl):
 
     Same as :class:`~struphy.models.linear_mhd_curl_curl.LinearMHDCurlCurl`, but the curl-curl term of the implicit
     shear-Alfvén step contains the :math:`\\rho_0`-weighted :math:`L^2` projection of the Lorentz force onto
-    :math:`H(\\textnormal{div})` (as in :class:`~struphy.models.shear_alfven_curl_curl_with_proj.ShearAlfvenCurlCurlwithProj`),
+    :math:`H(\\textnormal{div})` (as in :class:`~struphy.models.shear_alfven.ShearAlfven` with ``b_space="Hcurl", projected=True``),
     at the price of an inner mass matrix solve in every application of the Schur operator (and no effective curl-curl
     preconditioner).
 
@@ -24,7 +24,7 @@ class LinearMHDCurlCurlwithProj(LinearMHDCurlCurl):
 
     class Propagators:
         def __init__(self, b_field: FEECVariable = None):
-            self.shear_alf = ShearAlfvenCurlCurlwithProjPropagator()
+            self.shear_alf = ShearAlfvenCurlCurlPropagator(projected=True)
             self.mag_sonic = Magnetosonic(b_field=b_field)
 
     @classmethod
@@ -45,11 +45,11 @@ class LinearMHDCurlCurlwithProj(LinearMHDCurlCurl):
     def doc_discretization(cls):
         """Time integration is performed by the following propagators (in sequence):
 
-        1. :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlwithProjPropagator`
+        1. :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator` (``projected=True``)
         2. :class:`~struphy.propagators.magnetosonic.Magnetosonic`"""
-        doc = rf"""**1. ShearAlfvenCurlCurlwithProjPropagator:**
+        doc = rf"""**1. ShearAlfvenCurlCurlPropagator** (``projected=True``):
 
-{ShearAlfvenCurlCurlwithProjPropagator.__doc__}
+{ShearAlfvenCurlCurlPropagator.__doc__}
 
 **2. Magnetosonic:**
 
