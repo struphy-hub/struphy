@@ -11,7 +11,6 @@ from struphy.models.species import (
     ParticleSpecies,
 )
 from struphy.models.variables import PICVariable
-from struphy.propagators.base import Propagator
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 
@@ -87,8 +86,7 @@ class GuidingCenter(StruphyModel):
         self.propagators = self.Propagators()
 
         # 4. assign variables to propagators
-        self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
-        self.propagators.push_parallel.variables.ions = self.kinetic_ions.var
+        self._link_propagator_variables()
 
         # 5. define scalars to be tracked during simulation
         kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
@@ -101,6 +99,14 @@ class GuidingCenter(StruphyModel):
         )
 
         logger.info("Done.")
+
+    def _link_propagator_variables(self):
+        """Assign the species variables to the propagators (extended by the models inheriting from GuidingCenter).
+
+        :meta private:
+        """
+        self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
+        self.propagators.push_parallel.variables.ions = self.kinetic_ions.var
 
     @property
     def bulk_species(self):
@@ -158,23 +164,6 @@ class GuidingCenter(StruphyModel):
         - Magnetic-moment energy contribution: ``en_fB``
         - Total particle energy: ``en_tot``
         - Lost markers: ``n_lost_particles``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
-        2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-        """
-        doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
-
-    {PushGuidingCenterBxEstar.__doc__}
-
-    **2. push_guiding_center_parallel.PushGuidingCenterParallel:**
-
-    {PushGuidingCenterParallel.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

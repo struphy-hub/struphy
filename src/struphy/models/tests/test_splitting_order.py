@@ -100,3 +100,18 @@ def test_removed_model_flags_in_old_metadata():
 
     with pytest.raises(ValueError, match="VlasovPauli"):
         _drop_removed_model_flags("VlasovPoissonAdiabaticPauli", {"with_poisson": False})
+
+
+@pytest.mark.mpi_skip
+def test_renamed_propagators_in_old_metadata():
+    from struphy.models import DriftKineticMaxwell
+    from struphy.models.base import StruphyModel
+
+    model = DriftKineticMaxwell()
+    model.propagators.push_parallel.options = model.propagators.push_parallel.Options(algo="explicit")
+    dct = model.to_dict()
+
+    # metadata written before push_para was renamed to push_parallel
+    dct["propagator_options"]["push_para"] = dct["propagator_options"].pop("push_parallel")
+    restored = StruphyModel.from_dict(dct)
+    assert restored.propagators.push_parallel.options.algo == "explicit"

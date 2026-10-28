@@ -4,14 +4,12 @@ import cunumpy as xp
 
 from struphy import BaseUnits
 from struphy.feec.mass import AverageOperator, L2Projector
-from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.base import KineticBackground
-from struphy.models.base import StruphyModel
+from struphy.models.guiding_center import GuidingCenter
 from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
-    ParticleSpecies,
 )
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.kernels.gc_density_0form import gc_density_0form
@@ -22,14 +20,16 @@ from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBx
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 
 
-class DriftKineticElectrostaticAdiabatic(StruphyModel):
+class DriftKineticElectrostaticAdiabatic(GuidingCenter):
     r"""Electrostatic drift-kinetic model for a single ion species with adiabatic electrons.
 
     Evolves the guiding-center distribution :math:`f(\mathbf{X}, v_\parallel, \mu, t)` under
     both the :math:`\mathbf{E}^* \times \mathbf{B}` drift and parallel streaming along the
     background magnetic field. Electrons are not evolved kinetically; instead they contribute
     through an adiabatic response term in the quasi-neutrality (Poisson) equation. The
-    optional control-variate method can be activated for the field solve.
+    optional control-variate method can be activated for the field solve. Extends
+    :class:`~struphy.models.GuidingCenter` by the electrostatic potential (in :math:`\mathbf E^*`) and the
+    quasi-neutrality equation.
 
     Parameters
     ----------
@@ -44,10 +44,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         If ``None``, computed from ``base_units`` and the charge/mass numbers.
     """
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Kinetic"
-
     ## species
 
     class EMFields(FieldSpecies):
@@ -55,7 +51,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             self.phi = FEECVariable(space="H1")
             self.init_variables()
 
-    class KineticIons(ParticleSpecies):
+    class KineticIons(GuidingCenter.KineticIons):
         def __init__(
             self,
             charge_number: int = 1,
@@ -80,7 +76,12 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     ## propagators
 
-    class Propagators:
+    class Propagators(GuidingCenter.Propagators):
+        # both pushers move the guiding centers; with the Poisson solve between them, a Strang step
+        # bxe(dt/2), poisson, para(dt), poisson, bxe(dt/2) pushes with the potential of the current positions
+        # (the two bxe(dt/2) of consecutive steps act as one bxe(dt) with the potential frozen)
+        splitting_order = ("push_bxe", "gc_poisson", "push_parallel")
+
         def __init__(
             self,
             phi: FEECVariable = None,
@@ -89,12 +90,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             Z: int = 1,
             diagnostic: FEECVariable | None = None,
         ):
-            # both pushers move the guiding centers; with the Poisson solve between them, a Strang step
-            # bxe(dt/2), poisson, para(dt), poisson, bxe(dt/2) pushes with the potential of the current positions
-            # (the two bxe(dt/2) of consecutive steps act as one bxe(dt) with the potential frozen)
-            self.push_gc_bxe = PushGuidingCenterBxEstar(phi=phi)
+            super().__init__()
+            # the pushers of GuidingCenter with the electric field -grad phi in E*
+            self.push_bxe = PushGuidingCenterBxEstar(phi=phi)
+            self.push_parallel = PushGuidingCenterParallel(phi=phi)
             self.gc_poisson = GyrokineticPoissonSolve(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
-            self.push_gc_para = PushGuidingCenterParallel(phi=phi)
 
     ## abstract methods
 
@@ -141,9 +141,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         )
 
         # 4. assign variables to propagators
-        self.propagators.push_gc_bxe.variables.ions = self.kinetic_ions.var
-        self.propagators.gc_poisson.variables.phi = self.em_fields.phi
-        self.propagators.push_gc_para.variables.ions = self.kinetic_ions.var
+        self._link_propagator_variables()
 
         # 5. define scalars to be tracked during simulation
         field_energy = FunctionScalarFEEC(self._compute_en_phi)
@@ -158,9 +156,13 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             en_tot=field_energy + particle_energy,
         )
 
-    @property
-    def bulk_species(self):
-        return self.kinetic_ions
+    def _link_propagator_variables(self):
+        """Assign the species variables to the propagators.
+
+        :meta private:
+        """
+        super()._link_propagator_variables()
+        self.propagators.gc_poisson.variables.phi = self.em_fields.phi
 
     @property
     def velocity_scale(self):
@@ -275,35 +277,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         - Field energy: ``en_phi``
         - Guiding-center particle energy: ``en_particles``
         - Total energy: ``en_tot``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
-        2. :class:`~struphy.propagators.gyrokinetic_poisson_solve.GyrokineticPoissonSolve`
-        3. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-        """
-        doc = rf"""The Poisson solve sits between the two pushers, which both move the guiding centers. With Strang
-splitting, bxe(dt/2), poisson, para(dt), poisson, bxe(dt/2), the parallel push and the closing bxe(dt/2) use a freshly
-solved potential; the two bxe(dt/2) at a step boundary act as one bxe(dt) with the potential solved before it. With
-Lie-Trotter splitting the parallel push uses a fresh potential and the E* x b push the one of the previous step.
-Since a time step ends with a push, the saved potential and ``en_phi`` belong to the marker positions before that
-last push.
-
-**1. PushGuidingCenterBxEstar:**
-
-{PushGuidingCenterBxEstar.__doc__}
-
-**2. GyrokineticPoissonSolve:**
-
-{GyrokineticPoissonSolve.__doc__}
-
-**3. PushGuidingCenterParallel:**
-
-{PushGuidingCenterParallel.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

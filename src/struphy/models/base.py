@@ -68,6 +68,15 @@ _REMOVED_MODEL_FLAGS = {
 }
 
 
+# propagators of the guiding-center models renamed to the names of GuidingCenter (old name -> new name),
+# for the propagator options in old run metadata
+_RENAMED_PROPAGATORS = {
+    "push_gc_bxe": "push_bxe",
+    "push_gc_para": "push_parallel",
+    "push_para": "push_parallel",
+}
+
+
 def _drop_removed_model_flags(model_name: str, params: dict) -> None:
     """Remove the obsolete flags ``with_B0``, ``with_E0`` and ``with_poisson`` from the model parameters of run
     metadata written before they were removed, with a warning. The propagators of ``with_B0`` and ``with_E0`` are
@@ -1165,6 +1174,8 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             return value
 
         for prop_name, options in dct.get("propagator_options", {}).items():
+            if not hasattr(model.propagators, prop_name):
+                prop_name = _RENAMED_PROPAGATORS.get(prop_name, prop_name)
             propagator = getattr(model.propagators, prop_name, None)
             if propagator is not None:
                 restore_option(options, propagator.options)

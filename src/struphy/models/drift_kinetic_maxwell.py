@@ -2,13 +2,9 @@ import copy
 import logging
 
 from struphy import BaseUnits
-from struphy.io.options import LiteralOptions
-from struphy.models.base import StruphyModel
+from struphy.models.guiding_center import GuidingCenter
 from struphy.models.scalars import FunctionScalarFEEC, Scalars
-from struphy.models.species import (
-    FieldSpecies,
-    ParticleSpecies,
-)
+from struphy.models.species import FieldSpecies
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.drift_kinetic_maxwell_coupling import DriftKineticMaxwellCoupling
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
@@ -17,7 +13,7 @@ from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterPa
 logger = logging.getLogger("struphy")
 
 
-class DriftKineticMaxwell(StruphyModel):
+class DriftKineticMaxwell(GuidingCenter):
     """Electromagnetic drift-kinetic equation for one guiding-center species coupled to Maxwell's equations, in the
     thermal normalization, with an implicit, energy conserving field-particle coupling that also holds in the
     quasi-neutral limit.
@@ -27,7 +23,7 @@ class DriftKineticMaxwell(StruphyModel):
     current and the (linearized) polarization current; the displacement current has the coefficient
     :math:`\\lambda^2 \\varepsilon^2 = \\hat v_\\textrm{th}^2/c^2`, option ``lam`` of the coupling propagator
     :class:`~struphy.propagators.drift_kinetic_maxwell_coupling.DriftKineticMaxwellCoupling`; ``lam=0.0`` is the
-    quasi-neutral limit.
+    quasi-neutral limit. Extends :class:`~struphy.models.GuidingCenter` by the electromagnetic fields.
 
     Parameters
     ----------
@@ -46,10 +42,6 @@ class DriftKineticMaxwell(StruphyModel):
         Plasma frequency × length unit / speed of light. If None, computed from units and charge/mass numbers.
     """
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Kinetic"
-
     ## species
 
     class EMFields(FieldSpecies):
@@ -58,7 +50,7 @@ class DriftKineticMaxwell(StruphyModel):
             self.b_field = FEECVariable(space="Hdiv")
             self.init_variables()
 
-    class KineticIons(ParticleSpecies):
+    class KineticIons(GuidingCenter.KineticIons):
         def __init__(
             self,
             charge_number: int = 1,
@@ -78,16 +70,20 @@ class DriftKineticMaxwell(StruphyModel):
 
     ## propagators
 
-    class Propagators:
+    class Propagators(GuidingCenter.Propagators):
+        splitting_order = ("coupling", "push_parallel", "push_bxe")
+
         def __init__(
             self,
             e_field: FEECVariable = None,
             b_field: FEECVariable = None,
         ):
-            # the parallel electric force is applied by the coupling step only: push_para gets no phi and no e_field
-            self.coupling = DriftKineticMaxwellCoupling()
-            self.push_para = PushGuidingCenterParallel(b_tilde=b_field)
+            super().__init__()
+            # the pushers of GuidingCenter with the total magnetic field B0 + b_field; the parallel electric force is
+            # applied by the coupling step only: push_parallel gets no phi and no e_field
             self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field, e_field=e_field)
+            self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
+            self.coupling = DriftKineticMaxwellCoupling()
 
     ## abstract methods
 
@@ -114,11 +110,7 @@ class DriftKineticMaxwell(StruphyModel):
         self.propagators = self.Propagators(e_field=self.em_fields.e_field, b_field=self.em_fields.b_field)
 
         # 4. assign variables to propagators
-        self.propagators.coupling.variables.e = self.em_fields.e_field
-        self.propagators.coupling.variables.b = self.em_fields.b_field
-        self.propagators.coupling.variables.ions = self.kinetic_ions.var
-        self.propagators.push_para.variables.ions = self.kinetic_ions.var
-        self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
+        self._link_propagator_variables()
 
         # 5. define scalars to be tracked during simulation: the parts of the energy conserved by the coupling step
         # (with the coefficients of the propagator, known after its allocation)
@@ -133,9 +125,15 @@ class DriftKineticMaxwell(StruphyModel):
             en_tot=electric_energy + magnetic_energy + particle_energy,
         )
 
-    @property
-    def bulk_species(self):
-        return self.kinetic_ions
+    def _link_propagator_variables(self):
+        """Assign the species variables to the propagators.
+
+        :meta private:
+        """
+        super()._link_propagator_variables()
+        self.propagators.coupling.variables.e = self.em_fields.e_field
+        self.propagators.coupling.variables.b = self.em_fields.b_field
+        self.propagators.coupling.variables.ions = self.kinetic_ions.var
 
     @property
     def velocity_scale(self):
@@ -147,10 +145,10 @@ class DriftKineticMaxwell(StruphyModel):
 
         :meta private:
         """
-        push_para = self.propagators.push_para
-        assert push_para.e_field is None and push_para._allocate_phi, (
+        push_parallel = self.propagators.push_parallel
+        assert push_parallel.e_field is None and push_parallel._allocate_phi, (
             "DriftKineticMaxwell: the parallel electric force b* . E is applied by the coupling step; "
-            "push_para must not get an electric field or a potential (it would be applied twice)."
+            "push_parallel must not get an electric field or a potential (it would be applied twice)."
         )
 
     ## default parameters
@@ -265,42 +263,6 @@ class DriftKineticMaxwell(StruphyModel):
         - Magnetic field energy :math:`\frac{1}{2} \| \tilde{\mathbf B} \|^2`: ``en_B``
         - Particle energy :math:`\varepsilon^2 \kappa^2 \sum_p w_p (v_{\parallel,p}^2/2 + \mu_p |B_0|)`: ``en_f``
         - Total energy: ``en_tot`` (conserved by the coupling step up to the solver tolerance)"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.drift_kinetic_maxwell_coupling.DriftKineticMaxwellCoupling`
-        2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-        3. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
-        """
-        doc = rf"""Each term of the drift-kinetic equation is applied by exactly one propagator; the parallel electric
-force only by the coupling step (the model passes no potential and no electric field to ``push_para``, and asserts
-this):
-
-- :math:`\dot v_\parallel \ni \frac{{1}}{{\varepsilon}} \mathbf b^* \cdot \mathbf E`: coupling step
-  (``push_vpar_with_efield``);
-- :math:`\dot v_\parallel \ni -\mu\, \mathbf b^* \cdot \nabla |B|` (mirror force): ``push_para``;
-- :math:`\dot{{\mathbf X}} \ni v_\parallel \mathbf b^*` (streaming, curvature drift): ``push_para``; its current
-  enters Ampère's law in the coupling step;
-- :math:`\dot{{\mathbf X}} \ni \mathbf E \times \mathbf b_0 / B^*_\parallel`: ``push_bxe``; its current enters
-  Ampère's law in the coupling step (option ``exb_current``);
-- :math:`\dot{{\mathbf X}} \ni -\varepsilon \mu \nabla |B| \times \mathbf b_0 / B^*_\parallel` (grad-:math:`B`
-  drift): ``push_bxe``; its current is not included.
-
-**1. DriftKineticMaxwellCoupling:**
-
-{DriftKineticMaxwellCoupling.__doc__}
-
-**2. PushGuidingCenterParallel:**
-
-{PushGuidingCenterParallel.__doc__}
-
-**3. PushGuidingCenterBxEstar:**
-
-{PushGuidingCenterBxEstar.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):
