@@ -21,8 +21,6 @@ _LAZY_IMPORTS = {
     "IncompressibleNavierStokesSPH": "struphy.models.incompressible_navier_stokes_sph",
     "LinearExtendedMHDuniform": "struphy.models.linear_extended_mh_duniform",
     "LinearMHD": "struphy.models.linear_mhd",
-    "LinearMHDCurlCurl": "struphy.models.linear_mhd_curl_curl",
-    "LinearMHDCurlCurlwithProj": "struphy.models.linear_mhd_curl_curl_with_proj",
     "LinearMHDDriftkineticCC": "struphy.models.linear_mhd_driftkinetic_cc",
     "LinearMHDVlasovCC": "struphy.models.linear_mhd_vlasov_cc",
     "LinearMHDVlasovPC": "struphy.models.linear_mhd_vlasov_pc",
@@ -66,8 +64,6 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.incompressible_navier_stokes_sph import IncompressibleNavierStokesSPH
     from struphy.models.linear_extended_mh_duniform import LinearExtendedMHDuniform
     from struphy.models.linear_mhd import LinearMHD
-    from struphy.models.linear_mhd_curl_curl import LinearMHDCurlCurl
-    from struphy.models.linear_mhd_curl_curl_with_proj import LinearMHDCurlCurlwithProj
     from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
     from struphy.models.linear_mhd_vlasov_cc import LinearMHDVlasovCC
     from struphy.models.linear_mhd_vlasov_pc import LinearMHDVlasovPC
@@ -110,8 +106,6 @@ __all__ = [
     "IncompressibleNavierStokesSPH",
     "LinearExtendedMHDuniform",
     "LinearMHD",
-    "LinearMHDCurlCurl",
-    "LinearMHDCurlCurlwithProj",
     "LinearMHDDriftkineticCC",
     "LinearMHDVlasovCC",
     "LinearMHDVlasovPC",

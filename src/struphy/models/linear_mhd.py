@@ -1,4 +1,5 @@
 import copy
+from typing import Literal
 
 from feectools.linalg.block import BlockVector
 
@@ -13,7 +14,9 @@ from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
+from struphy.utils.utils import check_option
 
 
 class LinearMHD(StruphyModel):
@@ -25,7 +28,18 @@ class LinearMHD(StruphyModel):
         Base units for normalization (default: BaseUnits())
     mass_number: float
         Mass number (in units of Proton mass) of the ion species (default: 1.0)
+    b_space: {"Hdiv", "Hcurl"}
+        Space of the magnetic field (default: "Hdiv"). ``"Hdiv"``: strong induction equation, implicit shear-Alfvén
+        solve for the velocity (:class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`).
+        ``"Hcurl"``: weak induction equation, implicit curl-curl solve for the magnetic field
+        (:class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`).
+    projected: bool
+        Only with ``b_space="Hcurl"``: the curl-curl term of the implicit shear-Alfvén step contains the projection of
+        the Lorentz force, which makes this step exactly energy conserving at the price of inner mass matrix solves
+        (default: False).
     """
+
+    OptsBSpace = Literal["Hdiv", "Hcurl"]
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
@@ -34,8 +48,8 @@ class LinearMHD(StruphyModel):
     ## species
 
     class EMFields(FieldSpecies):
-        def __init__(self):
-            self.b_field = FEECVariable(space="Hdiv")
+        def __init__(self, b_space: str = "Hdiv"):
+            self.b_field = FEECVariable(space=b_space)
             self.init_variables()
 
     class MHD(FluidSpecies):
@@ -51,8 +65,11 @@ class LinearMHD(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self, b_field: FEECVariable = None):
-            self.shear_alf = ShearAlfvenPropagator()
+        def __init__(self, b_field: FEECVariable = None, b_space: str = "Hdiv", projected: bool = False):
+            if b_space == "Hdiv":
+                self.shear_alf = ShearAlfvenPropagator()
+            else:
+                self.shear_alf = ShearAlfvenCurlCurlPropagator(projected=projected)
             self.mag_sonic = Magnetosonic(b_field=b_field)
 
     ## abstract methods
@@ -61,20 +78,25 @@ class LinearMHD(StruphyModel):
         self,
         base_units: BaseUnits = BaseUnits(),
         mass_number: float = 1.0,
+        b_space: OptsBSpace = "Hdiv",
+        projected: bool = False,
     ):
+        check_option(b_space, self.OptsBSpace)
+        if projected and b_space != "Hcurl":
+            raise ValueError('projected=True requires b_space="Hcurl".')
 
         # 0. store input parameters
         self.params = copy.deepcopy(locals())
 
         # 1. instantiate all species
-        self.em_fields = self.EMFields()
+        self.em_fields = self.EMFields(b_space=b_space)
         self.mhd = self.MHD(mass_number)
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
 
         # 3. instantiate all propagators
-        self.propagators = self.Propagators(b_field=self.em_fields.b_field)
+        self.propagators = self.Propagators(b_field=self.em_fields.b_field, b_space=b_space, projected=projected)
 
         # 4. assign variables to propagators
         self.propagators.shear_alf.variables.u = self.mhd.velocity
@@ -124,8 +146,8 @@ class LinearMHD(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        # background magnetic field and mass matrix in the space of the perturbation (2-form, or 1-form in the
-        # curl-curl models)
+        # background magnetic field and mass matrix in the space of the perturbation (2-form, or 1-form with
+        # b_space="Hcurl")
         if self.em_fields.b_field.space == "Hcurl":
             self._b_eq = Propagator.projected_equil.b1
             self._M_b = Propagator.mass_ops.M1
@@ -179,6 +201,31 @@ class LinearMHD(StruphyModel):
         .. math::
 
             \frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla \times (\tilde{\mathbf{U}} \times \mathbf{B}_0) = 0.
+
+        Here, :math:`\tilde \rho`, :math:`\tilde{\mathbf U}`, :math:`\tilde p`, :math:`\tilde{\mathbf B}` are the perturbed
+        density, velocity, pressure and magnetic field, and :math:`\rho_0`, :math:`p_0`, :math:`\mathbf B_0` those of a
+        static MHD equilibrium; :math:`\gamma = 5/3`.
+
+        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and :math:`\mathbf B_0 \cdot \mathbf n = 0`
+        on the boundary, or periodic boundaries):
+
+        Mass perturbation and divergence of the magnetic field:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \int \tilde \rho \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\partial}{\partial t} \nabla \cdot \tilde{\mathbf B} = 0
+
+        Perturbed energy, for an equilibrium with :math:`\nabla \times \mathbf B_0 = 0` and :math:`\nabla p_0 = 0`:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \int \left( \frac{\rho_0}{2} |\tilde{\mathbf U}|^2 + \frac 12 |\tilde{\mathbf B}|^2
+            + \frac{\tilde p^2}{2 \gamma p_0} \right) \textnormal d \mathbf x = 0
+
+        For general equilibria, the conserved energy is the sum of the kinetic energy and the potential energy
+        :math:`\delta W(\boldsymbol \xi)` of the plasma displacement :math:`\boldsymbol \xi`, with
+        :math:`\partial_t \boldsymbol \xi = \tilde{\mathbf U}` (energy principle of ideal MHD).
         """
 
     @classmethod
@@ -199,7 +246,10 @@ class LinearMHD(StruphyModel):
         - Magnetic energy (perturbation): :math:`E_B = \frac{1}{2} \int \frac{|\tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`
         - Mean pressure perturbation: :math:`E_p = \int \frac{\tilde{p}}{\gamma - 1} \, \mathrm{d}V` (``en_p``). This is a linear diagnostic, not an energy.
         - Thermal perturbation energy: :math:`E_{\mathrm{thermal}} = \frac{1}{2}\int \frac{\tilde{p}^2}{\gamma p_0} \, \mathrm{d}V` (``en_thermal``), with :math:`\gamma = 5/3`
-        - Total perturbed energy: :math:`E_{\mathrm{tot}} = E_U + E_B + E_{\mathrm{thermal}}` (``en_tot``)
+        - Total perturbed energy: :math:`E_{\mathrm{tot}} = E_U + E_B + E_{\mathrm{thermal}}` (``en_tot``). Its
+          change by the shear-Alfvén step is zero (up to the solver tolerances) with ``b_space="Hdiv"`` and with
+          ``b_space="Hcurl", projected=True``; with ``b_space="Hcurl"``, ``projected=False`` this step damps it
+          numerically (the damping vanishes with the resolution along the background field).
         - Equilibrium magnetic energy: :math:`E_{B0} = \frac{1}{2} \int \frac{|\mathbf{B}_0|^2}{\mu_0} \, \mathrm{d}V`
         - Equilibrium internal energy: :math:`E_{p0} = \int \frac{p_0}{\gamma - 1} \, \mathrm{d}V`
         - Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`"""
@@ -208,11 +258,17 @@ class LinearMHD(StruphyModel):
     def doc_discretization(cls):
         """Time integration is performed by the following propagators (in sequence):
 
-        1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
+        1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` (``b_space="Hdiv"``) or
+           :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`
+           (``b_space="Hcurl"``)
         2. :class:`~struphy.propagators.magnetosonic.Magnetosonic`"""
-        doc = rf"""**1. ShearAlfvenPropagator:**
+        doc = rf"""**1. ShearAlfvenPropagator** (``b_space="Hdiv"``):
 
 {ShearAlfvenPropagator.__doc__}
+
+**1. ShearAlfvenCurlCurlPropagator** (``b_space="Hcurl"``):
+
+{ShearAlfvenCurlCurlPropagator.__doc__}
 
 **2. Magnetosonic:**
 
@@ -244,7 +300,23 @@ class LinearMHD(StruphyModel):
 
         - :math:`\rho_0` - background density
         - :math:`p_0` - background pressure
-        - :math:`\mathbf{B}_0` - background magnetic field"""
+        - :math:`\mathbf{B}_0` - background magnetic field
+
+        Two discretizations of the magnetic field are available through the flag ``b_space``. With ``"Hdiv"``
+        (default), :math:`\tilde{\mathbf B}` is a 2-form and the induction equation holds strongly. With ``"Hcurl"``,
+        :math:`\tilde{\mathbf B}` is a 1-form, the induction equation is weak and the implicit shear-Alfvén step solves a
+        field-aligned curl-curl system for the magnetic field, preconditioned by Hiptmair-Xu, which allows large time
+        steps; the force :math:`(\nabla \times \mathbf B_0) \times \tilde{\mathbf B}` of the magnetosonic step then
+        enters through the mixed mass matrix :attr:`~struphy.feec.mass.WeightedMassOperators.M21J`. This shear-Alfvén
+        step damps the waves numerically, with a damping that vanishes quickly with the resolution along the
+        background field; ``projected=True`` gives the exactly energy conserving version, at the price of an inner mass
+        matrix solve in every application of the Schur operator.
+
+        Boundary conditions with ``b_space="Hcurl"``: essential boundary conditions in the de Rham sequence set the
+        tangential components of the magnetic field to zero on that boundary, which is unphysical at a wall with
+        :math:`\mathbf B_0 \cdot \mathbf n = 0`. Free boundary conditions are therefore recommended: they impose
+        :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` weakly in the shear-Alfvén step and :math:`\tilde p = 0` weakly in
+        the magnetosonic step (natural boundary condition of the pressure term)."""
 
     @classmethod
     def doc_examples(cls):
@@ -266,6 +338,9 @@ class LinearMHD(StruphyModel):
             model.scalars["en_U"]
             model.scalars["en_B"]
             model.scalars["en_p"]
+
+            # magnetic field in H(curl), exactly energy conserving shear-Alfvén step
+            model_cc = LinearMHD(b_space="Hcurl", projected=True)
         """
 
     @classmethod
@@ -277,7 +352,8 @@ class LinearMHD(StruphyModel):
 
         - verification of linear MHD wave dispersion and mode structure
         - perturbative studies around static equilibria
-        - benchmark problems for ideal-MHD field-fluid coupling"""
+        - benchmark problems for ideal-MHD field-fluid coupling
+        - large time steps with the curl-curl discretization (``b_space="Hcurl"``)"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
@@ -286,4 +362,5 @@ class LinearMHD(StruphyModel):
         - nonlinear MHD dynamics with finite-amplitude perturbations
         - equilibria with non-zero background flow
         - dissipative effects such as resistivity or viscosity
-        - kinetic or particle-field effects beyond the fluid MHD description"""
+        - kinetic or particle-field effects beyond the fluid MHD description
+        - polar splines with the Hiptmair-Xu preconditioner (``b_space="Hcurl"``)"""
