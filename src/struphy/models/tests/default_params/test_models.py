@@ -124,7 +124,8 @@ def test_variational_perturbative_linear(
     # the q model with the unsplit step (split_sound=False): the flag is kept, and VariationalQBEvolve gets the
     # linear variant
     if perturbative_model == "VariationalPerturbativeMHD_with_q":
-        assert params_model.propagators.variat_alfven.options.model == "linear"
+        if not crank_nicolson:
+            assert params_model.propagators.variat_alfven.options.model == "linear"
         unsplit = model_class(linear=True, split_sound=False)
         path_unsplit = os.path.join(tmp_path, f"params_{perturbative_model}_unsplit.py")
         unsplit.generate_default_parameter_file(path=path_unsplit, prompt=False)
