@@ -108,7 +108,7 @@ class PushGuidingCenterParallel(Propagator):
             Electric potential in ``"H1"`` space contributing to :math:`E^*`.
             If ``None``, an empty ``FEECVariable(space="H1")`` is created internally.
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation in ``"Hcurl"`` space contributing to :math:`B^*`.
+            Magnetic perturbation in ``"Hdiv"`` space contributing to :math:`B^*`.
             If ``None``, the perturbation is ignored.
         e_field : FEECVariable, default=None
             Electric field in ``"Hcurl"`` space, used in :math:`E^* = E - \varepsilon \mu \nabla |B|` instead of
@@ -209,11 +209,15 @@ class PushGuidingCenterParallel(Propagator):
         # PolarVector --> Stencil-/BlockVector (identity maps in case of no polar splines)
         self._E0T = self.derham.extraction_ops["0"].transpose()
         self._E1T = self.derham.extraction_ops["1"].transpose()
+        self._E2T = self.derham.extraction_ops["2"].transpose()
 
-        # magnetic perturbation
+        # magnetic perturbation (in B* = B0 + b_tilde + epsilon v_par curl b0 and in B*_parallel and |B|)
         if self.b_tilde is not None:
             self._B_dot_b = self.derham.V0.zeros()
             self._grad_b_full = self.derham.V1.zeros()
+            self._b2_eq = b2
+            self._b2_full = b2.space.zeros()
+            b2 = self._b2_full
 
             self._PB = getattr(self.basis_ops, "PB")
             self._B_dot_b_pol = self._PB.codomain.zeros()
@@ -536,7 +540,8 @@ class PushGuidingCenterParallel(Propagator):
         phi.update_ghost_regions()
 
     def _update_b_tilde(self):
-        """Parallel magnetic perturbation and its gradient (plus equilibrium) in the tensor-product spaces."""
+        """Total magnetic field (2-form), parallel magnetic field and its gradient (equilibrium plus perturbation) in the
+        tensor-product spaces."""
         B_dot_b_pol = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b_pol)
         B_dot_b = self._E0T.dot(B_dot_b_pol, out=self._B_dot_b)
         B_dot_b.update_ghost_regions()
@@ -547,6 +552,11 @@ class PushGuidingCenterParallel(Propagator):
 
         grad_b_full += self._gradB1
         B_dot_b += self._absB0
+
+        # total magnetic field B0 + b_tilde (2-form) in B*
+        b2_full = self._E2T.dot(self.b_tilde.spline.vector, out=self._b2_full)
+        b2_full += self._b2_eq
+        b2_full.update_ghost_regions()
 
     @profile
     def __call__(self, dt):
