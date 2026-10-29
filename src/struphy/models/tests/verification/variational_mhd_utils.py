@@ -38,6 +38,13 @@ def linear(model_class, **kwargs):
     return constructor
 
 
+def linear_cn(model_class):
+    """The linear version of a perturbative model class with one linear solve per substep (``crank_nicolson=True``)."""
+    constructor = functools.partial(model_class, linear=True, crank_nicolson=True)
+    constructor.__name__ = f"{model_class.__name__}_linear_cn"
+    return constructor
+
+
 def _variant(model):
     """The option `model` of the variational density and pb/qb propagators for this model."""
     if isinstance(model, VariationalMHD_with_q):
@@ -69,12 +76,15 @@ def allocate_ideal(
     perturb=None,
     implicit_weights=None,
     schur_precond="MassMatrixPreconditioner",
+    weights=None,
 ):
     """Allocate an ideal model of `model_class` for the `setup` (equil, domain, num_elements, degree).
 
     `perturb(model)` adds the perturbations of the perturbative variables. The full-f model gets the equilibrium
     as background in addition. `implicit_weights` is passed to VariationalQBEvolve, VariationalAlfvenEvolve and
-    VariationalSoundEvolve (None: their default), `schur_precond` to VariationalPBEvolve and VariationalAlfvenEvolve. Models must be
+    VariationalSoundEvolve (None: their default), `schur_precond` to VariationalPBEvolve and VariationalAlfvenEvolve,
+    `weights` to VariationalLinearAlfvenEvolve and VariationalLinearSoundEvolve (None: their default; always
+    "frozen" in the sound step of the q model). Models must be
     allocated and run one after the other, since they share the class attributes of Propagator (derham, ...)."""
     equil, domain, num_elements, degree = setup
     model = model_class(with_viscosity=False, with_resistivity=False)
@@ -88,6 +98,15 @@ def allocate_ideal(
             solver_params=SOLVER, nonlin_solver=NONLIN
         )
     props = model.propagators
+    if hasattr(props, "variat_lin_alfven"):
+        cn_weights = {} if weights is None else {"weights": weights}
+        props.variat_lin_alfven.options = props.variat_lin_alfven.Options(solver_params=SOLVER, **cn_weights)
+        # the sound step of the q model has only the weights at t^n
+        sound_variant = model.propagator_variants["variat_lin_sound"]
+        sound_weights = {"weights": "frozen"} if sound_variant == "linear_q" else cn_weights
+        props.variat_lin_sound.options = props.variat_lin_sound.Options(
+            model=sound_variant, solver_params=SOLVER, **sound_weights
+        )
     if hasattr(props, "variat_pb"):
         props.variat_pb.options = props.variat_pb.Options(
             model=variant, solver_params=SOLVER, nonlin_solver=NONLIN, schur_precond=schur_precond
@@ -160,22 +179,6 @@ def perturb_velocity(amp, direction="x", L=1.0):
                     **{modes: (mode,)}, amps=(amp,), theta=(phase,), comp=comp, given_in_basis="physical", **lengths
                 )
             )
-
-    return perturb
-
-
-def perturb_all_along_z(amp, Lz):
-    """Perturbation of u, q and B along z (B~_x(z), B~_y(z) keep div B = 0)."""
-
-    def perturb(model):
-        perturb_velocity(amp, direction="z", L=Lz)(model)
-        model.mhd.sqrt_p.add_perturbation(perturbations.ModesCos(ns=(2,), amps=(amp,), given_in_basis="3"))
-        model.em_fields.b_field.add_perturbation(
-            perturbations.ModesSin(ns=(1,), amps=(amp,), comp=0, given_in_basis="2")
-        )
-        model.em_fields.b_field.add_perturbation(
-            perturbations.ModesCos(ns=(2,), amps=(amp,), comp=1, given_in_basis="2")
-        )
 
     return perturb
 

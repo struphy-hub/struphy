@@ -5,6 +5,7 @@ import shutil
 import cunumpy as xp
 import h5py
 import numpy as np
+import pytest
 from maybempi import MPI
 
 from struphy import (
@@ -134,8 +135,9 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
         shutil.rmtree(test_folder)
 
 
-def test_energy_conservation(exit_before_run: bool = False):
-    """The field-weights coupling must conserve the total energy ``en_E + en_f``.
+@pytest.mark.clones
+def test_energy_conservation(nclones: int, exit_before_run: bool = False):
+    """The field-weights coupling must conserve the total energy ``en_E + en_w``.
 
     With only :class:`~struphy.propagators.push_eta.PushEta` and
     :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling` (no B0, no E0),
@@ -151,7 +153,7 @@ def test_energy_conservation(exit_before_run: bool = False):
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder="energy_conservation")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="energy_conservation", num_clones=nclones)
 
     time_opts = Time(dt=0.1, Tend=0.3)
 
@@ -190,6 +192,7 @@ def test_energy_conservation(exit_before_run: bool = False):
         return sim
 
     sim.run()
+    assert (sim.clone_config.num_clones if sim.clone_config else 1) == nclones
 
     comm = MPI.COMM_WORLD
 
@@ -268,4 +271,4 @@ def test_initial_poisson_no_background():
 if __name__ == "__main__":
     test_delta_f_initial_condition()
     test_initial_poisson_no_background()
-    test_energy_conservation()
+    test_energy_conservation(nclones=1)
