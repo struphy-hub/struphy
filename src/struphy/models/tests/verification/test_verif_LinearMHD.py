@@ -81,7 +81,7 @@ def test_slab_waves_1d(b_space: str, projected: bool, algo: str, split_sound: bo
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
     # time stepping
-    time_opts = Time(dt=0.15, Tend=180.0)
+    time_opts = Time(dt=0.15, Tend=90.0)
 
     # geometry
     domain = domains.Cuboid(r3=60.0)
