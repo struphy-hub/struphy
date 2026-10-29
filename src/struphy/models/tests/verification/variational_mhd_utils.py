@@ -183,22 +183,6 @@ def perturb_velocity(amp, direction="x", L=1.0):
     return perturb
 
 
-def perturb_all_along_z(amp, Lz):
-    """Perturbation of u, q and B along z (B~_x(z), B~_y(z) keep div B = 0)."""
-
-    def perturb(model):
-        perturb_velocity(amp, direction="z", L=Lz)(model)
-        model.mhd.sqrt_p.add_perturbation(perturbations.ModesCos(ns=(2,), amps=(amp,), given_in_basis="3"))
-        model.em_fields.b_field.add_perturbation(
-            perturbations.ModesSin(ns=(1,), amps=(amp,), comp=0, given_in_basis="2")
-        )
-        model.em_fields.b_field.add_perturbation(
-            perturbations.ModesCos(ns=(2,), amps=(amp,), comp=1, given_in_basis="2")
-        )
-
-    return perturb
-
-
 def energy_history(model, dt, n_steps):
     """The total energy en_tot before and after each of n_steps time steps."""
     energies = []
