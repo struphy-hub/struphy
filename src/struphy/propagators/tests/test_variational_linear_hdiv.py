@@ -1,6 +1,6 @@
 """Linear variational MHD with the velocity in H(div) (``u_space="Hdiv"``): exact energy conservation (up to the
-solver tolerance) of the propagators with one linear solve per substep (``crank_nicolson=True``) of the ideal models,
-the only ones with this option."""
+solver tolerance) of the propagators with one linear solve per substep (``crank_nicolson=True``) of the ideal models.
+The visco-resistive p model with u in H(div) is tested in test_variational_linear_dissipative.py."""
 
 import logging
 
@@ -96,9 +96,9 @@ def test_full_step_energy(thermo: str, schur_precond: str):
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("cls_name", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
-def test_hdiv_needs_ideal_linear_cn(cls_name: str):
-    """u_space="Hdiv" is rejected for the nonlinear (perturbative) models, without crank_nicolson=True and for the
-    dissipative models."""
+def test_hdiv_needs_linear_cn(cls_name: str):
+    """u_space="Hdiv" is rejected for the nonlinear (perturbative) models and without crank_nicolson=True; for the q
+    model also with dissipation (the p model accepts it, see test_variational_linear_dissipative.py)."""
     from struphy import models
 
     model_class = getattr(models, cls_name)
@@ -107,10 +107,13 @@ def test_hdiv_needs_ideal_linear_cn(cls_name: str):
         model_class(u_space="Hdiv", **ideal)
     with pytest.raises(AssertionError):
         model_class(linear=True, u_space="Hdiv", **ideal)
-    with pytest.raises(AssertionError):
+    if cls_name == "VariationalPerturbativeMHD_with_q":
+        with pytest.raises(AssertionError):
+            model_class(linear=True, crank_nicolson=True, u_space="Hdiv")
+        with pytest.raises(AssertionError):
+            model_class(linear=True, crank_nicolson=True, u_space="Hdiv", with_viscosity=False)
+    else:
         model_class(linear=True, crank_nicolson=True, u_space="Hdiv")
-    with pytest.raises(AssertionError):
-        model_class(linear=True, crank_nicolson=True, u_space="Hdiv", with_viscosity=False)
     with pytest.raises(AssertionError):
         model_class(linear=True, crank_nicolson=True, u_space="Hcurl", **ideal)
     model_class(linear=True, crank_nicolson=True, u_space="Hdiv", **ideal)
