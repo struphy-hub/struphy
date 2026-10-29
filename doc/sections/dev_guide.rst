@@ -67,18 +67,101 @@ Before adding a new model, check the docstrings of the existing models (:ref:`mo
 Inheritance in practice (see e.g. :class:`~struphy.models.Vlasov` →
 :class:`~struphy.models.VlasovAmpereOneSpecies` → :class:`~struphy.models.VlasovMaxwellOneSpecies`):
 
+* The model's ``__init__`` stores its arguments with ``self._store_params(locals())`` and then calls
+  ``super().__init__(...)``. The parent runs the steps of :meth:`~struphy.models.base.StruphyModel._setup` through
+  hooks, which the new model extends by calling ``super()``: ``_create_species`` (new species),
+  ``_propagator_args`` (constructor arguments of ``Propagators``), ``_link_propagator_variables`` (variables of the
+  new propagators) and ``_create_scalars`` (new scalars, e.g. the energy of a new field, added to ``en_tot``).
 * The inner class ``Propagators`` of the new model inherits from the parent's ``Propagators``. Its ``__init__`` calls
-  ``super().__init__()`` and adds the propagators of the new terms as attributes. It may replace a parent propagator
-  by an attribute of the same name, e.g. ``PushVxB(b2_var=...)`` for the Lorentz force of the total magnetic field.
+  ``super().__init__(**kwargs)`` and adds the propagators of the new terms as attributes.
 * The splitting order is the attribute order. To change it, ``Propagators`` defines a tuple ``splitting_order`` with
   the names of all propagators, as class attribute or in its ``__init__``
   (see :func:`~struphy.models.base.apply_splitting_order`).
-* Species classes can inherit too, e.g. ``class KineticIons(Vlasov.KineticIons)``. The species variables are linked
-  to the propagators in ``_link_propagator_variables()``, which calls ``super()`` and links the new propagators.
+* Species classes inherit too, e.g. ``class EMFields(VlasovAmpereOneSpecies.EMFields)`` declares ``b_field`` and
+  then calls ``super().__init__()``, whose ``init_variables()`` includes it. Variables and scalars keep their names along the chain.
 * ``doc_discretization`` is generated from ``Propagators`` (the propagators in splitting order, with their docstrings).
   A model overrides it only to describe its time stepping in the docstring and returns ``cls.propagators_doc()``.
 * A propagator whose term vanishes for the given input (e.g. :class:`~struphy.propagators.push_vxb.PushVxB` without
   magnetic field) does nothing, instead of being switched off by a flag.
+
+
+.. _model_anatomy:
+
+Anatomy of a model
+------------------
+
+This section follows the construction of :class:`~struphy.models.VlasovMaxwellOneSpecies` (VM), which inherits from
+:class:`~struphy.models.VlasovAmpereOneSpecies` (VA), which inherits from :class:`~struphy.models.Vlasov`.
+Each class only contains what it adds to its parent:
+
+.. list-table::
+    :header-rows: 1
+    :widths: 14 28 28 30
+
+    * -
+      - ``Vlasov``
+      - ``VlasovAmpereOneSpecies``
+      - ``VlasovMaxwellOneSpecies``
+    * - arguments
+      - ``base_units``, ``charge_number``, ``mass_number``
+      - \+ ``alpha``, ``epsilon``
+      - \+ ``measure_gauss_law``
+    * - species
+      - ``kinetic_ions`` (``KineticIons``, variable ``var``)
+      - \+ ``em_fields`` (``e_field``, ``phi``)
+      - \+ ``b_field`` in ``em_fields``
+    * - propagators
+      - ``push_vxb``, ``push_eta``
+      - \+ ``coupling_va``
+      - \+ ``maxwell``
+    * - splitting order
+      - ``push_vxb``, ``push_eta``
+      - ``push_eta``, ``push_vxb``, ``coupling_va``
+      - ``maxwell``, ``push_eta``, ``push_vxb``, ``coupling_va``
+    * - scalars
+      - ``en_f``
+      - ``en_E``, ``en_f`` (with :math:`\alpha^2`), ``en_tot``
+      - \+ ``en_B`` (also in ``en_tot``), ``gauss_error``
+
+``VlasovMaxwellOneSpecies(alpha=1.0)`` runs the following steps. Since ``self`` is the VM instance, every
+``self.<hook>()`` and ``self.EMFields``, ``self.Propagators`` resolves to the VM version, which calls the
+parent's version with ``super()`` and extends it:
+
+.. code-block:: text
+
+    VM.__init__
+     ├─ 0. self._store_params(locals())       stores VM's arguments (incl. alpha, measure_gauss_law);
+     │                                         the parents' calls below do not overwrite them
+     └─ super().__init__(...)  -> VA.__init__
+         ├─ self._store_params(locals())       (no effect, already stored)
+         ├─ super().__init__(...)  -> Vlasov.__init__
+         │   ├─ self._store_params(locals())   (no effect)
+         │   └─ self._setup(base_units)        StruphyModel._setup:
+         │       ├─ 1. self._create_species()          VA:     self.em_fields = self.EMFields()   (VM's EMFields: e, phi, b)
+         │       │                                     Vlasov: self.kinetic_ions = self.KineticIons(alpha=1.0, ...)
+         │       ├─ 2. self.setup_equation_params()    units, alpha, epsilon of the species
+         │       ├─ 3. self.Propagators(**self._propagator_args())
+         │       │      VM._propagator_args() -> {"b2_var": b_field}
+         │       │      VM.Propagators -> VA.Propagators -> Vlasov.Propagators(b2_var): push_vxb, push_eta
+         │       │                        VA: + coupling_va,  VM: + maxwell,  then reordered by splitting_order
+         │       ├─ 4. self._link_propagator_variables()   Vlasov, then VA, then VM link their propagators
+         │       └─ 5. Scalars(**self._create_scalars())    VA: en_E, en_f, en_tot;  VM: + en_B, new en_tot
+         └─ self._create_initial_poisson(...)   VA, after the parent steps (helper defined in Vlasov)
+
+Helpers that several models of a chain need go into the first class of the chain that can hold them. For example,
+:class:`~struphy.models.Vlasov` holds the initial Poisson solve (``_create_initial_poisson``,
+``_solve_initial_poisson``) and the Gauss-law diagnostic (``calculate_gauss_error``), which VA, VM, VMQN and the
+linear models use; Vlasov itself does not call them.
+
+When writing a new model in a chain:
+
+* call ``self._store_params(locals())`` before ``super().__init__(...)``, and pass the parent's arguments on;
+* override only the hooks that change, and call ``super()`` in them;
+* in ``Propagators``, call ``super().__init__(**kwargs)`` and document in its docstring that further keyword arguments
+  go to the parent's ``Propagators``;
+* annotate the attributes whose class the model changes (``em_fields: EMFields``, ``propagators: Propagators``),
+  so that IDEs see the model's classes, not the parent's;
+* write ``doc_pde`` for the complete PDE system of the new model, not only the new terms.
 
 
 .. _docstrings_models_propagators:

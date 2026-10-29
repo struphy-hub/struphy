@@ -1,20 +1,14 @@
-import copy
 import logging
 
 from struphy import BaseUnits
-from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
-from struphy.models.variables import FEECVariable, PICVariable
-from struphy.models.vlasov_pauli import VlasovPauli
+from struphy.models.vlasov_pauli import PauliMixin, VlasovPauli
 from struphy.models.vlasov_poisson_adiabatic import VlasovPoissonAdiabatic
-from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
-from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
-from struphy.propagators.push_v_in_force_field import PushVinForceField
 
 logger = logging.getLogger("struphy")
 
 
-class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
+class VlasovPoissonAdiabaticPauli(PauliMixin, VlasovPoissonAdiabatic):
     r"""Guiding-center ion dynamics with adiabatic electrons, computed from classical Pauli particles.
 
     The ions are full-orbit (6D) markers with a magnetic moment (classical Pauli particles, Xiao and Qin 2021),
@@ -41,41 +35,16 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
         If ``None``, computed from ``base_units`` and the charge/mass numbers.
     """
 
-    ## species
+    ## changed species
 
-    class KineticIons(VlasovPoissonAdiabatic.KineticIons):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            alpha: float = None,
-            epsilon: float = None,
-        ):
-            self.var = PICVariable(space="PauliParticles6D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                alpha=alpha,
-                epsilon=epsilon,
-            )
+    KineticIons = VlasovPauli.KineticIons
 
-    ## propagators
+    ## propagators: those of VlasovPoissonAdiabatic (with magnetic_moment=True in _propagator_args), with the magnetic-moment force in push_v_E (with Strang
+    ## splitting the last propagator, push_vxb, makes one full step between the two half kicks, i.e. the Boris
+    ## scheme for push_vxb with algo="implicit")
 
-    class Propagators(VlasovPoissonAdiabatic.Propagators):
-        # as in VlasovPoissonAdiabatic; with Strang splitting the last propagator (push_vxb) makes one full
-        # step between the two half kicks, i.e. the Boris scheme for push_vxb with algo="implicit"
-
-        def __init__(
-            self,
-            phi: FEECVariable = None,
-            rho: ParticlesToGrid = None,
-            epsilon: float = 1.0,
-            alpha: float = 1.0,
-            Z: int = 1,
-        ):
-            super().__init__(phi=phi, rho=rho, epsilon=epsilon, alpha=alpha, Z=Z)
-            # the electric force plus the magnetic-moment force
-            self.push_v_E = PushVinForceField(potential=phi, magnetic_moment=True)
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    kinetic_ions: KineticIons
 
     ## abstract methods
 
@@ -88,51 +57,19 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
         epsilon: float = None,
     ):
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            alpha,
-            epsilon,
-        )
+        # 1.-5. see VlasovPoissonAdiabatic
+        super().__init__(base_units, charge_number, mass_number, alpha, epsilon)
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
+    def _propagator_args(self):
+        """:meta private:"""
+        # the electric force plus the magnetic-moment force
+        return {**super()._propagator_args(), "magnetic_moment": True}
 
-        # 3. instantiate all propagators
-        rho = ParticlesToGrid(
-            self.kinetic_ions.var,
-            "H1",
-            charge_density_0form,
-        )
-        self.propagators = self.Propagators(
-            phi=self.em_fields.phi,
-            rho=rho,
-            epsilon=epsilon,
-            alpha=alpha,
-            Z=charge_number,
-        )
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation
-        en_phi = FunctionScalarFEEC(self._compute_en_phi)
-        en_particles = KineticEnergyPIC(self.kinetic_ions.var)
-        en_mu = FunctionScalarPIC(self._compute_en_mu, self.kinetic_ions.var)
-        mu_prime_max = FunctionScalarFEEC(self._compute_mu_prime_max)
-        self.scalars = Scalars(
-            en_phi=en_phi,
-            en_particles=en_particles,
-            en_mu=en_mu,
-            en_tot=en_phi + en_particles + en_mu,
-            mu_prime_max=mu_prime_max,
-        )
+    def _create_scalars(self):
+        """:meta private:"""
+        return self._pauli_scalars(super()._create_scalars())
 
     def post_allocate(self):
         """Solve the initial Poisson equation and allocate helper arrays.
@@ -161,30 +98,6 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
             e = Propagator.derham.grad.dot(self.em_fields.phi.spline.vector, out=self._grad_phi)
             en += 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e, e)
         return en
-
-    # magnetic-moment energy and distance from the slow manifold, as in VlasovPauli
-    _compute_en_mu = VlasovPauli._compute_en_mu
-    _compute_mu_prime_max = VlasovPauli._compute_mu_prime_max
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "push_vxb.Options" in line:
-                    new_file += [
-                        "model.propagators.push_vxb.options = model.propagators.push_vxb.Options(algo='implicit')\n"
-                    ]
-                elif "time_opts = Time(" in line:
-                    new_file += ["time_opts = Time(split_algo='Strang')\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
-        return params_path
 
     ## abstract methods for documentation
 
@@ -242,11 +155,11 @@ class VlasovPoissonAdiabaticPauli(VlasovPoissonAdiabatic):
           :math:`= \frac{1}{2\alpha^2} \int |\nabla \phi|^2 \, \mathrm d \mathbf x + \frac{1}{2 Z \varepsilon^2} \int \frac{n_0}{T_0} \phi (\phi - \langle \phi \rangle) \, \mathrm d \mathbf x`
           (the first term only if ``quasi_neutral=False``), plus the polarization energy
           :math:`\frac{1}{2} \int \frac{n_0}{|\mathbf B_0|^2} |\nabla_\perp \phi|^2 \, \mathrm d \mathbf x` with ``polarization=True``
-        - Kinetic energy: ``en_particles`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
+        - Kinetic energy: ``en_f`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
         - Magnetic-moment energy: ``en_mu`` :math:`= \sum_p w_p \mu_p |\mathbf B_0(\mathbf x_p)|`
-        - Total energy: ``en_tot`` = ``en_phi + en_particles + en_mu``; with the control variate it is conserved
+        - Total energy: ``en_tot`` = ``en_phi + en_f + en_mu``; with the control variate it is conserved
           only approximately (the E x B kinetic energy of the background is represented by the polarization energy,
-          that of the delta-f weights remains in ``en_particles``)
+          that of the delta-f weights remains in ``en_f``)
         - Distance from the slow manifold: ``mu_prime_max``
           :math:`= \max_p |\mathbf v_p \times \mathbf b_0|^2 / (2 |\mathbf B_0|)`, Eq. (7) of Xiao and Qin;
           it must stay small compared to the magnetic moments."""

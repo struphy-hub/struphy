@@ -1,11 +1,9 @@
-import copy
 import logging
 
 from maybempi import MPI
 
 from struphy import BaseUnits
-from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
-from struphy.models.variables import PICVariable
+from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC
 from struphy.models.vlasov import Vlasov
 from struphy.propagators.base import Propagator
 from struphy.propagators.push_v_in_force_field import PushVinForceField
@@ -13,105 +11,22 @@ from struphy.propagators.push_v_in_force_field import PushVinForceField
 logger = logging.getLogger("struphy")
 
 
-class VlasovPauli(Vlasov):
-    r"""Guiding-center orbits in a static magnetic field, computed from classical Pauli particles.
+class PauliMixin:
+    """Scalars and parameter-file defaults shared by the models with classical Pauli particles
+    (:class:`~struphy.models.VlasovPauli`, :class:`~struphy.models.VlasovPoissonAdiabaticPauli`)."""
 
-    The particles are full-orbit (6D) markers with a magnetic moment (classical Pauli particles, Xiao and Qin 2021),
-    loaded on the slow manifold without gyration. Extends :class:`~struphy.models.Vlasov` by the magnetic-moment
-    (mirror) force :math:`-\mu \nabla |\mathbf B_0|`. The markers follow guiding-center orbits with full-orbit pushers,
-    with time steps larger than the cyclotron period. With the self-consistent electrostatic potential and adiabatic
-    electrons, see :class:`~struphy.models.VlasovPoissonAdiabaticPauli`.
-
-    Parameters
-    ----------
-    base_units : BaseUnits
-        Base units for normalization (default: ``BaseUnits(kBT=1.0)``).
-    charge_number : int
-        Charge number (in units of the positive elementary charge) of the species (default: 1).
-    mass_number : float
-        Mass number (in units of the proton mass) of the species (default: 1.0).
-    epsilon : float, optional
-        Normalized inverse cyclotron frequency :math:`1 / (\hat{\Omega}_\mathrm{c} \hat{t})`.
-        If ``None``, computed from ``base_units`` and the charge/mass numbers.
-    """
-
-    ## species
-
-    class KineticIons(Vlasov.KineticIons):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            epsilon: float = None,
-        ):
-            self.var = PICVariable(space="PauliParticles6D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                epsilon=epsilon,
-            )
-
-    ## propagators
-
-    class Propagators(Vlasov.Propagators):
-        # with Strang splitting the last propagator (push_vxb) makes one full step between the two half kicks,
-        # i.e. the Boris scheme for push_vxb with algo="implicit"
-        splitting_order = ("push_eta", "push_v_mu", "push_vxb")
-
-        def __init__(self):
-            super().__init__()
-            self.push_v_mu = PushVinForceField(magnetic_moment=True)
-
-    ## abstract methods
-
-    def __init__(
-        self,
-        base_units: BaseUnits = BaseUnits(kBT=1.0),
-        charge_number: int = 1,
-        mass_number: float = 1.0,
-        epsilon: float = None,
-    ):
-        # 0. store input parameters
-        self.params = copy.deepcopy(locals())
-
-        # 1. instantiate all species
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            epsilon,
-        )
-
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators()
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation
-        en_particles = KineticEnergyPIC(self.kinetic_ions.var)
-        en_mu = FunctionScalarPIC(self._compute_en_mu, self.kinetic_ions.var)
-        mu_prime_max = FunctionScalarFEEC(self._compute_mu_prime_max)
-        self.scalars = Scalars(
-            en_particles=en_particles,
-            en_mu=en_mu,
-            en_tot=en_particles + en_mu,
-            mu_prime_max=mu_prime_max,
-        )
-
-    def _link_propagator_variables(self):
-        """Assign the species variables to the propagators.
-
-        :meta private:
-        """
-        super()._link_propagator_variables()
-        self.propagators.push_v_mu.variables.var = self.kinetic_ions.var
-
-    @property
-    def velocity_scale(self):
-        return "thermal"
+    def _pauli_scalars(self, scalars: dict) -> dict:
+        """Add the magnetic-moment energy ``en_mu`` (also to ``en_tot``) and ``mu_prime_max`` to the scalars of the
+        parent model."""
+        scalars.pop("en_tot", None)
+        scalars["en_mu"] = FunctionScalarPIC(self._compute_en_mu, self.kinetic_ions.var)
+        terms = [scalars[name] for name in ("en_phi", "en_f", "en_mu") if name in scalars]
+        en_tot = terms[0]
+        for term in terms[1:]:
+            en_tot = en_tot + term
+        scalars["en_tot"] = en_tot
+        scalars["mu_prime_max"] = FunctionScalarFEEC(self._compute_mu_prime_max)
+        return scalars
 
     def _compute_en_mu(self):
         r"""Local part of the magnetic-moment energy :math:`\sum_p w_p \mu_p |\mathbf B_0(\mathbf x_p)|`."""
@@ -134,7 +49,6 @@ class VlasovPauli(Vlasov):
             value = particles.clone_config.inter_comm.allreduce(value, op=MPI.MAX)
         return value
 
-    ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
         new_file = []
@@ -155,6 +69,85 @@ class VlasovPauli(Vlasov):
             for line in new_file:
                 f.write(line)
         return params_path
+
+
+class VlasovPauli(PauliMixin, Vlasov):
+    r"""Guiding-center orbits in a static magnetic field, computed from classical Pauli particles.
+
+    The particles are full-orbit (6D) markers with a magnetic moment (classical Pauli particles, Xiao and Qin 2021),
+    loaded on the slow manifold without gyration. Extends :class:`~struphy.models.Vlasov` by the magnetic-moment
+    (mirror) force :math:`-\mu \nabla |\mathbf B_0|`. The markers follow guiding-center orbits with full-orbit pushers,
+    with time steps larger than the cyclotron period. With the self-consistent electrostatic potential and adiabatic
+    electrons, see :class:`~struphy.models.VlasovPoissonAdiabaticPauli`.
+
+    Parameters
+    ----------
+    base_units : BaseUnits
+        Base units for normalization (default: ``BaseUnits(kBT=1.0)``).
+    charge_number : int
+        Charge number (in units of the positive elementary charge) of the species (default: 1).
+    mass_number : float
+        Mass number (in units of the proton mass) of the species (default: 1.0).
+    epsilon : float, optional
+        Normalized inverse cyclotron frequency :math:`1 / (\hat{\Omega}_\mathrm{c} \hat{t})`.
+        If ``None``, computed from ``base_units`` and the charge/mass numbers.
+    """
+
+    ## changed species
+
+    class KineticIons(Vlasov.KineticIons):
+        space = "PauliParticles6D"
+
+    ## additional propagators
+
+    class Propagators(Vlasov.Propagators):
+        """Propagators of :class:`~struphy.models.Vlasov` plus ``push_v_mu`` (magnetic-moment force).
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`.
+        """
+
+        # with Strang splitting the last propagator (push_vxb) makes one full step between the two half kicks,
+        # i.e. the Boris scheme for push_vxb with algo="implicit"
+        splitting_order = ("push_eta", "push_v_mu", "push_vxb")
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.push_v_mu = PushVinForceField(magnetic_moment=True)
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    kinetic_ions: KineticIons
+    propagators: Propagators
+
+    ## abstract methods
+
+    def __init__(
+        self,
+        base_units: BaseUnits = BaseUnits(kBT=1.0),
+        charge_number: int = 1,
+        mass_number: float = 1.0,
+        epsilon: float = None,
+    ):
+        # 0. store input parameters
+        self._store_params(locals())
+
+        # 1.-5. see Vlasov
+        super().__init__(base_units, charge_number, mass_number)
+
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
+        self.propagators.push_v_mu.variables.var = self.kinetic_ions.var
+
+    def _create_scalars(self):
+        """:meta private:"""
+        return self._pauli_scalars(super()._create_scalars())
+
+    @property
+    def velocity_scale(self):
+        return "thermal"
 
     ## abstract methods for documentation
 
@@ -196,9 +189,9 @@ class VlasovPauli(Vlasov):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation** (the sum of the energies is conserved by the model equations):
 
-        - Kinetic energy: ``en_particles`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
+        - Kinetic energy: ``en_f`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
         - Magnetic-moment energy: ``en_mu`` :math:`= \sum_p w_p \mu_p |\mathbf B_0(\mathbf x_p)|`
-        - Total energy: ``en_tot`` = ``en_particles + en_mu``
+        - Total energy: ``en_tot`` = ``en_f + en_mu``
         - Distance from the slow manifold: ``mu_prime_max``
           :math:`= \max_p |\mathbf v_p \times \mathbf b_0|^2 / (2 |\mathbf B_0|)`, Eq. (7) of Xiao and Qin;
           it must stay small compared to the magnetic moments."""

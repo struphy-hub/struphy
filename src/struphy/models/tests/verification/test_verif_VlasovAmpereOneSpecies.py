@@ -132,7 +132,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
         pa_data = os.path.join(env.path_out, "data")
         with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
             time = f["time"]["value"][()]
-            E = f["scalar"]["electric_energy"][()]
+            E = f["scalar"]["en_E"][()]
         logE = xp.log10(E)
 
         # find where time derivative of E is zero
@@ -170,7 +170,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
 
 @pytest.mark.parametrize("control_variate", [False, True])
 def test_energy_conservation(control_variate: bool, exit_before_run: bool = False):
-    """``total_energy`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
+    """``en_tot`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
 
     A time step is :class:`~struphy.propagators.push_eta.PushEta` followed by the Crank-Nicolson step
     :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling` (no B0). This checks two things that
@@ -246,8 +246,8 @@ def test_energy_conservation(control_variate: bool, exit_before_run: bool = Fals
 
     if comm.Get_rank() == 0:
         with h5py.File(os.path.join(env.path_out, "data", "data_proc0.hdf5"), "r") as f:
-            en_E = f["scalar"]["electric_energy"][()]
-            en_tot = f["scalar"]["total_energy"][()]
+            en_E = f["scalar"]["en_E"][()]
+            en_tot = f["scalar"]["en_tot"][()]
 
         # energy is exchanged between field and particles ...
         assert abs(en_E[-1] - en_E[0]) > 1e-2 * en_E[0], f"{en_E =}"
