@@ -38,6 +38,13 @@ def linear(model_class, **kwargs):
     return constructor
 
 
+def linear_cn(model_class):
+    """The linear version of a perturbative model class with one linear solve per substep (``crank_nicolson=True``)."""
+    constructor = functools.partial(model_class, linear=True, crank_nicolson=True)
+    constructor.__name__ = f"{model_class.__name__}_linear_cn"
+    return constructor
+
+
 def _variant(model):
     """The option `model` of the variational density and pb/qb propagators for this model."""
     if isinstance(model, VariationalMHD_with_q):
@@ -88,6 +95,11 @@ def allocate_ideal(
             solver_params=SOLVER, nonlin_solver=NONLIN
         )
     props = model.propagators
+    if hasattr(props, "variat_lin_alfven"):
+        props.variat_lin_alfven.options = props.variat_lin_alfven.Options(solver_params=SOLVER)
+        props.variat_lin_sound.options = props.variat_lin_sound.Options(
+            model=model.propagator_variants["variat_lin_sound"], solver_params=SOLVER
+        )
     if hasattr(props, "variat_pb"):
         props.variat_pb.options = props.variat_pb.Options(
             model=variant, solver_params=SOLVER, nonlin_solver=NONLIN, schur_precond=schur_precond
