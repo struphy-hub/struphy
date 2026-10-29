@@ -266,7 +266,7 @@ if profiling:
     sorting_params = SortingParameters()
     saving_params = SavingParameters(n_markers=0)  # profile the physics, not the marker output
 else:
-    loading_params = LoadingParameters(ppc=ppc)
+    loading_params = LoadingParameters(ppc=ppc, seed=1234)
     sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
     binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
     saving_params = SavingParameters(binning_plots=(binplot,))

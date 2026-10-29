@@ -155,7 +155,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc=50 if args.test_run else 1000, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0))
+loading_params = LoadingParameters(ppc=50 if args.test_run else 1000, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0), seed=1234)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
