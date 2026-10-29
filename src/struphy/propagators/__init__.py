@@ -44,6 +44,9 @@ _LAZY_IMPORTS = {
     "VariationalAlfvenEvolve": "struphy.propagators.variational_alfven_evolve",
     "VariationalDensityEvolve": "struphy.propagators.variational_density_evolve",
     "VariationalEntropyEvolve": "struphy.propagators.variational_entropy_evolve",
+    "VariationalLinearAlfvenEvolve": "struphy.propagators.variational_linear_alfven_evolve",
+    "VariationalLinearEvolve": "struphy.propagators.variational_linear_base",
+    "VariationalLinearSoundEvolve": "struphy.propagators.variational_linear_sound_evolve",
     "VariationalMagFieldEvolve": "struphy.propagators.variational_mag_field_evolve",
     "VariationalMomentumAdvection": "struphy.propagators.variational_momentum_advection",
     "VariationalPBEvolve": "struphy.propagators.variational_pb_evolve",
@@ -97,6 +100,9 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.variational_alfven_evolve import VariationalAlfvenEvolve
     from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
     from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
+    from struphy.propagators.variational_linear_alfven_evolve import VariationalLinearAlfvenEvolve
+    from struphy.propagators.variational_linear_base import VariationalLinearEvolve
+    from struphy.propagators.variational_linear_sound_evolve import VariationalLinearSoundEvolve
     from struphy.propagators.variational_mag_field_evolve import VariationalMagFieldEvolve
     from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
     from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
@@ -149,6 +155,9 @@ __all__ = [
     "VariationalAlfvenEvolve",
     "VariationalDensityEvolve",
     "VariationalEntropyEvolve",
+    "VariationalLinearAlfvenEvolve",
+    "VariationalLinearEvolve",
+    "VariationalLinearSoundEvolve",
     "VariationalMagFieldEvolve",
     "VariationalMomentumAdvection",
     "VariationalPBEvolve",
