@@ -203,7 +203,9 @@ class SchurSolverFull:
 
     solver_name : str
         Name of the iterative solver, passed to ``feectools.linalg.solvers.inverse`` (e.g. ``"pcg"``, ``"cg"``,
-        ``"pbicgstab"``, ``"gmres"``).
+        ``"pbicgstab"``, ``"gmres"``), or ``"rpbicgstab"``: BiCGStab (``"bicgstab"``) for :math:`S P` with the
+        preconditioner :math:`P` (right preconditioning), then :math:`x = P\, x'`. It needs two products with
+        :math:`P` per iteration (``"pbicgstab"`` three), with the same stopping criterion (residual of :math:`S x`).
 
     **solver_params :
         Keyword arguments of the chosen solver; must contain ``pc`` (the preconditioner, None for none).
@@ -229,10 +231,22 @@ class SchurSolverFull:
         self._S = self._A - self._B @ self._C
 
         self._solver_params = solver_params
-        self._solver = inverse(self._S, solver_name, **solver_params)
+        self._build_solver()
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
+        self._tmp_x = self._A.domain.zeros()
+
+    def _build_solver(self):
+        """The solver of the Schur system, with right preconditioning for ``"rpbicgstab"``."""
+        if self._solver_name == "rpbicgstab":
+            params = {k: v for k, v in self._solver_params.items() if k != "pc"}
+            self._right_pc = self._solver_params.get("pc")
+            op = self._S if self._right_pc is None else self._S @ self._right_pc
+            self._solver = inverse(op, "bicgstab", **params)
+        else:
+            self._right_pc = None
+            self._solver = inverse(self._S, self._solver_name, **self._solver_params)
 
     @property
     def precond(self):
@@ -245,7 +259,7 @@ class SchurSolverFull:
         self._solver_params.pop("pc", None)
         if pc is not None:
             self._solver_params["pc"] = pc
-        self._solver = inverse(self._S, self._solver_name, **self._solver_params)
+        self._build_solver()
 
     @profile
     @ProfileManager.profile("solve: SchurSolverFull")
@@ -286,7 +300,11 @@ class SchurSolverFull:
         rhs += bx
 
         # solve linear system (in-place if out is not None)
-        x = self._solver.dot(rhs, out=out[0])
+        if self._right_pc is None:
+            x = self._solver.dot(rhs, out=out[0])
+        else:
+            xp = self._solver.dot(rhs, out=self._tmp_x)
+            x = self._right_pc.dot(xp, out=out[0])
         y = self._C.dot(x, out=out[1])
         y *= -1
         y += by
