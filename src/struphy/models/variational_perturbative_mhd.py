@@ -40,8 +40,9 @@ class VariationalPerturbativeMHD(StruphyModel):
         Whether to include resistive dissipation (default: True)
     crank_nicolson: bool
         Only for ``linear=True``: whether to advance the velocity, the magnetic field and the pressure with one linear
-        solve per substep (``variat_lin_alfven`` and ``variat_lin_sound``, energy conserving, first order in time)
-        instead of the Picard iteration of ``variat_pb`` (default: False)
+        solve per substep (``variat_lin_alfven`` and ``variat_lin_sound``, energy conserving, by default with midpoint
+        weights of the second-order terms, option ``weights``) instead of the Picard iteration of ``variat_pb``
+        (default: False)
     u_space: str
         Space of the velocity, ``"H1vec"`` (vector field) or, only for the ideal linear model with one linear solve per
         substep (``linear=True``, ``crank_nicolson=True``, ``with_viscosity=False``, ``with_resistivity=False``),
@@ -371,7 +372,7 @@ class VariationalPerturbativeMHD(StruphyModel):
            True (linear model only),
            :class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve` and
            :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve` (one linear
-           solve each, energy conserving, first order in time)
+           solve each, energy conserving, with midpoint weights of the second-order terms by default)
         4. :class:`~struphy.propagators.variational_viscosity.VariationalViscosity` (if :attr:`with_viscosity` is True)
         5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
 

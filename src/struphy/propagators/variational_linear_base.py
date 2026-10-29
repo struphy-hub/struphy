@@ -1,6 +1,6 @@
 import logging
 
-from feectools.linalg.basic import IdentityOperator, LinearOperator
+from feectools.linalg.basic import IdentityOperator, LinearOperator, ScaledLinearOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 
@@ -42,6 +42,15 @@ class VariationalLinearEvolve(Propagator):
     by :class:`~struphy.linear_algebra.schur_solver.SchurSolverFull`. The subclasses define the variables, the options
     and the operators.
 
+    With midpoint weights (option ``weights="midpoint"`` of the subclasses), the term :math:`\mathbf f` is taken at
+    :math:`\mathbf x^{n+\frac12}`. It is linear in its weight, :math:`\mathbf f(\mathbf x) = \mathbb R \mathbf x`,
+    with a constant operator :math:`\mathbb R` (the second-order term in weak form, built from mass matrices and
+    derivatives), so the step is still one linear solve, with :math:`c \mathbb A_0^\top \mathbb M_x \to c \mathbb A_0^\top \mathbb M_x + \mathbb R` in
+    :math:`\mathbb J` (the residual is the same). The auxiliary variable is advanced with the weight
+    :math:`\mathbf x^{n+\frac12}` too, which keeps the step energy conserving. This is the implicit midpoint rule of
+    the linear system: second order in time and without the numerical damping (or growth) of the frozen weight
+    :math:`\mathbf x^n`; the Schur complement is not symmetric.
+
     The velocity can also be a 2-form, :math:`\mathbf u \in H(\textnormal{div})` (velocity variable in ``"Hdiv"``
     space); then :math:`\mathbb M^v[\hat\rho_0]` is replaced by :attr:`~struphy.feec.mass.WeightedMassOperators.M2n`, as
     in :class:`~struphy.models.linear_mhd.LinearMHD`.
@@ -70,13 +79,20 @@ class VariationalLinearEvolve(Propagator):
         space_x,
         solver: str,
         solver_params,
+        R: LinearOperator = None,
     ):
         r"""The matrix :math:`\mathbb J` and its Schur solver; the dt-dependent scalars are set in
-        :meth:`_set_dt`."""
-        self._c = c
+        :meth:`_set_dt`. With the matrix ``R`` of the auxiliary term (midpoint weights), the upper right block is
+        :math:`\frac{\Delta t}{2} (c \mathbb A_0^\top \mathbb M_x + \mathbb R)`; ``A0T_Mx`` can then be None."""
         self._dt_J = None
         # scalars overwritten in _set_dt
-        self._J01 = 2 * A0T_Mx
+        if R is None:
+            self._c = c
+            self._J01 = 2 * A0T_Mx
+        else:
+            self._c = 1.0
+            A01 = R if A0T_Mx is None else c * A0T_Mx + R
+            self._J01 = ScaledLinearOperator(A01.domain, A01.codomain, 2.0, A01)
         self._J10 = 2 * A0
 
         Jacs = BlockVectorSpace(self._Mrho.domain, space_x)
