@@ -15,7 +15,7 @@ logger = logging.getLogger("struphy")
 
 
 class LinearVlasovAmpereOneSpecies(Vlasov):
-    """Linearized Vlasov-Ampère equations for one kinetic species around a Maxwellian background.
+    r"""Linearized Vlasov-Ampère equations for one kinetic species around a Maxwellian background.
 
     Extends :class:`~struphy.models.Vlasov`, written for the perturbation :math:`\tilde f` (delta-f markers), by the
     force of the background electric field and the coupling of the perturbed electric field to the background
@@ -107,9 +107,11 @@ class LinearVlasovAmpereOneSpecies(Vlasov):
 
     def _create_scalars(self):
         """:meta private:"""
+        scalars = super()._create_scalars()
+        # the energy of the perturbation f~ (delta-f weights) replaces the kinetic energy of Vlasov
+        scalars["en_f"] = FunctionScalarPIC(self._compute_en_f, self.kinetic_ions.var)
         en_E = BilinearEnergyFEEC(self.em_fields.e_field)
-        en_f = FunctionScalarPIC(self._compute_en_f, self.kinetic_ions.var)
-        return {"en_E": en_E, "en_f": en_f, "en_tot": en_E + en_f}
+        return {"en_E": en_E, **scalars, "en_tot": en_E + scalars["en_f"]}
 
     @property
     def velocity_scale(self):

@@ -573,8 +573,9 @@ class StruphyModel(metaclass=StruphyModelMeta):
         Only the first call stores them: a model that inherits from another model calls it before
         ``super().__init__()``, such that its own arguments are stored (and available to the hooks of
         :meth:`_setup`, e.g. ``alpha`` for the species), not those of the parent."""
-        if not hasattr(self, "_params"):
+        if not getattr(self, "_params_stored", False):
             self.params = copy.deepcopy(params)
+            self._params_stored = True
 
     def _setup(self, base_units: BaseUnits):
         """Steps 1-5 of ``__init__``, through hooks that models override (calling ``super()`` to extend them):

@@ -48,7 +48,8 @@ class VlasovMaxwellQuasiNeutral(Vlasov):
 
     ## additional species
 
-    # electric field, magnetic field and potential, as in VlasovMaxwellOneSpecies
+    # electric field, magnetic field and potential, the same variables as in VlasovMaxwellOneSpecies (reused, not
+    # inherited: VMQN is not a subclass of VM, a change of VM's field species also changes VMQN)
     EMFields = VlasovMaxwellOneSpecies.EMFields
 
     ## additional propagators
@@ -107,7 +108,7 @@ class VlasovMaxwellQuasiNeutral(Vlasov):
     def _propagator_args(self):
         """:meta private:"""
         # the Lorentz force of the total magnetic field B0 + B
-        return {"b2_var": self.em_fields.b_field}
+        return {**super()._propagator_args(), "b2_var": self.em_fields.b_field}
 
     def _link_propagator_variables(self):
         """:meta private:"""
@@ -122,11 +123,13 @@ class VlasovMaxwellQuasiNeutral(Vlasov):
 
         :meta private:
         """
+        scalars = super()._create_scalars()
         coupling = self.propagators.coupling
         en_E = FunctionScalarFEEC(lambda: coupling.energies()[0])
         en_B = FunctionScalarFEEC(lambda: coupling.energies()[1])
-        en_f = FunctionScalarFEEC(lambda: coupling.energies()[2])
-        scalars = {"en_E": en_E, "en_B": en_B, "en_f": en_f, "en_tot": en_E + en_B + en_f}
+        # the particle energy with the coefficients of the coupling step replaces the kinetic energy of Vlasov
+        scalars["en_f"] = FunctionScalarFEEC(lambda: coupling.energies()[2])
+        scalars = {"en_E": en_E, "en_B": en_B, **scalars, "en_tot": en_E + en_B + scalars["en_f"]}
         if self.measure_gauss_law:
             # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
             scalars["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)

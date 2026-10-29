@@ -178,7 +178,7 @@ def test_energy_conservation(control_variate: bool, exit_before_run: bool = Fals
 
     * the initial field ``e = -grad(phi)`` must have its ghost regions in sync, otherwise the first push evaluates a
       wrong field and the total energy jumps in the first step (by ~1e-6 relative here, ~2e-4 with 8 elements);
-    * with the control variate, ``kinetic_energy`` at :math:`t=0` must be computed with the delta-f weights, like
+    * with the control variate, ``en_f`` at :math:`t=0` must be computed with the delta-f weights, like
       at all later times (it was computed with the full-f weights, i.e. the energy of the background too).
 
     With full-f weights the scheme conserves the total energy to the solver tolerance. With the control variate
