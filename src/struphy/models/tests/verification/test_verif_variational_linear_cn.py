@@ -5,13 +5,17 @@ crank_nicolson=True``), i.e. of
 :class:`~struphy.models.variational_perturbative_mhd_with_q.VariationalPerturbativeMHD_with_q` (q) and
 :class:`~struphy.models.variational_perturbative_mhd.VariationalPerturbativeMHD` (p):
 
-1. the Alfvén step is the step of VariationalPBEvolve (linear) without pressure perturbation, around the sheared
-   slab, where the term with curl B0 is active;
-2. the sound step is the step of VariationalQBEvolve (linear_q, weights at t^n), respectively VariationalPBEvolve
-   (linear), for a sound wave along B0, where the magnetic field is not perturbed;
-3. the energy with the auxiliary variables is conserved around the sheared slab;
-4. the analytic frequencies of the shear Alfvén, the fast magnetosonic and the sound wave in a homogeneous slab;
-5. the models agree with the linear models with Picard iteration up to a time discretization error of first order.
+1. with the weights at t^n (``weights="frozen"``), the Alfvén step agrees with the step of VariationalPBEvolve
+   (linear) without pressure perturbation, around the sheared slab, where the term with curl B0 is active, up to the
+   quadrature of the second-order term (weak form against the projector-based transport operator);
+2. with the weights at t^n, the sound step is the step of VariationalQBEvolve (linear_q), respectively
+   VariationalPBEvolve (linear), for a sound wave along B0, where the magnetic field is not perturbed;
+3. with midpoint weights (``weights="midpoint"``, the default), the Alfvén step agrees with the step of
+   VariationalAlfvenEvolve with ``implicit_weights=True`` (Picard iteration), up to the same quadrature;
+4. the energy with the auxiliary variables is conserved around the sheared slab;
+5. the analytic frequencies of the shear Alfvén, the fast magnetosonic and the sound wave in a homogeneous slab;
+6. the models (weights at t^n) agree with the linear models with Picard iteration up to a time discretization error
+   of first order.
 """
 
 import logging
@@ -68,10 +72,12 @@ def _perturb_sound(amp, Lz):
 
 def test_alfven_step_same_as_pb(tmp_path):
     """One step of VariationalLinearAlfvenEvolve gives the velocity, the magnetic field and B^ of one step of
-    VariationalPBEvolve (linear), whose pressure force vanishes for a zero pressure perturbation."""
+    VariationalPBEvolve (linear), whose pressure force vanishes for a zero pressure perturbation, up to the quadrature
+    of the second-order term: weak form :math:`\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)` and
+    :math:`\hat{\mathbf B} = \nabla \times \mathbf A` against the projector-based transport operator."""
     setup, dt, perturb = sheared_slab(), 0.05, _perturb_u_and_b(0.05)
 
-    model = allocate_ideal(tmp_path, "cn", linear_cn(VariationalPerturbativeMHD), setup, dt, perturb)
+    model = allocate_ideal(tmp_path, "cn", linear_cn(VariationalPerturbativeMHD), setup, dt, perturb, weights="frozen")
     model.propagators.variat_lin_alfven(dt)
     cn = state(model) + [model.diagnostics.bt2.spline.vector.toarray()]
 
@@ -80,10 +86,10 @@ def test_alfven_step_same_as_pb(tmp_path):
     pb = state(model) + [model.diagnostics.bt2.spline.vector.toarray()]
 
     assert norm(cn[4]) > 0.0
-    for i, name in ((1, "u"), (3, "B"), (4, "B^")):
+    for i, name, tol in ((1, "u", 1e-4), (3, "B", 1e-4), (4, "B^", 1e-2)):
         rel = norm(cn[i] - pb[i]) / norm(pb[i])
         logger.info(f"Alfvén step vs. VariationalPBEvolve, {name}: {rel:.2e}")
-        assert rel < 1e-6, (name, rel)
+        assert rel < tol, (name, rel)
 
 
 @pytest.mark.parametrize("thermo", ["q", "p"])
@@ -95,7 +101,7 @@ def test_sound_step_same_as_picard(tmp_path, thermo):
     setup = homogeneous_slab(B0=(0.0, 0.0, 1.0), Lz=Lz)
     perturb = _perturb_sound(0.05, Lz)
 
-    model = allocate_ideal(tmp_path, f"cn_{thermo}", linear_cn(MODELS[thermo]), setup, dt, perturb)
+    model = allocate_ideal(tmp_path, f"cn_{thermo}", linear_cn(MODELS[thermo]), setup, dt, perturb, weights="frozen")
     for _ in range(n_steps):
         model.integrate(dt)
     cn = state(model)
@@ -112,6 +118,40 @@ def test_sound_step_same_as_picard(tmp_path, thermo):
         rel = norm(cn[i] - picard[i]) / norm(picard[i])
         logger.info(f"sound ({thermo}) vs. Picard propagator, {name}: {rel:.2e}")
         assert rel < 1e-6, (name, rel)
+
+
+def test_midpoint_step_same_as_picard(tmp_path):
+    """With midpoint weights, one step of VariationalLinearAlfvenEvolve of the q model gives the velocity, the magnetic
+    field, q and B^ of one step of VariationalAlfvenEvolve with implicit_weights=True (Picard iteration on the weights
+    at t^(n+1/2)), around the sheared slab where the second-order term is active, up to the discretization of the
+    second-order term (as in test_alfven_step_same_as_pb). B^, which enters the energy only through its integral
+    against B0, differs by about 1% (L2 projection against commuting projector)."""
+    setup, dt, step = sheared_slab(), 0.05, "alfven"
+
+    def perturb(model):
+        _perturb_u_and_b(0.05)(model)
+        model.mhd.sqrt_p.add_perturbation(perturbations.ModesCos(ls=(1,), amps=(0.05,), given_in_basis="3"))
+
+    aux = "bt2"
+    results = []
+    for model_class, prop in (
+        (linear_cn(VariationalPerturbativeMHD_with_q), f"variat_lin_{step}"),
+        (linear(VariationalPerturbativeMHD_with_q), f"variat_{step}"),
+    ):
+        model = allocate_ideal(
+            tmp_path, prop, model_class, setup, dt, perturb, implicit_weights=True, weights="midpoint"
+        )
+        getattr(model.propagators, prop)(dt)
+        results.append(state(model) + [getattr(model.diagnostics, aux).spline.vector.toarray()])
+    cn, picard = results
+
+    for i, name, tol in ((1, "u", 1e-3), (2, "q", 1e-3), (3, "B", 1e-3), (4, aux, 5e-2)):
+        if norm(picard[i]) == 0.0:
+            assert norm(cn[i]) == 0.0, name
+            continue
+        rel = norm(cn[i] - picard[i]) / norm(picard[i])
+        logger.info(f"{step} step with midpoint weights vs. Picard (implicit_weights=True), {name}: {rel:.2e}")
+        assert rel < tol, (name, rel)
 
 
 @pytest.mark.parametrize("thermo", ["q", "p"])
@@ -135,7 +175,8 @@ def test_linear_waves(tmp_path, thermo, wave):
     """Standing waves with k = 2 pi / Lz along z in a homogeneous slab (beta = 1, n0 = 0.7), as in
     test_verif_VariationalPerturbativeMHD_with_q: shear Alfvén, fast magnetosonic and sound wave. The scheme is of
     first order in time (the terms with the weight at t^n, the splitting of the Alfvén and the sound step, and for p
-    the explicit pressure force); the shear Alfvén wave in the homogeneous slab is of second order (Crank-Nicolson)."""
+    the explicit pressure force); the shear Alfvén wave in the homogeneous slab is of second order (Crank-Nicolson).
+    (With midpoint weights, the default, the substeps are of second order, the Lie-Trotter splitting of first order.)"""
     Lz, n0, p0 = 10.0, 0.7, 0.5
     k = 2 * xp.pi / Lz
     B0, comp, omega_exact = {
@@ -169,7 +210,13 @@ def test_same_as_picard_model(tmp_path, thermo):
         runs = []
         for model_class in (linear_cn(MODELS[thermo]), linear(MODELS[thermo])):
             model = allocate_ideal(
-                tmp_path, f"{model_class.__name__}_{dt}", model_class, setup, dt, perturb_velocity(0.05)
+                tmp_path,
+                f"{model_class.__name__}_{dt}",
+                model_class,
+                setup,
+                dt,
+                perturb_velocity(0.05),
+                weights="frozen",
             )
             for _ in range(n_steps):
                 model.integrate(dt)

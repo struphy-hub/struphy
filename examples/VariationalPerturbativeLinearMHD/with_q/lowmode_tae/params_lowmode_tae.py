@@ -123,6 +123,13 @@ parser.add_argument(
     help="With --crank-nicolson: tolerance of the linear solves (default 1e-8, relative to the right-hand side).",
 )
 parser.add_argument(
+    "--weights",
+    default="midpoint",
+    choices=["midpoint", "frozen"],
+    help="With --crank-nicolson: weight of the second-order term of the Alfven step at t^(n+1/2) (default) or at t^n "
+    "(first order); the sound step of the q model always uses t^n.",
+)
+parser.add_argument(
     "--abs-tol",
     action="store_true",
     help="With --crank-nicolson: absolute tolerance of the linear solves (as LinearMHD) instead of relative.",
@@ -239,13 +246,16 @@ sim = Simulation(
 
 model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model="linear_q", gamma=gamma)
 if args.crank_nicolson:
-    # one linear solve per substep, energy conserving, first order in time
+    # one linear solve per substep, energy conserving (midpoint or frozen weights of the second-order terms)
     solver_params = SolverParameters(tol=args.tol)
     model.propagators.variat_lin_alfven.options = model.propagators.variat_lin_alfven.Options(
-        schur_precond=args.schur_precond, solver_params=solver_params, relative_tol=not args.abs_tol
+        weights=args.weights,
+        schur_precond=args.schur_precond,
+        solver_params=solver_params,
+        relative_tol=not args.abs_tol,
     )
     model.propagators.variat_lin_sound.options = model.propagators.variat_lin_sound.Options(
-        model="linear_q", gamma=gamma, solver_params=solver_params, relative_tol=not args.abs_tol
+        model="linear_q", gamma=gamma, weights="frozen", solver_params=solver_params, relative_tol=not args.abs_tol
     )
 else:
     # implicit_weights=False: first order in time, as the p model and LinearMHD (Lie-Trotter splitting)
