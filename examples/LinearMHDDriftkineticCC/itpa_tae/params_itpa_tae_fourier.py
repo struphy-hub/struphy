@@ -142,7 +142,8 @@ sim = Simulation(
 
 vth = 0.89740839
 
-loading_params = LoadingParameters(ppc=args.ppc, moments=(0.0, 0.0, vth, vth), seed=1234, B0=equil.params["B0"])
+# mu drawn with the local |B| at each marker (v_perp Maxwellian at the marker position)
+loading_params = LoadingParameters(ppc=args.ppc, moments=(0.0, 0.0, vth, vth), seed=1234, B0=equil.absB0)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"), bc_refill=("inner", "outer"))
 sorting_params = SortingParameters()
@@ -211,10 +212,12 @@ model.mhd.velocity.add_perturbation(
 itpa = perturbations.ITPA_density(n0=0.00720652, c=(0.50626, 0.18156, 0.13012, 0.54286))
 psi_axis, psi_edge = equil.psi_range
 
+
 def n_hot(psi_c):
     s = (psi_c - psi_axis) / (psi_edge - psi_axis)
     r_c = np.sign(s) * np.sqrt(np.abs(s))
     return itpa(r_c)
+
 
 n_cells = int(np.prod(args.num_elements))
 cache_size = int(2 * args.ppc * n_cells / MPI.COMM_WORLD.Get_size())
