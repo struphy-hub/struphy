@@ -1,4 +1,4 @@
-"""Toroidal Alfven eigenmode (TAE) with low mode numbers for the LinearMHD models: an n = 1 shear Alfven wave in
+"""Toroidal Alfven eigenmode (TAE) with low mode numbers for the LinearMHD model: an n = 1 shear Alfven wave in
 the gap of the Alfven continuum at the crossing of the m = 1 and m = 2 branches (q = 1.5, r = 0.5) in a tokamak of
 aspect ratio 5. A cheap verification of the TAE frequency on a coarse grid (compare with the ITPA TAE benchmark
 and with the ShearAlfven version of this example)."""
@@ -15,12 +15,12 @@ Toroidal Alfven eigenmode (TAE) with low mode numbers with the LinearMHD model: 
 (zero-flow) equilibrium, i.e. shear Alfven waves together with the coupling to the magnetosonic waves through the
 pressure and density perturbations. No energetic particles: the TAE is excited by the initial condition, not driven.
 The low mode numbers (n = 1, m = 1 and 2) need much less resolution than the ITPA TAE benchmark (n = 6, m = 10 and
-11), so that this case verifies the frequency of the three LinearMHD models on a laptop. With --model
-LinearMHDCurlCurl, the magnetic field is in H(curl) and the shear Alfven step solves a curl-curl system,
-preconditioned by Hiptmair-Xu (not energy conserving: the wave is damped numerically); --model
-LinearMHDCurlCurlwithProj has the exactly energy conserving shear Alfven step. On 2 MPI ranks, the 1200 time steps
-take about 20 min with LinearMHD and with LinearMHDCurlCurl (1 s per step each) and about 2 h with
-LinearMHDCurlCurlwithProj (5.6 s per step).
+11), so that this case verifies the frequency of the three discretizations of LinearMHD on a laptop. With --b-space
+Hcurl, the magnetic field is in H(curl) and the shear Alfven step solves a curl-curl system,
+preconditioned by Hiptmair-Xu (not energy conserving: the wave is damped numerically); --b-space
+Hcurl --projected has the exactly energy conserving shear Alfven step. On 2 MPI ranks, the 1200 time steps
+take about 20 min with --b-space Hdiv and with --b-space Hcurl (1 s per step each) and about 2 h with
+--b-space Hcurl --projected (5.6 s per step).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -78,22 +78,27 @@ parser.add_argument(
 parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
 parser.add_argument("--num-elements", type=int, nargs=3, default=[16, 16, 8], help="Number of elements per direction.")
 parser.add_argument(
-    "--model",
-    default="LinearMHD",
-    choices=["LinearMHD", "LinearMHDCurlCurl", "LinearMHDCurlCurlwithProj"],
-    help="LinearMHD (default, magnetic field in H(div), implicit solve for the velocity), LinearMHDCurlCurl "
-    "(magnetic field in H(curl), implicit curl-curl solve for the magnetic field, numerically damped) or "
-    "LinearMHDCurlCurlwithProj (as LinearMHDCurlCurl, energy conserving shear Alfven step).",
+    "--b-space",
+    default="Hdiv",
+    choices=["Hdiv", "Hcurl"],
+    help="Space of the magnetic field (model flag b_space): Hdiv (default, implicit solve for the velocity) or Hcurl "
+    "(implicit curl-curl solve for the magnetic field, numerically damped unless --projected).",
+)
+parser.add_argument(
+    "--projected",
+    action="store_true",
+    help="With --b-space Hcurl: projection of the Lorentz force in the curl-curl term, energy conserving shear Alfven "
+    "step (model flag projected).",
 )
 parser.add_argument(
     "--precond",
     default=None,
     choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
-    help="Preconditioner of the shear Alfven solve: of the mass matrix (default for LinearMHDCurlCurlwithProj), a geometric "
-    "multigrid V-cycle of the whole Schur operator (LinearMHD only; experimental), the Kronecker (fast "
+    help="Preconditioner of the shear Alfven solve: of the mass matrix (default with --projected), a geometric "
+    "multigrid V-cycle of the whole Schur operator (--b-space Hdiv only; experimental), the Kronecker (fast "
     "diagonalization) preconditioner of the whole Schur operator with the E x B auxiliary space correction "
-    "(LinearMHD only, its default), or Hiptmair-Xu for the curl-curl operator (curl-curl models only; the default of "
-    "LinearMHDCurlCurl).",
+    "(--b-space Hdiv only, its default), or Hiptmair-Xu for the curl-curl operator (--b-space Hcurl only; its "
+    "default without --projected).",
 )
 parser.add_argument(
     "--test-run",
@@ -108,20 +113,19 @@ parser.add_argument(
     help="Time step (default 0.5); the data is saved every 2 time units, or every step for dt > 2.",
 )
 args, _ = parser.parse_known_args()
+if args.projected and args.b_space != "Hcurl":
+    parser.error("--projected requires --b-space Hcurl.")
 if args.precond is None:
-    args.precond = {"LinearMHD": "StiffnessPreconditioner", "LinearMHDCurlCurl": "HiptmairXu"}.get(
-        args.model, "MassMatrixPreconditioner"
-    )
-only = {"MultiGrid": "LinearMHD", "StiffnessPreconditioner": "LinearMHD"}
-if (
-    args.precond in only
-    and args.model != only[args.precond]
-    or args.precond == "HiptmairXu"
-    and args.model == "LinearMHD"
-):
-    parser.error(f"--precond {args.precond} is not available for --model {args.model}.")
-if args.model != "LinearMHD":
-    name = f"Low-mode TAE ({args.model})"
+    if args.b_space == "Hdiv":
+        args.precond = "StiffnessPreconditioner"
+    else:
+        args.precond = "MassMatrixPreconditioner" if args.projected else "HiptmairXu"
+if args.precond in ("MultiGrid", "StiffnessPreconditioner") and args.b_space != "Hdiv":
+    parser.error(f"--precond {args.precond} requires --b-space Hdiv.")
+if args.precond == "HiptmairXu" and args.b_space != "Hcurl":
+    parser.error("--precond HiptmairXu requires --b-space Hcurl.")
+if args.b_space == "Hcurl":
+    name = f"Low-mode TAE (LinearMHD, b_space=Hcurl{', projected' if args.projected else ''})"
 if args.test_run:
     args.num_elements = [8, 8, 4]
 
@@ -152,18 +156,13 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-from struphy.models import LinearMHD, LinearMHDCurlCurl, LinearMHDCurlCurlwithProj
+from struphy.models import LinearMHD
 
 # Units
 base_units = BaseUnits()
 
 # Model instance
-model_class = {
-    "LinearMHD": LinearMHD,
-    "LinearMHDCurlCurl": LinearMHDCurlCurl,
-    "LinearMHDCurlCurlwithProj": LinearMHDCurlCurlwithProj,
-}[args.model]
-model = model_class(base_units=base_units)
+model = LinearMHD(base_units=base_units, b_space=args.b_space, projected=args.projected)
 
 # List all variables and decide whether to save their data
 model.em_fields.b_field.save_data = True
@@ -196,11 +195,11 @@ equil = equils.AdhocTorus(
 grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 
 # Derham options
-# Boundary conditions at the walls (flux surfaces, B0.n = 0): LinearMHD (magnetic field in H(div)) imposes b.n = 0
-# and u.n = 0 strongly (Dirichlet). The curl-curl models (magnetic field in H(curl)) use free boundary conditions:
-# Dirichlet would force the tangential magnetic field to zero (unphysical, it damps the TAE). With free boundary
-# conditions, u.n = 0 holds weakly in the shear Alfven step and p = 0 weakly in the magnetosonic step.
-bcs_eta1 = ("dirichlet", "dirichlet") if args.model == "LinearMHD" else ("free", "free")
+# Boundary conditions at the walls (flux surfaces, B0.n = 0): with --b-space Hdiv, b.n = 0 and u.n = 0 are imposed
+# strongly (Dirichlet). With --b-space Hcurl, free boundary conditions are used: Dirichlet would force the tangential
+# magnetic field to zero (unphysical, it damps the TAE). With free boundary conditions, u.n = 0 holds weakly in the
+# shear Alfven step and p = 0 weakly in the magnetosonic step.
+bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "free")
 derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
 
 # Profiling options
