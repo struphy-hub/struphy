@@ -304,6 +304,7 @@ def test_initial_poisson_full_f(nclones: int):
         derham_opts=DerhamOptions(degree=(3, 1, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
     )
     sim.run()
+    assert (sim.clone_config.num_clones if sim.clone_config else 1) == nclones
 
     # root mean square of phi over the unit cube (collective, on all ranks)
     phi = model.em_fields.phi.spline.vector

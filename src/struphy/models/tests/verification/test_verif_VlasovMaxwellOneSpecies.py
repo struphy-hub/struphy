@@ -95,6 +95,7 @@ def test_gauss_error(control_variate: bool, Tend: float, rel_tol: float, nclones
         return sim
 
     sim.run()
+    assert (sim.clone_config.num_clones if sim.clone_config else 1) == nclones
 
     gauss_error = model.scalars.dct["gauss_error"]
     gauss_error.update()
