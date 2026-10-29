@@ -32,15 +32,6 @@ def pytest_addoption(parser):
     parser.addoption("--nclones", type=int, default=1)
     parser.addoption("--model-name", type=str, default="Maxwell")
     parser.addoption("--logging-level", type=str, default="WARNING")
-    parser.addoption(
-        "--short-runs", action="store_true", help="Halve the end time of the long verification runs (used in CI)."
-    )
-
-
-@pytest.fixture
-def short_runs(request):
-    """True with --short-runs: the long verification runs use half of their end time."""
-    return request.config.getoption("--short-runs")
 
 
 def pytest_generate_tests(metafunc):

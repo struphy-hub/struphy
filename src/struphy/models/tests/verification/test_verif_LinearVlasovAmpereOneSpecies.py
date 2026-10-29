@@ -192,6 +192,7 @@ def test_energy_conservation(nclones: int, exit_before_run: bool = False):
         return sim
 
     sim.run()
+    assert (sim.clone_config.num_clones if sim.clone_config else 1) == nclones
 
     comm = MPI.COMM_WORLD
 
