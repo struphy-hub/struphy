@@ -32,8 +32,9 @@ saturates and oscillates.
 
 Setup. Periodic box of length L = 31.42 (about 10 pi, so k = 2 pi / L = 0.2), 32 cells and cubic splines in x.
 The electrons are two Maxwellians with n = 0.5 each, drifts u1 = +3 and -3 and vth = 1 (k u0 = 0.6); the density
-of each beam is perturbed by 0.001 cos(k x). Control-variate (delta-f) weights with 1000 markers per cell, drawn
-from a Maxwellian with vth1 = 3 that covers both beams; time step dt = 0.1 up to t = 50 (Lie-Trotter splitting).
+of each beam is perturbed by 0.001 cos(k x). Control-variate (delta-f) weights with 1000 markers per cell
+(seed 1234), drawn from a Maxwellian with vth1 = 3 that covers both beams; time step dt = 0.1 up to t = 50 (Lie-Trotter
+splitting).
 
 Expected result. The kinetic dispersion relation above gives, for k = 0.2, a purely growing mode (omega = 0 + i
 gamma) with gamma = 0.2845 (cold beams: 0.353); the electric field grows as exp(gamma t) and the electric energy
@@ -155,7 +156,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc=50 if args.test_run else 1000, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0))
+loading_params = LoadingParameters(ppc=50 if args.test_run else 1000, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0), seed=1234)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
