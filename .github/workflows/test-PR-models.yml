@@ -120,7 +120,6 @@ jobs:
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
-        # --short-runs halves the end time of the long verification runs (LinearMHD, Maxwell)
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          mpirun --oversubscribe -n 2 pytest -x --testmon --with-mpi --short-runs /struphy_fortran_/src/struphy/models/tests/verification/
+          mpirun --oversubscribe -n 2 pytest -x --testmon --with-mpi  /struphy_fortran_/src/struphy/models/tests/verification/
