@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 _LAZY_IMPORTS = {
     "AdiabaticPhi": "struphy.propagators.adiabatic_phi",
     "AdiabaticPoissonSolve": "struphy.propagators.adiabatic_poisson_solve",
+    "BackgroundCurrent": "struphy.propagators.background_current",
+    "BackgroundPressureGradient": "struphy.propagators.background_pressure_gradient",
     "CurlCurlSolve": "struphy.propagators.curl_curl_solve",
     "CurrentCoupling5DCurlb": "struphy.propagators.current_coupling_5d_curlb",
     "CurrentCoupling5DDensity": "struphy.propagators.current_coupling_5d_density",
@@ -39,6 +41,7 @@ _LAZY_IMPORTS = {
     "ShearAlfvenCurlCurlPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
     "ShearAlfvenCurrentCoupling5D": "struphy.propagators.shear_alfven_current_coupling_5d",
     "ShearAlfvenPropagator": "struphy.propagators.shear_alfven_propagator",
+    "SoundWaveLinear": "struphy.propagators.sound_wave_linear",
     "TimeDependentSource": "struphy.propagators.time_dependent_source",
     "TwoFluidQuasiNeutralFull": "struphy.propagators.two_fluid_quasi_neutral_full",
     "VariationalAlfvenEvolve": "struphy.propagators.variational_alfven_evolve",
@@ -61,6 +64,8 @@ _LAZY_IMPORTS = {
 if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.adiabatic_phi import AdiabaticPhi
     from struphy.propagators.adiabatic_poisson_solve import AdiabaticPoissonSolve
+    from struphy.propagators.background_current import BackgroundCurrent
+    from struphy.propagators.background_pressure_gradient import BackgroundPressureGradient
     from struphy.propagators.curl_curl_solve import CurlCurlSolve
     from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
     from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
@@ -95,6 +100,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
     from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
     from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
+    from struphy.propagators.sound_wave_linear import SoundWaveLinear
     from struphy.propagators.time_dependent_source import TimeDependentSource
     from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
     from struphy.propagators.variational_alfven_evolve import VariationalAlfvenEvolve
@@ -116,6 +122,8 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
 __all__ = [
     "AdiabaticPhi",
     "AdiabaticPoissonSolve",
+    "BackgroundCurrent",
+    "BackgroundPressureGradient",
     "CurlCurlSolve",
     "CurrentCoupling5DCurlb",
     "CurrentCoupling5DDensity",
@@ -150,6 +158,7 @@ __all__ = [
     "ShearAlfvenCurlCurlPropagator",
     "ShearAlfvenCurrentCoupling5D",
     "ShearAlfvenPropagator",
+    "SoundWaveLinear",
     "TimeDependentSource",
     "TwoFluidQuasiNeutralFull",
     "VariationalAlfvenEvolve",
