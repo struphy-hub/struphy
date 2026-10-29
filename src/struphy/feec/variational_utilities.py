@@ -2010,8 +2010,8 @@ def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1
     if options.schur_precond != "StiffnessPreconditioner":
         return None
     unmet = list(unmet)
-    if options.solver != "pcg":
-        unmet += ['solver="pcg"']
+    if options.solver not in ("pcg", "pbicgstab", "rpbicgstab"):
+        unmet += ['solver="pcg", "pbicgstab" or "rpbicgstab"']
     if propagator.derham.polar_splines:
         unmet += ["tensor-product splines"]
     if propagator.derham.with_local_projectors:
