@@ -1,33 +1,27 @@
-import copy
 import logging
 
 from struphy import BaseUnits
-from struphy.io.options import LiteralOptions
-from struphy.models.base import StruphyModel
-from struphy.models.scalars import FunctionScalarFEEC, KineticEnergyPIC, Scalars
-from struphy.models.species import (
-    FieldSpecies,
-    ParticleSpecies,
-)
-from struphy.models.variables import FEECVariable, PICVariable
+from struphy.models.scalars import FunctionScalarFEEC
+from struphy.models.species import FieldSpecies
+from struphy.models.variables import FEECVariable
+from struphy.models.vlasov import Vlasov
 from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.adiabatic_poisson_solve import AdiabaticPoissonSolve
 from struphy.propagators.base import Propagator
-from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_v_in_force_field import PushVinForceField
-from struphy.propagators.push_vxb import PushVxB
 
 logger = logging.getLogger("struphy")
 
 
-class VlasovPoissonAdiabatic(StruphyModel):
+class VlasovPoissonAdiabatic(Vlasov):
     r"""Electrostatic full-orbit (6D) model for a single ion species with adiabatic electrons.
 
     The full-orbit counterpart of :class:`~struphy.models.DriftKineticElectrostaticAdiabatic`:
     the ions are not reduced to guiding centers, so the polarization density is not modelled
     but comes out of the ion orbits. The electrons enter through the adiabatic (Boltzmann) response
     in the Poisson equation, optionally with the same flux-surface average as in the drift-kinetic model.
+    Extends :class:`~struphy.models.Vlasov` by the electrostatic force and the Poisson equation.
 
     Parameters
     ----------
@@ -43,40 +37,43 @@ class VlasovPoissonAdiabatic(StruphyModel):
     epsilon : float, optional
         Normalized inverse cyclotron frequency :math:`1 / (\hat{\Omega}_\mathrm{c} \hat{t})`.
         If ``None``, computed from ``base_units`` and the charge/mass numbers.
-    with_B0 : bool
-        Whether to include the Lorentz force of the background magnetic field (default: True).
     """
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Kinetic"
-
-    ## species
+    ## additional species
 
     class EMFields(FieldSpecies):
         def __init__(self):
             self.phi = FEECVariable(space="H1")
             self.init_variables()
 
-    class KineticIons(ParticleSpecies):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            alpha: float = None,
-            epsilon: float = None,
-        ):
-            self.var = PICVariable(space="Particles6D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                alpha=alpha,
-                epsilon=epsilon,
-            )
+    ## additional propagators
 
-    ## propagators
+    class Propagators(Vlasov.Propagators):
+        """Propagators of :class:`~struphy.models.Vlasov` plus ``poisson`` (Poisson equation with adiabatic electrons)
+        and ``push_v_E`` (electric force).
 
-    class Propagators:
+        Parameters
+        ----------
+        phi : FEECVariable, optional
+            Electric potential, solved by ``poisson`` and used by ``push_v_E``.
+        rho : ParticlesToGrid, optional
+            Charge deposition of the ions (right-hand side of the Poisson equation).
+        epsilon : float
+            Normalized cyclotron period (equation parameter of the ions).
+        alpha : float
+            Ratio of plasma to cyclotron frequency (equation parameter of the ions).
+        Z : int
+            Charge number of the ions.
+        magnetic_moment : bool
+            Whether ``push_v_E`` also applies the magnetic-moment force (classical Pauli particles).
+        **kwargs
+            Passed to :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`.
+        """
+
+        # Poisson right after the drift: both E-kicks of a Strang step see the potential
+        # of the current marker positions (drift-kick-kick-drift, i.e. leapfrog)
+        splitting_order = ("push_eta", "poisson", "push_v_E", "push_vxb")
+
         def __init__(
             self,
             phi: FEECVariable = None,
@@ -84,15 +81,16 @@ class VlasovPoissonAdiabatic(StruphyModel):
             epsilon: float = 1.0,
             alpha: float = 1.0,
             Z: int = 1,
-            with_B0: bool = True,
+            magnetic_moment: bool = False,
+            **kwargs,
         ):
-            # Poisson right after the drift: both E-kicks of a Strang step see the potential
-            # of the current marker positions (drift-kick-kick-drift, i.e. leapfrog)
-            self.push_eta = PushEta()
+            super().__init__(**kwargs)
             self.poisson = AdiabaticPoissonSolve(rho=rho, epsilon=epsilon, alpha=alpha, Z=Z)
-            self.push_v_E = PushVinForceField(potential=phi)
-            if with_B0:
-                self.push_vxb = PushVxB()
+            self.push_v_E = PushVinForceField(potential=phi, magnetic_moment=magnetic_moment)
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -103,61 +101,45 @@ class VlasovPoissonAdiabatic(StruphyModel):
         mass_number: float = 1.0,
         alpha: float = None,
         epsilon: float = None,
-        with_B0: bool = True,
     ):
-        self.with_B0 = with_B0
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
+        # 1.-5. see Vlasov
+        super().__init__(base_units, charge_number, mass_number)
+
+    def _create_species(self):
+        """:meta private:"""
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            alpha,
-            epsilon,
-        )
+        super()._create_species()
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        # 3. instantiate all propagators
+    def _propagator_args(self):
+        """:meta private:"""
         rho = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
             charge_density_0form,
         )
-        self.propagators = self.Propagators(
-            phi=self.em_fields.phi,
-            rho=rho,
-            epsilon=epsilon,
-            alpha=alpha,
-            Z=charge_number,
-            with_B0=with_B0,
-        )
+        return {
+            **super()._propagator_args(),
+            "phi": self.em_fields.phi,
+            "rho": rho,
+            "epsilon": self.kinetic_ions.equation_params.epsilon,
+            "alpha": self.kinetic_ions.equation_params.alpha,
+            "Z": self.kinetic_ions.charge_number,
+        }
 
-        # 4. assign variables to propagators
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
         self.propagators.poisson.variables.phi = self.em_fields.phi
         self.propagators.push_v_E.variables.var = self.kinetic_ions.var
-        if with_B0:
-            self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
 
-        # 5. define scalars to be tracked during simulation
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
         en_phi = FunctionScalarFEEC(self._compute_en_phi)
-        en_particles = KineticEnergyPIC(self.kinetic_ions.var)
-        self.scalars = Scalars(
-            en_phi=en_phi,
-            en_particles=en_particles,
-            en_tot=en_phi + en_particles,
-        )
-
-    @property
-    def bulk_species(self):
-        return self.kinetic_ions
+        return {"en_phi": en_phi, **scalars, "en_tot": en_phi + scalars["en_f"]}
 
     @property
     def velocity_scale(self):
@@ -199,9 +181,6 @@ class VlasovPoissonAdiabatic(StruphyModel):
             for line in f:
                 if "BaseUnits(" in line:
                     new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
-                elif "push_vxb.Options" in line:
-                    new_file += ["if model.with_B0:\n"]
-                    new_file += ["    " + line]
                 elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
@@ -264,41 +243,17 @@ class VlasovPoissonAdiabatic(StruphyModel):
         - Field energy: ``en_phi``
           :math:`= \frac{1}{2\alpha^2} \int |\nabla \phi|^2 \, \mathrm d \mathbf x + \frac{1}{2 Z \varepsilon^2} \int \frac{n_0}{T_0} \phi (\phi - \langle \phi \rangle) \, \mathrm d \mathbf x`
           (the first term only if ``quasi_neutral=False``)
-        - Kinetic energy: ``en_particles`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
+        - Kinetic energy: ``en_f`` :math:`= \frac{1}{2} \sum_p w_p |\mathbf{v}_p|^2`
           (of :math:`f - f_0` with the control variate)
         - Total energy: ``en_tot``"""
 
     @classmethod
     def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_eta.PushEta`
-        2. :class:`~struphy.propagators.adiabatic_poisson_solve.AdiabaticPoissonSolve`
-        3. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField`
-        4. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
-        """
-        doc = rf"""Time integration is performed by the following propagators (in sequence).
-The Poisson solve comes right after the drift, such that with Strang splitting both velocity kicks use the
-potential of the current marker positions (drift-kick-kick-drift). Since a Strang step ends with the half drift, the
-saved potential and ``en_phi`` belong to the marker positions half a step earlier.
-
-**1. PushEta:**
-
-{PushEta.__doc__}
-
-**2. AdiabaticPoissonSolve:**
-
-{AdiabaticPoissonSolve.__doc__}
-
-**3. PushVinForceField:**
-
-{PushVinForceField.__doc__}
-
-**4. PushVxB:**
-
-{PushVxB.__doc__}
-"""
-        return doc
+        """Time integration is performed by the following propagators (in sequence).
+        The Poisson solve comes right after the drift, such that with Strang splitting both velocity kicks use the
+        potential of the current marker positions (drift-kick-kick-drift). Since a Strang step ends with the half drift,
+        the saved potential and ``en_phi`` belong to the marker positions half a step earlier."""
+        return cls.propagators_doc()
 
     @classmethod
     def doc_long_description(cls):

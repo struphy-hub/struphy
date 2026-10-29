@@ -30,18 +30,36 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
   `PICVariable`, `SPHVariable` from `variables.py`) and then calls `self.init_variables(...)` with charge and mass
   numbers (no arguments for field species). A particle species holds exactly one variable.
 - **`Propagators`** inner class. Its `__init__` creates propagator instances as attributes. **The attribute order is
-  the splitting order** used by Lie-Trotter/Strang.
-- **`__init__`**, keeping the numbered steps of the existing models:
-  0. `self.params = copy.deepcopy(locals())`. All constructor arguments need defaults, and only
-     bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization.
-  1. instantiate the species as attributes;
-  2. `self.setup_equation_params(base_units=base_units)` (derives units and `alpha`, `epsilon`, `lam`, `kappa`);
-  3. `self.propagators = self.Propagators()`;
-  4. link variables: `self.propagators.<prop>.variables.<var> = self.<species>.<var>`;
-  5. `self.scalars = Scalars(...)` with the tracked quantities (`scalars.py`, e.g. `BilinearEnergyFEEC`,
-     `KineticEnergyPIC`, summed with `+`).
+  the splitting order** used by Lie-Trotter/Strang, unless `Propagators` defines a tuple `splitting_order` with the
+  names of all propagators (class attribute, or set in `__init__`); `apply_splitting_order` in `base.py` reorders them.
+- **`__init__`**, with the numbered steps:
+  0. `self._store_params(locals())`. All constructor arguments need defaults, and only
+     bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization;
+  1.-5. `self._setup(base_units)`, which runs the hooks `_create_species()` (species as attributes, constructor
+     arguments in `self.params`), `setup_equation_params` (units and `alpha`, `epsilon`, `lam`, `kappa`),
+     `self.propagators = self.Propagators(**self._propagator_args())`, `_link_propagator_variables()`
+     (`self.propagators.<prop>.variables.<var> = self.<species>.<var>`) and
+     `self.scalars = Scalars(**self._create_scalars())` (`scalars.py`, e.g. `BilinearEnergyFEEC`, `KineticEnergyPIC`,
+     summed with `+`).
+  Older models write the steps out in `__init__` instead of `_setup`; both work.
   Keep `__init__` light-weight: no allocation. Work that needs `derham`, `mass_ops` or `projected_equil` goes into
   `post_allocate()`.
+- **Inheritance** (a parent model plus new terms, e.g. `Vlasov` → `VlasovAmpereOneSpecies` → `VlasovMaxwellOneSpecies`):
+  - `__init__` calls `self._store_params(locals())` **before** `super().__init__(...)` (the first call wins, so the
+    hooks see the child's arguments, e.g. `alpha`), then adds what only the child has (e.g. the initial Poisson solve).
+  - The hooks call `super()` and extend: `_create_species` adds species, `_propagator_args` adds constructor
+    arguments of `Propagators`, `_link_propagator_variables` links the new propagators, `_create_scalars` adds
+    scalars (and recomputes `en_tot`).
+  - `class Propagators(Parent.Propagators)` passes its constructor arguments on with `super().__init__(**kwargs)` and
+    adds the new propagators, with `splitting_order` if the order changes.
+  - Species inherit too: `class EMFields(Parent.EMFields)` declares its new variables and then calls
+    `super().__init__()` (whose `init_variables()` includes them); `KineticIons` of the Vlasov and guiding-center
+    models only set `space`. Use the same variable names along the chain (`e_field`, `b_field`, `phi`, `var`) and
+    the scalar names `en_f`, `en_E`, `en_B`, `en_phi`, `en_mu`, `en_tot`.
+  - After the inner classes, annotate the attributes whose class the model defines or changes, e.g.
+    `em_fields: EMFields` and `propagators: Propagators`. Species and propagators are created in the parent's hooks
+    and `propagators` is a property, so without these annotations IDEs (Pylance) and type checkers see the parent's
+    classes or none (`model.propagators.maxwell`, `model.em_fields.b_field` unknown in the params file).
 - **`model_type()`** classmethod: `"Toy"`, `"Fluid"`, `"Kinetic"` or `"Hybrid"`. It selects the test group and marker.
 - **`bulk_species`** and **`velocity_scale`** (`"alfvén"`, `"cyclotron"`, `"light"`, `"thermal"`) properties.
   They define the normalization; all scales except `"light"` need a bulk species.
@@ -58,8 +76,11 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
   `doc_use_cases`, `doc_cannot_be_used_for`, and `doc_discretization`.
   Put `doc_normalization` directly below `doc_pde` (also in subclasses that change the normalization), since the
   normalization defines the parameters appearing in the PDEs.
-  `doc_discretization` must **return** a string: list the propagators in splitting order with `:class:` links and
-  embed each propagator's `__doc__` (see `maxwell.py`). `test_all_models_expose_new_doc_api` fails if any is missing or empty.
+  `doc_discretization` must **return** a string. The default in `StruphyModel` generates it from `Propagators` (the
+  propagators in splitting order with their `__doc__`; the Sphinx docs list them via a hook in `doc/conf.py`), so
+  `Propagators()` must be constructible with its default arguments. Override it only to describe the time stepping in
+  its docstring, returning `cls.propagators_doc()` (see `vlasov_poisson_adiabatic.py`).
+  `test_all_models_expose_new_doc_api` fails if any is missing or empty.
 - `doc_pde` is written like a physics textbook: always the full PDE system in strong form, with the unknowns and
   parameters named, but **no** solution spaces, weak formulations or discrete operators (those belong in the
   propagator docstrings, which `doc_discretization` embeds).

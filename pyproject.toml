@@ -186,4 +186,5 @@ markers = [
     "toy",
     "single",
     "mpi_pic",
+    "clones",
 ]

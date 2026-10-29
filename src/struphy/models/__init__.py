@@ -47,6 +47,7 @@ _LAZY_IMPORTS = {
     "VlasovAmpereOneSpecies": "struphy.models.vlasov_ampere_one_species",
     "VlasovMaxwellOneSpecies": "struphy.models.vlasov_maxwell_one_species",
     "VlasovMaxwellQuasiNeutral": "struphy.models.vlasov_maxwell_quasi_neutral",
+    "VlasovPauli": "struphy.models.vlasov_pauli",
     "VlasovPoissonAdiabatic": "struphy.models.vlasov_poisson_adiabatic",
     "VlasovPoissonAdiabaticPauli": "struphy.models.vlasov_poisson_adiabatic_pauli",
 }
@@ -90,6 +91,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.vlasov_ampere_one_species import VlasovAmpereOneSpecies
     from struphy.models.vlasov_maxwell_one_species import VlasovMaxwellOneSpecies
     from struphy.models.vlasov_maxwell_quasi_neutral import VlasovMaxwellQuasiNeutral
+    from struphy.models.vlasov_pauli import VlasovPauli
     from struphy.models.vlasov_poisson_adiabatic import VlasovPoissonAdiabatic
     from struphy.models.vlasov_poisson_adiabatic_pauli import VlasovPoissonAdiabaticPauli
 
@@ -132,6 +134,7 @@ __all__ = [
     "VlasovAmpereOneSpecies",
     "VlasovMaxwellOneSpecies",
     "VlasovMaxwellQuasiNeutral",
+    "VlasovPauli",
     "VlasovPoissonAdiabatic",
     "VlasovPoissonAdiabaticPauli",
 ]

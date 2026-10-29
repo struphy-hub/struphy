@@ -63,7 +63,8 @@ def check_parameter_file(path: str, model_class: type):
     sim = getattr(params_in, "sim", None)
     if not isinstance(sim, Simulation):
         fail("it does not define a Simulation object named 'sim'")
-    if not isinstance(sim.model, model_class):
+    # exact type: a model inheriting from model_class (e.g. VlasovMaxwellOneSpecies from Vlasov) is another model
+    if type(sim.model) is not model_class:
         fail(f"its model is {type(sim.model).__name__}, not {model_class.__name__}")
 
     print(f"Parameter file {path} is valid for the model {model_class.__name__}.")

@@ -293,7 +293,7 @@ def test_vlasov_through_pole(tmp_path_factory):
 
     assert model.kinetic_ions.var.particles.n_lost_markers == 0
     if comm.Get_rank() == 0:
-        en = _read_scalars(sim, ["kinetic_energy"])["kinetic_energy"]
+        en = _read_scalars(sim, ["en_f"])["en_f"]
         assert np.all(np.isfinite(en))
         assert np.allclose(en, en[0], rtol=1e-12)
 

@@ -15,7 +15,7 @@ Maxwellian. The resulting electron plasma wave is first Landau damped, but the e
 wells stop the damping: the field amplitude grows again and oscillates, and phase-space vortices form.
 
 Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p;
-with vth = 1 lengths are in Debye lengths) and no background magnetic field (with_B0=False) the model solves
+with vth = 1 lengths are in Debye lengths) and no background magnetic field (equil = None) the model solves
     df/dt + v . grad_x f - E . grad_v f = 0,
     dE/dt = int v f d^3v       (Ampere's law; the current density of the electrons is -int v f d^3v),
 where the initial field follows from Poisson's equation div E = n0 - n with n = int f d^3v and the ion density
@@ -102,7 +102,7 @@ from struphy.models import VlasovAmpereOneSpecies
 base_units = BaseUnits()
 
 # Model instance
-model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -173,8 +173,7 @@ model.kinetic_ions.set_markers(
 # ------------------
 
 model.propagators.push_eta.options = model.propagators.push_eta.Options()
-if model.with_B0:
-    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
 model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 
