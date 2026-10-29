@@ -1,7 +1,7 @@
-"""Linear variational MHD with midpoint weights of the second-order terms (``weights="midpoint"``) in the propagators
-with one linear solve per substep (``crank_nicolson=True``): the assembled maps of the weights, exact energy
-conservation (up to the solver tolerance) and the stability of the sound waves of the p model, which grow with the
-frozen weight."""
+"""Linear variational MHD with one linear solve per substep (``crank_nicolson=True``) and the second-order terms in
+weak form, with midpoint (``weights="midpoint"``) or frozen weights: exact energy conservation (up to the solver
+tolerance) of every substep and of the full step, and the stability of the sound waves of the p model, which grow with
+the frozen weight."""
 
 import logging
 
@@ -21,13 +21,14 @@ ENERGY_TOL = 1e-10
 def _setup(
     thermo: str,
     u_space: str,
-    weights: str = "midpoint",
+    weights: str = None,
     homogeneous: bool = False,
     noise_b: bool = True,
     dirichlet: bool = False,
 ):
     """Ideal linear model on a Colella mapping (non-constant metric) with a sheared slab equilibrium (non-uniform B0,
-    p0, n0), or on a cuboid with a homogeneous equilibrium, and a random initial perturbation."""
+    p0, n0), or on a cuboid with a homogeneous equilibrium, and a random initial perturbation. ``weights=None``: the
+    defaults of the propagators (midpoint, frozen in the sound step of the q model)."""
     from struphy import DerhamOptions, FieldsBackground, Simulation, domains, equils, grids, perturbations
     from struphy.linear_algebra.solver import SolverParameters
     from struphy.models import VariationalPerturbativeMHD, VariationalPerturbativeMHD_with_q
@@ -56,9 +57,10 @@ def _setup(
     variants = model.propagator_variants
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model=variants["variat_dens"])
-    props.variat_lin_alfven.options = props.variat_lin_alfven.Options(weights=weights, solver_params=lin)
+    props.variat_lin_alfven.options = props.variat_lin_alfven.Options(weights=weights or "midpoint", solver_params=lin)
+    sound_weights = "frozen" if thermo == "q" else weights
     props.variat_lin_sound.options = props.variat_lin_sound.Options(
-        model=variants["variat_lin_sound"], weights=weights, solver_params=lin
+        model=variants["variat_lin_sound"], weights=sound_weights, solver_params=lin
     )
 
     model.mhd.density.add_background(FieldsBackground())
@@ -82,63 +84,26 @@ def _energy(model):
     return float(np.squeeze(model.scalars.host_value("en_tot")))
 
 
-def _random(V, rng):
-    v = V.zeros()
-    for blk in v.blocks if hasattr(v, "blocks") else [v]:
-        blk._data[:] = rng.standard_normal(blk._data.shape)
-    v.update_ghost_regions()
-    return v
-
-
-@pytest.mark.parametrize("bcs", [(None, None, None), (("dirichlet", "dirichlet"), None, None)])
-def test_assemble_by_probing(bcs):
-    """A random stencil matrix, assembled from its action: periodic directions whose number of points is a multiple
-    of 2p + 1 (10, p = 2), or not (13, p = 2: extra colors for the remainder), and a non-periodic direction."""
-    from feectools.linalg.stencil import StencilMatrix
-    from maybempi import MPI
-
-    from struphy.feec.psydac_derham import Derham
-    from struphy.feec.variational_utilities import assemble_by_probing
-    from struphy.io.options import DerhamOptions
-    from struphy.topology.grids import TensorProductGrid
-
-    derham = Derham(
-        TensorProductGrid(num_elements=[10, 13, 4]), DerhamOptions(degree=[2, 2, 1], bcs=bcs), comm=MPI.COMM_WORLD
-    )
-    V = derham.fem_spaces["H1"].coeff_space
-    rng = np.random.default_rng(MPI.COMM_WORLD.Get_rank())
-    M = StencilMatrix(V, V)
-    # random entries in the rows of the process only (not in the ghost rows)
-    rows = tuple(slice(p, p + e - s + 1) for p, s, e in zip(V.pads, V.starts, V.ends))
-    M._data[rows] = rng.standard_normal(M._data[rows].shape)
-    # no columns outside of the domain in the non-periodic direction
-    M.remove_spurious_entries()
-    A = assemble_by_probing(M.dot, V, V)
-    for _ in range(2):
-        x = _random(V, rng)
-        d = A.dot(x) - M.dot(x)
-        y = M.dot(x)
-        assert np.sqrt(d.inner(d) / y.inner(y)) < 1e-13
-
-
 @pytest.mark.parametrize("dirichlet", [False, True])
+@pytest.mark.parametrize("weights", ["midpoint", "frozen"])
 @pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
-@pytest.mark.parametrize("thermo", ["q", "p"])
-def test_weight_map(u_space: str, thermo: str, dirichlet: bool):
-    """The assembled maps b -> T[b]^T l and s -> S[s]^T l (Hdiv0_transport_operator.weight_map,
-    Pressure_transport_operator.weight_map) agree with the operators with updated weights, periodic and with
-    Dirichlet boundary conditions in eta1."""
-    model = _setup(thermo, u_space, weights="frozen", dirichlet=dirichlet)
-    A, S = model.propagators.variat_lin_alfven, model.propagators.variat_lin_sound
-    rng = np.random.default_rng(0)
-    for op, lin_form in ((A._Tb.T, A._M2b0), (S._Ss.T, S._lf0)):
-        R = op.weight_map(lin_form)
-        for _ in range(2):
-            x = _random(op.domain, rng)
-            y = R.dot(x)
-            op.update_coeffs(x)
-            d = y - op.dot(lin_form)
-            assert np.sqrt(d.inner(d) / y.inner(y)) < 1e-12
+@pytest.mark.parametrize("prop_name", ["variat_lin_alfven", "variat_lin_sound"])
+def test_substep_energy(prop_name: str, u_space: str, weights: str, dirichlet: bool):
+    """Each substep of the p model alone conserves the energy, with its second-order term in weak form (the work of
+    the force equals the change of the auxiliary energy), periodic and with Dirichlet boundary conditions in eta1."""
+    model = _setup("p", u_space, weights=weights, dirichlet=dirichlet)
+    prop = getattr(model.propagators, prop_name)
+    model.scalars.update()
+    aux = "en_mag_2" if prop_name == "variat_lin_alfven" else "en_thermo"
+    en0 = _energy(model)
+    aux0 = float(np.squeeze(model.scalars.host_value(aux)))
+    for _ in range(3):
+        prop(0.05)
+    en1 = _energy(model)
+    aux1 = float(np.squeeze(model.scalars.host_value(aux)))
+    # the auxiliary energy takes part in the exchange
+    assert abs(aux1 - aux0) > 1e-6 * abs(en0)
+    assert abs(en1 - en0) / abs(en0) < ENERGY_TOL, f"relative energy error {abs(en1 - en0) / abs(en0):.3e}"
 
 
 @pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
@@ -179,17 +144,23 @@ def test_p_sound_stable():
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("prop_name", ["VariationalLinearAlfvenEvolve", "VariationalLinearSoundEvolve"])
 def test_midpoint_options(prop_name: str):
-    """weights="midpoint" (the default) chooses the non-symmetric solver and rejects the symmetric ones; the frozen
-    weight the symmetric one."""
+    """weights="midpoint" (the default, except in the sound step of the q model) chooses the non-symmetric solver and
+    rejects the symmetric ones; the frozen weight the symmetric one."""
     from struphy import propagators
 
     Options = getattr(propagators, prop_name).Options
-    assert Options().weights == "midpoint" and Options().solver == "rpbicgstab"
-    assert Options(weights="frozen").solver == "pcg"
+    kwargs = {}
+    if prop_name == "VariationalLinearSoundEvolve":
+        assert Options().weights == "frozen" and Options().solver == "pcg"
+        with pytest.raises(AssertionError):
+            Options(model="linear_q", weights="midpoint")
+        kwargs = {"model": "linear_p"}
+    assert Options(**kwargs).weights == "midpoint" and Options(**kwargs).solver == "rpbicgstab"
+    assert Options(weights="frozen", **kwargs).solver == "pcg"
     with pytest.raises(AssertionError):
-        Options(weights="midpoint", solver="pcg")
+        Options(weights="midpoint", solver="pcg", **kwargs)
     with pytest.raises(AssertionError):
-        Options(weights="implicit")
+        Options(weights="implicit", **kwargs)
 
 
 if __name__ == "__main__":

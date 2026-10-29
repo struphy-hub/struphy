@@ -126,8 +126,8 @@ parser.add_argument(
     "--weights",
     default="midpoint",
     choices=["midpoint", "frozen"],
-    help="With --crank-nicolson: weight of the second-order terms at t^(n+1/2) (default, energy conserving without "
-    "numerical damping or growth) or at t^n (first order; unstable sound waves for the p model).",
+    help="With --crank-nicolson: weight of the second-order term of the Alfven step at t^(n+1/2) (default) or at t^n "
+    "(first order); the sound step of the q model always uses t^n.",
 )
 parser.add_argument(
     "--abs-tol",
@@ -255,7 +255,7 @@ if args.crank_nicolson:
         relative_tol=not args.abs_tol,
     )
     model.propagators.variat_lin_sound.options = model.propagators.variat_lin_sound.Options(
-        model="linear_q", gamma=gamma, weights=args.weights, solver_params=solver_params, relative_tol=not args.abs_tol
+        model="linear_q", gamma=gamma, weights="frozen", solver_params=solver_params, relative_tol=not args.abs_tol
     )
 else:
     # implicit_weights=False: first order in time, as the p model and LinearMHD (Lie-Trotter splitting)

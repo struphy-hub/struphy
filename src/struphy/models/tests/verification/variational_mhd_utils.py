@@ -83,7 +83,8 @@ def allocate_ideal(
     `perturb(model)` adds the perturbations of the perturbative variables. The full-f model gets the equilibrium
     as background in addition. `implicit_weights` is passed to VariationalQBEvolve, VariationalAlfvenEvolve and
     VariationalSoundEvolve (None: their default), `schur_precond` to VariationalPBEvolve and VariationalAlfvenEvolve,
-    `weights` to VariationalLinearAlfvenEvolve and VariationalLinearSoundEvolve (None: their default). Models must be
+    `weights` to VariationalLinearAlfvenEvolve and VariationalLinearSoundEvolve (None: their default; always
+    "frozen" in the sound step of the q model). Models must be
     allocated and run one after the other, since they share the class attributes of Propagator (derham, ...)."""
     equil, domain, num_elements, degree = setup
     model = model_class(with_viscosity=False, with_resistivity=False)
@@ -100,8 +101,11 @@ def allocate_ideal(
     if hasattr(props, "variat_lin_alfven"):
         cn_weights = {} if weights is None else {"weights": weights}
         props.variat_lin_alfven.options = props.variat_lin_alfven.Options(solver_params=SOLVER, **cn_weights)
+        # the sound step of the q model has only the weights at t^n
+        sound_variant = model.propagator_variants["variat_lin_sound"]
+        sound_weights = {"weights": "frozen"} if sound_variant == "linear_q" else cn_weights
         props.variat_lin_sound.options = props.variat_lin_sound.Options(
-            model=model.propagator_variants["variat_lin_sound"], solver_params=SOLVER, **cn_weights
+            model=sound_variant, solver_params=SOLVER, **sound_weights
         )
     if hasattr(props, "variat_pb"):
         props.variat_pb.options = props.variat_pb.Options(
