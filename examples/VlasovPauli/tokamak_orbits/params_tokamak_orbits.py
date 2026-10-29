@@ -1,5 +1,5 @@
 """Guiding-center orbits (banana and passing) in an ad hoc tokamak, computed with classical Pauli particles
-(VlasovPoissonAdiabaticPauli without the Poisson solve) and time steps of several cyclotron periods."""
+(VlasovPauli) and time steps of several cyclotron periods."""
 
 # -----------------------------
 # Description of the simulation
@@ -30,11 +30,11 @@ parser.add_argument(
 )
 args, _ = parser.parse_known_args()
 
-name = "Guiding-center orbits in an ad hoc tokamak (VlasovPoissonAdiabaticPauli)"
+name = "Guiding-center orbits in an ad hoc tokamak (VlasovPauli)"
 description = f"""
 Guiding-center orbits in an ad hoc tokamak computed with classical Pauli particles (Xiao and Qin 2021): full-orbit
 markers with a magnetic moment, loaded without gyration and pushed with the Boris scheme with time steps of
-several cyclotron periods. No Poisson solve (with_poisson=False): the markers move in the equilibrium field only.
+several cyclotron periods. There is no self-consistent field: the markers move in the equilibrium field only.
 
 Physics. A classical Pauli particle with magnetic moment mu moves as
     dx/dt = v,    dv/dt = (1/epsilon) v x B0 - mu grad|B0|.
@@ -55,7 +55,7 @@ or r = 0.1 are removed.
 Expected result. Closed banana and passing orbits in the poloidal plane (for the default parameters, dt = 8
 cyclotron periods), a bounded relative energy error without secular drift (at most 1.6e-2 for the default
 parameters, second order in dt) and mu' / mu of order 1e-3 to 1e-2, largest for small mu (the markers stay on
-the slow manifold). The verification test test_verif_VlasovPoissonAdiabaticPauli.py compares such orbits with
+the slow manifold). The verification test test_verif_VlasovPauli.py compares such orbits with
 the guiding-center pushers of the GuidingCenter model (second-order convergence in dt). The pproc
 plots the orbits in the (R, Z) plane, the relative energy error and max mu' of the saved markers against time.
 
@@ -84,14 +84,13 @@ from struphy import (
     grids,
     maxwellians,
 )
-from struphy.models import VlasovPoissonAdiabaticPauli
+from struphy.models import VlasovPauli
 
 # ---------------------
 # Instance of the model
 # ---------------------
 
-model = VlasovPoissonAdiabaticPauli(base_units=BaseUnits(kBT=1.0), epsilon=args.epsilon, with_poisson=False)
-model.em_fields.phi.save_data = False
+model = VlasovPauli(base_units=BaseUnits(kBT=1.0), epsilon=args.epsilon)
 model.kinetic_ions.var.save_data = True
 
 # --------------------------
@@ -139,7 +138,7 @@ model.kinetic_ions.set_markers(
 # ------------------
 
 model.propagators.push_eta.options = model.propagators.push_eta.Options()
-model.propagators.push_v_E.options = model.propagators.push_v_E.Options()
+model.propagators.push_v_mu.options = model.propagators.push_v_mu.Options()
 # Crank-Nicolson rotation (Cayley transform, Boris scheme): correct drifts for dt larger than the cyclotron period
 model.propagators.push_vxb.options = model.propagators.push_vxb.Options(algo="implicit")
 
