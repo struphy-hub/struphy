@@ -93,6 +93,11 @@ parser.add_argument(
     help="Keep the plain H1vec projection of the initial velocity (not exactly divergence-free in the scheme).",
 )
 parser.add_argument(
+    "--crank-nicolson",
+    action="store_true",
+    help="One linear solve per substep (variat_lin_alfven and variat_lin_sound) instead of the Picard iteration.",
+)
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (num_elements = [8, 8, 4]) and a short run with three saved time steps, for the tests "
@@ -139,7 +144,11 @@ base_units = BaseUnits()
 # Model instance: linear and ideal (no viscosity, no resistivity), as LinearMHD
 # split_sound=True (default): shear-Alfven/fast and sound waves in two substeps, as in LinearMHD
 model = VariationalPerturbativeMHD_with_q(
-    base_units=base_units, linear=True, with_viscosity=False, with_resistivity=False
+    base_units=base_units,
+    linear=True,
+    with_viscosity=False,
+    with_resistivity=False,
+    crank_nicolson=args.crank_nicolson,
 )
 
 # List all variables and decide whether to save their data
@@ -201,13 +210,19 @@ sim = Simulation(
 # (checked by the model)
 
 model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model="linear_q", gamma=gamma)
-# implicit_weights=False: first order in time, as the p model and LinearMHD (Lie-Trotter splitting)
-model.propagators.variat_alfven.options = model.propagators.variat_alfven.Options(
-    model="linear", implicit_weights=False
-)
-model.propagators.variat_sound.options = model.propagators.variat_sound.Options(
-    model="linear_q", gamma=gamma, implicit_weights=False
-)
+if args.crank_nicolson:
+    # one linear solve per substep, energy conserving, first order in time
+    model.propagators.variat_lin_sound.options = model.propagators.variat_lin_sound.Options(
+        model="linear_q", gamma=gamma
+    )
+else:
+    # implicit_weights=False: first order in time, as the p model and LinearMHD (Lie-Trotter splitting)
+    model.propagators.variat_alfven.options = model.propagators.variat_alfven.Options(
+        model="linear", implicit_weights=False
+    )
+    model.propagators.variat_sound.options = model.propagators.variat_sound.Options(
+        model="linear_q", gamma=gamma, implicit_weights=False
+    )
 
 # ------------------
 # Initial conditions
