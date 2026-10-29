@@ -30,7 +30,7 @@ velocity, a BGK-like nonlinear state.
 
 Setup. Periodic box of length L = 12.56 (about 4 pi, so k = 2 pi / L = 0.5), 32 cells and linear splines (the
 default degree 1) in x. Maxwellian electrons with vth = 1 and the density n = 1 + 0.5 cos(k x). Control-variate
-(delta-f) weights with 1000 markers per cell; time step dt = 0.05 up to t = 75 (Lie-Trotter splitting).
+(delta-f) weights with 1000 markers per cell (seed 1234); time step dt = 0.05 up to t = 75 (Lie-Trotter splitting).
 
 Expected result. The pproc shows the electric energy on a log scale (a strong initial decay with oscillations at
 twice the wave frequency, omega about 1.4, then a regrowth and nonlinear oscillations), the distribution function

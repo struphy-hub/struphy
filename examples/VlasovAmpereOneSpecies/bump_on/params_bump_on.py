@@ -32,8 +32,8 @@ flattens the bump (phase-space vortices, plateau) and the wave saturates and osc
 Setup. Periodic box of length L = 62.83 (about 20 pi, so k = 2 pi / L = 0.1), 32 cells and cubic splines in x.
 The electrons are the sum of two Maxwellians: a bulk with n = 0.9, drift u1 = 3 and vth = 1, and a bump with
 n = 0.1, drift u1 = -4.5 (7.5 bulk thermal speeds away from the bulk) and vth1 = 0.5. Only the bump density is
-perturbed, by 0.05 cos(k x). Control-variate (delta-f) weights with 1000 markers per cell, drawn from a Maxwellian
-with vth1 = 3 that covers both populations; time step dt = 0.1 up to t = 60 (Lie-Trotter splitting).
+perturbed, by 0.05 cos(k x). Control-variate (delta-f) weights with 1000 markers per cell (seed 1234), drawn from
+a Maxwellian with vth1 = 3 that covers both populations; time step dt = 0.1 up to t = 60 (Lie-Trotter splitting).
 
 Expected result. The numerical solution of the dispersion relation above for this distribution gives growth rates
 of about 0.20 for k = 0.1 and 0.22 for k = 0.2 (larger k are stable); the pproc does not compare with them. It

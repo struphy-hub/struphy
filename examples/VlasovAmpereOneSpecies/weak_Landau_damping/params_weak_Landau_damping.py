@@ -107,7 +107,7 @@ else:
         + """
 Setup. Periodic box of length L = 12.56 (about 4 pi, so k = 2 pi / L = 0.5), 32 cells and cubic splines in x.
 Maxwellian electrons with vth = 1 and the density n = 1 + 1e-3 cos(k x). Control-variate (delta-f) weights with
-1000 markers per cell; time step dt = 0.05 up to t = 20 (Lie-Trotter splitting).
+1000 markers per cell (seed 1234); time step dt = 0.05 up to t = 20 (Lie-Trotter splitting).
 """
         + _expected
         + """The pproc compares the electric energy with the analytical curve
@@ -260,13 +260,12 @@ sim = Simulation(
 ppc = 50 if args.test_run and not profiling else 1000
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
+loading_params = LoadingParameters(ppc=ppc, seed=1234)
 if profiling:
-    loading_params = LoadingParameters(ppc=ppc, seed=1234)
     # sorting boxes are off: SortingBoxes does not work on the CuPy backend yet (struphy-hub/struphy#726)
     sorting_params = SortingParameters()
     saving_params = SavingParameters(n_markers=0)  # profile the physics, not the marker output
 else:
-    loading_params = LoadingParameters(ppc=ppc, seed=1234)
     sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
     binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
     saving_params = SavingParameters(binning_plots=(binplot,))
