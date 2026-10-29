@@ -59,21 +59,25 @@ def _fit_branches(omega, k, power, n_branches, noise_level, order=10):
 
 
 @pytest.mark.parametrize(
-    "b_space, projected, algo",
+    "b_space, projected, algo, split_sound",
     [
-        ("Hdiv", False, "implicit"),
-        ("Hdiv", False, "explicit"),
-        ("Hcurl", False, "implicit"),
-        ("Hcurl", True, "implicit"),
+        ("Hdiv", False, "implicit", False),
+        ("Hdiv", False, "explicit", False),
+        ("Hcurl", False, "implicit", False),
+        ("Hcurl", True, "implicit", False),
+        ("Hdiv", False, "implicit", True),
+        ("Hcurl", False, "implicit", True),
     ],
 )
-def test_slab_waves_1d(b_space: str, projected: bool, algo: str, do_plot: bool = False):
+def test_slab_waves_1d(b_space: str, projected: bool, algo: str, split_sound: bool, do_plot: bool = False):
     # light-weight model instance
-    model = LinearMHD(b_space=b_space, projected=projected)
+    model = LinearMHD(b_space=b_space, projected=projected, split_sound=split_sound)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "verification_tests")
-    out_folders = os.path.join(test_folder, f"LinearMHD_{b_space}{'_projected' if projected else ''}")
+    out_folders = os.path.join(
+        test_folder, f"LinearMHD_{b_space}{'_projected' if projected else ''}{'_split' if split_sound else ''}"
+    )
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
     # time stepping
@@ -158,4 +162,4 @@ def test_slab_waves_1d(b_space: str, projected: bool, algo: str, do_plot: bool =
 
 
 if __name__ == "__main__":
-    test_slab_waves_1d("Hdiv", False, algo="implicit", do_plot=True)
+    test_slab_waves_1d("Hdiv", False, algo="implicit", split_sound=False, do_plot=True)
