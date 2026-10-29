@@ -1,5 +1,3 @@
-import logging
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
@@ -8,8 +6,6 @@ from struphy.models.variables import FEECVariable
 from struphy.models.vlasov import Vlasov
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
-
-logger = logging.getLogger("struphy")
 
 
 class GuidingCenter(StruphyModel):

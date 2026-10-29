@@ -93,6 +93,9 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
             super().__init__(phi=phi, **kwargs)
             self.gc_poisson = GyrokineticPoissonSolve(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
 
+    # propagators renamed to the names of GuidingCenter (old name -> new name), for the options in old run metadata
+    _renamed_propagators = {"push_gc_bxe": "push_bxe", "push_gc_para": "push_parallel"}
+
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     em_fields: EMFields
     diagnostics: Diagnostics
@@ -131,6 +134,7 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         )
         diagnostic = self.diagnostics.rho if self.params["use_diagnostic_poisson"] else None
         return {
+            **super()._propagator_args(),
             "phi": self.em_fields.phi,
             "rho": rho,
             "epsilon": self.kinetic_ions.equation_params.epsilon,
@@ -146,13 +150,13 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
     def _create_scalars(self):
         """:meta private:"""
         scalars = super()._create_scalars()
-        scalars.pop("en_tot")
         en_phi = FunctionScalarFEEC(self._compute_en_phi)
+        en_tot = en_phi + scalars.pop("en_tot")
         return {
             "phi_integral": FunctionScalarFEEC(self._compute_phi_integral_ITGtest),
             "en_phi": en_phi,
             **scalars,
-            "en_tot": en_phi + scalars["en_f"] + scalars["en_mu"],
+            "en_tot": en_tot,
         }
 
     @property

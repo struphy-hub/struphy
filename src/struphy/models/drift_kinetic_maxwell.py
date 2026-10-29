@@ -1,13 +1,9 @@
-import logging
-
 from struphy import BaseUnits
 from struphy.models.guiding_center import GuidingCenter
 from struphy.models.scalars import FunctionScalarFEEC
 from struphy.models.species import FieldSpecies
 from struphy.models.variables import FEECVariable
 from struphy.propagators.drift_kinetic_maxwell_coupling import DriftKineticMaxwellCoupling
-
-logger = logging.getLogger("struphy")
 
 
 class DriftKineticMaxwell(GuidingCenter):
@@ -65,6 +61,9 @@ class DriftKineticMaxwell(GuidingCenter):
             super().__init__(**kwargs)
             self.coupling = DriftKineticMaxwellCoupling()
 
+    # propagators renamed to the names of GuidingCenter (old name -> new name), for the options in old run metadata
+    _renamed_propagators = {"push_para": "push_parallel"}
+
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     em_fields: EMFields
     propagators: Propagators
@@ -95,7 +94,7 @@ class DriftKineticMaxwell(GuidingCenter):
         """:meta private:"""
         # the pushers of GuidingCenter with the total magnetic field B0 + b_field and e_field in the E* x b drift;
         # the parallel electric force is applied by the coupling step only (push_parallel gets no phi, no e_field)
-        return {"b_tilde": self.em_fields.b_field, "e_field": self.em_fields.e_field}
+        return {**super()._propagator_args(), "b_tilde": self.em_fields.b_field, "e_field": self.em_fields.e_field}
 
     def _link_propagator_variables(self):
         """:meta private:"""
@@ -110,11 +109,15 @@ class DriftKineticMaxwell(GuidingCenter):
 
         :meta private:
         """
+        scalars = super()._create_scalars()
+        # the particle energy of the coupling step contains the magnetic-moment energy: it replaces en_f and en_mu
+        scalars.pop("en_mu")
+        scalars.pop("en_tot")
         coupling = self.propagators.coupling
         en_E = FunctionScalarFEEC(lambda: coupling.energies()[0])
         en_B = FunctionScalarFEEC(lambda: coupling.energies()[1])
-        en_f = FunctionScalarFEEC(lambda: coupling.energies()[2])
-        return {"en_E": en_E, "en_B": en_B, "en_f": en_f, "en_tot": en_E + en_B + en_f}
+        scalars["en_f"] = FunctionScalarFEEC(lambda: coupling.energies()[2])
+        return {"en_E": en_E, "en_B": en_B, **scalars, "en_tot": en_E + en_B + scalars["en_f"]}
 
     @property
     def velocity_scale(self):
@@ -242,8 +245,11 @@ class DriftKineticMaxwell(GuidingCenter):
           :math:`\frac{\varepsilon^2 \lambda^2}{2} \| \mathbf E \|^2 + \frac{\varepsilon^2 \kappa^2}{2}
           \| \mathbf E_\perp \|^2_{n_0/|B_0|^2}`: ``en_E``
         - Magnetic field energy :math:`\frac{1}{2} \| \tilde{\mathbf B} \|^2`: ``en_B``
-        - Particle energy :math:`\varepsilon^2 \kappa^2 \sum_p w_p (v_{\parallel,p}^2/2 + \mu_p |B_0|)`: ``en_f``
-        - Total energy: ``en_tot`` (conserved by the coupling step up to the solver tolerance)"""
+        - Particle energy :math:`\varepsilon^2 \kappa^2 \sum_p w_p (v_{\parallel,p}^2/2 + \mu_p |B_0|)`: ``en_f``;
+          unlike in :class:`~struphy.models.GuidingCenter` it contains the magnetic-moment energy (there is no
+          ``en_mu``) and the coefficients of the coupling step
+        - Total energy: ``en_tot`` (conserved by the coupling step up to the solver tolerance)
+        - Lost markers: ``n_lost_particles``"""
 
     @classmethod
     def doc_discretization(cls):
