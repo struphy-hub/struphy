@@ -44,9 +44,8 @@ class VariationalLinearEvolve(Propagator):
 
     With midpoint weights (option ``weights="midpoint"`` of the subclasses), the term :math:`\mathbf f` is taken at
     :math:`\mathbf x^{n+\frac12}`. It is linear in its weight, :math:`\mathbf f(\mathbf x) = \mathbb R \mathbf x`,
-    with a constant matrix :math:`\mathbb R` (assembled once, e.g. by
-    :meth:`~struphy.feec.variational_utilities.Pressure_transport_operator.weight_map`), so the step is still one linear
-    solve, with :math:`c \mathbb A_0^\top \mathbb M_x \to c \mathbb A_0^\top \mathbb M_x + \mathbb R` in
+    with a constant operator :math:`\mathbb R` (the second-order term in weak form, built from mass matrices and
+    derivatives), so the step is still one linear solve, with :math:`c \mathbb A_0^\top \mathbb M_x \to c \mathbb A_0^\top \mathbb M_x + \mathbb R` in
     :math:`\mathbb J` (the residual is the same). The auxiliary variable is advanced with the weight
     :math:`\mathbf x^{n+\frac12}` too, which keeps the step energy conserving. This is the implicit midpoint rule of
     the linear system: second order in time and without the numerical damping (or growth) of the frozen weight
