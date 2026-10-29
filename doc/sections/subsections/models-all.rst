@@ -81,6 +81,7 @@ parent by new terms of the equations and inherits its species, propagators and s
 .. autoclass:: struphy.models.GuidingCenter
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
+    :show-inheritance:
 
 .. autoclass:: struphy.models.DriftKineticElectrostaticAdiabatic
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for

@@ -68,7 +68,7 @@ def make_simulation(out_folders: str, sim_folder: str) -> Simulation:
     Deterministic marker loading (``sobol_standard``), so that both backends start from the same markers:
     ``pseudo_random`` draws from ``xp.random``, whose streams differ between NumPy and CuPy. No sorting boxes, since
     ``SortingBoxes`` does not work on the CuPy backend yet (#726); the model does not need them. Full-f weights: with
-    the control variate, ``kinetic_energy`` at t=0 is computed with the full-f weights and afterwards with the delta-f
+    the control variate, ``en_f`` at t=0 is computed with the full-f weights and afterwards with the delta-f
     weights, so ``en_tot`` cannot be checked.
     """
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)

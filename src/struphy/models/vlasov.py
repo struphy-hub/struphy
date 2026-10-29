@@ -244,8 +244,8 @@ class Vlasov(StruphyModel):
                 elif "saving_params = " in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
                     new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                elif "measure_gauss_law" in self.params and f"{model_name}()" in line:
-                    new_file += [f"\nmodel = {model_name}(measure_gauss_law=True)\n"]
+                elif "measure_gauss_law" in self.params and line.startswith(f"model = {model_name}("):
+                    new_file += [line.replace(f"{model_name}(", f"{model_name}(measure_gauss_law=True, ", 1)]
                 else:
                     new_file += [line]
 

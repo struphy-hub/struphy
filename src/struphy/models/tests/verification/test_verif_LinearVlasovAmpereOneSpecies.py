@@ -196,13 +196,13 @@ def test_energy_conservation(exit_before_run: bool = False):
     if comm.Get_rank() == 0:
         with h5py.File(os.path.join(env.path_out, "data", "data_proc0.hdf5"), "r") as f:
             en_E = f["scalar"]["en_E"][()]
-            en_w = f["scalar"]["en_f"][()]
+            en_f = f["scalar"]["en_f"][()]
             en_tot = f["scalar"]["en_tot"][()]
 
         # 1. initial perturbation energy (was off by a factor Np^2)
-        en_w_exact = amplitude**2 * r1 / 4.0
-        rel_error = abs(en_w[0] - en_w_exact) / en_w_exact
-        assert rel_error < 0.05, f"Initial perturbation energy failed: {en_w[0] =} vs. {en_w_exact =}."
+        en_f_exact = amplitude**2 * r1 / 4.0
+        rel_error = abs(en_f[0] - en_f_exact) / en_f_exact
+        assert rel_error < 0.05, f"Initial perturbation energy failed: {en_f[0] =} vs. {en_f_exact =}."
 
         # 2. energy is exchanged between field and particles ...
         assert abs(en_E[-1] - en_E[0]) > 1e-3 * en_tot[0]

@@ -121,6 +121,7 @@ class VlasovPoissonAdiabatic(Vlasov):
             charge_density_0form,
         )
         return {
+            **super()._propagator_args(),
             "phi": self.em_fields.phi,
             "rho": rho,
             "epsilon": self.kinetic_ions.equation_params.epsilon,

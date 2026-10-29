@@ -85,7 +85,7 @@ class VlasovMaxwellOneSpecies(VlasovAmpereOneSpecies):
     def _propagator_args(self):
         """:meta private:"""
         # the Lorentz force of the total magnetic field B0 + B
-        return {"b2_var": self.em_fields.b_field}
+        return {**super()._propagator_args(), "b2_var": self.em_fields.b_field}
 
     def _link_propagator_variables(self):
         """:meta private:"""

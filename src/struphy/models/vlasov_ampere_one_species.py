@@ -94,10 +94,12 @@ class VlasovAmpereOneSpecies(Vlasov):
 
     def _create_scalars(self):
         """:meta private:"""
+        scalars = super()._create_scalars()
+        # the kinetic energy with the normalization alpha^2 of this model (light-speed units) replaces Vlasov's
         alpha = self.kinetic_ions.equation_params.alpha
+        scalars["en_f"] = KineticEnergyPIC(self.kinetic_ions.var, normalization=alpha**2)
         en_E = BilinearEnergyFEEC(self.em_fields.e_field)
-        en_f = KineticEnergyPIC(self.kinetic_ions.var, normalization=alpha**2)
-        return {"en_E": en_E, "en_f": en_f, "en_tot": en_E + en_f}
+        return {"en_E": en_E, **scalars, "en_tot": en_E + scalars["en_f"]}
 
     @property
     def velocity_scale(self):
