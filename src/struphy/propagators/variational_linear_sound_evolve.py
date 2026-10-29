@@ -91,10 +91,21 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
       with :math:`\hat l^3(1)_{ijk} = \int_{\hat\Omega} \Lambda^3_{ijk} \sqrt g \,\textrm d \boldsymbol\eta`. The
       thermal energy :math:`p/(\gamma - 1)` is linear in :math:`p`, so the pressure enters the momentum equation only
       through the weight :math:`\mathbf p^n`: the velocity is advanced with one mass-matrix solve, then the pressure.
-      The sound waves are explicit (stable for :math:`\Delta t\, \omega_s < 2`).
+      The sound waves are explicit and, with the weight :math:`\mathbf p^n` at :math:`t^n`, not stable for any
+      :math:`\Delta t`: the amplitude of a sound wave of frequency :math:`\omega_s` grows by
+      :math:`|\lambda|^2 = 1 + (\Delta t\, \omega_s)^2 / 2` per step, so :math:`\Delta t\, \omega_s` must be small
+      over the simulated time. (``"linear_q"`` is stable for :math:`\gamma \leq 2`, with a numerical damping of
+      order :math:`\Delta t\, \omega_s^2` for :math:`\gamma < 2`.)
 
     In both cases the weight at :math:`t^n` is the same in the momentum equation and in the update of :math:`\hat s`,
     which makes the step energy conserving; it is first order in time.
+
+    The velocity can also be a 2-form, :math:`\mathbf u \in H(\textnormal{div})` (velocity variable in ``"Hdiv"``
+    space). The scheme is the same, with :math:`\mathbb M^v[\hat\rho_0] \to \mathbb M^{2,n}` and
+    :math:`\mathbb S[\bar s] = \mathbb D \hat\Pi^2[\hat{\bar s} \vec{\boldsymbol\Lambda}^2/\sqrt g]
+    + (\kappa - 1) \hat\Pi^3[\hat{\bar s}/\sqrt g\, \vec{\boldsymbol\Lambda}^3] \mathbb D` (no :math:`\mathcal U^v`);
+    for ``"linear_p"`` the equilibrium operator is :math:`\mathbb D \mathcal S^2 + (\gamma - 1) \mathcal K^3 \mathbb D`
+    of :class:`~struphy.propagators.magnetosonic.Magnetosonic`. The energy is conserved in the same way.
     """
 
     class Variables:
@@ -103,7 +114,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         Attributes
         ----------
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space.
+            Velocity variable in ``"H1vec"`` or ``"Hdiv"`` space.
         s : FEECVariable
             Perturbation of :math:`q = \\sqrt p` (``"linear_q"``) or of the pressure (``"linear_p"``) in ``"L2"``
             space.
@@ -120,7 +131,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1vec"
+            assert new.space in ("H1vec", "Hdiv")
             self._u = new
 
         @property
@@ -169,6 +180,11 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             its norm.
         info : bool, default=False
             Log the information of the linear solver in every step.
+        relative_tol : bool, default=True
+            Whether the tolerance of ``solver_params`` is relative to the norm of the right-hand side (the residual at
+            :math:`t^n`, normalized before the solve), or absolute, as in the non-variational propagators (e.g.
+            :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`). The energy is conserved up
+            to the residual of the linear solve.
         """
 
         # specific literals
@@ -181,6 +197,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         precond: OptsPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         info: bool = False
+        relative_tol: bool = True
 
         def __post_init__(self):
             # checks
@@ -224,9 +241,18 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         else:
             kappa = self._gamma
             s0 = self.projected_equil.p3
-        self._S0 = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, kappa)
-        self._S0.update_coeffs(s0)
-        self._Ss = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, kappa)
+        if self._u_space == "Hdiv" and self._model == "linear_p":
+            # equilibrium term as in Magnetosonic
+            div = self.derham.div
+            self._S0 = div @ self.basis_ops.S2 + (kappa - 1.0) * (self.basis_ops.K3 @ div)
+        else:
+            self._S0 = Pressure_transport_operator(
+                self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
+            )
+            self._S0.update_coeffs(s0)
+        self._Ss = Pressure_transport_operator(
+            self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
+        )
         self._SsT = self._Ss.T
 
         u = self.variables.u.spline.vector
@@ -295,7 +321,10 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             f_u = self._SsT.dot(self._lf0, out=self._tmp_fu)
             f_u *= dt
             # normalized right-hand side: the tolerance of the linear solver is relative to it
-            incr = dot_normalized(self._inv_Mrho, f_u, self._tmp_fu2)
+            if self.options.relative_tol:
+                incr = dot_normalized(self._inv_Mrho, f_u, self._tmp_fu2)
+            else:
+                incr = self._inv_Mrho.dot(f_u, out=self._tmp_fu2)
             if self._info:
                 logger.info(f"{self.__class__.__name__}, linear solver: {self._inv_Mrho._info}")
             un1 = un.copy(out=self._tmp_un1)

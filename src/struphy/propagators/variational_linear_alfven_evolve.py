@@ -4,7 +4,7 @@ from typing import Literal
 
 from line_profiler import profile
 
-from struphy.feec.variational_utilities import Hdiv0_transport_operator
+from struphy.feec.variational_utilities import Hdiv0_transport_operator, alfven_schur_preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
@@ -61,7 +61,16 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
     (:class:`~struphy.propagators.variational_linear_base.VariationalLinearEvolve`) instead of a Picard iteration.
     The Schur complement is the shear-Alfvén operator
     :math:`\mathbb M^v[\hat\rho_0] + \frac{\Delta t^2}{4} \mathbb T[\mathbf B_0]^\top \mathbb M^2
-    \mathbb T[\mathbf B_0]`, constant in time.
+    \mathbb T[\mathbf B_0]`, constant in time; the option ``schur_precond`` provides a Kronecker preconditioner of it
+    (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`).
+
+    The velocity can also be a 2-form, :math:`\mathbf u \in H(\textnormal{div})` (velocity variable in ``"Hdiv"``
+    space). The scheme is the same, with the operators of
+    :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` for the equilibrium terms,
+    :math:`\mathbb M^v[\hat\rho_0] \to \mathbb M^{2,n}` and :math:`\mathbb T[\mathbf B_0] \to \mathbb C\, \mathcal T^2`
+    (:attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.T2`), and with
+    :math:`\mathbb T[\mathbf b^n] = \mathbb C \hat\Pi^1[(\hat{\mathbf B}^n \times \vec{\boldsymbol\Lambda}^2)/\sqrt g]`
+    for the second-order term. The energy is conserved in the same way.
     """
 
     class Variables:
@@ -70,7 +79,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         Attributes
         ----------
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space.
+            Velocity variable in ``"H1vec"`` or ``"Hdiv"`` space.
         b : FEECVariable
             Magnetic-field perturbation in ``"Hdiv"`` space.
         """
@@ -86,7 +95,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1vec"
+            assert new.space in ("H1vec", "Hdiv")
             self._u = new
 
         @property
@@ -125,20 +134,39 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             the norm of the residual at :math:`t^n`.
         info : bool, default=False
             Log the information of the linear solver in every step.
+        relative_tol : bool, default=True
+            Whether the tolerance of ``solver_params`` is relative to the norm of the right-hand side (the residual at
+            :math:`t^n`, normalized before the solve), or absolute, as in the non-variational propagators (e.g.
+            :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`). The energy is conserved up
+            to the residual of the linear solve.
+        schur_precond : {"MassMatrixPreconditioner", "StiffnessPreconditioner"}, default="MassMatrixPreconditioner"
+            Preconditioner of the Schur system: the one of ``precond`` (velocity block), or the Kronecker (fast
+            diagonalization) preconditioner of the whole shear-Alfven Schur operator
+            (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, rebuilt when the time step
+            changes). The latter needs ``solver="pcg"``, tensor-product splines and the global commuting projectors;
+            otherwise ``precond`` is used (with a warning).
+        exb_correction : bool, default=True
+            For ``schur_precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
+            :math:`\mathbf E \times \mathbf B` flows :math:`\mathbf B_0 \times \nabla \phi`.
         """
 
         # specific literals
         OptsPrecond = Literal["MassMatrixPreconditioner", None]
+        OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: OptsPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         info: bool = False
+        relative_tol: bool = True
+        schur_precond: OptsSchurPrecond = "MassMatrixPreconditioner"
+        exb_correction: bool = True
 
         def __post_init__(self):
             # checks
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, self.OptsPrecond)
+            check_option(self.schur_precond, self.OptsSchurPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -165,11 +193,16 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         self._allocate_mass(self.options.precond)
 
         # transport operators with the equilibrium (constant) and with the perturbation (weight b^n)
-        self._T0 = Hdiv0_transport_operator(self.derham)
-        self._T0T = self._T0.T
-        self._T0.update_coeffs(self.projected_equil.b2)
-        self._T0T.update_coeffs(self.projected_equil.b2)
-        self._Tb = Hdiv0_transport_operator(self.derham)
+        if self._u_space == "Hdiv":
+            # equilibrium term as in ShearAlfvenPropagator
+            self._T0 = self.derham.curl @ self.basis_ops.T2
+            self._T0T = self._T0.T
+        else:
+            self._T0 = Hdiv0_transport_operator(self.derham)
+            self._T0T = self._T0.T
+            self._T0.update_coeffs(self.projected_equil.b2)
+            self._T0T.update_coeffs(self.projected_equil.b2)
+        self._Tb = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         self._TbT = self._Tb.T
 
         # linear form of the equilibrium field, -M2 b0
@@ -184,6 +217,10 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             self.options.solver_params,
         )
 
+        # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
+        self._schur_pc = alfven_schur_preconditioner(self, [], u_space=self._u_space)
+        self._schur_pc_dt = None
+
         # temporaries
         u = self.variables.u.spline.vector
         b = self.variables.b.spline.vector
@@ -195,8 +232,17 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         self._tmp_fb = b.space.zeros()
         self._tmp_M2b = b.space.zeros()
 
+    def prepare_time_step(self, dt: float):
+        """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
+        ``schur_precond="StiffnessPreconditioner"``): built in the first step, rebuilt when dt changes."""
+        if self._schur_pc is not None and dt != self._schur_pc_dt:
+            self._inv_J.precond = self._schur_pc.build(dt)
+            self._schur_pc_dt = dt
+
     @profile
     def __call__(self, dt):
+        # preconditioner for the current time step (no-op unless dt changed)
+        self.prepare_time_step(dt)
         # WMMnew is assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
         self._refresh_mass_pc()
 
