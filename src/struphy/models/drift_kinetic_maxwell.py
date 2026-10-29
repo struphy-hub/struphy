@@ -1,14 +1,11 @@
-import copy
 import logging
 
 from struphy import BaseUnits
 from struphy.models.guiding_center import GuidingCenter
-from struphy.models.scalars import FunctionScalarFEEC, Scalars
+from struphy.models.scalars import FunctionScalarFEEC
 from struphy.models.species import FieldSpecies
-from struphy.models.variables import FEECVariable, PICVariable
+from struphy.models.variables import FEECVariable
 from struphy.propagators.drift_kinetic_maxwell_coupling import DriftKineticMaxwellCoupling
-from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
-from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 
 logger = logging.getLogger("struphy")
 
@@ -42,7 +39,7 @@ class DriftKineticMaxwell(GuidingCenter):
         Plasma frequency × length unit / speed of light. If None, computed from units and charge/mass numbers.
     """
 
-    ## species
+    ## additional species
 
     class EMFields(FieldSpecies):
         def __init__(self):
@@ -50,40 +47,27 @@ class DriftKineticMaxwell(GuidingCenter):
             self.b_field = FEECVariable(space="Hdiv")
             self.init_variables()
 
-    class KineticIons(GuidingCenter.KineticIons):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            epsilon: float = None,
-            lam: float = None,
-            kappa: float = None,
-        ):
-            self.var = PICVariable(space="Particles5D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                epsilon=epsilon,
-                lam=lam,
-                kappa=kappa,
-            )
-
-    ## propagators
+    ## additional propagators
 
     class Propagators(GuidingCenter.Propagators):
+        """Propagators of :class:`~struphy.models.GuidingCenter` plus ``coupling`` (Maxwell's equations, currents and
+        the parallel electric force in one implicit step).
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`GuidingCenter.Propagators <struphy.models.GuidingCenter.Propagators>`.
+        """
+
         splitting_order = ("coupling", "push_parallel", "push_bxe")
 
-        def __init__(
-            self,
-            e_field: FEECVariable = None,
-            b_field: FEECVariable = None,
-        ):
-            super().__init__()
-            # the pushers of GuidingCenter with the total magnetic field B0 + b_field; the parallel electric force is
-            # applied by the coupling step only: push_parallel gets no phi and no e_field
-            self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field, e_field=e_field)
-            self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.coupling = DriftKineticMaxwellCoupling()
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -97,43 +81,40 @@ class DriftKineticMaxwell(GuidingCenter):
         kappa: float = None,
     ):
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
+        # 1.-5. see GuidingCenter
+        super().__init__(base_units, charge_number, mass_number, epsilon)
+
+    def _create_species(self):
+        """:meta private:"""
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(charge_number, mass_number, epsilon, lam, kappa)
+        super()._create_species()
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(e_field=self.em_fields.e_field, b_field=self.em_fields.b_field)
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation: the parts of the energy conserved by the coupling step
-        # (with the coefficients of the propagator, known after its allocation)
-        coupling = self.propagators.coupling
-        electric_energy = FunctionScalarFEEC(lambda: coupling.energies()[0])
-        magnetic_energy = FunctionScalarFEEC(lambda: coupling.energies()[1])
-        particle_energy = FunctionScalarFEEC(lambda: coupling.energies()[2])
-        self.scalars = Scalars(
-            en_E=electric_energy,
-            en_B=magnetic_energy,
-            en_f=particle_energy,
-            en_tot=electric_energy + magnetic_energy + particle_energy,
-        )
+    def _propagator_args(self):
+        """:meta private:"""
+        # the pushers of GuidingCenter with the total magnetic field B0 + b_field and e_field in the E* x b drift;
+        # the parallel electric force is applied by the coupling step only (push_parallel gets no phi, no e_field)
+        return {"b_tilde": self.em_fields.b_field, "e_field": self.em_fields.e_field}
 
     def _link_propagator_variables(self):
-        """Assign the species variables to the propagators.
-
-        :meta private:
-        """
+        """:meta private:"""
         super()._link_propagator_variables()
         self.propagators.coupling.variables.e = self.em_fields.e_field
         self.propagators.coupling.variables.b = self.em_fields.b_field
         self.propagators.coupling.variables.ions = self.kinetic_ions.var
+
+    def _create_scalars(self):
+        """The parts of the energy conserved by the coupling step (with the coefficients of the propagator, known
+        after its allocation).
+
+        :meta private:
+        """
+        coupling = self.propagators.coupling
+        en_E = FunctionScalarFEEC(lambda: coupling.energies()[0])
+        en_B = FunctionScalarFEEC(lambda: coupling.energies()[1])
+        en_f = FunctionScalarFEEC(lambda: coupling.energies()[2])
+        return {"en_E": en_E, "en_B": en_B, "en_f": en_f, "en_tot": en_E + en_B + en_f}
 
     @property
     def velocity_scale(self):

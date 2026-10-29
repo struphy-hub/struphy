@@ -1,23 +1,18 @@
-import copy
-
 import cunumpy as xp
 
 from struphy import BaseUnits
-from struphy.feec.mass import AverageOperator, L2Projector
-from struphy.kinetic_background.base import KineticBackground
+from struphy.feec.mass import AverageOperator
 from struphy.models.guiding_center import GuidingCenter
-from struphy.models.scalars import FunctionScalarFEEC, FunctionScalarPIC, KineticEnergyPIC, Scalars
+from struphy.models.scalars import FunctionScalarFEEC
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
 )
-from struphy.models.variables import FEECVariable, PICVariable
+from struphy.models.variables import FEECVariable
 from struphy.pic.accumulation.kernels.gc_density_0form import gc_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
 from struphy.propagators.base import Propagator
 from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
-from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
-from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 
 
 class DriftKineticElectrostaticAdiabatic(GuidingCenter):
@@ -44,28 +39,12 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         If ``None``, computed from ``base_units`` and the charge/mass numbers.
     """
 
-    ## species
+    ## additional species
 
     class EMFields(FieldSpecies):
         def __init__(self):
             self.phi = FEECVariable(space="H1")
             self.init_variables()
-
-    class KineticIons(GuidingCenter.KineticIons):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            epsilon: float = None,
-            alpha: float = None,
-        ):
-            self.var = PICVariable(space="Particles5D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                epsilon=epsilon,
-                alpha=alpha,
-            )
 
     class Diagnostics(DiagnosticSpecies):
         def __init__(
@@ -74,9 +53,28 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
             self.rho = FEECVariable(space="H1")
             self.init_variables()
 
-    ## propagators
+    ## additional propagators
 
     class Propagators(GuidingCenter.Propagators):
+        """Propagators of :class:`~struphy.models.GuidingCenter` (with the potential ``phi``) plus ``gc_poisson``
+        (quasi-neutrality equation with adiabatic electrons).
+
+        Parameters
+        ----------
+        phi : FEECVariable, optional
+            Electric potential, solved by ``gc_poisson`` and used by the pushers.
+        rho : ParticlesToGrid, optional
+            Guiding-center charge deposition (right-hand side of the quasi-neutrality equation).
+        epsilon : float
+            Normalized cyclotron period (equation parameter of the ions).
+        Z : int
+            Charge number of the ions.
+        diagnostic : FEECVariable, optional
+            Variable for the charge density of the diagnostic Poisson solve.
+        **kwargs
+            Passed to :class:`GuidingCenter.Propagators <struphy.models.GuidingCenter.Propagators>`.
+        """
+
         # both pushers move the guiding centers; with the Poisson solve between them, a Strang step
         # bxe(dt/2), poisson, para(dt), poisson, bxe(dt/2) pushes with the potential of the current positions
         # (the two bxe(dt/2) of consecutive steps act as one bxe(dt) with the potential frozen)
@@ -89,12 +87,16 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
             epsilon: float = 1.0,
             Z: int = 1,
             diagnostic: FEECVariable | None = None,
+            **kwargs,
         ):
-            super().__init__()
             # the pushers of GuidingCenter with the electric field -grad phi in E*
-            self.push_bxe = PushGuidingCenterBxEstar(phi=phi)
-            self.push_parallel = PushGuidingCenterParallel(phi=phi)
+            super().__init__(phi=phi, **kwargs)
             self.gc_poisson = GyrokineticPoissonSolve(rho=rho, epsilon=epsilon, Z=Z, diagnostic=diagnostic)
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    diagnostics: Diagnostics
+    propagators: Propagators
 
     ## abstract methods
 
@@ -107,62 +109,51 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         alpha: float = None,
         use_diagnostic_poisson: bool = False,
     ):
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
+        # 1.-5. see GuidingCenter
+        super().__init__(base_units, charge_number, mass_number, epsilon)
+
+    def _create_species(self):
+        """:meta private:"""
         self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            epsilon,
-            alpha=alpha,
-        )
-        if use_diagnostic_poisson:
+        super()._create_species()
+        if self.params["use_diagnostic_poisson"]:
             self.diagnostics = self.Diagnostics()
-            diagnostic = self.diagnostics.rho
-        else:
-            diagnostic = None
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-        if epsilon is None:
-            epsilon = self.kinetic_ions.var.species.equation_params.epsilon
-
-        # 3. instantiate all propagators
+    def _propagator_args(self):
+        """:meta private:"""
         rho = ParticlesToGrid(
             self.kinetic_ions.var,
             "H1",
             gc_density_0form,
         )
-        self.propagators = self.Propagators(
-            phi=self.em_fields.phi, rho=rho, epsilon=epsilon, Z=charge_number, diagnostic=diagnostic
-        )
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation
-        field_energy = FunctionScalarFEEC(self._compute_en_phi)
-        phi_integral_ITGtest = FunctionScalarFEEC(self._compute_phi_integral_ITGtest)
-        particle_kinetic = KineticEnergyPIC(self.kinetic_ions.var)
-        particle_magnetic = FunctionScalarPIC(self._compute_en_fB, self.kinetic_ions.var)
-        particle_energy = particle_kinetic + particle_magnetic
-        self.scalars = Scalars(
-            phi_integral=phi_integral_ITGtest,
-            en_phi=field_energy,
-            en_particles=particle_energy,
-            en_tot=field_energy + particle_energy,
-        )
+        diagnostic = self.diagnostics.rho if self.params["use_diagnostic_poisson"] else None
+        return {
+            "phi": self.em_fields.phi,
+            "rho": rho,
+            "epsilon": self.kinetic_ions.equation_params.epsilon,
+            "Z": self.kinetic_ions.charge_number,
+            "diagnostic": diagnostic,
+        }
 
     def _link_propagator_variables(self):
-        """Assign the species variables to the propagators.
-
-        :meta private:
-        """
+        """:meta private:"""
         super()._link_propagator_variables()
         self.propagators.gc_poisson.variables.phi = self.em_fields.phi
+
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        scalars.pop("en_tot")
+        en_phi = FunctionScalarFEEC(self._compute_en_phi)
+        return {
+            "phi_integral": FunctionScalarFEEC(self._compute_phi_integral_ITGtest),
+            "en_phi": en_phi,
+            **scalars,
+            "en_tot": en_phi + scalars["en_f"] + scalars["en_mu"],
+        }
 
     @property
     def velocity_scale(self):
@@ -267,9 +258,12 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
+        - Integral of the averaged squared potential (ITG diagnostic): ``phi_integral``
         - Field energy: ``en_phi``
-        - Guiding-center particle energy: ``en_particles``
-        - Total energy: ``en_tot``"""
+        - Parallel kinetic energy: ``en_f``
+        - Magnetic-moment energy: ``en_mu``
+        - Total energy: ``en_tot`` = ``en_phi + en_f + en_mu``
+        - Lost markers: ``n_lost_particles``"""
 
     @classmethod
     def doc_discretization(cls):

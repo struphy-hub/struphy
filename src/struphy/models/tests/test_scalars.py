@@ -65,7 +65,7 @@ def test_drift_kinetic_magnetic_energy_is_weighted():
     for Np in (4, 400):
         particles = _DriftKineticMarkers(Np)
         model = SimpleNamespace(kinetic_ions=SimpleNamespace(var=SimpleNamespace(particles=particles)))
-        energy = DriftKineticElectrostaticAdiabatic._compute_en_particle_magnetic(model)
+        energy = DriftKineticElectrostaticAdiabatic._compute_en_fB(model)
         assert xp.isclose(energy, 6.0), f"magnetic energy = {energy} for Np = {Np}, expected 6.0"
 
 
