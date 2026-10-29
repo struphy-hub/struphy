@@ -93,12 +93,50 @@ parser.add_argument(
     help="Keep the plain H1vec projection of the initial velocity (not exactly divergence-free in the scheme).",
 )
 parser.add_argument(
+    "--crank-nicolson",
+    action="store_true",
+    help="One linear solve per substep (variat_lin_alfven and variat_lin_sound) instead of the Picard iteration.",
+)
+parser.add_argument(
+    "--u-space",
+    default="H1vec",
+    choices=["H1vec", "Hdiv"],
+    help="Space of the velocity: H1vec (vector field) or Hdiv (2-form, as LinearMHD; needs --crank-nicolson).",
+)
+parser.add_argument(
+    "--schur-precond",
+    default="StiffnessPreconditioner",
+    choices=["MassMatrixPreconditioner", "StiffnessPreconditioner"],
+    help="With --crank-nicolson: preconditioner of the shear Alfven Schur system, of the mass matrix or the Kronecker "
+    "(fast diagonalization) preconditioner of the whole Schur operator (default, as LinearMHD).",
+)
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (num_elements = [8, 8, 4]) and a short run with three saved time steps, for the tests "
     "(test_examples.py).",
 )
+parser.add_argument(
+    "--tol",
+    type=float,
+    default=1e-8,
+    help="With --crank-nicolson: tolerance of the linear solves (default 1e-8, relative to the right-hand side).",
+)
+parser.add_argument(
+    "--weights",
+    default="midpoint",
+    choices=["midpoint", "frozen"],
+    help="With --crank-nicolson: weight of the second-order term of the Alfven step at t^(n+1/2) (default) or at t^n "
+    "(first order); the sound step of the q model always uses t^n.",
+)
+parser.add_argument(
+    "--abs-tol",
+    action="store_true",
+    help="With --crank-nicolson: absolute tolerance of the linear solves (as LinearMHD) instead of relative.",
+)
 args, _ = parser.parse_known_args()
+if args.u_space == "Hdiv" and not args.crank_nicolson:
+    parser.error("--u-space Hdiv needs --crank-nicolson.")
 if args.test_run:
     args.num_elements = [8, 8, 4]
 
@@ -124,6 +162,7 @@ from struphy import (
     grids,
     perturbations,
 )
+from struphy.linear_algebra.solver import SolverParameters
 
 # ---------------------
 # Instance of the model
@@ -139,7 +178,12 @@ base_units = BaseUnits()
 # Model instance: linear and ideal (no viscosity, no resistivity), as LinearMHD
 # split_sound=True (default): shear-Alfven/fast and sound waves in two substeps, as in LinearMHD
 model = VariationalPerturbativeMHD_with_q(
-    base_units=base_units, linear=True, with_viscosity=False, with_resistivity=False
+    base_units=base_units,
+    linear=True,
+    with_viscosity=False,
+    with_resistivity=False,
+    crank_nicolson=args.crank_nicolson,
+    u_space=args.u_space,
 )
 
 # List all variables and decide whether to save their data
@@ -201,13 +245,26 @@ sim = Simulation(
 # (checked by the model)
 
 model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model="linear_q", gamma=gamma)
-# implicit_weights=False: first order in time, as the p model and LinearMHD (Lie-Trotter splitting)
-model.propagators.variat_alfven.options = model.propagators.variat_alfven.Options(
-    model="linear", implicit_weights=False
-)
-model.propagators.variat_sound.options = model.propagators.variat_sound.Options(
-    model="linear_q", gamma=gamma, implicit_weights=False
-)
+if args.crank_nicolson:
+    # one linear solve per substep, energy conserving (midpoint or frozen weights of the second-order terms)
+    solver_params = SolverParameters(tol=args.tol)
+    model.propagators.variat_lin_alfven.options = model.propagators.variat_lin_alfven.Options(
+        weights=args.weights,
+        schur_precond=args.schur_precond,
+        solver_params=solver_params,
+        relative_tol=not args.abs_tol,
+    )
+    model.propagators.variat_lin_sound.options = model.propagators.variat_lin_sound.Options(
+        model="linear_q", gamma=gamma, weights="frozen", solver_params=solver_params, relative_tol=not args.abs_tol
+    )
+else:
+    # implicit_weights=False: first order in time, as the p model and LinearMHD (Lie-Trotter splitting)
+    model.propagators.variat_alfven.options = model.propagators.variat_alfven.Options(
+        model="linear", implicit_weights=False
+    )
+    model.propagators.variat_sound.options = model.propagators.variat_sound.Options(
+        model="linear_q", gamma=gamma, implicit_weights=False
+    )
 
 # ------------------
 # Initial conditions
@@ -246,7 +303,8 @@ model.mhd.velocity.add_perturbation(perturbation=perturbation_poloidal)
 # Exactly divergence-free initial velocity: after the allocation (projection of the initial conditions), the velocity
 # is projected onto the kernel of the discrete divergence div Uv of the variational scheme. Not on a restart, whose
 # data overwrites the initial conditions.
-if not args.no_div_free and not env.restart:
+# (only for H1vec: as 2-form, the initial velocity is already divergence free, as in LinearMHD)
+if args.u_space == "H1vec" and not args.no_div_free and not env.restart:
     from struphy.feec.variational_utilities import project_div_free_velocity
 
     model_post_allocate = model.post_allocate

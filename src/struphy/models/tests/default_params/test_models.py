@@ -99,26 +99,33 @@ def test_variational_mhd_with_p_default_options(tmp_path):
 @pytest.mark.models
 @pytest.mark.fluid
 @pytest.mark.parametrize("perturbative_model", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
-def test_variational_perturbative_linear(perturbative_model: str, tmp_path, test_profiling: bool = True):
-    """The linear version (linear=True) of the perturbative models: the default parameter file keeps the flag and
-    sets the linear variants of the propagators, and the generic model test passes."""
+@pytest.mark.parametrize("crank_nicolson", [False, True])
+def test_variational_perturbative_linear(
+    perturbative_model: str, crank_nicolson: bool, tmp_path, test_profiling: bool = True
+):
+    """The linear version (linear=True) of the perturbative models, with the Picard propagators or with one linear
+    solve per substep (crank_nicolson=True): the default parameter file keeps the flags and sets the linear variants
+    of the propagators, and the generic model test passes."""
     from struphy.io.setup import import_parameters_py
 
     model_class = models_utils.get_model_by_name(model_name=perturbative_model)
-    model = model_class(linear=True)
+    model = model_class(linear=True, crank_nicolson=crank_nicolson)
 
     path = os.path.join(tmp_path, f"params_{perturbative_model}.py")
     model.generate_default_parameter_file(path=path, prompt=False)
     params_model = import_parameters_py(path).model
     assert params_model.params["linear"]
+    assert params_model.params["crank_nicolson"] == crank_nicolson
     assert not hasattr(params_model.propagators, "variat_mom")
+    assert hasattr(params_model.propagators, "variat_lin_alfven") == crank_nicolson
     for name, variant in model.propagator_variants.items():
         assert getattr(params_model.propagators, name).options.model == variant, name
 
     # the q model with the unsplit step (split_sound=False): the flag is kept, and VariationalQBEvolve gets the
     # linear variant
     if perturbative_model == "VariationalPerturbativeMHD_with_q":
-        assert params_model.propagators.variat_alfven.options.model == "linear"
+        if not crank_nicolson:
+            assert params_model.propagators.variat_alfven.options.model == "linear"
         unsplit = model_class(linear=True, split_sound=False)
         path_unsplit = os.path.join(tmp_path, f"params_{perturbative_model}_unsplit.py")
         unsplit.generate_default_parameter_file(path=path_unsplit, prompt=False)
@@ -143,6 +150,25 @@ def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path):
     params_model = import_parameters_py(path).model
     assert params_model.params["b_space"] == "Hcurl" and params_model.params["projected"] == projected
     assert params_model.em_fields.b_field.space == "Hcurl"
+    ut.call_test(model=model)
+
+
+@pytest.mark.models
+@pytest.mark.fluid
+@pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
+def test_linear_mhd_split_sound(b_space: str, tmp_path):
+    """LinearMHD with the split magnetosonic step: the flag survives the generated parameter file, which has the
+    split propagators."""
+    from struphy.io.setup import import_parameters_py
+
+    model = models_utils.get_model_by_name("LinearMHD")(b_space=b_space, split_sound=True)
+    path = os.path.join(tmp_path, "params_LinearMHD.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params_model = import_parameters_py(path).model
+    assert params_model.params["split_sound"] and params_model.params["b_space"] == b_space
+    assert not hasattr(params_model.propagators, "mag_sonic")
+    for name in ("bg_current", "sound", "bg_pressure"):
+        assert hasattr(params_model.propagators, name)
     ut.call_test(model=model)
 
 
