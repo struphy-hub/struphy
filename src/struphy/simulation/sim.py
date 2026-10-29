@@ -967,8 +967,8 @@ class Simulation(SimulationBase):
 
             logger.info("Struphy run finished.")
 
-            if self.clone_config is not None:
-                self.clone_config.free()
+            # the clone communicators are not freed here: the model (FEEC operators on sub_comm, particle
+            # reductions on inter_comm) is still used after the run, e.g. for diagnostics or further runs
 
         return self.output
 

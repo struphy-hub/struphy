@@ -26,11 +26,12 @@ from struphy.models import VlasovMaxwellOneSpecies
 logger = logging.getLogger("struphy")
 
 
+@pytest.mark.clones
 @pytest.mark.parametrize(
     "control_variate, Tend, rel_tol",
     [(True, 0.0, 0.1), (False, 0.0, 0.1), (False, 1.0, 0.5)],
 )
-def test_gauss_error(control_variate: bool, Tend: float, rel_tol: float, exit_before_run: bool = False):
+def test_gauss_error(control_variate: bool, Tend: float, rel_tol: float, nclones: int, exit_before_run: bool = False):
     """The ``gauss_error`` diagnostic: right after the initial Poisson solve the weak Gauss law holds, and for
     full-f markers the residual stays at the level of the time stepping.
 
@@ -51,7 +52,9 @@ def test_gauss_error(control_variate: bool, Tend: float, rel_tol: float, exit_be
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovMaxwellOneSpecies")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"gauss_error_{control_variate}_{Tend}")
+    env = EnvironmentOptions(
+        out_folders=out_folders, sim_folder=f"gauss_error_{control_variate}_{Tend}", num_clones=nclones
+    )
 
     time_opts = Time(dt=0.05, Tend=Tend)
 
@@ -116,5 +119,5 @@ def test_gauss_error(control_variate: bool, Tend: float, rel_tol: float, exit_be
 
 
 if __name__ == "__main__":
-    test_gauss_error(True, 0.0, 0.1)
-    test_gauss_error(False, 1.0, 0.5)
+    test_gauss_error(True, 0.0, 0.1, nclones=1)
+    test_gauss_error(False, 1.0, 0.5, nclones=1)
