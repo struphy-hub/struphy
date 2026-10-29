@@ -38,7 +38,7 @@ DERHAM_KERNELS = {
 
 def make_vlasov_ampere(tmp_path, bc=("periodic", "periodic", "periodic")) -> Simulation:
     """VlasovAmpereOneSpecies on 8 x 1 x 1 elements with 5 markers per cell, one time step."""
-    model = VlasovAmpereOneSpecies(with_B0=False)
+    model = VlasovAmpereOneSpecies()
     model.kinetic_ions.set_markers(
         loading_params=LoadingParameters(ppc=5, seed=1234),
         boundary_params=BoundaryParameters(bc=list(bc)),
