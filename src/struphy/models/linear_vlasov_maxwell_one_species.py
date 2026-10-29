@@ -1,9 +1,6 @@
-import copy
-
 from struphy import BaseUnits
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
-from struphy.models.species import FieldSpecies
+from struphy.models.scalars import BilinearEnergyFEEC
 from struphy.models.variables import FEECVariable
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 
@@ -28,21 +25,37 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
     """
 
-    ## species
+    ## additional species variables
 
-    class EMFields(FieldSpecies):
+    class EMFields(LinearVlasovAmpereOneSpecies.EMFields):
         def __init__(self):
-            self.e_field = FEECVariable(space="Hcurl")
+            # declared before the parent's variables, whose init_variables() then includes it
             self.b_field = FEECVariable(space="Hdiv")
-            self.phi = FEECVariable(space="H1")
-            self.init_variables()
+            super().__init__()
 
-    ## propagators
+    ## additional propagators
 
     class Propagators(LinearVlasovAmpereOneSpecies.Propagators):
-        def __init__(self):
-            super().__init__()
+        """Propagators of :class:`~struphy.models.LinearVlasovAmpereOneSpecies` plus ``maxwell`` (Faraday's law and
+        the curl of the magnetic field in Ampère's law).
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`LinearVlasovAmpereOneSpecies.Propagators
+            <struphy.models.LinearVlasovAmpereOneSpecies.Propagators>` (and from there to
+            :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`).
+        """
+
+        splitting_order = ("push_eta", "push_vinE", "coupling_Eweights", "push_vxb", "maxwell")
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.maxwell = MaxwellWeakAmpere()
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -54,56 +67,25 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         alpha: float = None,
         epsilon: float = None,
     ):
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            alpha,
-            epsilon,
-        )
-
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators()
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation
-        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
-        particle_energy = FunctionScalarPIC(
-            self._compute_en_w,
-            self.kinetic_ions.var,
-        )
-        self.scalars = Scalars(
-            en_E=electric_energy,
-            en_B=magnetic_energy,
-            en_w=particle_energy,
-            en_tot=electric_energy + magnetic_energy + particle_energy,
-        )
-
-        # initial Poisson (not a propagator used in time stepping);
-        # the source is the delta-f charge density, see LinearVlasovAmpereOneSpecies
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-        self._create_initial_poisson(rho_coeffs=alpha**2 / epsilon, delta_f_source=False)
+        # 1.-5. and initial Poisson, see LinearVlasovAmpereOneSpecies
+        super().__init__(base_units, charge_number, mass_number, alpha, epsilon)
 
     def _link_propagator_variables(self):
-        """Assign the species variables to the propagators.
-
-        :meta private:
-        """
+        """:meta private:"""
         super()._link_propagator_variables()
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
+
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        scalars.pop("en_tot")
+        scalars["en_B"] = BilinearEnergyFEEC(self.em_fields.b_field)
+        scalars["en_tot"] = scalars["en_E"] + scalars["en_B"] + scalars["en_f"]
+        return scalars
 
     @classmethod
     def doc_pde(cls):
@@ -173,7 +155,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         - Electric field energy: ``en_E``
         - Magnetic field energy: ``en_B``
-        - Perturbation particle energy: ``en_w``
+        - Perturbation particle energy: ``en_f``
         - Total energy: ``en_tot``"""
 
     @classmethod

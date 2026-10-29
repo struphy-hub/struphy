@@ -76,14 +76,14 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     # perturbation (without velocity perturbation) puts about half of its amplitude into the growing mode
     # (cold beams: cosh(gamma t)), i.e. a quarter of the initial energy
     gamma = 0.2845
-    energy = run.evaluate("scalars", variables="electric_energy")["electric_energy"]
+    energy = run.evaluate("scalars", variables="en_E")["en_E"]
     analytical = energy.isel(t=0) / 4 * np.exp(2 * gamma * energy.t)
     fig, ax = plt.subplots()
     ax.plot(energy.t, energy, label="numerical")
     ax.plot(energy.t, analytical, "--", label=rf"analytical, $\exp(2 \gamma t)$, $\gamma = {gamma}$")
     ax.set(xlabel="time", yscale="log", title="Electric energy")
     ax.legend()
-    save({"electric_energy": fig})
+    save({"en_E": fig})
 
     # phase space evolution
     data = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")

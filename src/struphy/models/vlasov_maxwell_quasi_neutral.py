@@ -1,19 +1,15 @@
-import copy
 import logging
 
 from struphy import BaseUnits
-from struphy.models.initial_poisson import InitialPoissonMixin
-from struphy.models.scalars import FunctionScalarFEEC, Scalars
-from struphy.models.species import FieldSpecies
-from struphy.models.variables import FEECVariable, PICVariable
+from struphy.models.scalars import FunctionScalarFEEC
 from struphy.models.vlasov import Vlasov
-from struphy.propagators.push_vxb import PushVxB
+from struphy.models.vlasov_maxwell_one_species import VlasovMaxwellOneSpecies
 from struphy.propagators.vlasov_maxwell_coupling import VlasovMaxwellCoupling
 
 logger = logging.getLogger("struphy")
 
 
-class VlasovMaxwellQuasiNeutral(InitialPoissonMixin, Vlasov):
+class VlasovMaxwellQuasiNeutral(Vlasov):
     """Vlasov-Maxwell equations for one kinetic species in the cyclotron normalization, with an implicit, energy
     conserving field-particle coupling that also holds in the quasi-neutral limit (no displacement current).
 
@@ -50,48 +46,32 @@ class VlasovMaxwellQuasiNeutral(InitialPoissonMixin, Vlasov):
         Whether to track the Gauss-law error as a scalar quantity (default: False; not available for lam = 0)
     """
 
-    ## species
+    ## additional species
 
-    class EMFields(FieldSpecies):
-        def __init__(self):
-            self.e_field = FEECVariable(space="Hcurl")
-            self.b_field = FEECVariable(space="Hdiv")
-            self.phi = FEECVariable(space="H1")
-            self.init_variables()
+    # electric field, magnetic field and potential, as in VlasovMaxwellOneSpecies
+    EMFields = VlasovMaxwellOneSpecies.EMFields
 
-    class KineticIons(Vlasov.KineticIons):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            alpha: float = None,
-            epsilon: float = None,
-            lam: float = None,
-            kappa: float = None,
-        ):
-            self.var = PICVariable(space="Particles6D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                alpha=alpha,
-                epsilon=epsilon,
-                lam=lam,
-                kappa=kappa,
-            )
-
-    ## propagators
+    ## additional propagators
 
     class Propagators(Vlasov.Propagators):
+        """Propagators of :class:`~struphy.models.Vlasov` plus ``coupling`` (Maxwell's equations and the electric
+        force in one implicit step).
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`.
+        """
+
         splitting_order = ("coupling", "push_eta", "push_vxb")
 
-        def __init__(
-            self,
-            b2_var: FEECVariable = None,
-        ):
-            super().__init__()
-            # the Lorentz force of the total magnetic field B0 + B
-            self.push_vxb = PushVxB(b2_var=b2_var)
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.coupling = VlasovMaxwellCoupling()
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -107,58 +87,54 @@ class VlasovMaxwellQuasiNeutral(InitialPoissonMixin, Vlasov):
         measure_gauss_law: bool = False,
     ):
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(charge_number, mass_number, alpha, epsilon, lam, kappa)
+        # property to measure violation of gauss law from control variate
+        self.measure_gauss_law = measure_gauss_law
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(b2_var=self.em_fields.b_field)
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation: the parts of the energy conserved by the coupling step
-        # (with the coefficients lam^2, c1, c2, c3 of the propagator, known after its allocation)
-        coupling = self.propagators.coupling
-        electric_energy = FunctionScalarFEEC(lambda: coupling.energies()[0])
-        magnetic_energy = FunctionScalarFEEC(lambda: coupling.energies()[1])
-        particle_energy = FunctionScalarFEEC(lambda: coupling.energies()[2])
-        scalars_dict = {
-            "en_E": electric_energy,
-            "en_B": magnetic_energy,
-            "en_f": particle_energy,
-            "en_tot": electric_energy + magnetic_energy + particle_energy,
-        }
-        if measure_gauss_law:
-            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
-            scalars_dict["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
-        self.scalars = Scalars(**scalars_dict)
+        # 1.-5. see Vlasov
+        super().__init__(base_units, charge_number, mass_number)
 
         # initial Poisson (not a propagator used in time stepping); its charge coefficient c2 / lam^2 is set in
         # post_allocate, from the coefficients of the coupling propagator
         self._create_initial_poisson(rho_coeffs=None)
 
-        # property to measure violation of gauss law from control variate
-        self.measure_gauss_law = measure_gauss_law
+    def _create_species(self):
+        """:meta private:"""
+        self.em_fields = self.EMFields()
+        super()._create_species()
 
-    @property
-    def velocity_scale(self):
-        return "cyclotron"
+    def _propagator_args(self):
+        """:meta private:"""
+        # the Lorentz force of the total magnetic field B0 + B
+        return {"b2_var": self.em_fields.b_field}
 
     def _link_propagator_variables(self):
-        """Assign the species variables to the propagators.
-
-        :meta private:
-        """
+        """:meta private:"""
         super()._link_propagator_variables()
         self.propagators.coupling.variables.e = self.em_fields.e_field
         self.propagators.coupling.variables.b = self.em_fields.b_field
         self.propagators.coupling.variables.ions = self.kinetic_ions.var
+
+    def _create_scalars(self):
+        """The parts of the energy conserved by the coupling step (with the coefficients lam^2, c1, c2, c3 of the
+        propagator, known after its allocation).
+
+        :meta private:
+        """
+        coupling = self.propagators.coupling
+        en_E = FunctionScalarFEEC(lambda: coupling.energies()[0])
+        en_B = FunctionScalarFEEC(lambda: coupling.energies()[1])
+        en_f = FunctionScalarFEEC(lambda: coupling.energies()[2])
+        scalars = {"en_E": en_E, "en_B": en_B, "en_f": en_f, "en_tot": en_E + en_B + en_f}
+        if self.measure_gauss_law:
+            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
+            scalars["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
+        return scalars
+
+    @property
+    def velocity_scale(self):
+        return "cyclotron"
 
     def post_allocate(self):
         """Solve the initial Poisson equation lam^2 div E = c2 rho (Gauss' law consistent with the coupling step),
@@ -184,7 +160,7 @@ class VlasovMaxwellQuasiNeutral(InitialPoissonMixin, Vlasov):
     def calculate_gauss_error(self):
         r"""Maximum norm of the weak Gauss-law residual
         :math:`\mathbb G^\top \mathbb M^1 \mathbf e + \frac{c_2}{\lambda^2} \boldsymbol \rho`, see
-        :meth:`~struphy.models.initial_poisson.InitialPoissonMixin.calculate_gauss_error`
+        :meth:`~struphy.models.Vlasov.calculate_gauss_error`
         (NaN for :math:`\lambda = 0`)."""
         if self._quasi_neutral:
             return float("nan")

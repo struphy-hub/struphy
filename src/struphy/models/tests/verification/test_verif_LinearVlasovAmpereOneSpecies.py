@@ -135,12 +135,12 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
 
 
 def test_energy_conservation(exit_before_run: bool = False):
-    """The field-weights coupling must conserve the total energy ``en_E + en_w``.
+    """The field-weights coupling must conserve the total energy ``en_E + en_f``.
 
     With only :class:`~struphy.propagators.push_eta.PushEta` and
     :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling` (no B0, no E0),
     the Crank-Nicolson step conserves ``en_tot`` up to the solver tolerance, provided the weight
-    update, the accumulated matrix, the E-field source and ``en_w`` all use the same weight
+    update, the accumulated matrix, the E-field source and ``en_f`` all use the same weight
     convention :math:`w_p = \\delta f_p / (s_{0,p} N_p)`. At :math:`t=0` the perturbation energy is
     :math:`\\alpha^2 v_{th}^2 / 2 \\int \\delta f^2 / f_0 \\, \\textrm{d}x \\textrm{d}v = A^2 r_1 / 4`.
     """
@@ -196,7 +196,7 @@ def test_energy_conservation(exit_before_run: bool = False):
     if comm.Get_rank() == 0:
         with h5py.File(os.path.join(env.path_out, "data", "data_proc0.hdf5"), "r") as f:
             en_E = f["scalar"]["en_E"][()]
-            en_w = f["scalar"]["en_w"][()]
+            en_w = f["scalar"]["en_f"][()]
             en_tot = f["scalar"]["en_tot"][()]
 
         # 1. initial perturbation energy (was off by a factor Np^2)

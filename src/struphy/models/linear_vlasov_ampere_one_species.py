@@ -1,29 +1,25 @@
-import copy
 import logging
 
 import cunumpy as xp
 
 from struphy import BaseUnits
-from struphy.io.options import LiteralOptions
 from struphy.kinetic_background.maxwellians import Maxwellian3D
-from struphy.models.base import StruphyModel
-from struphy.models.initial_poisson import InitialPoissonMixin
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
-from struphy.models.species import (
-    FieldSpecies,
-    ParticleSpecies,
-)
-from struphy.models.variables import FEECVariable, PICVariable
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC
+from struphy.models.species import FieldSpecies
+from struphy.models.variables import FEECVariable
+from struphy.models.vlasov import Vlasov
 from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
-from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_v_in_force_field import PushVinForceField
-from struphy.propagators.push_vxb import PushVxB
 
 logger = logging.getLogger("struphy")
 
 
-class LinearVlasovAmpereOneSpecies(InitialPoissonMixin, StruphyModel):
+class LinearVlasovAmpereOneSpecies(Vlasov):
     """Linearized Vlasov-Ampère equations for one kinetic species around a Maxwellian background.
+
+    Extends :class:`~struphy.models.Vlasov`, written for the perturbation :math:`\tilde f` (delta-f markers), by the
+    force of the background electric field and the coupling of the perturbed electric field to the background
+    (linearized Ampère's law and the source term of the linearized Vlasov equation).
 
     Parameters
     ----------
@@ -39,11 +35,7 @@ class LinearVlasovAmpereOneSpecies(InitialPoissonMixin, StruphyModel):
         Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
     """
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Kinetic"
-
-    ## species
+    ## additional species
 
     class EMFields(FieldSpecies):
         def __init__(self):
@@ -51,30 +43,34 @@ class LinearVlasovAmpereOneSpecies(InitialPoissonMixin, StruphyModel):
             self.phi = FEECVariable(space="H1")
             self.init_variables()
 
-    class KineticIons(ParticleSpecies):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            alpha: float = None,
-            epsilon: float = None,
-        ):
-            self.var = PICVariable(space="DeltaFParticles6D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                alpha=alpha,
-                epsilon=epsilon,
-            )
+    ## changed species
 
-    ## propagators
+    class KineticIons(Vlasov.KineticIons):
+        space = "DeltaFParticles6D"
 
-    class Propagators:
-        def __init__(self):
-            self.push_eta = PushEta()
+    ## additional propagators
+
+    class Propagators(Vlasov.Propagators):
+        """Propagators of :class:`~struphy.models.Vlasov` plus ``push_vinE`` (force of the background electric field)
+        and ``coupling_Eweights`` (coupling of the perturbed electric field and the delta-f weights).
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`.
+        """
+
+        splitting_order = ("push_eta", "push_vinE", "coupling_Eweights", "push_vxb")
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.push_vinE = PushVinForceField()
             self.coupling_Eweights = EfieldWeightsCoupling()
-            self.push_vxb = PushVxB()
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    kinetic_ions: KineticIons
+    propagators: Propagators
 
     ## abstract methods
 
@@ -86,59 +82,34 @@ class LinearVlasovAmpereOneSpecies(InitialPoissonMixin, StruphyModel):
         alpha: float = None,
         epsilon: float = None,
     ):
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            alpha,
-            epsilon,
-        )
-
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators()
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation
-        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
-        particle_energy = FunctionScalarPIC(
-            self._compute_en_w,
-            self.kinetic_ions.var,
-        )
-        self.scalars = Scalars(
-            en_E=electric_energy,
-            en_w=particle_energy,
-            en_tot=electric_energy + particle_energy,
-        )
+        # 1.-5. see Vlasov
+        super().__init__(base_units, charge_number, mass_number)
 
         # initial Poisson (not a propagator used in time stepping)
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
         self._create_initial_poisson(rho_coeffs=alpha**2 / epsilon, delta_f_source=False)
 
-    def _link_propagator_variables(self):
-        """Assign the species variables to the propagators.
+    def _create_species(self):
+        """:meta private:"""
+        self.em_fields = self.EMFields()
+        super()._create_species()
 
-        :meta private:
-        """
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
         self.propagators.push_vinE.variables.var = self.kinetic_ions.var
         self.propagators.coupling_Eweights.variables.e = self.em_fields.e_field
         self.propagators.coupling_Eweights.variables.ions = self.kinetic_ions.var
-        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
 
-    @property
-    def bulk_species(self):
-        return self.kinetic_ions
+    def _create_scalars(self):
+        """:meta private:"""
+        en_E = BilinearEnergyFEEC(self.em_fields.e_field)
+        en_f = FunctionScalarPIC(self._compute_en_f, self.kinetic_ions.var)
+        return {"en_E": en_E, "en_f": en_f, "en_tot": en_E + en_f}
 
     @property
     def velocity_scale(self):
@@ -158,7 +129,7 @@ class LinearVlasovAmpereOneSpecies(InitialPoissonMixin, StruphyModel):
         # the periodic Poisson problem below singular.
         self._solve_initial_poisson()
 
-    def _compute_en_w(self):
+    def _compute_en_f(self):
         particles = self.kinetic_ions.var.particles
 
         # evaluate f0
@@ -271,7 +242,7 @@ class LinearVlasovAmpereOneSpecies(InitialPoissonMixin, StruphyModel):
         r"""**The following scalars are tracked during simulation:**
 
         - Electric field energy: ``en_E``
-        - Perturbation particle energy: ``en_w``
+        - Perturbation particle energy: ``en_f``
         - Total energy: ``en_tot``"""
 
     @classmethod

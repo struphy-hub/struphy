@@ -1,13 +1,10 @@
-import copy
 import logging
 
 from struphy import BaseUnits
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, KineticEnergyPIC, Scalars
-from struphy.models.species import FieldSpecies
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
 from struphy.models.variables import FEECVariable
 from struphy.models.vlasov_ampere_one_species import VlasovAmpereOneSpecies
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
-from struphy.propagators.push_vxb import PushVxB
 
 logger = logging.getLogger("struphy")
 
@@ -34,28 +31,36 @@ class VlasovMaxwellOneSpecies(VlasovAmpereOneSpecies):
         Whether to track the Gauss-law error as a scalar quantity (default: False)
     """
 
-    ## species
+    ## additional species variables
 
-    class EMFields(FieldSpecies):
+    class EMFields(VlasovAmpereOneSpecies.EMFields):
         def __init__(self):
-            self.e_field = FEECVariable(space="Hcurl")
+            # declared before the parent's variables, whose init_variables() then includes it
             self.b_field = FEECVariable(space="Hdiv")
-            self.phi = FEECVariable(space="H1")
-            self.init_variables()
+            super().__init__()
 
-    ## propagators
+    ## additional propagators
 
     class Propagators(VlasovAmpereOneSpecies.Propagators):
+        """Propagators of :class:`~struphy.models.VlasovAmpereOneSpecies` plus ``maxwell`` (Faraday's law and the
+        curl of the magnetic field in Ampère's law).
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`VlasovAmpereOneSpecies.Propagators <struphy.models.VlasovAmpereOneSpecies.Propagators>`
+            (and from there to :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`).
+        """
+
         splitting_order = ("maxwell", "push_eta", "push_vxb", "coupling_va")
 
-        def __init__(
-            self,
-            b2_var: FEECVariable = None,
-        ):
-            super().__init__()
-            # the Lorentz force of the total magnetic field B0 + B
-            self.push_vxb = PushVxB(b2_var=b2_var)
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.maxwell = MaxwellWeakAmpere()
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -68,63 +73,36 @@ class VlasovMaxwellOneSpecies(VlasovAmpereOneSpecies):
         epsilon: float = None,
         measure_gauss_law: bool = False,
     ):
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
-
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            alpha,
-            epsilon,
-        )
-
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(b2_var=self.em_fields.b_field)
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
-        particle_energy = KineticEnergyPIC(
-            self.kinetic_ions.var,
-            normalization=alpha**2,
-        )
-        scalars_dict = {
-            "en_E": electric_energy,
-            "en_B": magnetic_energy,
-            "en_f": particle_energy,
-            "en_tot": electric_energy + magnetic_energy + particle_energy,
-        }
-        if measure_gauss_law:
-            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
-            scalars_dict["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
-        self.scalars = Scalars(**scalars_dict)
-
-        # initial Poisson (not a propagator used in time stepping)
-        self._create_initial_poisson(rho_coeffs=alpha**2 / epsilon)
+        self._store_params(locals())
 
         # property to measure violation of gauss law from control variate
         self.measure_gauss_law = measure_gauss_law
 
-    def _link_propagator_variables(self):
-        """Assign the species variables to the propagators.
+        # 1.-5. and initial Poisson, see VlasovAmpereOneSpecies
+        super().__init__(base_units, charge_number, mass_number, alpha, epsilon)
 
-        :meta private:
-        """
+    def _propagator_args(self):
+        """:meta private:"""
+        # the Lorentz force of the total magnetic field B0 + B
+        return {"b2_var": self.em_fields.b_field}
+
+    def _link_propagator_variables(self):
+        """:meta private:"""
         super()._link_propagator_variables()
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
+
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        scalars.pop("en_tot")
+        scalars["en_B"] = BilinearEnergyFEEC(self.em_fields.b_field)
+        scalars["en_tot"] = scalars["en_E"] + scalars["en_B"] + scalars["en_f"]
+        if self.measure_gauss_law:
+            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
+            scalars["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
+        return scalars
 
     def post_allocate(self):
         """Solve initial Poisson equation and prepare the Gauss-law diagnostic.

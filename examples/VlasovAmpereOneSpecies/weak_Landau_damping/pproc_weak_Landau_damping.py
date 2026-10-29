@@ -127,14 +127,14 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, amplitude=0.001):
     save = saver(run, save_figs)
 
     # electric field energy against the analytical damping
-    energy = run.evaluate("scalars", variables="electric_energy")["electric_energy"]
+    energy = run.evaluate("scalars", variables="en_E")["en_E"]
     analytical = E_exact(energy.t.values, eps=amplitude)  # t is in Struphy units
     fig, ax = plt.subplots()
     ax.plot(energy.t, energy, label="numerical")
     ax.plot(energy.t, analytical, "--", label="analytical")
     ax.set(xlabel="time", yscale="log", title="Electric energy")
     ax.legend()
-    save({"electric_energy": fig})
+    save({"en_E": fig})
 
     # full f and delta f in the e1-v1 plane at four times
     for quantity, title in (("f", "full-$f$"), ("delta_f", r"$\delta f$")):

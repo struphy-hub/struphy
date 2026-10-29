@@ -79,9 +79,9 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     save({"initial_distribution": ax.figure})
 
     # electric field energy
-    lines = run.evaluate("scalars", variables="electric_energy")["electric_energy"].plot(yscale="log")
+    lines = run.evaluate("scalars", variables="en_E")["en_E"].plot(yscale="log")
     plt.title("Electric energy")
-    save({"electric_energy": lines[0].figure})
+    save({"en_E": lines[0].figure})
 
     # full f in the e1-v1 plane
     data = run.evaluate("kinetic_ions/f", dataset="e1_v1_density/f")

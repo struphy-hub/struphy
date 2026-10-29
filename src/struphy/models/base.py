@@ -1,3 +1,4 @@
+import copy
 import inspect
 import logging
 import os
@@ -561,6 +562,62 @@ class StruphyModel(metaclass=StruphyModelMeta):
             assert not np.isnan(val), f"Scalar {key} is {val}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
         print(sq_str)
+
+    # --------------------------------------------------------
+    # Template of __init__ for models that inherit from others
+    # --------------------------------------------------------
+
+    def _store_params(self, params: dict):
+        """Store the constructor arguments (step 0 of ``__init__``, called with ``locals()``).
+
+        Only the first call stores them: a model that inherits from another model calls it before
+        ``super().__init__()``, such that its own arguments are stored (and available to the hooks of
+        :meth:`_setup`, e.g. ``alpha`` for the species), not those of the parent."""
+        if not hasattr(self, "_params"):
+            self.params = copy.deepcopy(params)
+
+    def _setup(self, base_units: BaseUnits):
+        """Steps 1-5 of ``__init__``, through hooks that models override (calling ``super()`` to extend them):
+
+        1. :meth:`_create_species`
+        2. :meth:`setup_equation_params`
+        3. ``self.propagators = self.Propagators(**self._propagator_args())``
+        4. :meth:`_link_propagator_variables`
+        5. ``self.scalars = Scalars(**self._create_scalars())``
+
+        Parameters
+        ----------
+        base_units : BaseUnits
+            Base units for normalization."""
+        self._create_species()
+        self.setup_equation_params(base_units=base_units)
+        self.propagators = self.Propagators(**self._propagator_args())
+        self._link_propagator_variables()
+        self.scalars = Scalars(**self._create_scalars())
+
+    def _create_species(self):
+        """Instantiate the species as attributes (hook of :meth:`_setup`). The constructor arguments are in
+        ``self.params``."""
+        raise NotImplementedError(f"{type(self).__name__} must implement _create_species to use _setup.")
+
+    def _particle_species_args(self) -> dict:
+        """The constructor arguments of the model that are arguments of a particle species: charge and mass numbers
+        and the equation parameters ``alpha``, ``epsilon``, ``lam``, ``kappa`` (those the model has)."""
+        names = ("charge_number", "mass_number", "alpha", "epsilon", "lam", "kappa")
+        return {name: value for name, value in self.params.items() if name in names}
+
+    def _propagator_args(self) -> dict:
+        """Keyword arguments of ``Propagators`` (hook of :meth:`_setup`, called after the equation parameters are
+        set)."""
+        return {}
+
+    def _link_propagator_variables(self):
+        """Assign the species variables to the propagators (hook of :meth:`_setup`)."""
+        raise NotImplementedError(f"{type(self).__name__} must implement _link_propagator_variables to use _setup.")
+
+    def _create_scalars(self) -> dict:
+        """The scalars tracked during the simulation, as ``{name: scalar}`` (hook of :meth:`_setup`)."""
+        return {}
 
     def setup_equation_params(self, base_units: BaseUnits):
         """Compute units and set equation parameters for each fluid and kinetic species."""
