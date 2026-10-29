@@ -96,14 +96,15 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           pytest -x -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/default_params/ 
 
-      - name: Verification tests
+      - name: Serial-only verification tests
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
+        # the other verification tests run with 2 MPI below
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd /struphy_fortran_/src/struphy
-          pytest -x --testmon models/tests/verification/
+          pytest -x --testmon -m mpi_skip models/tests/verification/
 
       - name: Model tests with MPI
         shell: bash
@@ -119,6 +120,7 @@ jobs:
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+        # --short-runs halves the end time of the long verification runs (LinearMHD, Maxwell)
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          mpirun --oversubscribe -n 2 pytest -x --testmon --with-mpi  /struphy_fortran_/src/struphy/models/tests/verification/
+          mpirun --oversubscribe -n 2 pytest -x --testmon --with-mpi --short-runs /struphy_fortran_/src/struphy/models/tests/verification/

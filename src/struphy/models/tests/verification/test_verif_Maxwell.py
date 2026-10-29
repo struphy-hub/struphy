@@ -59,7 +59,7 @@ def _fit_branches(omega, k, power, n_branches, noise_level, order=10):
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
-def test_light_wave_1d(algo: str, do_plot: bool = False):
+def test_light_wave_1d(algo: str, short_runs: bool, do_plot: bool = False):
     # light-weight model instance
     model = Maxwell()
 
@@ -68,8 +68,8 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
 
-    # time stepping
-    time_opts = Time(dt=0.05, Tend=50.0)
+    # time stepping (half the end time with --short-runs)
+    time_opts = Time(dt=0.05, Tend=25.0 if short_runs else 50.0)
 
     # geometry
     domain = domains.Cuboid(r3=20.0)
@@ -116,7 +116,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         shutil.rmtree(test_folder)
 
 
-def test_coaxial(do_plot: bool = False):
+def test_coaxial(short_runs: bool, do_plot: bool = False):
     # light-weight model instance
     model = Maxwell()
 
@@ -125,8 +125,8 @@ def test_coaxial(do_plot: bool = False):
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="coaxial")
 
-    # time
-    time_opts = Time(dt=0.05, Tend=10.0)
+    # time (half the end time with --short-runs)
+    time_opts = Time(dt=0.05, Tend=5.0 if short_runs else 10.0)
 
     # geometry
     a1 = 2.326744
@@ -277,5 +277,5 @@ def test_coaxial(do_plot: bool = False):
 
 
 if __name__ == "__main__":
-    test_light_wave_1d(algo="explicit", do_plot=True)
-    test_coaxial(do_plot=True)
+    test_light_wave_1d(algo="explicit", short_runs=False, do_plot=True)
+    test_coaxial(short_runs=False, do_plot=True)
