@@ -1,22 +1,15 @@
-import copy
 import logging
 
 from struphy import BaseUnits
-from struphy.models.scalars import FunctionScalarFEEC, Scalars
-from struphy.models.species import ParticleSpecies
-from struphy.models.variables import PICVariable
+from struphy.models.scalars import FunctionScalarFEEC
+from struphy.models.vlasov import Vlasov
 from struphy.models.vlasov_maxwell_one_species import VlasovMaxwellOneSpecies
-from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
-from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
-from struphy.propagators.poisson_solve import PoissonSolve
-from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.vlasov_maxwell_coupling import VlasovMaxwellCoupling
 
 logger = logging.getLogger("struphy")
 
 
-class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
+class VlasovMaxwellQuasiNeutral(Vlasov):
     """Vlasov-Maxwell equations for one kinetic species in the cyclotron normalization, with an implicit, energy
     conserving field-particle coupling that also holds in the quasi-neutral limit (no displacement current).
 
@@ -25,7 +18,8 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
     displacement current and :math:`\\kappa^2` of the plasma current appear in Ampère's law. Ampère's law, Faraday's
     law and the electric force on the particles are solved together in one Crank-Nicolson step
     (:class:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling`); ``lam=0.0`` is the quasi-neutral
-    limit.
+    limit. It inherits the particle propagators of :class:`~struphy.models.Vlasov` (with the Lorentz force of the
+    total magnetic field :math:`\\mathbf B_0 + \\mathbf B`).
 
     Parameters
     ----------
@@ -52,38 +46,33 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
         Whether to track the Gauss-law error as a scalar quantity (default: False; not available for lam = 0)
     """
 
-    ## species
+    ## additional species
 
-    class KineticIons(ParticleSpecies):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            alpha: float = None,
-            epsilon: float = None,
-            lam: float = None,
-            kappa: float = None,
-        ):
-            self.var = PICVariable(space="Particles6D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                alpha=alpha,
-                epsilon=epsilon,
-                lam=lam,
-                kappa=kappa,
-            )
+    # electric field, magnetic field and potential, the same variables as in VlasovMaxwellOneSpecies (reused, not
+    # inherited: VMQN is not a subclass of VM, a change of VM's field species also changes VMQN)
+    EMFields = VlasovMaxwellOneSpecies.EMFields
 
-    ## propagators
+    ## additional propagators
 
-    class Propagators:
-        def __init__(
-            self,
-            b2_var=None,
-        ):
+    class Propagators(Vlasov.Propagators):
+        """Propagators of :class:`~struphy.models.Vlasov` plus ``coupling`` (Maxwell's equations and the electric
+        force in one implicit step).
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`.
+        """
+
+        splitting_order = ("coupling", "push_eta", "push_vxb")
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.coupling = VlasovMaxwellCoupling()
-            self.push_eta = PushEta()
-            self.push_vxb = PushVxB(b2_var=b2_var)
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -99,69 +88,56 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
         measure_gauss_law: bool = False,
     ):
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
-
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(charge_number, mass_number, alpha, epsilon, lam, kappa)
-
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(b2_var=self.em_fields.b_field)
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation: the parts of the energy conserved by the coupling step
-        # (with the coefficients lam^2, c1, c2, c3 of the propagator, known after its allocation)
-        coupling = self.propagators.coupling
-        electric_energy = FunctionScalarFEEC(lambda: coupling.energies()[0])
-        magnetic_energy = FunctionScalarFEEC(lambda: coupling.energies()[1])
-        particle_energy = FunctionScalarFEEC(lambda: coupling.energies()[2])
-        scalars_dict = {
-            "en_E": electric_energy,
-            "en_B": magnetic_energy,
-            "en_f": particle_energy,
-            "en_tot": electric_energy + magnetic_energy + particle_energy,
-        }
-        if measure_gauss_law:
-            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
-            scalars_dict["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
-        self.scalars = Scalars(**scalars_dict)
-
-        # initial Poisson (not a propagator used in time stepping); its charge coefficient c2 / lam^2 is set in
-        # post_allocate, from the coefficients of the coupling propagator
-        particles_to_grid = ParticlesToGrid(
-            self.kinetic_ions.var,
-            "H1",
-            charge_density_0form,
-        )
-        self.initial_poisson = PoissonSolve(
-            rho=particles_to_grid,
-            rho_coeffs=None,
-            delta_f_source=True,
-        )
-        self.initial_poisson.variables.phi = self.em_fields.phi
+        self._store_params(locals())
 
         # property to measure violation of gauss law from control variate
         self.measure_gauss_law = measure_gauss_law
 
-    @property
-    def velocity_scale(self):
-        return "cyclotron"
+        # 1.-5. see Vlasov
+        super().__init__(base_units, charge_number, mass_number)
+
+        # initial Poisson (not a propagator used in time stepping); its charge coefficient c2 / lam^2 is set in
+        # post_allocate, from the coefficients of the coupling propagator
+        self._create_initial_poisson(rho_coeffs=None)
+
+    def _create_species(self):
+        """:meta private:"""
+        self.em_fields = self.EMFields()
+        super()._create_species()
+
+    def _propagator_args(self):
+        """:meta private:"""
+        # the Lorentz force of the total magnetic field B0 + B
+        return {**super()._propagator_args(), "b2_var": self.em_fields.b_field}
 
     def _link_propagator_variables(self):
-        """Assign the species variables to the propagators.
-
-        :meta private:
-        """
+        """:meta private:"""
+        super()._link_propagator_variables()
         self.propagators.coupling.variables.e = self.em_fields.e_field
         self.propagators.coupling.variables.b = self.em_fields.b_field
         self.propagators.coupling.variables.ions = self.kinetic_ions.var
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
-        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+
+    def _create_scalars(self):
+        """The parts of the energy conserved by the coupling step (with the coefficients lam^2, c1, c2, c3 of the
+        propagator, known after its allocation).
+
+        :meta private:
+        """
+        scalars = super()._create_scalars()
+        coupling = self.propagators.coupling
+        en_E = FunctionScalarFEEC(lambda: coupling.energies()[0])
+        en_B = FunctionScalarFEEC(lambda: coupling.energies()[1])
+        # the particle energy with the coefficients of the coupling step replaces the kinetic energy of Vlasov
+        scalars["en_f"] = FunctionScalarFEEC(lambda: coupling.energies()[2])
+        scalars = {"en_E": en_E, "en_B": en_B, **scalars, "en_tot": en_E + en_B + scalars["en_f"]}
+        if self.measure_gauss_law:
+            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
+            scalars["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
+        return scalars
+
+    @property
+    def velocity_scale(self):
+        return "cyclotron"
 
     def post_allocate(self):
         """Solve the initial Poisson equation lam^2 div E = c2 rho (Gauss' law consistent with the coupling step),
@@ -180,12 +156,14 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
             return
 
         self.initial_poisson.rho_coeffs = coupling._c2 / coupling._lam2
-        super().post_allocate()
+        self._solve_initial_poisson()
+        if self.measure_gauss_law:
+            self._setup_gauss_law()
 
     def calculate_gauss_error(self):
         r"""Maximum norm of the weak Gauss-law residual
         :math:`\mathbb G^\top \mathbb M^1 \mathbf e + \frac{c_2}{\lambda^2} \boldsymbol \rho`, see
-        :meth:`~struphy.models.vlasov_maxwell_one_species.VlasovMaxwellOneSpecies.calculate_gauss_error`
+        :meth:`~struphy.models.Vlasov.calculate_gauss_error`
         (NaN for :math:`\lambda = 0`)."""
         if self._quasi_neutral:
             return float("nan")
@@ -267,28 +245,6 @@ class VlasovMaxwellQuasiNeutral(VlasovMaxwellOneSpecies):
           (:math:`\frac{\kappa^2}{2} \sum_p w_p |\mathbf v_p|^2` for the default coefficients)
         - Total energy: ``en_tot`` (conserved by the coupling step up to the solver tolerance)
         - Optional Gauss-law diagnostic: ``gauss_error`` (NaN for :math:`\lambda = 0`)"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.vlasov_maxwell_coupling.VlasovMaxwellCoupling`
-        2. :class:`~struphy.propagators.push_eta.PushEta`
-        3. :class:`~struphy.propagators.push_vxb.PushVxB`
-        """
-        doc = rf"""**1. VlasovMaxwellCoupling:**
-
-{VlasovMaxwellCoupling.__doc__}
-
-**2. PushEta:**
-
-{PushEta.__doc__}
-
-**3. PushVxB:**
-
-{PushVxB.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

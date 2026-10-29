@@ -1,3 +1,4 @@
+import copy
 import inspect
 import logging
 import os
@@ -25,6 +26,63 @@ from struphy.utils.ipython_compat import HTML, Markdown, display
 from struphy.utils.utils import __class_with_params_repr_no_defaults__, all_class_params_are_default, all_subclasses
 
 logger = logging.getLogger("struphy")
+
+
+def apply_splitting_order(propagators) -> None:
+    """Reorder the propagators of a ``Propagators`` instance in place, according to its ``splitting_order``.
+
+    ``splitting_order`` is an optional tuple with the names of all propagator attributes, defined as class
+    attribute of ``Propagators`` or in its ``__init__``. It allows a model that inherits ``Propagators`` from a parent
+    model (and adds propagators to it) to change the order of the propagators in the time splitting. The instance
+    ``__dict__`` is reordered, so that all code iterating over the propagators (time stepping, parameter files,
+    serialization) uses the splitting order. Without ``splitting_order``, the order is the attribute order.
+
+    Parameters
+    ----------
+    propagators : object
+        Instance of the inner class ``Propagators`` of a model.
+    """
+    attrs = vars(propagators)
+    order = attrs.pop("splitting_order", None)
+    if order is None:
+        order = getattr(propagators, "splitting_order", None)
+    if order is None:
+        return
+
+    order = tuple(order)
+    names = tuple(attrs)
+    if len(set(order)) != len(order) or set(order) != set(names):
+        raise ValueError(
+            f"splitting_order {order} of {type(propagators).__qualname__} must contain each propagator {names} once."
+        )
+    reordered = {name: attrs[name] for name in order}
+    attrs.clear()
+    attrs.update(reordered)
+
+
+# model flags that switched propagators (terms of the equations) on or off, removed in favour of models defined by
+# their equations (see "Models are defined by their equations" in the developer guide), with a hint for old metadata
+_REMOVED_MODEL_FLAGS = {
+    "with_B0": "the Lorentz force of the equilibrium magnetic field is always included (none without equil)",
+    "with_E0": "the background electric field force is always included (none without background field)",
+    "with_poisson": "for VlasovPoissonAdiabaticPauli(with_poisson=False) use the model VlasovPauli",
+}
+
+
+def _drop_removed_model_flags(model_name: str, params: dict) -> None:
+    """Remove the obsolete flags ``with_B0``, ``with_E0`` and ``with_poisson`` from the model parameters of run
+    metadata written before they were removed, with a warning. The propagators of ``with_B0`` and ``with_E0`` are
+    now always included and do nothing without background field; ``with_poisson=False`` raises an error."""
+    from struphy.models.utils import get_model_by_name
+
+    accepted = inspect.signature(get_model_by_name(model_name).__init__).parameters
+    for flag, hint in _REMOVED_MODEL_FLAGS.items():
+        if flag not in params or flag in accepted:
+            continue
+        value = params.pop(flag)
+        if flag == "with_poisson" and not value:
+            raise ValueError(f"{model_name}({flag}={value}) has been removed: {hint}.")
+        logger.warning(f"Ignoring the removed parameter {flag}={value} of {model_name}: {hint}.")
 
 
 class StruphyModelMeta(ABCMeta):
@@ -76,7 +134,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
     post_allocate : method
         Must perform operations after main allocation and before time stepping.
     Propagators : class
-        Must define the propagators used for time integration.
+        Must define the propagators used for time integration, as attributes created in its ``__init__``.
+        The splitting order is the attribute order, unless ``Propagators`` defines a tuple
+        ``splitting_order`` with the attribute names (as class attribute or in its ``__init__``), see
+        :func:`apply_splitting_order`.
     __init__ : method
         Must perform a light-weight initialization of the model.
 
@@ -301,6 +362,43 @@ class StruphyModel(metaclass=StruphyModelMeta):
         return display(HTML(cls.scalar_quantities_html()))
 
     @classmethod
+    def doc_discretization(cls) -> str:
+        """Time integration is performed by the following propagators (in sequence):"""
+        return cls.propagators_doc()
+
+    @classmethod
+    def propagators_in_splitting_order(cls) -> dict[str, Propagator]:
+        """The propagators of the model in splitting order, as ``{attribute name: propagator}``.
+
+        ``Propagators`` is instantiated with its default arguments (light-weight, nothing is allocated).
+        """
+        propagators = cls.Propagators()
+        apply_splitting_order(propagators)
+        return dict(vars(propagators))
+
+    @classmethod
+    def propagators_links(cls) -> str:
+        """Numbered reST list of the propagator classes of the model in splitting order."""
+        lines = []
+        for n, (name, prop) in enumerate(cls.propagators_in_splitting_order().items(), start=1):
+            prop_cls = type(prop)
+            lines += [f"{n}. ``{name}``: :class:`~{prop_cls.__module__}.{prop_cls.__name__}`"]
+        return "\n".join(lines)
+
+    @classmethod
+    def propagators_doc(cls) -> str:
+        """Documentation of the propagators of the model in splitting order: the docstring of
+        :meth:`doc_discretization` (a model overrides it to describe the time stepping), followed by the docstring
+        of each propagator class."""
+        intro = inspect.cleandoc(cls.doc_discretization.__doc__ or "")
+        doc = intro + "\n\n"
+        for n, (name, prop) in enumerate(cls.propagators_in_splitting_order().items(), start=1):
+            prop_cls = type(prop)
+            doc += f"**{n}. {name}** (:class:`~{prop_cls.__module__}.{prop_cls.__name__}`):\n\n"
+            doc += f"{prop_cls.__doc__}\n\n"
+        return doc
+
+    @classmethod
     def _discretization_doc(cls) -> str:
         doc_discretization = getattr(cls, "doc_discretization", None)
         doc = "**Discretization (Propagators called in sequence):**\n"
@@ -464,6 +562,63 @@ class StruphyModel(metaclass=StruphyModelMeta):
             assert not np.isnan(val), f"Scalar {key} is {val}."
             sq_str += f"{key}:".ljust(25) + "{:4.2e}\n".format(val).rjust(26)
         print(sq_str)
+
+    # --------------------------------------------------------
+    # Template of __init__ for models that inherit from others
+    # --------------------------------------------------------
+
+    def _store_params(self, params: dict):
+        """Store the constructor arguments (step 0 of ``__init__``, called with ``locals()``).
+
+        Only the first call stores them: a model that inherits from another model calls it before
+        ``super().__init__()``, such that its own arguments are stored (and available to the hooks of
+        :meth:`_setup`, e.g. ``alpha`` for the species), not those of the parent."""
+        if not getattr(self, "_params_stored", False):
+            self.params = copy.deepcopy(params)
+            self._params_stored = True
+
+    def _setup(self, base_units: BaseUnits):
+        """Steps 1-5 of ``__init__``, through hooks that models override (calling ``super()`` to extend them):
+
+        1. :meth:`_create_species`
+        2. :meth:`setup_equation_params`
+        3. ``self.propagators = self.Propagators(**self._propagator_args())``
+        4. :meth:`_link_propagator_variables`
+        5. ``self.scalars = Scalars(**self._create_scalars())``
+
+        Parameters
+        ----------
+        base_units : BaseUnits
+            Base units for normalization."""
+        self._create_species()
+        self.setup_equation_params(base_units=base_units)
+        self.propagators = self.Propagators(**self._propagator_args())
+        self._link_propagator_variables()
+        self.scalars = Scalars(**self._create_scalars())
+
+    def _create_species(self):
+        """Instantiate the species as attributes (hook of :meth:`_setup`). The constructor arguments are in
+        ``self.params``."""
+        raise NotImplementedError(f"{type(self).__name__} must implement _create_species to use _setup.")
+
+    def _particle_species_args(self) -> dict:
+        """The constructor arguments of the model that are arguments of a particle species: charge and mass numbers
+        and the equation parameters ``alpha``, ``epsilon``, ``lam``, ``kappa`` (those the model has)."""
+        names = ("charge_number", "mass_number", "alpha", "epsilon", "lam", "kappa")
+        return {name: value for name, value in self.params.items() if name in names}
+
+    def _propagator_args(self) -> dict:
+        """Keyword arguments of ``Propagators`` (hook of :meth:`_setup`, called after the equation parameters are
+        set)."""
+        return {}
+
+    def _link_propagator_variables(self):
+        """Assign the species variables to the propagators (hook of :meth:`_setup`)."""
+        raise NotImplementedError(f"{type(self).__name__} must implement _link_propagator_variables to use _setup.")
+
+    def _create_scalars(self) -> dict:
+        """The scalars tracked during the simulation, as ``{name: scalar}`` (hook of :meth:`_setup`)."""
+        return {}
 
     def setup_equation_params(self, base_units: BaseUnits):
         """Compute units and set equation parameters for each fluid and kinetic species."""
@@ -1011,6 +1166,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             if isinstance(value, dict) and set(value) == {"BaseUnits"}:
                 value = BaseUnits.from_dict(value["BaseUnits"])
             params[key] = value
+        _drop_removed_model_flags(dct["model"], params)
         model = get_model_by_name(dct["model"])(**params)
 
         parameter_types = {
@@ -1140,6 +1296,18 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     def clone_config(self, new):
         assert isinstance(new, CloneConfig) or new is None
         self._clone_config = new
+
+    @property
+    def propagators(self):
+        """Instance of the inner class ``Propagators``; its attributes are the propagators in splitting order."""
+        return self._propagators
+
+    @propagators.setter
+    def propagators(self, new):
+        apply_splitting_order(new)
+        self._propagators = new
+        if hasattr(self, "_prop_list"):
+            del self._prop_list
 
     @property
     def prop_list(self):

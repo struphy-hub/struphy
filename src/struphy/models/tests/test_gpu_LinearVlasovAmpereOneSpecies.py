@@ -63,7 +63,7 @@ def make_simulation(out_folders: str, sim_folder: str) -> Simulation:
     boxes (the verification test uses them): the model does not need them, and the box sorting
     kernels have no CUDA version yet.
     """
-    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False, with_E0=False)
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     env = EnvironmentOptions(out_folders=out_folders, sim_folder=sim_folder)
     time_opts = Time(dt=DT, Tend=round(N_STEPS * DT, 14))  # 3 * 0.1 > 0.3 would add a step
