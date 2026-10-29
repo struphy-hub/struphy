@@ -54,6 +54,21 @@ Linear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.sound_wave_linear
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_pressure_gradient
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_current
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.magnetosonic_uniform
     :members:
     :exclude-members: options, allocate

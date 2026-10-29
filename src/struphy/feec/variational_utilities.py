@@ -1971,6 +1971,77 @@ def inv_norm2(inv: LinearOperator, v: Vector) -> float:
     return norm**2 * err
 
 
+class LinearPressureHeating:
+    r"""Heating of the auxiliary pressure :math:`\hat p` (3-form) of the linear p model, whose thermal energy
+    :math:`\frac{1}{\gamma - 1} \int \hat p^3 \,\textnormal d \boldsymbol \eta` is linear in :math:`\hat p`, by a
+    dissipated energy density :math:`e` (per unit logical volume, given at the quadrature points of :math:`V^3_h`):
+
+    .. math::
+
+        \hat{\mathbf p} \leftarrow \hat{\mathbf p} + (\gamma - 1)\, \tilde{\mathbb M}^{-1} \mathbf e \,, \qquad
+        \tilde{\mathbb M}_{ij} = \int \Lambda^3_i \Lambda^3_j \,\textnormal d \boldsymbol \eta \,, \qquad
+        \mathbf e_i = \int e\, \Lambda^3_i \,\textnormal d \boldsymbol \eta \,.
+
+    This is the :math:`L^2` projection in the logical inner product. Since the constants are in :math:`V^3_h`, it
+    preserves the integral, so the thermal energy increases by exactly :math:`\int e \,\textnormal d \boldsymbol \eta`
+    (up to the solver tolerance) on any mapping. The projection with the weight :math:`1/\sqrt g` of the mass matrix
+    :math:`\mathbb M^3` would do so only if :math:`\sqrt g \in V^3_h`.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+
+    domain : Domain
+        The mapping (for :math:`\sqrt g` at the quadrature points).
+
+    gamma : float
+        Adiabatic index.
+
+    tol : float
+        Relative tolerance of the mass solve.
+    """
+
+    def __init__(self, derham: Derham, mass_ops, domain, gamma: float, tol: float = 1e-12):
+        from struphy.feec.mass import L2Projector
+
+        self._gamma = gamma
+        grid = [pts.flatten() for pts in derham.V3splines.quad_grid_pts[0]]
+        self._sqrt_g = domain.jacobian_det(*grid)
+        self._mass = mass_ops.create_weighted_mass("L2", "L2")
+        self._mass.assemble([[xp.ones_like(self._sqrt_g)]])
+        self._inv = inverse(
+            self._mass,
+            "pcg",
+            pc=preconditioner.MassMatrixPreconditioner(self._mass, dim_reduce=None),
+            tol=tol,
+            maxiter=1000,
+        )
+        self._get_dofs = L2Projector("L2", mass_ops).get_dofs
+        self._e = derham.V3pol.zeros()
+        self._incr = derham.V3pol.zeros()
+        self._tmp = xp.zeros_like(self._sqrt_g)
+
+    @property
+    def grid_shape(self) -> tuple:
+        """Shape of the arrays of values at the quadrature points of :math:`V^3_h`."""
+        return self._sqrt_g.shape
+
+    def __call__(self, e: xp.ndarray, pt3: Vector):
+        """Add the heating by the energy density ``e`` (values at the quadrature points) to ``pt3`` (in place)."""
+        # get_dofs integrates with the weight 1/sqrt(g) of 3-forms
+        tmp = self._tmp
+        tmp[:] = e
+        tmp *= self._sqrt_g
+        self._get_dofs(tmp, dofs=self._e)
+        incr = dot_normalized(self._inv, self._e, self._incr)
+        incr *= self._gamma - 1.0
+        pt3 += incr
+
+
 def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1vec"):
     r"""The Kronecker preconditioner of the shear-Alfven Schur operator of a linear variational propagator,
 
@@ -2010,8 +2081,8 @@ def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1
     if options.schur_precond != "StiffnessPreconditioner":
         return None
     unmet = list(unmet)
-    if options.solver != "pcg":
-        unmet += ['solver="pcg"']
+    if options.solver not in ("pcg", "pbicgstab", "rpbicgstab"):
+        unmet += ['solver="pcg", "pbicgstab" or "rpbicgstab"']
     if propagator.derham.polar_splines:
         unmet += ["tensor-product splines"]
     if propagator.derham.with_local_projectors:
