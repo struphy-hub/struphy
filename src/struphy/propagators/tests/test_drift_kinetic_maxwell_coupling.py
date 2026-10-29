@@ -286,6 +286,9 @@ def test_parallel_force_applied_once(algo, evaluate_e_field):
     model = _cold_model()
     prop = model.propagators.push_para
     prop.options = prop.Options(algo=algo, evaluate_e_field=evaluate_e_field)
+    # re-allocate with the new options: drop the kernels registered by the first allocation
+    prop._init_kernels = ()
+    prop._eval_kernels = ()
     prop.allocate()
     particles = model.kinetic_ions.var.particles
     v_0 = _all_vpar(particles)
@@ -295,6 +298,9 @@ def test_parallel_force_applied_once(algo, evaluate_e_field):
     # the same push with the electric field changes v_par (by about dt / epsilon * b* . E)
     model.propagators.push_para.e_field = model.em_fields.e_field
     prop.options = prop.Options(algo="explicit")
+    # re-allocate with the new options: drop the kernels registered by the first allocation
+    prop._init_kernels = ()
+    prop._eval_kernels = ()
     prop.allocate()
     prop(0.1)
     assert xp.max(xp.abs(_all_vpar(particles) - v_0)) > 1e-2

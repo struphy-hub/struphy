@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 from abc import ABCMeta, abstractmethod
@@ -161,7 +162,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
         out = f"{self.__class__.__name__}(\n"
         for k, v in self.params.items():
             out += " " * 4
-            out += f"{k}={v},\n"
+            out += f"{k}={v!r},\n"
         out += ")"
         return out
 
@@ -830,8 +831,15 @@ set_logging_level(logging.WARNING)\n""")
         file.write("\n# Units\n")
         file.write("base_units = BaseUnits()\n")
 
+        # constructor arguments (other than base_units) that differ from their defaults, e.g. discretization flags
+        signature = inspect.signature(self.__class__.__init__).parameters
+        args = "".join(
+            f", {k}={v!r}"
+            for k, v in self.params.items()
+            if k != "base_units" and k in signature and v != signature[k].default
+        )
         file.write("\n# Model instance\n")
-        file.write(f"model = {self.__class__.__name__}(base_units=base_units)\n")
+        file.write(f"model = {self.__class__.__name__}(base_units=base_units{args})\n")
 
         file.write("\n# List all variables and decide whether to save their data\n")
         file.write(variables_params)

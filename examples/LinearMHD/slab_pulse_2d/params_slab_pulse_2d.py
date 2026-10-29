@@ -1,6 +1,6 @@
-"""Localized pulse in a homogeneous 2D slab with the LinearMHD models: the pulse splits into fast, slow and shear
-Alfven waves, whose fronts are known analytically (Friedrichs diagram). A cheap 2D comparison of LinearMHD,
-LinearMHDCurlCurl and LinearMHDCurlCurlwithProj."""
+"""Localized pulse in a homogeneous 2D slab with the LinearMHD model: the pulse splits into fast, slow and shear
+Alfven waves, whose fronts are known analytically (Friedrichs diagram). A cheap 2D comparison of the three
+discretizations of LinearMHD (--b-space Hdiv, --b-space Hcurl, --b-space Hcurl --projected)."""
 
 # -----------------------------
 # Description of the simulation
@@ -10,14 +10,14 @@ LinearMHDCurlCurl and LinearMHDCurlCurlwithProj."""
 
 name = "2D slab pulse (LinearMHD)"
 description = """
-Localized pulse in a homogeneous magnetized plasma, in 2D (x, y), with the LinearMHD models: linear ideal MHD around
+Localized pulse in a homogeneous magnetized plasma, in 2D (x, y), with the LinearMHD model: linear ideal MHD around
 a static, uniform equilibrium. A Gaussian pressure pulse launches the compressible fast and slow magnetosonic waves,
-a Gaussian pulse of the out-of-plane velocity u_z the shear Alfven wave. Run the same file with --model LinearMHD
-(magnetic field in H(div)), --model LinearMHDCurlCurl (magnetic field in H(curl), curl-curl solve of the shear
-Alfven step preconditioned by Hiptmair-Xu, numerically damped) and --model LinearMHDCurlCurlwithProj (H(curl),
+a Gaussian pulse of the out-of-plane velocity u_z the shear Alfven wave. Run the same file with --b-space Hdiv
+(magnetic field in H(div)), --b-space Hcurl (magnetic field in H(curl), curl-curl solve of the shear
+Alfven step preconditioned by Hiptmair-Xu, numerically damped) and --b-space Hcurl --projected (H(curl),
 energy conserving shear Alfven step), each with its own --sim-folder, and compare the runs with the pproc script
-(several output folders as arguments). On 2 MPI ranks, the 140 time steps take about 75 s with LinearMHD and about
-40 s with each of the curl-curl models.
+(several output folders as arguments). On 2 MPI ranks, the 140 time steps take about 75 s with --b-space Hdiv and
+about 40 s with each of the H(curl) discretizations.
 
 Physics. In a uniform plasma with magnetic field B0, number density n0 and pressure p0, a plane wave with wave
 vector k at the angle phi to B0 has one of the phase velocities
@@ -39,13 +39,13 @@ and the two u_z pulses at the distance v_A t = 1.4 along +- B0. The pproc script
 pressure and u_z snapshots and plots the energies. In the periodic, homogeneous slab the solution is known exactly
 (each Fourier mode evolves with the matrix exponential of its linear system): the pproc script measures the relative
 L2 errors of the pressure and of u_z with respect to it at t = 1.4 (default grid: about 1.3% and 3.7% with
-LinearMHD, 0.5% and 1% with the curl-curl models) and asserts them below 3% and 6%, and asserts the conservation of the
-perturbed energy en_tot = en_U + en_B + en_thermal within 1e-4 for LinearMHD and LinearMHDCurlCurlwithProj
-(LinearMHDCurlCurl changes it by about 2e-5 here). In general, linear MHD conserves the kinetic energy plus the
-potential energy delta W, which contains terms with the equilibrium current and pressure gradient and differs from
-en_B + en_thermal, so en_tot is not conserved. In this uniform equilibrium (J0 = 0, grad p0 = 0) with periodic
-boundaries, delta W = en_B + en_thermal, so en_tot is conserved, and both splitting steps conserve it up to the
-solver tolerances.
+--b-space Hdiv, 0.5% and 1% with the H(curl) discretizations) and asserts them below 3% and 6%, and asserts the
+conservation of the perturbed energy en_tot = en_U + en_B + en_thermal within 1e-4 for --b-space Hdiv and
+--b-space Hcurl --projected (--b-space Hcurl changes it by about 2e-5 here). In general, linear MHD conserves the
+kinetic energy plus the potential energy delta W, which contains terms with the equilibrium current and pressure
+gradient and differs from en_B + en_thermal, so en_tot is not conserved. In this uniform equilibrium (J0 = 0,
+grad p0 = 0) with periodic boundaries, delta W = en_B + en_thermal, so en_tot is conserved, and both splitting steps
+conserve it up to the solver tolerances.
 
 References:
 - J. P. Goedbloed and S. Poedts, "Principles of Magnetohydrodynamics", Cambridge University Press (2004),
@@ -70,12 +70,17 @@ parser.add_argument(
 parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
 parser.add_argument("--num-elements", type=int, nargs=3, default=[64, 64, 1], help="Number of elements per direction.")
 parser.add_argument(
-    "--model",
-    default="LinearMHD",
-    choices=["LinearMHD", "LinearMHDCurlCurl", "LinearMHDCurlCurlwithProj"],
-    help="LinearMHD (default, magnetic field in H(div), implicit solve for the velocity), LinearMHDCurlCurl "
-    "(magnetic field in H(curl), implicit curl-curl solve for the magnetic field, numerically damped) or "
-    "LinearMHDCurlCurlwithProj (as LinearMHDCurlCurl, energy conserving shear Alfven step).",
+    "--b-space",
+    default="Hdiv",
+    choices=["Hdiv", "Hcurl"],
+    help="Space of the magnetic field (model flag b_space): Hdiv (default, implicit solve for the velocity) or Hcurl "
+    "(implicit curl-curl solve for the magnetic field, numerically damped unless --projected).",
+)
+parser.add_argument(
+    "--projected",
+    action="store_true",
+    help="With --b-space Hcurl: projection of the Lorentz force in the curl-curl term, energy conserving shear Alfven "
+    "step (model flag projected).",
 )
 parser.add_argument(
     "--test-run",
@@ -84,8 +89,10 @@ parser.add_argument(
     "(test_examples.py).",
 )
 args, _ = parser.parse_known_args()
-if args.model != "LinearMHD":
-    name = f"2D slab pulse ({args.model})"
+if args.projected and args.b_space != "Hcurl":
+    parser.error("--projected requires --b-space Hcurl.")
+if args.b_space == "Hcurl":
+    name = f"2D slab pulse (LinearMHD, b_space=Hcurl{', projected' if args.projected else ''})"
 if args.test_run:
     args.num_elements = [16, 16, 1]
 
@@ -115,18 +122,13 @@ from struphy import (
 # ---------------------
 # Instance of the model
 # ---------------------
-from struphy.models import LinearMHD, LinearMHDCurlCurl, LinearMHDCurlCurlwithProj
+from struphy.models import LinearMHD
 
 # Units
 base_units = BaseUnits()
 
 # Model instance
-model_class = {
-    "LinearMHD": LinearMHD,
-    "LinearMHDCurlCurl": LinearMHDCurlCurl,
-    "LinearMHDCurlCurlwithProj": LinearMHDCurlCurlwithProj,
-}[args.model]
-model = model_class(base_units=base_units)
+model = LinearMHD(base_units=base_units, b_space=args.b_space, projected=args.projected)
 
 # List all variables and decide whether to save their data
 model.em_fields.b_field.save_data = True
@@ -182,8 +184,8 @@ sim = Simulation(
 # Propagator options
 # ------------------
 
-# the default preconditioners: StiffnessPreconditioner (LinearMHD), HiptmairXu (LinearMHDCurlCurl) and the mass
-# matrix preconditioner (LinearMHDCurlCurlwithProj)
+# the default preconditioners: StiffnessPreconditioner (--b-space Hdiv), HiptmairXu (--b-space Hcurl) and the mass
+# matrix preconditioner (--b-space Hcurl --projected), the latter two through precond="auto"
 model.propagators.shear_alf.options = model.propagators.shear_alf.Options()
 model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
 

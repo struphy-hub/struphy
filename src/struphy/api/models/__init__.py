@@ -14,8 +14,6 @@ from struphy.models.hasegawa_wakatani import HasegawaWakatani
 from struphy.models.incompressible_navier_stokes_sph import IncompressibleNavierStokesSPH
 from struphy.models.linear_extended_mh_duniform import LinearExtendedMHDuniform
 from struphy.models.linear_mhd import LinearMHD
-from struphy.models.linear_mhd_curl_curl import LinearMHDCurlCurl
-from struphy.models.linear_mhd_curl_curl_with_proj import LinearMHDCurlCurlwithProj
 from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
 from struphy.models.linear_mhd_vlasov_cc import LinearMHDVlasovCC
 from struphy.models.linear_mhd_vlasov_pc import LinearMHDVlasovPC
@@ -28,8 +26,6 @@ from struphy.models.poisson import Poisson
 from struphy.models.pressure_less_sph import PressureLessSPH
 from struphy.models.random_particle_diffusion import RandomParticleDiffusion
 from struphy.models.shear_alfven import ShearAlfven
-from struphy.models.shear_alfven_curl_curl import ShearAlfvenCurlCurl
-from struphy.models.shear_alfven_curl_curl_with_proj import ShearAlfvenCurlCurlwithProj
 from struphy.models.toy_drift import ToyDrift
 from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
@@ -64,8 +60,6 @@ __all__ = [
     "IncompressibleNavierStokesSPH",
     "LinearExtendedMHDuniform",
     "LinearMHD",
-    "LinearMHDCurlCurl",
-    "LinearMHDCurlCurlwithProj",
     "LinearMHDDriftkineticCC",
     "LinearMHDVlasovCC",
     "LinearMHDVlasovPC",
@@ -76,8 +70,6 @@ __all__ = [
     "PressureLessSPH",
     "RandomParticleDiffusion",
     "ShearAlfven",
-    "ShearAlfvenCurlCurl",
-    "ShearAlfvenCurlCurlwithProj",
     "ToyDrift",
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",

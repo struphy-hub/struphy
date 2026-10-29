@@ -185,11 +185,12 @@ class DriftKineticMaxwell(StruphyModel):
         .. math::
 
             \mathbf E^* = \mathbf E - \varepsilon \mu \nabla |\mathbf B|\,,\qquad
-            \mathbf B^* = \mathbf B_0 + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad
-            B^*_\parallel = \mathbf b_0 \cdot (\mathbf B_0 + \tilde{\mathbf B}) + \varepsilon v_\parallel
-            (\nabla \times \mathbf b_0) \cdot \mathbf b_0\,,
+            \mathbf B^* = \mathbf B_0 + \tilde{\mathbf B} + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad
+            B^*_\parallel = \mathbf b_0 \cdot \mathbf B^*\,,
 
-        where :math:`|\mathbf B| = \mathbf b_0 \cdot (\mathbf B_0 + \tilde{\mathbf B})`.
+        where :math:`|\mathbf B| = \mathbf b_0 \cdot (\mathbf B_0 + \tilde{\mathbf B})`: the total magnetic field in
+        the first term of :math:`\mathbf B^*` (parallel streaming along the perturbed field lines), the curvature
+        term with the equilibrium unit vector :math:`\mathbf b_0`.
 
         Ampère's law, with the displacement current and the (linearized) polarization current of the guiding centers:
 

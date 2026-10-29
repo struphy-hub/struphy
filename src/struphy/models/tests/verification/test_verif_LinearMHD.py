@@ -21,7 +21,7 @@ from struphy import (
     perturbations,
     set_logging_level,
 )
-from struphy.models import LinearMHD, LinearMHDCurlCurl, LinearMHDCurlCurlwithProj
+from struphy.models import LinearMHD
 
 set_logging_level()
 logger = logging.getLogger("struphy")
@@ -59,21 +59,21 @@ def _fit_branches(omega, k, power, n_branches, noise_level, order=10):
 
 
 @pytest.mark.parametrize(
-    "model_class, algo",
+    "b_space, projected, algo",
     [
-        (LinearMHD, "implicit"),
-        (LinearMHD, "explicit"),
-        (LinearMHDCurlCurl, "implicit"),
-        (LinearMHDCurlCurlwithProj, "implicit"),
+        ("Hdiv", False, "implicit"),
+        ("Hdiv", False, "explicit"),
+        ("Hcurl", False, "implicit"),
+        ("Hcurl", True, "implicit"),
     ],
 )
-def test_slab_waves_1d(model_class, algo: str, do_plot: bool = False):
+def test_slab_waves_1d(b_space: str, projected: bool, algo: str, do_plot: bool = False):
     # light-weight model instance
-    model = model_class()
+    model = LinearMHD(b_space=b_space, projected=projected)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "verification_tests")
-    out_folders = os.path.join(test_folder, model_class.__name__)
+    out_folders = os.path.join(test_folder, f"LinearMHD_{b_space}{'_projected' if projected else ''}")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
     # time stepping
@@ -158,4 +158,4 @@ def test_slab_waves_1d(model_class, algo: str, do_plot: bool = False):
 
 
 if __name__ == "__main__":
-    test_slab_waves_1d(LinearMHD, algo="implicit", do_plot=True)
+    test_slab_waves_1d("Hdiv", False, algo="implicit", do_plot=True)

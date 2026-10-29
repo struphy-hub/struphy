@@ -287,23 +287,11 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
         variants = self.propagator_variants
         linear = self.params["linear"]
-        # the constructor arguments that differ from their defaults (they determine the propagators)
-        defaults = {
-            "linear": False,
-            "with_viscosity": True,
-            "with_resistivity": True,
-            "split_sound": True,
-            "crank_nicolson": False,
-            "u_space": "H1vec",
-        }
-        args = "".join(f", {k}={self.params[k]!r}" for k, v in defaults.items() if self.params[k] != v)
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
                 name = next((n for n in variants if f"{n}.Options" in line), None)
-                if line.startswith("model = ") and args:
-                    new_file += [line.replace("(base_units=base_units)", f"(base_units=base_units{args})")]
-                elif name is not None:
+                if name is not None:
                     new_file += [
                         f"model.propagators.{name}.options = model.propagators.{name}.Options(model='{variants[name]}')\n",
                     ]
