@@ -14,7 +14,7 @@ logger = logging.getLogger("struphy")
 class BackgroundPressureGradient(Propagator):
     r"""Advection of the background pressure by the velocity perturbation in linear MHD (zero-flow equilibrium): the
     part of the linear pressure equation that is not in the energy conserving
-    :class:`~struphy.propagators.sound_wave.SoundWave` step.
+    :class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear` step.
 
     **Continuous problem.** Find :math:`\tilde p \in L^2` such that
 
@@ -25,7 +25,7 @@ class BackgroundPressureGradient(Propagator):
     in :math:`L^2`, at a fixed velocity perturbation :math:`\tilde{\mathbf U} \in H(\textnormal{div})` (the constructor
     argument ``u_field``) and with the equilibrium pressure :math:`p_0`. Together with the pressure equation
     :math:`\partial_t \tilde p = - \gamma p_0 \nabla \cdot \tilde{\mathbf U}` of
-    :class:`~struphy.propagators.sound_wave.SoundWave`, this gives the full linear pressure equation
+    :class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear`, this gives the full linear pressure equation
     :math:`\partial_t \tilde p + \nabla \cdot (p_0 \tilde{\mathbf U}) + (\gamma - 1) p_0 \nabla \cdot \tilde{\mathbf U} = 0`.
 
     **Semi-discrete problem.** With the FE coefficients :math:`\mathbf p` of :math:`\tilde p_h \in V^3_h` and

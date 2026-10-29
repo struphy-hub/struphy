@@ -9,7 +9,7 @@ from struphy.propagators.background_current import BackgroundCurrent
 from struphy.propagators.background_pressure_gradient import BackgroundPressureGradient
 from struphy.propagators.base import Propagator
 from struphy.propagators.magnetosonic import Magnetosonic
-from struphy.propagators.sound_wave import SoundWave
+from struphy.propagators.sound_wave_linear import SoundWaveLinear
 from struphy.topology import grids
 
 TOL = 1e-13
@@ -38,7 +38,7 @@ def allocate_model(tmp_path, name, equil, split_sound=True, b_space="Hdiv", bcs=
 
     props = model.propagators
     if split_sound:
-        props.sound.options = SoundWave.Options(solver_params=SolverParameters(tol=TOL))
+        props.sound.options = SoundWaveLinear.Options(solver_params=SolverParameters(tol=TOL))
         props.bg_current.options = BackgroundCurrent.Options(solver_params=SolverParameters(tol=TOL))
     else:
         props.mag_sonic.options = Magnetosonic.Options(solver_params=SolverParameters(tol=TOL))
@@ -66,14 +66,14 @@ def sound_energy(model):
 
 @pytest.mark.mpi_skip
 def test_options():
-    options = SoundWave.Options()
+    options = SoundWaveLinear.Options()
     assert options.solver_params is not None and options.solver_params_M3.tol == 1e-14
     with pytest.raises(AssertionError):
-        SoundWave.Options(solver="pbicgstab_wrong")
+        SoundWaveLinear.Options(solver="pbicgstab_wrong")
     with pytest.raises(AssertionError):
-        SoundWave.Options(precond="NoSuchPreconditioner")
+        SoundWaveLinear.Options(precond="NoSuchPreconditioner")
     with pytest.raises(AssertionError):
-        SoundWave().variables.u = LinearMHD().mhd.pressure
+        SoundWaveLinear().variables.u = LinearMHD().mhd.pressure
     model = LinearMHD(split_sound=True)
     assert not hasattr(model.propagators, "mag_sonic")
     assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]

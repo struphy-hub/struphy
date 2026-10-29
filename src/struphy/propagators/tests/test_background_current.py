@@ -61,7 +61,7 @@ def _force(tmp_path, b_space):
 def test_exact_and_space_independent(tmp_path):
     """The step solves M2n du = dt M2J b (M21J for the 1-form), and the velocity change from the 2-form and the 1-form
     of the same field agree up to the projection error. The sign of the force is checked against Magnetosonic in
-    test_sound_wave.py::test_split_agrees_with_magnetosonic_inhomogeneous."""
+    test_sound_wave_linear.py::test_split_agrees_with_magnetosonic_inhomogeneous."""
     du_div, res_div = _force(tmp_path, "Hdiv")
     du_curl, res_curl = _force(tmp_path, "Hcurl")
     print(f"{res_div = :.2e}, {res_curl = :.2e}")

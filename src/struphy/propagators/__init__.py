@@ -41,7 +41,7 @@ _LAZY_IMPORTS = {
     "ShearAlfvenCurlCurlPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
     "ShearAlfvenCurrentCoupling5D": "struphy.propagators.shear_alfven_current_coupling_5d",
     "ShearAlfvenPropagator": "struphy.propagators.shear_alfven_propagator",
-    "SoundWave": "struphy.propagators.sound_wave",
+    "SoundWaveLinear": "struphy.propagators.sound_wave_linear",
     "TimeDependentSource": "struphy.propagators.time_dependent_source",
     "TwoFluidQuasiNeutralFull": "struphy.propagators.two_fluid_quasi_neutral_full",
     "VariationalAlfvenEvolve": "struphy.propagators.variational_alfven_evolve",
@@ -97,7 +97,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
     from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
     from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
-    from struphy.propagators.sound_wave import SoundWave
+    from struphy.propagators.sound_wave_linear import SoundWaveLinear
     from struphy.propagators.time_dependent_source import TimeDependentSource
     from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
     from struphy.propagators.variational_alfven_evolve import VariationalAlfvenEvolve
@@ -152,7 +152,7 @@ __all__ = [
     "ShearAlfvenCurlCurlPropagator",
     "ShearAlfvenCurrentCoupling5D",
     "ShearAlfvenPropagator",
-    "SoundWave",
+    "SoundWaveLinear",
     "TimeDependentSource",
     "TwoFluidQuasiNeutralFull",
     "VariationalAlfvenEvolve",

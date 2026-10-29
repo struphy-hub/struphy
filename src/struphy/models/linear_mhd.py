@@ -18,7 +18,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
-from struphy.propagators.sound_wave import SoundWave
+from struphy.propagators.sound_wave_linear import SoundWaveLinear
 from struphy.utils.utils import check_option
 
 
@@ -42,7 +42,7 @@ class LinearMHD(StruphyModel):
         (default: False).
     split_sound: bool
         Split the magnetosonic step into the energy conserving sound wave step
-        (:class:`~struphy.propagators.sound_wave.SoundWave`) and the exact-in-time steps of the background current
+        (:class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear`) and the exact-in-time steps of the background current
         (:class:`~struphy.propagators.background_current.BackgroundCurrent`) and of the background pressure gradient
         (:class:`~struphy.propagators.background_pressure_gradient.BackgroundPressureGradient`), instead of the
         single :class:`~struphy.propagators.magnetosonic.Magnetosonic` step (default: False).
@@ -88,7 +88,7 @@ class LinearMHD(StruphyModel):
                 self.shear_alf = ShearAlfvenCurlCurlPropagator(projected=projected)
             if split_sound:
                 self.bg_current = BackgroundCurrent(b_field=b_field)
-                self.sound = SoundWave()
+                self.sound = SoundWaveLinear()
                 self.bg_pressure = BackgroundPressureGradient(u_field=u_field)
             else:
                 self.mag_sonic = Magnetosonic(b_field=b_field)
@@ -305,7 +305,7 @@ class LinearMHD(StruphyModel):
         2. :class:`~struphy.propagators.magnetosonic.Magnetosonic` (``split_sound=False``), or, with
            ``split_sound=True``, the three steps
            :class:`~struphy.propagators.background_current.BackgroundCurrent`,
-           :class:`~struphy.propagators.sound_wave.SoundWave` and
+           :class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear` and
            :class:`~struphy.propagators.background_pressure_gradient.BackgroundPressureGradient`"""
         doc = rf"""**1. ShearAlfvenPropagator** (``b_space="Hdiv"``):
 
@@ -323,9 +323,9 @@ class LinearMHD(StruphyModel):
 
 {BackgroundCurrent.__doc__}
 
-**3. SoundWave** (``split_sound=True``):
+**3. SoundWaveLinear** (``split_sound=True``):
 
-{SoundWave.__doc__}
+{SoundWaveLinear.__doc__}
 
 **4. BackgroundPressureGradient** (``split_sound=True``):
 

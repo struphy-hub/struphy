@@ -16,7 +16,7 @@ from struphy.utils.utils import check_option
 logger = logging.getLogger("struphy")
 
 
-class SoundWave(Propagator):
+class SoundWaveLinear(Propagator):
     r"""Energy conserving sound wave step of linear MHD (zero-flow equilibrium): velocity and pressure perturbations,
     with the density perturbation carried along.
 
@@ -84,7 +84,7 @@ class SoundWave(Propagator):
     """
 
     class Variables:
-        """Container for variables advanced by :class:`SoundWave`.
+        """Container for variables advanced by :class:`SoundWaveLinear`.
 
         Attributes
         ----------
@@ -136,7 +136,7 @@ class SoundWave(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`SoundWave`.
+        """Configuration options for :class:`SoundWaveLinear`.
 
         Parameters
         ----------
@@ -261,7 +261,7 @@ class SoundWave(Propagator):
         # the inner solve is ill-conditioned where p0 is small (e.g. p0 = 0 at a wall): warn if it did not converge
         info_M3 = self._M3p_inv_inv.get_info()
         if not info_M3["success"] and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.warning(f"Inner M3p_inv solve of SoundWave not converged in {info_M3['niter']} iterations.")
+            logger.warning(f"Inner M3p_inv solve of SoundWaveLinear not converged in {info_M3['niter']} iterations.")
 
         nn1 = self._DQ.dot(_u, out=self._n_tmp1)
         nn1 *= -dt / 2
@@ -270,10 +270,10 @@ class SoundWave(Propagator):
         diffs = self.update_feec_variables(n=nn1, u=un1, p=pn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"Status     for SoundWave: {info['success']}")
-            logger.info(f"Iterations for SoundWave: {info['niter']}")
-            logger.info(f"Iterations of the inner M3p_inv solve (last) for SoundWave: {info_M3['niter']}")
-            logger.info(f"Maxdiff n3 for SoundWave: {diffs['n']}")
-            logger.info(f"Maxdiff u2 for SoundWave: {diffs['u']}")
-            logger.info(f"Maxdiff p3 for SoundWave: {diffs['p']}")
+            logger.info(f"Status     for SoundWaveLinear: {info['success']}")
+            logger.info(f"Iterations for SoundWaveLinear: {info['niter']}")
+            logger.info(f"Iterations of the inner M3p_inv solve (last) for SoundWaveLinear: {info_M3['niter']}")
+            logger.info(f"Maxdiff n3 for SoundWaveLinear: {diffs['n']}")
+            logger.info(f"Maxdiff u2 for SoundWaveLinear: {diffs['u']}")
+            logger.info(f"Maxdiff p3 for SoundWaveLinear: {diffs['p']}")
             logger.info("")

@@ -54,7 +54,7 @@ Linear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
-.. automodule:: struphy.propagators.sound_wave
+.. automodule:: struphy.propagators.sound_wave_linear
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
