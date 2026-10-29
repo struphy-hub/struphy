@@ -1260,6 +1260,32 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
             assert (other_cuda.cx == cuda_args.cx).all()
 
 
+@pytest.mark.mpi_skip
+def test_domain_subpackages_visible_to_type_checkers():
+    """Each domain sub-package resolves its class lazily through ``__getattr__`` (to avoid a circular import with the
+    kernels), which IDEs (Pylance) and type checkers do not follow: it must also import the class under
+    ``TYPE_CHECKING``, otherwise e.g. ``domains.Cuboid`` is unknown to them."""
+    import ast
+
+    from struphy.geometry import domains
+
+    root = os.path.dirname(domains.__file__)
+    for name in sorted(os.listdir(root)):
+        init = os.path.join(root, name, "__init__.py")
+        if not os.path.isfile(init):
+            continue
+        with open(init) as f:
+            tree = ast.parse(f.read())
+        exported = set()
+        checked = set()
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "__all__" for t in node.targets):
+                exported |= set(ast.literal_eval(node.value))
+            if isinstance(node, ast.If) and getattr(node.test, "id", None) == "TYPE_CHECKING":
+                checked |= {alias.asname or alias.name for imp in node.body for alias in getattr(imp, "names", [])}
+        assert exported <= checked, f"{name}/__init__.py: {exported - checked} not imported under TYPE_CHECKING"
+
+
 if __name__ == "__main__":
     # test_prepare_arg()
     test_evaluation_mappings("DESCunit")
