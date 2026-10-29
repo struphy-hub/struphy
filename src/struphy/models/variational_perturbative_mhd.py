@@ -255,14 +255,11 @@ class VariationalPerturbativeMHD(StruphyModel):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
         variants = self.propagator_variants
         linear = self.params["linear"]
-        model_args = ", linear=True, crank_nicolson=True" if self.params["crank_nicolson"] else ", linear=True"
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
                 name = next((n for n in variants if f"{n}.Options" in line), None)
-                if line.startswith("model = ") and linear:
-                    new_file += [line.replace("(base_units=base_units)", f"(base_units=base_units{model_args})")]
-                elif name is not None:
+                if name is not None:
                     new_file += [
                         f"model.propagators.{name}.options = model.propagators.{name}.Options(model='{variants[name]}')\n",
                     ]

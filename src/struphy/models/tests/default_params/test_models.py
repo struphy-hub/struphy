@@ -121,7 +121,36 @@ def test_variational_perturbative_linear(
     for name, variant in model.propagator_variants.items():
         assert getattr(params_model.propagators, name).options.model == variant, name
 
+    # the q model with the unsplit step (split_sound=False): the flag is kept, and VariationalQBEvolve gets the
+    # linear variant
+    if perturbative_model == "VariationalPerturbativeMHD_with_q":
+        if not crank_nicolson:
+            assert params_model.propagators.variat_alfven.options.model == "linear"
+        unsplit = model_class(linear=True, split_sound=False)
+        path_unsplit = os.path.join(tmp_path, f"params_{perturbative_model}_unsplit.py")
+        unsplit.generate_default_parameter_file(path=path_unsplit, prompt=False)
+        unsplit_model = import_parameters_py(path_unsplit).model
+        assert not unsplit_model.params["split_sound"] and unsplit_model.params["linear"]
+        assert unsplit_model.propagators.variat_qb.options.model == "linear_q"
+
     ut.call_test(model=model, test_profiling=test_profiling)
+
+
+@pytest.mark.models
+@pytest.mark.fluid
+@pytest.mark.parametrize("model_cls_name", ["ShearAlfven", "LinearMHD"])
+@pytest.mark.parametrize("projected", [False, True])
+def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path):
+    """The H(curl) discretizations of the shear-Alfven models: the flags survive the generated parameter file."""
+    from struphy.io.setup import import_parameters_py
+
+    model = models_utils.get_model_by_name(model_cls_name)(b_space="Hcurl", projected=projected)
+    path = os.path.join(tmp_path, f"params_{model_cls_name}.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params_model = import_parameters_py(path).model
+    assert params_model.params["b_space"] == "Hcurl" and params_model.params["projected"] == projected
+    assert params_model.em_fields.b_field.space == "Hcurl"
+    ut.call_test(model=model)
 
 
 @pytest.mark.single

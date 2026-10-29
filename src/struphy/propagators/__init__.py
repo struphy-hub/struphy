@@ -37,11 +37,11 @@ _LAZY_IMPORTS = {
     "PushVxB": "struphy.propagators.push_vxb",
     "ShearAlfvenB1": "struphy.propagators.shear_alfven_b1",
     "ShearAlfvenCurlCurlPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
-    "ShearAlfvenCurlCurlwithProjPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
     "ShearAlfvenCurrentCoupling5D": "struphy.propagators.shear_alfven_current_coupling_5d",
     "ShearAlfvenPropagator": "struphy.propagators.shear_alfven_propagator",
     "TimeDependentSource": "struphy.propagators.time_dependent_source",
     "TwoFluidQuasiNeutralFull": "struphy.propagators.two_fluid_quasi_neutral_full",
+    "VariationalAlfvenEvolve": "struphy.propagators.variational_alfven_evolve",
     "VariationalDensityEvolve": "struphy.propagators.variational_density_evolve",
     "VariationalEntropyEvolve": "struphy.propagators.variational_entropy_evolve",
     "VariationalLinearAlfvenEvolve": "struphy.propagators.variational_linear_alfven_evolve",
@@ -52,6 +52,7 @@ _LAZY_IMPORTS = {
     "VariationalPBEvolve": "struphy.propagators.variational_pb_evolve",
     "VariationalQBEvolve": "struphy.propagators.variational_qb_evolve",
     "VariationalResistivity": "struphy.propagators.variational_resistivity",
+    "VariationalSoundEvolve": "struphy.propagators.variational_sound_evolve",
     "VariationalViscosity": "struphy.propagators.variational_viscosity",
     "VlasovAmpereCoupling": "struphy.propagators.vlasov_ampere_coupling",
     "VlasovMaxwellCoupling": "struphy.propagators.vlasov_maxwell_coupling",
@@ -91,14 +92,12 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
     from struphy.propagators.push_vxb import PushVxB
     from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
-    from struphy.propagators.shear_alfven_curl_curl_propagator import (
-        ShearAlfvenCurlCurlPropagator,
-        ShearAlfvenCurlCurlwithProjPropagator,
-    )
+    from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
     from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
     from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
     from struphy.propagators.time_dependent_source import TimeDependentSource
     from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
+    from struphy.propagators.variational_alfven_evolve import VariationalAlfvenEvolve
     from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
     from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
     from struphy.propagators.variational_linear_alfven_evolve import VariationalLinearAlfvenEvolve
@@ -109,6 +108,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
     from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
     from struphy.propagators.variational_resistivity import VariationalResistivity
+    from struphy.propagators.variational_sound_evolve import VariationalSoundEvolve
     from struphy.propagators.variational_viscosity import VariationalViscosity
     from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
     from struphy.propagators.vlasov_maxwell_coupling import VlasovMaxwellCoupling
@@ -148,11 +148,11 @@ __all__ = [
     "PushVxB",
     "ShearAlfvenB1",
     "ShearAlfvenCurlCurlPropagator",
-    "ShearAlfvenCurlCurlwithProjPropagator",
     "ShearAlfvenCurrentCoupling5D",
     "ShearAlfvenPropagator",
     "TimeDependentSource",
     "TwoFluidQuasiNeutralFull",
+    "VariationalAlfvenEvolve",
     "VariationalDensityEvolve",
     "VariationalEntropyEvolve",
     "VariationalLinearAlfvenEvolve",
@@ -163,6 +163,7 @@ __all__ = [
     "VariationalPBEvolve",
     "VariationalQBEvolve",
     "VariationalResistivity",
+    "VariationalSoundEvolve",
     "VariationalViscosity",
     "VlasovAmpereCoupling",
     "VlasovMaxwellCoupling",

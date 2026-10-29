@@ -152,12 +152,16 @@ class PushVxB(Propagator):
 
     @profile
     def __call__(self, dt):
-        # sum up total magnetic field in the tensor-product space (the variable is extracted first)
-        b_full: BlockVector = self.b2_0.copy(out=self._b_full)
-        if self.b2_var is not None:
-            b_full += self._E2T.dot(self.b2_var.spline.vector, out=self._tmp)
-        b_full.update_ghost_regions()
-        b_full /= self._epsilon
+        # sum up total magnetic field in the tensor-product space (the variable is extracted first); without a
+        # magnetic field variable it is the equilibrium field alone, which does not change: computed once, so that the
+        # step has no ghost exchange (an MPI synchronization point) before the kernel
+        if self.b2_var is not None or not getattr(self, "_b_full_static_done", False):
+            b_full: BlockVector = self.b2_0.copy(out=self._b_full)
+            if self.b2_var is not None:
+                b_full += self._E2T.dot(self.b2_var.spline.vector, out=self._tmp)
+            b_full.update_ghost_regions()
+            b_full /= self._epsilon
+            self._b_full_static_done = self.b2_var is None
 
         # call pusher kernel
         self._pusher(dt)

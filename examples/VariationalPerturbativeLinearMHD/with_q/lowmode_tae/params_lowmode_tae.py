@@ -49,7 +49,9 @@ preconditioner: on the 16 x 16 x 8 grid it stops at its iteration limit with |di
 The variational propagators run with model="linear_q" and their default
 (Newton/Picard) solver options, except implicit_weights=False: the weights of the transport operators at t^n, i.e.
 first order in time like the p model (no midpoint option) and LinearMHD (Crank-Nicolson substeps, Lie-Trotter
-splitting). The step stays energy conserving and needs a single Picard iteration.
+splitting). The coupling of the velocity to B (shear-Alfven/fast waves, VariationalAlfvenEvolve) and to q (sound
+waves, VariationalSoundEvolve) are advanced in two implicit substeps (split_sound=True, the default), like the
+shear-Alfven and magnetosonic steps of LinearMHD: each substep is energy conserving and needs a single Newton step.
 
 Expected result. With n = 1 and m = 1 the gap is at q(r_c) = 3/2, i.e. r_c = 0.5, where n = 1 and |B| = 1.0
 (flux-surface average), so v_A(r_c) = 1.0 v_unit and
@@ -140,6 +142,7 @@ gamma = 5.0 / 3.0
 base_units = BaseUnits()
 
 # Model instance: linear and ideal (no viscosity, no resistivity), as LinearMHD
+# split_sound=True (default): shear-Alfven/fast and sound waves in two substeps, as in LinearMHD
 model = VariationalPerturbativeMHD_with_q(
     base_units=base_units,
     linear=True,
@@ -203,7 +206,8 @@ sim = Simulation(
 # ------------------
 # Propagator options
 # ------------------
-# linear=True needs the "linear_q" variants of the variational propagators (checked by the model)
+# linear=True needs the "linear_q" variants of the variational propagators, and "linear" for the Alfven step
+# (checked by the model)
 
 model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model="linear_q", gamma=gamma)
 if args.crank_nicolson:
@@ -213,7 +217,10 @@ if args.crank_nicolson:
     )
 else:
     # implicit_weights=False: first order in time, as the p model and LinearMHD (Lie-Trotter splitting)
-    model.propagators.variat_qb.options = model.propagators.variat_qb.Options(
+    model.propagators.variat_alfven.options = model.propagators.variat_alfven.Options(
+        model="linear", implicit_weights=False
+    )
+    model.propagators.variat_sound.options = model.propagators.variat_sound.Options(
         model="linear_q", gamma=gamma, implicit_weights=False
     )
 

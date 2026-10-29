@@ -5,7 +5,7 @@ from feectools.linalg.solvers import inverse
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, perturbations
 from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.io.options import DerhamOptions
-from struphy.models import LinearMHD, LinearMHDCurlCurl
+from struphy.models import LinearMHD
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.magnetosonic import Magnetosonic
@@ -58,7 +58,7 @@ def test_b_field_space():
 def _lorentz_force_difference(tmp_path, num_elements):
     """L2 norms of the equilibrium force J0 x B0 (projected onto Hdiv) computed with M2J from the 2-form B0 and of its
     difference to M21J applied to the 1-form B0, in a torus with J0 != 0."""
-    model = LinearMHDCurlCurl()
+    model = LinearMHD(b_space="Hcurl")
     model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond="MassMatrixPreconditioner")
     sim = Simulation(
         model=model,

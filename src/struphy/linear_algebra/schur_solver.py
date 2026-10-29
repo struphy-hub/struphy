@@ -228,10 +228,24 @@ class SchurSolverFull:
 
         self._S = self._A - self._B @ self._C
 
+        self._solver_params = solver_params
         self._solver = inverse(self._S, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
+
+    @property
+    def precond(self):
+        """Preconditioner of the Schur system (None without preconditioner)."""
+        return self._solver_params.get("pc")
+
+    @precond.setter
+    def precond(self, pc):
+        """Replace the preconditioner, e.g. by one of the Schur system for the current dt."""
+        self._solver_params.pop("pc", None)
+        if pc is not None:
+            self._solver_params["pc"] = pc
+        self._solver = inverse(self._S, self._solver_name, **self._solver_params)
 
     @profile
     @ProfileManager.profile("solve: SchurSolverFull")
@@ -339,11 +353,25 @@ class SchurSolverFull3:
 
         self._S = self._A - self._B @ self._C - self._D @ self._E
 
+        self._solver_params = solver_params
         self._solver = inverse(self._S, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
         self._rhs2 = self._A.codomain.zeros()
+
+    @property
+    def precond(self):
+        """Preconditioner of the Schur system (None without preconditioner)."""
+        return self._solver_params.get("pc")
+
+    @precond.setter
+    def precond(self, pc):
+        """Replace the preconditioner, e.g. by one of the Schur system for the current dt."""
+        self._solver_params.pop("pc", None)
+        if pc is not None:
+            self._solver_params["pc"] = pc
+        self._solver = inverse(self._S, self._solver_name, **self._solver_params)
 
     @profile
     @ProfileManager.profile("solve: SchurSolverFull3")
