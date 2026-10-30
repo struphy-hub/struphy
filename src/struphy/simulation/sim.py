@@ -967,8 +967,8 @@ class Simulation(SimulationBase):
 
             logger.info("Struphy run finished.")
 
-            if self.clone_config is not None:
-                self.clone_config.free()
+            # the clone communicators are not freed here: the model (FEEC operators on sub_comm, particle
+            # reductions on inter_comm) is still used after the run, e.g. for diagnostics
 
         return self.output
 
@@ -1383,13 +1383,13 @@ class Simulation(SimulationBase):
 
     def _prepare_time_step(self):
         """Call :meth:`~struphy.propagators.base.Propagator.prepare_time_step` of each propagator with the time step
-        it receives from :meth:`~struphy.models.base.StruphyModel.integrate` (``dt / 2`` for all but the last
-        propagator with Strang splitting)."""
-        dt = self.time_opts.dt
-        props = self.model.prop_list
-        for n, prop in enumerate(props):
-            half = self.time_opts.split_algo == "Strang" and n < len(props) - 1
-            prop.prepare_time_step(dt / 2 if half else dt)
+        it receives from :meth:`~struphy.models.base.StruphyModel.integrate` (e.g. ``dt / 2`` for all but the last
+        propagator with Strang splitting, see :meth:`~struphy.models.base.StruphyModel.propagator_calls`)."""
+        steps = {}
+        for name, h in self.model.propagator_calls(self.time_opts.dt, self.time_opts.split_algo):
+            steps.setdefault(name, h)
+        for name, h in steps.items():
+            getattr(self.model.propagators, name).prepare_time_step(h)
 
     @profile
     def _allocate_propagators(self):

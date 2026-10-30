@@ -265,7 +265,8 @@ def test_energy_conservation(control_variate: bool, nclones: int, exit_before_ru
         shutil.rmtree(env.path_out)
 
 
-def test_initial_poisson_full_f():
+@pytest.mark.clones
+def test_initial_poisson_full_f(nclones: int):
     r"""The initial Poisson solve with full-f markers deposits the charge of :math:`f - f_0` (delta-f weights, no
     background source), i.e. subtracts :math:`n_0` once.
 
@@ -278,7 +279,7 @@ def test_initial_poisson_full_f():
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f", num_clones=nclones)
 
     model.kinetic_ions.set_markers(
         loading_params=LoadingParameters(ppc=200, seed=1234),
@@ -302,6 +303,7 @@ def test_initial_poisson_full_f():
         derham_opts=DerhamOptions(degree=(3, 1, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
     )
     sim.run()
+    assert (sim.clone_config.num_clones if sim.clone_config else 1) == nclones
 
     # root mean square of phi over the unit cube (collective, on all ranks)
     phi = model.em_fields.phi.spline.vector
@@ -378,6 +380,6 @@ def test_initial_poisson_full_f_noise():
 if __name__ == "__main__":
     test_weak_Landau(do_plot=True)
     test_initial_poisson_full_f_noise()
-    test_initial_poisson_full_f()
+    test_initial_poisson_full_f(nclones=1)
     test_energy_conservation(control_variate=False, nclones=1)
     test_energy_conservation(control_variate=True, nclones=1)

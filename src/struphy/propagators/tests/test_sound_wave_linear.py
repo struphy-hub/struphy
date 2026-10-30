@@ -84,7 +84,7 @@ def test_options():
     with pytest.raises(AssertionError):
         SoundWaveLinear().variables.u = LinearMHD().mhd.pressure
     model = LinearMHD()
-    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
     assert model.propagators.bg_pressure.u_field is model.mhd.velocity
     assert model.propagators.bg_current.b_field is model.em_fields.b_field
 
@@ -165,21 +165,39 @@ def _set_b_from_u(model):
     b.update_ghost_regions()
 
 
+class _Scaled:
+    """A propagator called with a fraction of the time step."""
+
+    def __init__(self, prop, fraction):
+        self.prop = prop
+        self.fraction = fraction
+
+    def __call__(self, dt):
+        self.prop(self.fraction * dt)
+
+
+def _group(model):
+    """The symmetric (Strang) block of the compressional steps of LinearMHD: bg_current(dt/2) bg_pressure(dt/2)
+    sound(dt) bg_pressure(dt/2) bg_current(dt/2)."""
+    props = model.propagators
+    half = (_Scaled(props.bg_current, 0.5), _Scaled(props.bg_pressure, 0.5))
+    return half + (props.sound,) + half[::-1]
+
+
 def test_split_agrees_with_magnetosonic_inhomogeneous(tmp_path):
-    """In a sheared slab (grad p0 != 0, J0 != 0, rho0 non-uniform), one small step of the split propagators
-    (background current, sound wave, background pressure gradient) changes u and p like the magnetosonic step, up to
-    the difference of the spatial discretizations (weak vs. projected pressure equation) and O(dt^2). The background
-    steps contribute much more than this difference, so a wrong sign or operator in them fails the test."""
+    """In a sheared slab (grad p0 != 0, J0 != 0, rho0 non-uniform), one small step of the symmetric block of the split
+    propagators (background current, background pressure gradient, sound wave) changes u and p like the magnetosonic
+    step, up to the difference of the spatial discretizations (weak vs. projected pressure equation) and O(dt^3). The
+    background steps contribute much more than this difference, so a wrong sign or operator in them fails the test."""
     equil = equils.ShearedSlab(beta=1.0, n1=2.0, n2=1.0, na=0.5, R0=1.0)
     bcs = (("free", "free"), None, None)
     dt = 1e-3
 
     model = allocate_model(tmp_path, "split_inhom", equil, bcs=bcs, noise=False)
     _set_b_from_u(model)
-    props = model.propagators
-    du_s, dp_s, single = _changes(model, (props.bg_current, props.sound, props.bg_pressure), dt)
-    du_current = single[0][0]
-    dp_gradient = single[2][1]
+    du_s, dp_s, single = _changes(model, _group(model), dt)
+    du_current = single[0][0] + single[4][0]
+    dp_gradient = single[1][1] + single[3][1]
 
     model = allocate_model(tmp_path, "combined_inhom", equil, bcs=bcs, noise=False)
     _set_b_from_u(model)
@@ -193,6 +211,42 @@ def test_split_agrees_with_magnetosonic_inhomogeneous(tmp_path):
     print(f"{diff_u = :.2e}, {diff_p = :.2e}, {contrib_u = :.2e}, {contrib_p = :.2e}")
     assert diff_u < 0.05 and diff_p < 0.05
     assert contrib_u > 4 * diff_u and contrib_p > 4 * diff_p
+
+
+def test_group_second_order_inhomogeneous(tmp_path):
+    """Self-convergence in dt of the symmetric block of the compressional steps of LinearMHD (strang_groups) in a
+    sheared slab (grad p0 != 0, J0 != 0, the steps do not commute): second order in time. (The first order of the
+    Lie-Trotter sequence of the three steps shows at larger time steps, e.g. in the frequency of the TAE of the
+    LinearMHD example lowmode_tae at dt = 1.)"""
+    equil = equils.ShearedSlab(beta=1.0, n1=2.0, n2=1.0, na=0.5, R0=1.0)
+    model = allocate_model(tmp_path, "order", equil, bcs=(("free", "free"), None, None), noise=False)
+    _set_b_from_u(model)
+    assert [name for name, _ in model.propagator_calls(1.0)][1:] == [
+        "bg_current",
+        "bg_pressure",
+        "sound",
+        "bg_pressure",
+        "bg_current",
+    ]
+    u, p = model.mhd.velocity.spline.vector, model.mhd.pressure.spline.vector
+    u0, p0 = u.copy(), p.copy()
+    T = 0.01
+
+    def final(steps):
+        u0.copy(out=u)
+        p0.copy(out=p)
+        u.update_ghost_regions()
+        p.update_ghost_regions()
+        for _ in range(steps):
+            for prop in _group(model):
+                prop(T / steps)
+        return xp.concatenate((u.toarray(), p.toarray()))
+
+    finals = [final(steps) for steps in (2, 4, 8, 16)]
+    diffs = [xp.max(xp.abs(a - b)) for a, b in zip(finals[:-1], finals[1:])]
+    rates = [float(xp.log2(d0 / d1)) for d0, d1 in zip(diffs[:-1], diffs[1:])]
+    print(f"{diffs = }, {rates = }")
+    assert all(abs(rate - 2) < 0.15 for rate in rates)
 
 
 @pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])

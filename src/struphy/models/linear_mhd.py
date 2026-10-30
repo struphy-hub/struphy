@@ -63,7 +63,10 @@ class LinearMHD(LinearEuler):
             Passed to :class:`LinearEuler.Propagators <struphy.models.LinearEuler.Propagators>`.
         """
 
-        splitting_order = ("shear_alf", "bg_current", "sound", "bg_pressure")
+        splitting_order = ("shear_alf", "bg_current", "bg_pressure", "sound")
+        # the background steps are exact in time but do not commute with the sound wave step: symmetric splitting
+        # of the three keeps the compressional part second order in time (as the former unsplit Magnetosonic step)
+        strang_groups = (("bg_current", "bg_pressure", "sound"),)
 
         def __init__(
             self,
@@ -320,6 +323,10 @@ class LinearMHD(LinearEuler):
         :math:`1/p_0`-weighted pressure equation), and the steps of the two terms that change the perturbed energy for
         general equilibria, :math:`(\nabla \times \mathbf B_0) \times \tilde{\mathbf B}` in the momentum equation
         and :math:`- \tilde{\mathbf U} \cdot \nabla p_0` in the pressure equation, which are solved exactly in time.
+        The three steps do not commute; they form one block of the splitting with symmetric (Strang) splitting, the
+        sound wave step in the middle, so that the compressional part is second order in time as the former unsplit
+        magnetosonic step (with Lie-Trotter sequencing of the three steps the frequencies of modes coupled to the
+        compressional dynamics, e.g. TAEs in a torus, are wrong for large time steps).
         For an equilibrium with :math:`\nabla p_0 = 0` and :math:`\nabla \times \mathbf B_0 = 0`, the scheme is thus
         energy conserving up to the solver tolerances (with ``b_space="Hdiv"`` or
         ``projected=True``)."""

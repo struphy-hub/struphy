@@ -78,8 +78,8 @@ class LinearMHDVlasovCC(LinearMHD):
             "push_eta",
             "push_vxb",
             "bg_current",
-            "sound",
             "bg_pressure",
+            "sound",
         )
 
         def __init__(

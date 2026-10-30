@@ -42,8 +42,9 @@ class LinearEuler(StruphyModel):
     ## propagators
 
     class Propagators:
-        """Propagators of the linearized Euler equations: ``sound`` (sound waves, energy conserving) and
-        ``bg_pressure`` (advection of the background pressure).
+        """Propagators of the linearized Euler equations: ``bg_pressure`` (advection of the background pressure)
+        and ``sound`` (sound waves, energy conserving), integrated as one symmetric (Strang) block with ``sound`` in
+        the middle, second order in time.
 
         Parameters
         ----------
@@ -51,9 +52,11 @@ class LinearEuler(StruphyModel):
             Velocity perturbation, which ``bg_pressure`` advects the background pressure with (default: None).
         """
 
+        strang_groups = (("bg_pressure", "sound"),)
+
         def __init__(self, u_field: FEECVariable = None):
-            self.sound = SoundWaveLinear()
             self.bg_pressure = BackgroundPressureGradient(u_field=u_field)
+            self.sound = SoundWaveLinear()
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     mhd: MHD
@@ -215,7 +218,9 @@ class LinearEuler(StruphyModel):
         :math:`\frac 12 \int \rho_0 |\tilde{\mathbf U}|^2 \,\textnormal d \mathbf x
         + \frac{1}{2\gamma} \int \tilde p^2 / p_0 \,\textnormal d \mathbf x` exactly (Crank-Nicolson with the
         :math:`1/p_0`-weighted pressure equation), and the exact-in-time step of the term
-        :math:`- \tilde{\mathbf U} \cdot \nabla p_0`, which vanishes for an equilibrium in force balance.
+        :math:`- \tilde{\mathbf U} \cdot \nabla p_0`, which vanishes for an equilibrium in force balance. The two
+        steps do not commute; they are integrated with symmetric (Strang) splitting, the sound wave step in the middle,
+        such that the time step is second order in time (also with ``Time(split_algo="LieTrotter")``).
 
         The equilibrium is given by an MHD or fluid equilibrium (``equil``) providing :math:`n_0` and :math:`p_0`; a
         magnetic field of the equilibrium is not used. With free boundary conditions the pressure term imposes

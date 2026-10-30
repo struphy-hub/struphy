@@ -154,10 +154,10 @@ def test_unmatched_propagator_options_warn(caplog):
 def test_linear_euler_family_splitting_order():
     from struphy.models import LinearEuler, LinearMHD
 
-    assert list(LinearEuler.propagators_in_splitting_order()) == ["sound", "bg_pressure"]
+    assert list(LinearEuler.propagators_in_splitting_order()) == ["bg_pressure", "sound"]
     model = LinearMHD()
     assert isinstance(model, LinearEuler)
-    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
     assert model.propagators.bg_pressure.u_field is model.mhd.velocity
     assert model.propagators.bg_current.b_field is model.em_fields.b_field
 
@@ -184,7 +184,7 @@ def test_linear_mhd_split_sound_in_old_metadata(split_sound):
         dct["propagator_options"]["mag_sonic"] = {}
     restored = StruphyModel.from_dict(dct)
     assert "split_sound" not in restored.params
-    assert list(vars(restored.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    assert list(vars(restored.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
     assert restored.em_fields.b_field.space == "Hcurl"
     assert restored.propagators.sound.options.solver == ("cg" if split_sound else "pcg")
 
@@ -202,7 +202,7 @@ def test_linear_mhd_hybrids_inherit_linear_mhd():
         names = list(vars(model.propagators))
         for name in ("shear_alf", "bg_current", "sound", "bg_pressure"):
             assert name in names, (model_class.__name__, name)
-        assert names.index("bg_current") + 2 == names.index("bg_pressure")
+        assert names.index("bg_current") + 1 == names.index("bg_pressure") == names.index("sound") - 1
         assert {"en_B", "en_thermal", "en_tot"} <= set(model.scalars._dct)
     assert isinstance(LinearMHDDriftkineticCC().propagators.shear_alf, ShearAlfvenCurrentCoupling5D)
 
@@ -235,3 +235,91 @@ def test_linear_mhd_hybrids_in_old_metadata():
     dct["propagator_options"]["shearalfen_cc5d"] = dct["propagator_options"].pop("shear_alf")
     restored = StruphyModel.from_dict(dct)
     assert not restored.propagators.shear_alf.options.nonlinear
+def test_strang_groups_calls():
+    """A group of propagators is integrated symmetrically (last member in the middle) as one block of the splitting."""
+    from struphy.models import LinearEuler, LinearMHD
+    from struphy.models.base import time_steps_of_blocks
+
+    blocks = [("a",), ("b", "c", "d"), ("e",)]
+    lie = [(name, h) for name, h, _ in time_steps_of_blocks(blocks, 1.0, "LieTrotter")]
+    assert lie == [("a", 1.0), ("b", 0.5), ("c", 0.5), ("d", 1.0), ("c", 0.5), ("b", 0.5), ("e", 1.0)]
+    strang = [(name, h) for name, h, _ in time_steps_of_blocks(blocks, 1.0, "Strang")]
+    assert strang == [
+        ("a", 0.5),
+        ("b", 0.25),
+        ("c", 0.25),
+        ("d", 0.5),
+        ("c", 0.25),
+        ("b", 0.25),
+        ("e", 1.0),
+        ("b", 0.25),
+        ("c", 0.25),
+        ("d", 0.5),
+        ("c", 0.25),
+        ("b", 0.25),
+        ("a", 0.5),
+    ]
+    # the time steps of each block sum to the time step
+    for algo in ("LieTrotter", "Strang"):
+        calls = time_steps_of_blocks(blocks, 1.0, algo)
+        assert sum(h for name, h, _ in calls if name == "d") == 1.0
+
+    assert LinearMHD().propagator_calls(1.0) == [
+        ("shear_alf", 1.0),
+        ("bg_current", 0.5),
+        ("bg_pressure", 0.5),
+        ("sound", 1.0),
+        ("bg_pressure", 0.5),
+        ("bg_current", 0.5),
+    ]
+    # LinearEuler is a single symmetric block: second order with either splitting algorithm
+    model = LinearEuler()
+    assert model.propagator_calls(1.0, "LieTrotter") == model.propagator_calls(1.0, "Strang")
+
+
+@pytest.mark.mpi_skip
+def test_invalid_strang_groups():
+    from struphy.models.base import apply_splitting_order
+    from struphy.propagators.push_eta import PushEta
+    from struphy.propagators.push_vxb import PushVxB
+
+    class NotConsecutive:
+        strang_groups = (("push_a", "push_c"),)
+
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+            self.push_c = PushEta()
+
+    class UnknownName:
+        strang_groups = (("push_a", "push_x"),)
+
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+
+    class SingleMember:
+        strang_groups = (("push_a",),)
+
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+
+    class InInit:
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+            self.strang_groups = (("push_a", "push_b"),)
+
+    for cls in (NotConsecutive, UnknownName, SingleMember, InInit):
+        with pytest.raises(ValueError, match="strang_groups"):
+            apply_splitting_order(cls())
+
+
+@pytest.mark.mpi_skip
+def test_unknown_split_algo():
+    from struphy.models import LinearEuler
+
+    # LinearEuler is a single block, an unknown splitting algorithm must still raise
+    with pytest.raises(NotImplementedError):
+        LinearEuler().propagator_calls(1.0, "strang")

@@ -72,7 +72,7 @@ class LinearMHDVlasovPC(LinearMHD):
             Passed to :class:`LinearMHD.Propagators <struphy.models.LinearMHD.Propagators>`.
         """
 
-        splitting_order = ("push_eta_pc", "push_vxb", "pc6d", "shear_alf", "bg_current", "sound", "bg_pressure")
+        splitting_order = ("push_eta_pc", "push_vxb", "pc6d", "shear_alf", "bg_current", "bg_pressure", "sound")
 
         def __init__(
             self,
