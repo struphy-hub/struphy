@@ -239,7 +239,11 @@ class CloneConfig:
             logger.info(message)
 
     def free(self):
-        """Free the MPI communicators associated with this clone configuration."""
+        """Free the MPI communicators associated with this clone configuration.
+
+        Afterwards the model of the simulation can no longer be used (derham and accumulations use these
+        communicators); :meth:`~struphy.simulation.sim.Simulation.run` therefore does not call this.
+        """
         self.sub_comm.Free()
         self.inter_comm.Free()
 
