@@ -1,10 +1,7 @@
 import logging
 import math
-import warnings
 from abc import ABCMeta, abstractmethod
 from dataclasses import fields, is_dataclass
-
-from maybempi import MPI
 
 from struphy.models.variables import Variable
 from struphy.particles.parameters import (
@@ -50,17 +47,17 @@ class Species(metaclass=ABCMeta):
     mass_number : int
         Mass number in units of proton mass (default = 1).
         For field species, this is set to 0.
-    alpha : float, optional
-        Dimensionless parameter: plasma frequency / cyclotron frequency.
+    prescribed_alpha : float or None
+        Prescribed plasma frequency / cyclotron frequency (``alpha`` of ``init_variables``).
         If None, computed from units and charge/mass numbers.
-    epsilon : float, optional
-        Normalized cyclotron period: 1 / (cyclotron frequency × time unit).
+    prescribed_epsilon : float or None
+        Prescribed normalized cyclotron period: 1 / (cyclotron frequency × time unit).
         If None, computed from units and charge/mass numbers.
-    lam : float, optional
-        Cyclotron frequency × length unit / speed of light.
+    prescribed_lam : float or None
+        Prescribed cyclotron frequency × length unit / speed of light.
         If None, computed from units and charge/mass numbers.
-    kappa : float, optional
-        Plasma frequency × length unit / speed of light.
+    prescribed_kappa : float or None
+        Prescribed plasma frequency × length unit / speed of light.
         If None, computed from units and charge/mass numbers.
     equation_params : EquationParameters
         Object containing normalization parameters (alpha, epsilon, lam, kappa) for scaled equations.
