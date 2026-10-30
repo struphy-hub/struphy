@@ -168,8 +168,9 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
         shutil.rmtree(test_folder)
 
 
+@pytest.mark.clones
 @pytest.mark.parametrize("control_variate", [False, True])
-def test_energy_conservation(control_variate: bool, exit_before_run: bool = False):
+def test_energy_conservation(control_variate: bool, nclones: int, exit_before_run: bool = False):
     """``en_tot`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
 
     A time step is :class:`~struphy.propagators.push_eta.PushEta` followed by the Crank-Nicolson step
@@ -195,7 +196,9 @@ def test_energy_conservation(control_variate: bool, exit_before_run: bool = Fals
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"energy_conservation_cv_{control_variate}")
+    env = EnvironmentOptions(
+        out_folders=out_folders, sim_folder=f"energy_conservation_cv_{control_variate}", num_clones=nclones
+    )
 
     time_opts = Time(dt=0.1, Tend=0.3)
 
@@ -241,6 +244,7 @@ def test_energy_conservation(control_variate: bool, exit_before_run: bool = Fals
         return sim
 
     sim.run()
+    assert (sim.clone_config.num_clones if sim.clone_config else 1) == nclones
 
     comm = MPI.COMM_WORLD
 
@@ -375,5 +379,5 @@ if __name__ == "__main__":
     test_weak_Landau(do_plot=True)
     test_initial_poisson_full_f_noise()
     test_initial_poisson_full_f()
-    test_energy_conservation(control_variate=False)
-    test_energy_conservation(control_variate=True)
+    test_energy_conservation(control_variate=False, nclones=1)
+    test_energy_conservation(control_variate=True, nclones=1)

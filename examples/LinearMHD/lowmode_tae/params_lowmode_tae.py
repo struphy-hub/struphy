@@ -20,7 +20,9 @@ Hcurl, the magnetic field is in H(curl) and the shear Alfven step solves a curl-
 preconditioned by Hiptmair-Xu (not energy conserving: the wave is damped numerically); --b-space
 Hcurl --projected has the exactly energy conserving shear Alfven step. On 2 MPI ranks, the 1200 time steps
 take about 20 min with --b-space Hdiv and with --b-space Hcurl (1 s per step each) and about 2 h with
---b-space Hcurl --projected (5.6 s per step).
+--b-space Hcurl --projected (5.6 s per step). With --split-sound (any --b-space), the magnetosonic step is split into
+the energy conserving sound wave step and the exact steps of the background current and pressure gradient (about the
+same cost per step as the single magnetosonic step).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -91,6 +93,12 @@ parser.add_argument(
     "step (model flag projected).",
 )
 parser.add_argument(
+    "--split-sound",
+    action="store_true",
+    help="Split the magnetosonic step into the energy conserving sound wave step and the steps of the background "
+    "current and of the background pressure gradient (model flag split_sound).",
+)
+parser.add_argument(
     "--precond",
     default=None,
     choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
@@ -106,6 +114,12 @@ parser.add_argument(
     help="Small resolution (num_elements = [8, 8, 4]) and a short run with three saved time steps, for the tests "
     "(test_examples.py).",
 )
+parser.add_argument(
+    "--dt",
+    type=float,
+    default=0.5,
+    help="Time step (default 0.5); the data is saved every 2 time units, or every step for dt > 2.",
+)
 args, _ = parser.parse_known_args()
 if args.projected and args.b_space != "Hcurl":
     parser.error("--projected requires --b-space Hcurl.")
@@ -120,6 +134,8 @@ if args.precond == "HiptmairXu" and args.b_space != "Hcurl":
     parser.error("--precond HiptmairXu requires --b-space Hcurl.")
 if args.b_space == "Hcurl":
     name = f"Low-mode TAE (LinearMHD, b_space=Hcurl{', projected' if args.projected else ''})"
+if args.split_sound:
+    name = name[:-1] + ", split_sound)"
 if args.test_run:
     args.num_elements = [8, 8, 4]
 
@@ -156,7 +172,7 @@ from struphy.models import LinearMHD
 base_units = BaseUnits()
 
 # Model instance
-model = LinearMHD(base_units=base_units, b_space=args.b_space, projected=args.projected)
+model = LinearMHD(base_units=base_units, b_space=args.b_space, projected=args.projected, split_sound=args.split_sound)
 
 # List all variables and decide whether to save their data
 model.em_fields.b_field.save_data = True
@@ -169,10 +185,12 @@ model.mhd.pressure.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=args.out_folder, save_step=4, sim_folder=args.sim_folder)
+env = EnvironmentOptions(
+    out_folders=args.out_folder, save_step=max(1, round(2.0 / args.dt)), sim_folder=args.sim_folder
+)
 
 # Time stepping
-dt = 0.5
+dt = args.dt
 # --test-run: the initial, a middle and a final saved time step
 time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else 600.0)
 
@@ -217,7 +235,12 @@ sim = Simulation(
 # ------------------
 
 model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond=args.precond)
-model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
+if args.split_sound:
+    model.propagators.bg_current.options = model.propagators.bg_current.Options()
+    model.propagators.sound.options = model.propagators.sound.Options()
+    model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
+else:
+    model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
 
 # ------------------
 # Initial conditions
