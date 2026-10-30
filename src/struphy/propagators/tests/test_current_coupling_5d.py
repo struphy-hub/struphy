@@ -6,16 +6,6 @@ from struphy import set_logging_level
 
 set_logging_level(logging.WARNING)
 
-ALL_PROPAGATORS = (
-    "PushGuidingCenterBxEstar",
-    "PushGuidingCenterParallel",
-    "ShearAlfvenCurrentCoupling5D",
-    "Magnetosonic",
-    "CurrentCoupling5DDensity",
-    "CurrentCoupling5DGradB",
-    "CurrentCoupling5DCurlb",
-)
-
 PROPAGATORS = {
     "CurrentCoupling5DDensity": "cc5d_density",
     "CurrentCoupling5DCurlb": "cc5d_curlb",
@@ -33,8 +23,7 @@ def test_current_coupling_5d_without_b_tilde(name: str):
     from struphy.models import LinearMHDDriftkineticCC
 
     def step(b_tilde_none: bool):
-        turn_off = tuple(p for p in ALL_PROPAGATORS if p != name)
-        model = LinearMHDDriftkineticCC(turn_off=turn_off)
+        model = LinearMHDDriftkineticCC()
         model.energetic_ions.set_markers(loading_params=LoadingParameters(Np=40, seed=1234))
         model.energetic_ions.var.add_background(maxwellians.GyroMaxwellian2D())
         model.mhd.velocity.add_perturbation(perturbations.TorusModesCos(given_in_basis="2", comp=0))
@@ -68,8 +57,7 @@ def test_shear_alfven_cc5d_stiffness_preconditioner(monkeypatch, nonlinear: bool
     from struphy.models import LinearMHDDriftkineticCC
 
     def step(precond: str):
-        turn_off = tuple(p for p in ALL_PROPAGATORS if p != "ShearAlfvenCurrentCoupling5D")
-        model = LinearMHDDriftkineticCC(turn_off=turn_off)
+        model = LinearMHDDriftkineticCC()
         model.energetic_ions.set_markers(loading_params=LoadingParameters(Np=200, seed=1234))
         model.energetic_ions.var.add_background(
             maxwellians.GyroMaxwellian2D(n=(1e-3, None))
@@ -80,7 +68,7 @@ def test_shear_alfven_cc5d_stiffness_preconditioner(monkeypatch, nonlinear: bool
         model.em_fields.b_field.add_perturbation(
             perturbations.ModesSin(ls=(1,), ns=(1,), given_in_basis="2", comp=1, amps=(1e-3,))
         )
-        prop = model.propagators.shearalfen_cc5d
+        prop = model.propagators.shear_alf
         prop.options = prop.Options(
             precond=precond, nonlinear=nonlinear, solver_params=SolverParameters(tol=1e-12, maxiter=1000, info=True)
         )
@@ -118,7 +106,7 @@ def _shear_alfven_cc5d(nonlinear: bool, b_amp: float):
     from struphy.linear_algebra.solver import SolverParameters
     from struphy.models import LinearMHDDriftkineticCC
 
-    model = LinearMHDDriftkineticCC(turn_off=tuple(p for p in ALL_PROPAGATORS if p != "ShearAlfvenCurrentCoupling5D"))
+    model = LinearMHDDriftkineticCC()
     model.energetic_ions.set_markers(loading_params=LoadingParameters(Np=200, seed=1234))
     model.energetic_ions.var.add_background(maxwellians.GyroMaxwellian2D(n=(1e-12, None)))
     model.mhd.velocity.add_perturbation(
@@ -128,7 +116,7 @@ def _shear_alfven_cc5d(nonlinear: bool, b_amp: float):
         model.em_fields.b_field.add_perturbation(
             perturbations.ModesSin(ls=(1,), ns=(1,), given_in_basis="2", comp=1, amps=(b_amp,))
         )
-    prop = model.propagators.shearalfen_cc5d
+    prop = model.propagators.shear_alf
     prop.options = prop.Options(nonlinear=nonlinear, solver_params=SolverParameters(tol=1e-14, maxiter=3000))
     Simulation(
         model=model,
@@ -198,7 +186,7 @@ def test_curlb_matrix_free():
     from struphy.models import LinearMHDDriftkineticCC
 
     def run(matrix_free: bool):
-        model = LinearMHDDriftkineticCC(turn_off=tuple(p for p in ALL_PROPAGATORS if p != "CurrentCoupling5DCurlb"))
+        model = LinearMHDDriftkineticCC()
         model.energetic_ions.set_markers(
             loading_params=LoadingParameters(Np=1000, seed=1234),
             boundary_params=BoundaryParameters(bc=("reflect", "periodic", "periodic")),
@@ -255,7 +243,7 @@ def test_density_matrix_free(u_space: str):
     from struphy.pic.accumulation.kernels.marker_operator_asym_dot import marker_operator_asym_dot
     from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
 
-    model = LinearMHDDriftkineticCC(turn_off=tuple(p for p in ALL_PROPAGATORS if p != "CurrentCoupling5DDensity"))
+    model = LinearMHDDriftkineticCC()
     model.energetic_ions.set_markers(
         loading_params=LoadingParameters(Np=1000, seed=1234),
         boundary_params=BoundaryParameters(bc=("reflect", "periodic", "periodic")),
@@ -334,7 +322,7 @@ def test_current_coupling_5d_ep_scale():
         derham_opts=DerhamOptions(degree=(1, 1, 1)),
     )
     sim.allocate()
-    for name in ("shearalfen_cc5d", *PROPAGATORS.values()):
+    for name in ("shear_alf", *PROPAGATORS.values()):
         expected = 0.5 if name == "cc5d_curlb" else 2.0
         assert getattr(model.propagators, name)._ep_scale == expected, name
 

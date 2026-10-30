@@ -37,7 +37,16 @@ FIELDS = [
 ]
 # (m, n) harmonics of the radial (eta1) components
 HARMONICS = [("u_r", "mhd/velocity"), ("b_r", "em_fields/b_field")]
-ENERGIES = ("en_U", "en_B", "en_p", "en_fv", "en_fB")  # energy scalars shown next to en_tot
+ENERGIES = ("en_U", "en_B", "en_thermal", "en_fv", "en_fB")  # energy scalars shown next to en_tot
+
+
+def energy_parts(run):
+    """The energy scalars of ENERGIES saved by the run (runs before the LinearEuler family saved en_p instead of
+    en_thermal)."""
+    if "en_thermal" in run.scalars:
+        return ENERGIES
+    return tuple("en_p" if name == "en_thermal" else name for name in ENERGIES)
+
 
 # the TAE: toroidal mode number n (the logical mode N_LOGICAL along eta3 times tor_period of the domain) in the gap
 # between the poloidal mode numbers M and M + 1, see the description of the params file
@@ -159,7 +168,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     np.save(os.path.join(results_dir, "gamma_tae.npy"), gamma)
 
     finish(
-        {"energies": run.plot.energies(parts=ENERGIES).fig, "growth": growth_figure(run, gamma)},
+        {"energies": run.plot.energies(parts=energy_parts(run)).fig, "growth": growth_figure(run, gamma)},
         results_dir,
         save_figs,
     )

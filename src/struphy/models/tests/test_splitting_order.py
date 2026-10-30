@@ -190,6 +190,54 @@ def test_linear_mhd_split_sound_in_old_metadata(split_sound):
 
 
 @pytest.mark.mpi_skip
+def test_linear_mhd_hybrids_inherit_linear_mhd():
+    from struphy.models import LinearMHD, LinearMHDDriftkineticCC, LinearMHDVlasovCC, LinearMHDVlasovPC
+    from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
+
+    for model_class in (LinearMHDVlasovCC, LinearMHDVlasovPC, LinearMHDDriftkineticCC):
+        model = model_class(mhd_mass_number=2.0, hot_mass_number=3.0)
+        assert isinstance(model, LinearMHD)
+        assert model.mhd.mass_number == 2.0 and model.energetic_ions.mass_number == 3.0
+        assert model.em_fields.b_field.space == "Hdiv"
+        names = list(vars(model.propagators))
+        for name in ("shear_alf", "bg_current", "sound", "bg_pressure"):
+            assert name in names, (model_class.__name__, name)
+        assert names.index("bg_current") + 1 == names.index("bg_pressure") == names.index("sound") - 1
+        assert {"en_B", "en_thermal", "en_tot"} <= set(model.scalars._dct)
+    assert isinstance(LinearMHDDriftkineticCC().propagators.shear_alf, ShearAlfvenCurrentCoupling5D)
+
+
+@pytest.mark.mpi_skip
+def test_linear_mhd_hybrids_in_old_metadata():
+    from struphy.models import LinearMHDDriftkineticCC, LinearMHDVlasovPC
+    from struphy.models.base import StruphyModel
+
+    # LinearMHDVlasovPC: turn_off (default) and the propagators shearalfven, magnetosonic of old metadata
+    model = LinearMHDVlasovPC()
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo="explicit")
+    dct = model.to_dict()
+    dct["params"]["turn_off"] = [None]
+    dct["propagator_options"]["shearalfven"] = dct["propagator_options"].pop("shear_alf")
+    dct["propagator_options"]["magnetosonic"] = {}
+    restored = StruphyModel.from_dict(dct)
+    assert "turn_off" not in restored.params
+    assert restored.propagators.shear_alf.options.algo == "explicit"
+
+    # switched off propagators can not be restored
+    dct["params"]["turn_off"] = ["Magnetosonic"]
+    with pytest.raises(ValueError, match="turn_off"):
+        StruphyModel.from_dict(dct)
+
+    # LinearMHDDriftkineticCC: shearalfen_cc5d -> shear_alf
+    model = LinearMHDDriftkineticCC()
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(nonlinear=False)
+    dct = model.to_dict()
+    dct["propagator_options"]["shearalfen_cc5d"] = dct["propagator_options"].pop("shear_alf")
+    restored = StruphyModel.from_dict(dct)
+    assert not restored.propagators.shear_alf.options.nonlinear
+
+
+@pytest.mark.mpi_skip
 def test_strang_groups_calls():
     """A group of propagators is integrated symmetrically (last member in the middle) as one block of the splitting."""
     from struphy.models import LinearEuler, LinearMHD
