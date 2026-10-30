@@ -224,12 +224,12 @@ model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(
     solver_params=SolverParameters(tol=1e-12, maxiter=3000, recycle=False),
     filter_params={model.kinetic_ions.var: FilterParameters("fourier_in_tor", (1,), repeat=1)},
 )
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(
+model.propagators.push_bxe.options = model.propagators.push_bxe.Options(
     algo="explicit",
     evaluate_e_field=True,
     maxiter=100,
 )
-model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(
+model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
     algo="explicit",
     evaluate_e_field=True,
     maxiter=100,

@@ -67,13 +67,21 @@ new terms of the equations and inherits its species, propagators and scalars (se
     :undoc-members:
     :show-inheritance:
 
-Other models
-------------
+Guiding-Center Family
+---------------------
 
-Models that are not yet arranged in families of inherited models.
+Models for the guiding-center (drift-kinetic) equation of one kinetic species in 5D phase space. Each model extends its
+parent by new terms of the equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
 
-Gyrokinetic
-^^^^^^^^^^^
+* :class:`~struphy.models.GuidingCenter`
+
+  * :class:`~struphy.models.DriftKineticElectrostaticAdiabatic`
+  * :class:`~struphy.models.DriftKineticMaxwell`
+
+.. autoclass:: struphy.models.GuidingCenter
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
 
 .. autoclass:: struphy.models.DriftKineticElectrostaticAdiabatic
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
@@ -84,6 +92,14 @@ Gyrokinetic
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
+
+Other models
+------------
+
+Models that are not yet arranged in families of inherited models.
+
+Gyrokinetic
+^^^^^^^^^^^
 
 .. autoclass:: struphy.models.ToyDrift
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
@@ -241,14 +257,6 @@ Pure fields
     :show-inheritance:
 
 .. autoclass:: struphy.models.Maxwell
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-Particle tracing
-^^^^^^^^^^^^^^^^
-
-.. autoclass:: struphy.models.GuidingCenter
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:

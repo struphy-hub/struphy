@@ -56,6 +56,8 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
     `super().__init__()` (whose `init_variables()` includes them); `KineticIons` of the Vlasov and guiding-center
     models only set `space`. Use the same variable names along the chain (`e_field`, `b_field`, `phi`, `var`) and
     the scalar names `en_f`, `en_E`, `en_B`, `en_phi`, `en_mu`, `en_tot`.
+  - A model that renames a propagator adds `_renamed_propagators = {"old": "new"}` (class attribute), so that
+    `from_dict` restores the options of old run metadata; unmatched options are skipped with a warning.
   - After the inner classes, annotate the attributes whose class the model defines or changes, e.g.
     `em_fields: EMFields` and `propagators: Propagators`. Species and propagators are created in the parent's hooks
     and `propagators` is a property, so without these annotations IDEs (Pylance) and type checkers see the parent's

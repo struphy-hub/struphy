@@ -137,7 +137,7 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
 
 @pytest.mark.clones
 def test_energy_conservation(nclones: int, exit_before_run: bool = False):
-    """The field-weights coupling must conserve the total energy ``en_E + en_w``.
+    """The field-weights coupling must conserve the total energy ``en_E + en_f``.
 
     With only :class:`~struphy.propagators.push_eta.PushEta` and
     :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling` (no B0, no E0),
