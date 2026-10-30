@@ -183,6 +183,10 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 pass
     """
 
+    # Propagators renamed by the model (old name -> new name): from_dict restores the options of old run metadata
+    # with the new names. A model that renames a propagator adds the old name here (inherited by subclasses).
+    _renamed_propagators: dict[str, str] = {}
+
     # ----------------
     # Abstract methods
     # ----------------
@@ -1223,9 +1227,15 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             return value
 
         for prop_name, options in dct.get("propagator_options", {}).items():
+            prop_name = model._renamed_propagators.get(prop_name, prop_name)
             propagator = getattr(model.propagators, prop_name, None)
-            if propagator is not None:
-                restore_option(options, propagator.options)
+            if propagator is None:
+                logger.warning(
+                    f"from_dict: the options of '{prop_name}' match no propagator of {type(model).__name__}; "
+                    "they are not restored (a renamed propagator missing from _renamed_propagators?)."
+                )
+                continue
+            restore_option(options, propagator.options)
 
         return model
 
