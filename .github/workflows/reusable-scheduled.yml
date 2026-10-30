@@ -146,3 +146,13 @@ jobs:
         shell: bash
         run: |
           mpirun --oversubscribe -n 2 pytest -x --with-mpi $STRUPHY_PATH/models/tests/verification/
+
+      # serial runs of the examples (the PR workflow runs them on 2 ranks); struphy is installed from the wheel,
+      # so the examples are taken from the checkout
+      - name: Run examples tests (serial)
+        if: matrix.test-type == 'model' && matrix.shard == 'shard-1'
+        shell: bash
+        env:
+          STRUPHY_EXAMPLES_DIR: ${{ github.workspace }}/examples
+        run: |
+          pytest -x -m examples $STRUPHY_PATH/models/tests/test_examples.py

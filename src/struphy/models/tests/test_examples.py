@@ -1,4 +1,5 @@
 import logging
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -11,7 +12,8 @@ from struphy.post_processing import output as output_module
 
 logger = logging.getLogger("struphy")
 
-EXAMPLES_DIR = Path(__file__).resolve().parents[4] / "examples"
+# the examples/ folder of the source checkout; set STRUPHY_EXAMPLES_DIR when struphy is not installed from it
+EXAMPLES_DIR = Path(os.environ.get("STRUPHY_EXAMPLES_DIR", Path(__file__).resolve().parents[4] / "examples"))
 
 PARAMS_MODULES = sorted(
     p for p in EXAMPLES_DIR.rglob("*.py") if p.name != "__init__.py" and p.name.startswith("params_")
