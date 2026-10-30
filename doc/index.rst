@@ -18,7 +18,8 @@ and a gallery of examples. Ready-to-run simulations are in `struphy-examples <ht
 see :ref:`quickstart_examples`.
 
 This documentation is published on `GitHub pages <https://struphy-hub.github.io/struphy/index.html>`_ and on
-`Read the Docs <https://struphy.readthedocs.io/en/latest/>`_. The Read the Docs build does not compile Struphy and
+`Read the Docs <https://struphy.readthedocs.io/en/latest/>`_. Read the Docs also has the doc pages of older Struphy
+versions, starting from 3.1.0 (version menu of Read the Docs). The Read the Docs build does not compile Struphy and
 therefore does not execute all the notebooks in the doc (e.g. the :ref:`tutorials <tutorials>`): since the notebooks
 are stored without outputs, most of them appear there without any outputs. The GitHub pages build executes them.
 
