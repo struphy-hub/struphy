@@ -134,3 +134,17 @@ def test_renamed_propagators_of_dkea_in_old_metadata():
     restored = StruphyModel.from_dict(dct)
     assert restored.propagators.push_bxe.options.algo == "explicit"
     assert restored.propagators.push_parallel.options.algo == "explicit"
+
+
+@pytest.mark.mpi_skip
+def test_unmatched_propagator_options_warn(caplog):
+    import logging
+
+    from struphy.models import GuidingCenter
+    from struphy.models.base import StruphyModel
+
+    dct = GuidingCenter().to_dict()
+    dct["propagator_options"]["push_unknown"] = dct["propagator_options"]["push_bxe"]
+    with caplog.at_level(logging.WARNING, logger="struphy"):
+        StruphyModel.from_dict(dct)
+    assert "push_unknown" in caplog.text
