@@ -19,6 +19,7 @@ _LAZY_IMPORTS = {
     "GyrokineticPoisson": "struphy.models.gyrokinetic_poisson",
     "HasegawaWakatani": "struphy.models.hasegawa_wakatani",
     "IncompressibleNavierStokesSPH": "struphy.models.incompressible_navier_stokes_sph",
+    "LinearEuler": "struphy.models.linear_euler",
     "LinearExtendedMHDuniform": "struphy.models.linear_extended_mh_duniform",
     "LinearMHD": "struphy.models.linear_mhd",
     "LinearMHDDriftkineticCC": "struphy.models.linear_mhd_driftkinetic_cc",
@@ -63,6 +64,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.gyrokinetic_poisson import GyrokineticPoisson
     from struphy.models.hasegawa_wakatani import HasegawaWakatani
     from struphy.models.incompressible_navier_stokes_sph import IncompressibleNavierStokesSPH
+    from struphy.models.linear_euler import LinearEuler
     from struphy.models.linear_extended_mh_duniform import LinearExtendedMHDuniform
     from struphy.models.linear_mhd import LinearMHD
     from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
@@ -106,6 +108,7 @@ __all__ = [
     "GyrokineticPoisson",
     "HasegawaWakatani",
     "IncompressibleNavierStokesSPH",
+    "LinearEuler",
     "LinearExtendedMHDuniform",
     "LinearMHD",
     "LinearMHDDriftkineticCC",
