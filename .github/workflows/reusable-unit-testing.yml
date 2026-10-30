@@ -127,8 +127,7 @@ jobs:
       # testmon does not see changes in compiled kernels: run all tests then (FULL_RUN)
       - name: Changes testmon cannot see
         run: |
-          bash .github/scripts/changes_testmon_cannot_see.sh /struphy_fortran_ "${{ github.event_name }}" \
-            "${{ github.base_ref }}" "${{ github.event.before }}"
+          bash .github/scripts/changes_testmon_cannot_see.sh /struphy_fortran_ "${{ github.event_name }}" "${{ github.base_ref }}"
 
       - name: Run unit tests
         env:
@@ -159,53 +158,16 @@ jobs:
           echo "Running $PYTEST_CMD $TESTMON_SELECT $TEST_FILES"
           $PYTEST_CMD $TESTMON_SELECT -o "$TESTMON_IGNORE" $TEST_FILES
 
-  # OpenMP build and checks, in parallel to the shards and only when relevant (see changes_testmon_cannot_see.sh)
-  openmp-checks:
-    name: OpenMP checks
-    if: inputs.n-procs == 1
-    runs-on: ${{ inputs.os }}
-
-    container:
-      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
-      credentials:
-        username: spossann
-        password: ${{ secrets.ghcr-token }}
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 5
-
-      - name: Install Struphy in Container
-        uses: ./.github/actions/install/struphy_in_container
-
-      - name: Get submodule diff
-        uses: ./.github/actions/submodule-diff
-        with:
-          start-dir: /struphy_fortran_
-
-      - name: Reinstall feectools from submodule
-        if: env.SUBMOD_CHANGED == 'true'
-        uses: ./.github/actions/install/feectools-submodule
-        with:
-          env-name: /struphy_fortran_/env_fortran_
-
-      - name: Changes testmon cannot see
-        run: |
-          bash .github/scripts/changes_testmon_cannot_see.sh /struphy_fortran_ "${{ github.event_name }}" \
-            "${{ github.base_ref }}" "${{ github.event.before }}"
-
+      # only when kernels, the PIC code or the compile command change (see changes_testmon_cannot_see.sh)
       - name: Compile all kernels with OpenMP
-        if: env.OPENMP_RUN == 'true'
+        if: inputs.n-procs == 1 && matrix.shard == 'shard-4' && env.OPENMP_RUN == 'true'
         uses: ./.github/actions/compile
         with:
           env-name: /struphy_fortran_/env_fortran_
           openmp: "true"
 
       - name: Check OpenMP numerical results
-        if: env.OPENMP_RUN == 'true'
+        if: inputs.n-procs == 1 && matrix.shard == 'shard-4' && env.OPENMP_RUN == 'true'
         env:
           OMP_NUM_THREADS: "4"
           OMP_DYNAMIC: "FALSE"
