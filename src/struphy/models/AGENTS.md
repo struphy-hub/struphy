@@ -127,16 +127,27 @@ and the convergence order of the time stepping. When a new family is created, ad
 
 ## Tests and examples
 
-- The generic model tests (`src/struphy/models/tests/default_params/test_models.py`, marker `models` plus
+- The generic model tests (`src/struphy/models/tests/regression/test_models.py`, marker `models` plus
   `toy`/`fluid`/`kinetic`/`hybrid`) pick up every model automatically. They build `model()` with default
   arguments, generate the default params file (Cuboid domain, default `Options()` of every propagator),
   check serialization round-trips, run a simulation and a restart. So **the model must run with every propagator's
   default options**. Run one model with:
   ```bash
-  pytest -m single --model-name <Name> src/struphy/models/tests/default_params/
-  mpirun -n 2 python -m pytest -p no:xdist --with-mpi -m single --model-name <Name> src/struphy/models/tests/default_params/
+  pytest -m single --model-name <Name> src/struphy/models/tests/regression/
+  mpirun -n 2 python -m pytest -p no:xdist --with-mpi -m single --model-name <Name> src/struphy/models/tests/regression/
   ```
-  Use `-n 4` instead if the model has particles.
+- These are regression tests: the run (before the restart) is compared with `rtol=1e-6` against the baseline
+  `src/struphy/models/tests/regression/baselines/<case>.json` (scalar time series, norms of the FE coefficients,
+  marker sums), with one entry for 1 and one for 2 MPI ranks. Random marker loading and noise are seeded in the test.
+  A new model, or a new model variant tested with its own `case`, needs a baseline; a change of the numbers
+  (bug fix, new default) needs an update of the baselines. Create or update them with `--update-baselines`:
+  ```bash
+  pytest -m single --model-name <Name> --update-baselines src/struphy/models/tests/regression/
+  mpirun -n 2 python -m pytest -p no:xdist --with-mpi -m single --model-name <Name> --update-baselines src/struphy/models/tests/regression/
+  ```
+  (or `-m models` for all models). Commit the JSON files, and explain in the PR description why the numbers changed.
+  Never update a baseline only to make a failing test pass without understanding the change.
+  The baselines exist for 1 and 2 ranks; runs on more ranks (e.g. `-n 4` for particle models) are not compared.
 - `struphy params <Name>` must produce a valid `params_<Name>.py`.
 - Add a verification test against an analytic or reference result where possible, and where the test is not too expensive. Name it:
   `src/struphy/models/tests/verification/test_verif_<Name>.py` (e.g. `test_verif_Maxwell.py`). It is collected by folder.

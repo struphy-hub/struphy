@@ -3302,7 +3302,7 @@ Increase the value of "box_bufsize" in the markers parameters for the next run.'
             if self.mpi_comm is None:
                 raise RuntimeError(msg)
             warnings.warn(msg)
-            self.mpi_comm.Abort()
+            self.mpi_comm.Abort(1)
 
     def _update_ghost_particles(self):
         """Refresh :attr:`~struphy.pic.base.Particles.ghost_particles`: a marker is flagged
@@ -3951,7 +3951,7 @@ number of holes ({holes_inds.size}) on rank {self.mpi_rank} \
 is smaller than number of incoming particles ({self._send_info_box[self.mpi_rank]}). \
 Increasing the value of "bufsize" in the markers parameters for the next run.',
                 )
-                self.mpi_comm.Abort()
+                self.mpi_comm.Abort(1)
 
                 # _tmp = self.markers.copy()
                 # _n_rows_old = _tmp.shape[0]
@@ -4021,7 +4021,7 @@ number of holes ({hole_inds.size}) on rank {self.mpi_rank} \
 is smaller than number of incoming particles ({first_hole[i] + self._recv_info_box[i]}). \
 Increasing the value of "bufsize" in the markers parameters for the next run.',
                             )
-                            self.mpi_comm.Abort()
+                            self.mpi_comm.Abort(1)
                             # exit()
 
                         self._markers[:, hole_inds[first_hole[i] + xp.arange(self._recv_info_box[i])]] = recvbufs[i]
@@ -4789,7 +4789,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 f"{self.mpi_rank} is smaller than number of incoming particles ({n_recv}). "
                 'Increase "bufsize" in the markers parameters for the next run.',
             )
-            self.mpi_comm.Abort()
+            self.mpi_comm.Abort(1)
 
         first_recv = np.cumsum(recv_info) - recv_info
         receives = []
@@ -5003,7 +5003,7 @@ number of holes ({hole_inds_after_send.size}) on rank {self.mpi_rank} \
 is smaller than number of incoming particles ({first_hole[i] + recv_info[i]}). \
 Increasing the value of "bufsize" in the markers parameters for the next run.',
                             )
-                            self.mpi_comm.Abort()
+                            self.mpi_comm.Abort(1)
 
                         self.markers[:, hole_inds_after_send[first_hole[i] + xp.arange(recv_info[i])]] = self._recvbufs[
                             i
@@ -5060,7 +5060,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
                 f"incoming particles ({n_recv}). "
                 'Increase "bufsize" in the markers parameters for the next run.',
             )
-            self.mpi_comm.Abort()
+            self.mpi_comm.Abort(1)
 
         # one receive buffer (n_cols, n) per source rank: a slice of a common (n_cols, n_recv) buffer would not be
         # contiguous

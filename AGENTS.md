@@ -79,6 +79,9 @@ They list the required structure, documentation, registration and tests; CI chec
   mpirun -n 2 python -m pytest -p no:xdist --with-mpi src/struphy/feec/tests/...
   ```
   `-p no:xdist` is required: with pytest-xdist loaded, `mpi`-marked tests are skipped.
+- The model tests in `src/struphy/models/tests/regression/` compare every model against stored baselines (1 and 2
+  ranks). A change that intentionally changes results must update the baselines in the same PR, see
+  `src/struphy/models/AGENTS.md`.
 - Keep local runs small (e.g. ≤ 32³ cells). Never use the full-size profiling cases as tests.
 
 ## Performance pitfalls
