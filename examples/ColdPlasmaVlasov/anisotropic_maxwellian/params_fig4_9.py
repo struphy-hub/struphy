@@ -4,7 +4,9 @@
 # Please fill in a verbal description of the simulation. 
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
+import argparse
 import logging
+
 import numpy as np
 
 from struphy import (
@@ -31,6 +33,15 @@ from struphy import (
 from struphy.models import ColdPlasmaVlasov
 
 set_logging_level(logging.INFO)
+
+# Command line options; unknown flags are ignored.
+parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Few markers and two time steps, for the tests (test_examples.py).",
+)
+args, _ = parser.parse_known_args()
 
 name = "Thesis geometric benchmark - Run 1"
 
@@ -71,7 +82,7 @@ env = EnvironmentOptions(
 
 time_opts = Time(
     dt=0.0125,
-    Tend=200.0,
+    Tend=2 * 0.0125 if args.test_run else 200.0,
     split_algo="LieTrotter",
 )
 
@@ -116,7 +127,7 @@ sim = Simulation(
 # ----------------
 
 loading_params = LoadingParameters(
-    Np=100000,
+    Np=2000 if args.test_run else 100000,
     loading="pseudo_random",
     seed=1234,
     moments=(0.0, 0.0, 0.0, 0.53, 0.53, 0.20),
