@@ -189,7 +189,7 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 # Boundary conditions at the walls (flux surfaces, B0.n = 0): with --b-space Hdiv, b.n = 0 and u.n = 0 are imposed
 # strongly (Dirichlet). With --b-space Hcurl, free boundary conditions are used: Dirichlet would force the tangential
 # magnetic field to zero (unphysical, it damps the TAE). With free boundary conditions, u.n = 0 holds weakly in the
-# shear Alfven step and p = 0 weakly in the magnetosonic step.
+# shear Alfven step and p = 0 weakly in the sound wave step.
 bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "free")
 derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
 
@@ -216,7 +216,9 @@ sim = Simulation(
 # ------------------
 
 model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond=args.precond)
-model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
+model.propagators.bg_current.options = model.propagators.bg_current.Options()
+model.propagators.sound.options = model.propagators.sound.Options()
+model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 
 # ------------------
 # Initial conditions

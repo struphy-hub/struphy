@@ -1,29 +1,23 @@
-import copy
 from typing import Literal
 
 from feectools.linalg.block import BlockVector
 
-from struphy.io.options import BaseUnits, LiteralOptions
-from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, Scalars, VolumeFormEnergyFEEC
-from struphy.models.species import (
-    FieldSpecies,
-    FluidSpecies,
-)
+from struphy.io.options import BaseUnits
+from struphy.models.linear_euler import LinearEuler
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
+from struphy.models.species import FieldSpecies
 from struphy.models.variables import FEECVariable
-from struphy.polar.basic import PolarVector
 from struphy.propagators.background_current import BackgroundCurrent
-from struphy.propagators.background_pressure_gradient import BackgroundPressureGradient
 from struphy.propagators.base import Propagator
-from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
-from struphy.propagators.sound_wave_linear import SoundWaveLinear
 from struphy.utils.utils import check_option
 
 
-class LinearMHD(StruphyModel):
+class LinearMHD(LinearEuler):
     """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
+
+    Extends :class:`~struphy.models.LinearEuler` by the magnetic field: the Lorentz force and the induction equation.
 
     Parameters
     ----------
@@ -40,58 +34,57 @@ class LinearMHD(StruphyModel):
         Only with ``b_space="Hcurl"``: the curl-curl term of the implicit shear-Alfvén step contains the projection of
         the Lorentz force, which makes this step exactly energy conserving at the price of inner mass matrix solves
         (default: False).
-    split_sound: bool
-        Split the magnetosonic step into the energy conserving sound wave step
-        (:class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear`) and the exact-in-time steps of the background current
-        (:class:`~struphy.propagators.background_current.BackgroundCurrent`) and of the background pressure gradient
-        (:class:`~struphy.propagators.background_pressure_gradient.BackgroundPressureGradient`), instead of the
-        single :class:`~struphy.propagators.magnetosonic.Magnetosonic` step (default: False).
     """
 
     OptsBSpace = Literal["Hdiv", "Hcurl"]
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Fluid"
-
-    ## species
+    ## additional species
 
     class EMFields(FieldSpecies):
         def __init__(self, b_space: str = "Hdiv"):
             self.b_field = FEECVariable(space=b_space)
             self.init_variables()
 
-    class MHD(FluidSpecies):
-        def __init__(
-            self,
-            mass_number: float = 1.0,
-        ):
-            self.density = FEECVariable(space="L2")
-            self.velocity = FEECVariable(space="Hdiv")
-            self.pressure = FEECVariable(space="L2")
-            self.init_variables(mass_number=mass_number)
+    ## additional propagators
 
-    ## propagators
+    class Propagators(LinearEuler.Propagators):
+        """Propagators of :class:`~struphy.models.LinearEuler` plus ``shear_alf`` (shear-Alfvén waves) and
+        ``bg_current`` (force of the background current).
 
-    class Propagators:
+        Parameters
+        ----------
+        b_field : FEECVariable, optional
+            Magnetic field perturbation, used by ``bg_current`` (default: None).
+        b_space : str
+            Space of the magnetic field, ``"Hdiv"`` or ``"Hcurl"`` (default: ``"Hdiv"``).
+        projected : bool
+            Projected curl-curl shear-Alfvén step, only with ``b_space="Hcurl"`` (default: False).
+        **kwargs
+            Passed to :class:`LinearEuler.Propagators <struphy.models.LinearEuler.Propagators>`.
+        """
+
+        splitting_order = ("shear_alf", "bg_current", "bg_pressure", "sound")
+        # the background steps are exact in time but do not commute with the sound wave step: symmetric splitting
+        # of the three keeps the compressional part second order in time (as the former unsplit Magnetosonic step)
+        strang_groups = (("bg_current", "bg_pressure", "sound"),)
+
         def __init__(
             self,
             b_field: FEECVariable = None,
-            u_field: FEECVariable = None,
             b_space: str = "Hdiv",
             projected: bool = False,
-            split_sound: bool = False,
+            **kwargs,
         ):
+            super().__init__(**kwargs)
             if b_space == "Hdiv":
                 self.shear_alf = ShearAlfvenPropagator()
             else:
                 self.shear_alf = ShearAlfvenCurlCurlPropagator(projected=projected)
-            if split_sound:
-                self.bg_current = BackgroundCurrent(b_field=b_field)
-                self.sound = SoundWaveLinear()
-                self.bg_pressure = BackgroundPressureGradient(u_field=u_field)
-            else:
-                self.mag_sonic = Magnetosonic(b_field=b_field)
+            self.bg_current = BackgroundCurrent(b_field=b_field)
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -101,87 +94,61 @@ class LinearMHD(StruphyModel):
         mass_number: float = 1.0,
         b_space: OptsBSpace = "Hdiv",
         projected: bool = False,
-        split_sound: bool = False,
     ):
         check_option(b_space, self.OptsBSpace)
         if projected and b_space != "Hcurl":
             raise ValueError('projected=True requires b_space="Hcurl".')
 
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
+        # for the hooks (see LinearEuler)
+        self._b_space = b_space
+        self._projected = projected
 
-        # 1. instantiate all species
-        self.em_fields = self.EMFields(b_space=b_space)
-        self.mhd = self.MHD(mass_number)
+        # 1.-5. see LinearEuler
+        super().__init__(base_units, mass_number)
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
+    def _create_species(self):
+        """:meta private:"""
+        self.em_fields = self.EMFields(b_space=self._b_space)
+        super()._create_species()
 
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(
-            b_field=self.em_fields.b_field,
-            u_field=self.mhd.velocity,
-            b_space=b_space,
-            projected=projected,
-            split_sound=split_sound,
-        )
+    def _propagator_args(self):
+        """:meta private:"""
+        return {
+            **super()._propagator_args(),
+            "b_field": self.em_fields.b_field,
+            "b_space": self._b_space,
+            "projected": self._projected,
+        }
 
-        # 4. assign variables to propagators
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
         self.propagators.shear_alf.variables.u = self.mhd.velocity
         self.propagators.shear_alf.variables.b = self.em_fields.b_field
 
-        if split_sound:
-            self.propagators.bg_current.variables.u = self.mhd.velocity
+        self.propagators.bg_current.variables.u = self.mhd.velocity
 
-            self.propagators.sound.variables.n = self.mhd.density
-            self.propagators.sound.variables.u = self.mhd.velocity
-            self.propagators.sound.variables.p = self.mhd.pressure
-
-            self.propagators.bg_pressure.variables.p = self.mhd.pressure
-        else:
-            self.propagators.mag_sonic.variables.n = self.mhd.density
-            self.propagators.mag_sonic.variables.u = self.mhd.velocity
-            self.propagators.mag_sonic.variables.p = self.mhd.pressure
-
-        # 5. define scalars to be tracked during simulation
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
-        # The volume integral is retained as a diagnostic of the mean pressure
-        # perturbation.  It is linear and is not part of the linearized energy.
-        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
-        thermal_energy = BilinearEnergyFEEC(
-            self.mhd.pressure,
-            bilinear_form_name="M3p_inv",
-            normalization=1.0 / (5 / 3),
-        )
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
-        background_pressure = FunctionScalarFEEC(self._compute_en_p_eq)
-        background_magnetic = FunctionScalarFEEC(self._compute_en_B_eq)
-        total_magnetic = FunctionScalarFEEC(self._compute_en_B_tot)
-        self.scalars = Scalars(
-            en_U=kinetic_energy,
-            en_p=pressure_energy,
-            en_thermal=thermal_energy,
-            en_B=magnetic_energy,
-            en_p_eq=background_pressure,
-            en_B_eq=background_magnetic,
-            en_B_tot=total_magnetic,
-            en_tot=kinetic_energy + thermal_energy + magnetic_energy,
-        )
-
-    @property
-    def bulk_species(self):
-        return self.mhd
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        # en_tot of LinearEuler is replaced by the one including the magnetic energy (and kept last)
+        en_tot = scalars.pop("en_tot")
+        en_B = BilinearEnergyFEEC(self.em_fields.b_field)
+        scalars["en_B"] = en_B
+        scalars["en_B_eq"] = FunctionScalarFEEC(self._compute_en_B_eq)
+        scalars["en_B_tot"] = FunctionScalarFEEC(self._compute_en_B_tot)
+        scalars["en_tot"] = en_tot + en_B
+        return scalars
 
     @property
     def velocity_scale(self):
         return "alfvén"
 
     def post_allocate(self):
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
+        """:meta private:"""
+        super().post_allocate()
 
         # background magnetic field and mass matrix in the space of the perturbation (2-form, or 1-form with
         # b_space="Hcurl")
@@ -198,9 +165,6 @@ class LinearMHD(StruphyModel):
     def _compute_en_B_eq(self):
         self._M_b.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
         return self._b_eq.inner(self._tmp_b1) / 2
-
-    def _compute_en_p_eq(self):
-        return Propagator.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
 
     def _compute_en_B_tot(self):
         self._b_eq.copy(out=self._tmp_b1)
@@ -289,48 +253,24 @@ class LinearMHD(StruphyModel):
         - Total perturbed energy: :math:`E_{\mathrm{tot}} = E_U + E_B + E_{\mathrm{thermal}}` (``en_tot``). Its
           change by the shear-Alfvén step is zero (up to the solver tolerances) with ``b_space="Hdiv"`` and with
           ``b_space="Hcurl", projected=True``; with ``b_space="Hcurl"``, ``projected=False`` this step damps it
-          numerically (the damping vanishes with the resolution along the background field). With
-          ``split_sound=True``, its change by the sound wave step is zero too (up to the solver tolerances).
+          numerically (the damping vanishes with the resolution along the background field). Its change by the sound
+          wave step is zero too (up to the solver tolerances); the background current and background pressure steps
+          change it only for :math:`\nabla \times \mathbf B_0 \neq 0` or :math:`\nabla p_0 \neq 0`.
         - Equilibrium magnetic energy: :math:`E_{B0} = \frac{1}{2} \int \frac{|\mathbf{B}_0|^2}{\mu_0} \, \mathrm{d}V`
         - Equilibrium internal energy: :math:`E_{p0} = \int \frac{p_0}{\gamma - 1} \, \mathrm{d}V`
         - Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`"""
 
     @classmethod
     def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` (``b_space="Hdiv"``) or
-           :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`
-           (``b_space="Hcurl"``)
-        2. :class:`~struphy.propagators.magnetosonic.Magnetosonic` (``split_sound=False``), or, with
-           ``split_sound=True``, the three steps
-           :class:`~struphy.propagators.background_current.BackgroundCurrent`,
-           :class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear` and
-           :class:`~struphy.propagators.background_pressure_gradient.BackgroundPressureGradient`"""
-        doc = rf"""**1. ShearAlfvenPropagator** (``b_space="Hdiv"``):
-
-{ShearAlfvenPropagator.__doc__}
-
-**1. ShearAlfvenCurlCurlPropagator** (``b_space="Hcurl"``):
-
-{ShearAlfvenCurlCurlPropagator.__doc__}
-
-**2. Magnetosonic** (``split_sound=False``):
-
-{Magnetosonic.__doc__}
-
-**2. BackgroundCurrent** (``split_sound=True``):
-
-{BackgroundCurrent.__doc__}
-
-**3. SoundWaveLinear** (``split_sound=True``):
-
-{SoundWaveLinear.__doc__}
-
-**4. BackgroundPressureGradient** (``split_sound=True``):
-
-{BackgroundPressureGradient.__doc__}
-"""
+        """Time integration is performed by the following propagators (in sequence). The shear-Alfvén step
+        ``shear_alf`` is :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` for
+        ``b_space="Hdiv"`` (listed below) and
+        :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator` for
+        ``b_space="Hcurl"`` (at the end):"""
+        doc = cls.propagators_doc()
+        doc += '**1. shear_alf** with ``b_space="Hcurl"`` '
+        doc += "(:class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`):\n\n"
+        doc += f"{ShearAlfvenCurlCurlPropagator.__doc__}\n"
         return doc
 
     @classmethod
@@ -363,7 +303,7 @@ class LinearMHD(StruphyModel):
         (default), :math:`\tilde{\mathbf B}` is a 2-form and the induction equation holds strongly. With ``"Hcurl"``,
         :math:`\tilde{\mathbf B}` is a 1-form, the induction equation is weak and the implicit shear-Alfvén step solves a
         field-aligned curl-curl system for the magnetic field, preconditioned by Hiptmair-Xu, which allows large time
-        steps; the force :math:`(\nabla \times \mathbf B_0) \times \tilde{\mathbf B}` of the magnetosonic step then
+        steps; the force :math:`(\nabla \times \mathbf B_0) \times \tilde{\mathbf B}` of the background current step then
         enters through the mixed mass matrix :attr:`~struphy.feec.mass.WeightedMassOperators.M21J`. This shear-Alfvén
         step damps the waves numerically, with a damping that vanishes quickly with the resolution along the
         background field; ``projected=True`` gives the exactly energy conserving version, at the price of an inner mass
@@ -373,16 +313,22 @@ class LinearMHD(StruphyModel):
         tangential components of the magnetic field to zero on that boundary, which is unphysical at a wall with
         :math:`\mathbf B_0 \cdot \mathbf n = 0`. Free boundary conditions are therefore recommended: they impose
         :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` weakly in the shear-Alfvén step and :math:`\tilde p = 0` weakly in
-        the magnetosonic step (natural boundary condition of the pressure term).
+        the sound wave step (natural boundary condition of the pressure term).
 
-        With ``split_sound=True``, the magnetosonic step is split into three steps: the sound wave step, which
+        The species, the sound wave step and the background pressure step are inherited from
+        :class:`~struphy.models.LinearEuler`. The compressional part of the time step thus consists of three steps:
+        the sound wave step, which
         conserves the energy :math:`\frac 12 \int \rho_0 |\tilde{\mathbf U}|^2 \,\textnormal d \mathbf x
         + \frac{1}{2\gamma} \int \tilde p^2 / p_0 \,\textnormal d \mathbf x` exactly (Crank-Nicolson with the
         :math:`1/p_0`-weighted pressure equation), and the steps of the two terms that change the perturbed energy for
         general equilibria, :math:`(\nabla \times \mathbf B_0) \times \tilde{\mathbf B}` in the momentum equation
         and :math:`- \tilde{\mathbf U} \cdot \nabla p_0` in the pressure equation, which are solved exactly in time.
-        For an equilibrium with :math:`\nabla p_0 = 0` and :math:`\nabla \times \mathbf B_0 = 0`, the scheme with
-        ``split_sound=True`` is thus energy conserving up to the solver tolerances (with ``b_space="Hdiv"`` or
+        The three steps do not commute; they form one block of the splitting with symmetric (Strang) splitting, the
+        sound wave step in the middle, so that the compressional part is second order in time as the former unsplit
+        magnetosonic step (with Lie-Trotter sequencing of the three steps the frequencies of modes coupled to the
+        compressional dynamics, e.g. TAEs in a torus, are wrong for large time steps).
+        For an equilibrium with :math:`\nabla p_0 = 0` and :math:`\nabla \times \mathbf B_0 = 0`, the scheme is thus
+        energy conserving up to the solver tolerances (with ``b_space="Hdiv"`` or
         ``projected=True``)."""
 
     @classmethod
@@ -408,9 +354,6 @@ class LinearMHD(StruphyModel):
 
             # magnetic field in H(curl), exactly energy conserving shear-Alfvén step
             model_cc = LinearMHD(b_space="Hcurl", projected=True)
-
-            # magnetosonic step split into the sound wave step and the background steps
-            model_split = LinearMHD(split_sound=True)
         """
 
     @classmethod
