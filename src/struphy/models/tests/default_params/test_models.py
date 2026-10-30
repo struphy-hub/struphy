@@ -158,16 +158,16 @@ def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path):
 @pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
 def test_linear_mhd_inherits_linear_euler(b_space: str, tmp_path):
     """LinearMHD inherits the propagators of LinearEuler (sound wave and background pressure steps), in the
-    splitting order shear_alf, bg_current, sound, bg_pressure, also in the generated parameter file."""
+    splitting order shear_alf, bg_current, bg_pressure, sound, also in the generated parameter file."""
     from struphy.io.setup import import_parameters_py
 
     model = models_utils.get_model_by_name("LinearMHD")(b_space=b_space)
-    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
     path = os.path.join(tmp_path, "params_LinearMHD.py")
     model.generate_default_parameter_file(path=path, prompt=False)
     params_model = import_parameters_py(path).model
     assert params_model.params["b_space"] == b_space
-    assert list(vars(params_model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    assert list(vars(params_model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
 
 
 @pytest.mark.single

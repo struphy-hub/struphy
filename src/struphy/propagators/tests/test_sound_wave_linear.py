@@ -84,7 +84,7 @@ def test_options():
     with pytest.raises(AssertionError):
         SoundWaveLinear().variables.u = LinearMHD().mhd.pressure
     model = LinearMHD()
-    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
     assert model.propagators.bg_pressure.u_field is model.mhd.velocity
     assert model.propagators.bg_current.b_field is model.em_fields.b_field
 

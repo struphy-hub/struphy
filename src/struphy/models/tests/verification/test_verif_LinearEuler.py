@@ -209,12 +209,12 @@ def test_conservation_nonuniform_density():
     _cleanup()
 
 
-@pytest.mark.parametrize("split_algo, order", [("LieTrotter", 1), ("Strang", 2)])
-def test_time_convergence_order(split_algo: str, order: int):
+def test_time_convergence_order(split_algo: str = "LieTrotter"):
     """Self-convergence in dt of the split time stepping, for a non-uniform equilibrium pressure such that the
     background pressure step does not commute with the sound wave step: the differences of the pressure between
-    successive halvings of dt decrease with the order of the splitting (the sound wave step is second order). The
-    short end time keeps the splitting error dominant over the error of the sound wave step for Lie-Trotter.
+    successive halvings of dt decrease with second order, with either splitting algorithm, since the two steps form one
+    symmetric (Strang) block (``Propagators.strang_groups``; with Lie-Trotter sequencing of the two steps the order
+    would be one, visible at this short end time).
     The time steps are taken with ``model.integrate`` (as in ``Simulation.run``), since the callable equilibrium can
     not be written to the run metadata."""
     Tend = 0.05
@@ -246,7 +246,7 @@ def test_time_convergence_order(split_algo: str, order: int):
     diffs = [_global_max(float(np.max(np.abs(a - b)))) for a, b in zip(finals[:-1], finals[1:])]
     rates = [np.log2(d0 / d1) for d0, d1 in zip(diffs[:-1], diffs[1:])]
     logger.info(f"{split_algo}: {diffs = }, {rates = }")
-    assert all(abs(rate - order) < 0.1 for rate in rates)
+    assert all(abs(rate - 2) < 0.1 for rate in rates)
     _cleanup()
 
 
@@ -254,5 +254,4 @@ if __name__ == "__main__":
     test_sound_wave_dispersion_1d()
     test_standing_wave_colella()
     test_conservation_nonuniform_density()
-    test_time_convergence_order("LieTrotter", 1)
-    test_time_convergence_order("Strang", 2)
+    test_time_convergence_order()

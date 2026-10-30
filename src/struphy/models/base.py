@@ -47,6 +47,8 @@ def apply_splitting_order(propagators) -> None:
     if order is None:
         order = getattr(propagators, "splitting_order", None)
     if order is None:
+        # validate the groups of the symmetric splitting
+        splitting_blocks(propagators)
         return
 
     order = tuple(order)
@@ -58,6 +60,68 @@ def apply_splitting_order(propagators) -> None:
     reordered = {name: attrs[name] for name in order}
     attrs.clear()
     attrs.update(reordered)
+    splitting_blocks(propagators)
+
+
+def splitting_blocks(propagators) -> list[tuple[str, ...]]:
+    """The blocks of the time splitting of a ``Propagators`` instance (in splitting order), as tuples of propagator
+    names.
+
+    A block is a single propagator, or a group of consecutive propagators listed in the optional class attribute
+    ``strang_groups`` of ``Propagators`` (a tuple of tuples of names). The model's splitting (Lie-Trotter or Strang)
+    treats each block as one step; a group is integrated with symmetric Strang splitting over its members, the last
+    member in the middle with the full step: for ``("a", "b", "c")`` and step ``h``,
+    ``a(h/2) b(h/2) c(h) b(h/2) a(h/2)``. This makes the group second order in time, e.g. for steps that are
+    exact in time but do not commute.
+
+    Parameters
+    ----------
+    propagators : object
+        Instance of the inner class ``Propagators`` of a model, in splitting order.
+    """
+    names = [name for name, prop in vars(propagators).items() if isinstance(prop, Propagator)]
+    groups = [tuple(group) for group in getattr(type(propagators), "strang_groups", ())]
+    blocks, i = [], 0
+    while i < len(names):
+        group = next((g for g in groups if g[0] == names[i]), None)
+        if group is None:
+            blocks.append((names[i],))
+            i += 1
+        else:
+            if tuple(names[i : i + len(group)]) != group:
+                raise ValueError(
+                    f"strang_groups {group} of {type(propagators).__qualname__} must be consecutive propagators in the "
+                    f"splitting order {tuple(names)}."
+                )
+            blocks.append(group)
+            i += len(group)
+    grouped = [name for block in blocks if len(block) > 1 for name in block]
+    if sorted(grouped) != sorted(name for group in groups for name in group):
+        raise ValueError(f"strang_groups {groups} of {type(propagators).__qualname__} must name propagators {names}.")
+    return blocks
+
+
+def time_steps_of_blocks(blocks: list, dt: float, split_algo: str) -> list[tuple[str, float, int]]:
+    """The calls of one time step: ``(propagator name, time step, block index)`` in the order of
+    :meth:`StruphyModel.integrate`, for the blocks of :func:`splitting_blocks`."""
+
+    def block_calls(b, h):
+        block = blocks[b]
+        if len(block) == 1:
+            return [(block[0], h, b)]
+        inner = [(name, h / 2, b) for name in block[:-1]]
+        return inner + [(block[-1], h, b)] + inner[::-1]
+
+    if split_algo == "LieTrotter" or len(blocks) == 1:
+        return [call for b in range(len(blocks)) for call in block_calls(b, dt)]
+    if split_algo == "Strang":
+        first = [call for b in range(len(blocks) - 1) for call in block_calls(b, dt / 2)]
+        return (
+            first
+            + block_calls(len(blocks) - 1, dt)
+            + [call for b in reversed(range(len(blocks) - 1)) for call in block_calls(b, dt / 2)]
+        )
+    raise NotImplementedError(f"Splitting scheme {split_algo} not available.")
 
 
 # model flags that switched propagators (terms of the equations) on or off, removed in favour of models defined by
@@ -399,6 +463,15 @@ class StruphyModel(metaclass=StruphyModelMeta):
         of each propagator class."""
         intro = inspect.cleandoc(cls.doc_discretization.__doc__ or "")
         doc = intro + "\n\n"
+        for group in getattr(cls.Propagators, "strang_groups", ()):
+            names = ", ".join(f"``{name}``" for name in group)
+            half = "".join(f"``{name}(h/2)`` " for name in group[:-1])
+            doc += (
+                f"The propagators {names} form one block of the splitting, integrated with symmetric Strang "
+                f"splitting (second order in time): {half}``{group[-1]}(h)`` "
+                + "".join(f"``{name}(h/2)`` " for name in group[-2::-1])
+                + "for the block step ``h``.\n\n"
+            )
         for n, (name, prop) in enumerate(cls.propagators_in_splitting_order().items(), start=1):
             prop_cls = type(prop)
             doc += f"**{n}. {name}** (:class:`~{prop_cls.__module__}.{prop_cls.__name__}`):\n\n"
@@ -674,40 +747,28 @@ class StruphyModel(metaclass=StruphyModelMeta):
             Time step of time integration.
 
         split_algo : str
-            Splitting algorithm. Currently available: "LieTrotter" and "Strang".
+            Splitting algorithm. Currently available: "LieTrotter" (first order) and "Strang" (second order). The
+            groups in ``Propagators.strang_groups`` are integrated symmetrically as one block of the splitting, see
+            :func:`splitting_blocks`.
         """
+        for name, h in self.propagator_calls(dt, split_algo):
+            propagator = getattr(self.propagators, name)
+            with ProfileManager.profile_region("prop: " + type(propagator).__name__, functions=[propagator.__call__]):
+                propagator(h)
 
-        # first order in time
-        if split_algo == "LieTrotter":
-            for propagator in self.prop_list:
-                prop_name = propagator.__class__.__name__
+    def propagator_calls(self, dt: float, split_algo: str = "LieTrotter") -> list[tuple[str, float]]:
+        """The propagator calls of one time step of :meth:`integrate`, as ``(propagator name, time step)`` in order.
 
-                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
-                    propagator(dt)
+        Parameters
+        ----------
+        dt : float
+            Time step of time integration.
 
-        # second order in time
-        elif split_algo == "Strang":
-            assert len(self.prop_list) > 1
-
-            for propagator in self.prop_list[:-1]:
-                prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
-                    propagator(dt / 2)
-
-            propagator = self.prop_list[-1]
-            prop_name = type(propagator).__name__
-            with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
-                propagator(dt)
-
-            for propagator in self.prop_list[:-1][::-1]:
-                prop_name = type(propagator).__name__
-                with ProfileManager.profile_region("prop: " + prop_name, functions=[propagator.__call__]):
-                    propagator(dt / 2)
-
-        else:
-            raise NotImplementedError(
-                f"Splitting scheme {split_algo} not available.",
-            )
+        split_algo : str
+            Splitting algorithm, "LieTrotter" or "Strang".
+        """
+        blocks = splitting_blocks(self.propagators)
+        return [(name, h) for name, h, _ in time_steps_of_blocks(blocks, dt, split_algo)]
 
     @profile
     def update_markers_to_be_saved(self):

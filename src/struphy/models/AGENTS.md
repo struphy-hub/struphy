@@ -52,6 +52,11 @@ and the convergence order of the time stepping. When a new family is created, ad
 - **`Propagators`** inner class. Its `__init__` creates propagator instances as attributes. **The attribute order is
   the splitting order** used by Lie-Trotter/Strang, unless `Propagators` defines a tuple `splitting_order` with the
   names of all propagators (class attribute, or set in `__init__`); `apply_splitting_order` in `base.py` reorders them.
+  Consecutive propagators that do not commute but must stay second order in time (e.g. steps that are exact in time
+  each, such as the background steps around `sound` in the LinearEuler family) can be listed in the class attribute
+  `strang_groups` (tuple of tuples of names): each group is one block of the splitting, integrated symmetrically with
+  its last member in the middle (`splitting_blocks` in `base.py`). With plain Lie-Trotter sequencing such steps can
+  give wrong frequencies at large time steps.
 - **`__init__`**, with the numbered steps:
   0. `self._store_params(locals())`. All constructor arguments need defaults, and only
      bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization;
