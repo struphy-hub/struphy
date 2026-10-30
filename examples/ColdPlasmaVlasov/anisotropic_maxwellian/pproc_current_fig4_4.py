@@ -1,12 +1,13 @@
 import os
+
 import h5py
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Current geometric/FEM STRUPHY counterpart of thesis Fig. 4.4.
 # Uses the completed current run; no simulation is performed.
 
-RUN = "thesis_run1_fig4_9"
+RUN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sim_fig4_9")
 H5 = os.path.join(RUN, "data", "data_proc0.hdf5")
 OUT = os.path.join(RUN, "figures")
 os.makedirs(OUT, exist_ok=True)
@@ -28,18 +29,20 @@ if decomp_err > 1e-12 * max(1.0, np.max(np.abs(en_tot))):
 E0 = en_tot[0]
 rel_err = np.abs(en_tot - E0) / abs(E0)
 
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["DejaVu Serif"],
-    "mathtext.fontset": "cm",
-    "font.size": 7,
-    "axes.titlesize": 7,
-    "axes.labelsize": 7,
-    "xtick.labelsize": 6,
-    "ytick.labelsize": 6,
-    "legend.fontsize": 6,
-    "axes.linewidth": 0.7,
-})
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.serif": ["DejaVu Serif"],
+        "mathtext.fontset": "cm",
+        "font.size": 7,
+        "axes.titlesize": 7,
+        "axes.labelsize": 7,
+        "xtick.labelsize": 6,
+        "ytick.labelsize": 6,
+        "legend.fontsize": 6,
+        "axes.linewidth": 0.7,
+    }
+)
 
 fig, ax = plt.subplots(figsize=(3.4, 2.2))
 ax.semilogy(t, rel_err, color="purple", lw=0.9)
@@ -50,7 +53,7 @@ ax.set_ylabel(r"$|\mathcal{E}(t)-\mathcal{E}(0)|/\mathcal{E}(0)$")
 ax.set_xlim(0, 200)
 ax.set_ylim(1e-10, 1e1)
 
-fig.subplots_adjust(left=.20, right=.985, bottom=.22, top=.82)
+fig.subplots_adjust(left=0.20, right=0.985, bottom=0.22, top=0.82)
 fig.savefig(os.path.join(OUT, "Figure_4_4_current.png"), dpi=400)
 fig.savefig(os.path.join(OUT, "Figure_4_4_current.pdf"))
 plt.close(fig)

@@ -1,7 +1,8 @@
 import os
 import pickle
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 BASE = "thesis_postprocess_validation/post_processing"
 FIELDS = os.path.join(BASE, "fields_data")
@@ -12,9 +13,7 @@ os.makedirs(OUT, exist_ok=True)
 with open(os.path.join(FIELDS, "grids_phy.bin"), "rb") as f:
     grids = pickle.load(f)
 
-with open(
-    os.path.join(FIELDS, "em_fields/b_field_phy.bin"), "rb"
-) as f:
+with open(os.path.join(FIELDS, "em_fields/b_field_phy.bin"), "rb") as f:
     B = pickle.load(f)
 
 z = np.asarray(grids[2])[0, 0, :]
@@ -39,10 +38,7 @@ A_fit = np.dot(Bx, basis) / np.dot(basis, basis)
 
 fit = A_fit * basis
 
-relative_residual = (
-    np.linalg.norm(Bx - fit) /
-    np.linalg.norm(Bx)
-)
+relative_residual = np.linalg.norm(Bx - fit) / np.linalg.norm(Bx)
 
 print("============================================================")
 print("INITIAL MAGNETIC FIELD VALIDATION")

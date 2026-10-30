@@ -1,14 +1,14 @@
 from pathlib import Path
+
 import h5py
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from maybempi import MPI
 
 from struphy.bsplines.evaluation_kernels_3d import evaluate_3d
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
-from feectools.ddm.mpi import mpi as MPI
-
 
 # ============================================================
 # Current-method Fig. 4.2 post-processing
@@ -21,7 +21,7 @@ from feectools.ddm.mpi import mpi as MPI
 # ============================================================
 
 ROOT = Path(__file__).resolve().parent
-RUN = ROOT / "thesis_run1_fig4_9"
+RUN = ROOT / "sim_fig4_9"
 H5 = RUN / "data" / "data_proc0.hdf5"
 OUT = RUN / "post_processing"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -120,9 +120,7 @@ bx0_logical = evaluate_3d(
 # transformation gives physical B_x = logical B_x / pi.
 bx0_physical = bx0_logical / np.pi
 
-relative_error_bx0 = (
-    abs(bx0_physical - EXPECTED_BX0) / abs(EXPECTED_BX0)
-)
+relative_error_bx0 = abs(bx0_physical - EXPECTED_BX0) / abs(EXPECTED_BX0)
 
 print()
 print("INITIAL-FIELD CHECK")
@@ -140,10 +138,7 @@ if np.sign(bx0_physical) != np.sign(EXPECTED_BX0):
     raise RuntimeError("FEEC reconstruction has the wrong initial-field sign.")
 
 if not (0.95 <= abs(bx0_physical / EXPECTED_BX0) <= 1.05):
-    raise RuntimeError(
-        "FEEC reconstruction has an unexpectedly large initial-field "
-        "amplitude error."
-    )
+    raise RuntimeError("FEEC reconstruction has an unexpectedly large initial-field amplitude error.")
 
 print("INITIAL FIELD: PASS — discrete FEEC representation")
 
@@ -226,17 +221,19 @@ print(f"frequency-bin spacing = {freq[1] - freq[0]:.8f}")
 # ------------------------------------------------------------
 # Final thesis-style current-method Fig. 4.2
 # ------------------------------------------------------------
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["DejaVu Serif"],
-    "mathtext.fontset": "cm",
-    "font.size": 8,
-    "axes.labelsize": 8,
-    "axes.titlesize": 8,
-    "xtick.labelsize": 7,
-    "ytick.labelsize": 7,
-    "axes.linewidth": 0.7,
-})
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.serif": ["DejaVu Serif"],
+        "mathtext.fontset": "cm",
+        "font.size": 8,
+        "axes.labelsize": 8,
+        "axes.titlesize": 8,
+        "xtick.labelsize": 7,
+        "ytick.labelsize": 7,
+        "axes.linewidth": 0.7,
+    }
+)
 
 fig, ax = plt.subplots(figsize=(3.6, 2.5))
 

@@ -1,14 +1,10 @@
 import os
+
 import numpy as np
 
-BASE = (
-    "thesis_postprocess_validation/post_processing/"
-    "kinetic_data/hot_elec/distribution_function/v1_v3_density"
-)
+BASE = "thesis_postprocess_validation/post_processing/kinetic_data/hot_elec/distribution_function/v1_v3_density"
 
-TIME_PATH = (
-    "thesis_postprocess_validation/post_processing/t_grid.npy"
-)
+TIME_PATH = "thesis_postprocess_validation/post_processing/t_grid.npy"
 
 t = np.load(TIME_PATH)
 
@@ -21,41 +17,17 @@ dv3 = np.mean(np.diff(v3))
 
 
 def moments(Fi):
-
     norm = np.sum(Fi) * dv1 * dv3
 
-    mean1 = (
-        np.sum(v1[:, None] * Fi)
-        * dv1 * dv3 / norm
-    )
+    mean1 = np.sum(v1[:, None] * Fi) * dv1 * dv3 / norm
 
-    mean3 = (
-        np.sum(v3[None, :] * Fi)
-        * dv1 * dv3 / norm
-    )
+    mean3 = np.sum(v3[None, :] * Fi) * dv1 * dv3 / norm
 
-    var1 = (
-        np.sum(
-            (v1[:, None] - mean1) ** 2 * Fi
-        )
-        * dv1 * dv3 / norm
-    )
+    var1 = np.sum((v1[:, None] - mean1) ** 2 * Fi) * dv1 * dv3 / norm
 
-    var3 = (
-        np.sum(
-            (v3[None, :] - mean3) ** 2 * Fi
-        )
-        * dv1 * dv3 / norm
-    )
+    var3 = np.sum((v3[None, :] - mean3) ** 2 * Fi) * dv1 * dv3 / norm
 
-    covariance = (
-        np.sum(
-            (v1[:, None] - mean1)
-            * (v3[None, :] - mean3)
-            * Fi
-        )
-        * dv1 * dv3 / norm
-    )
+    covariance = np.sum((v1[:, None] - mean1) * (v3[None, :] - mean3) * Fi) * dv1 * dv3 / norm
 
     return (
         norm,
@@ -78,13 +50,7 @@ covariance = results[:, 5]
 
 anisotropy = sigma1**2 / sigma3**2
 
-relative_change = np.array(
-    [
-        np.linalg.norm(Fi - F[0])
-        / np.linalg.norm(F[0])
-        for Fi in F
-    ]
-)
+relative_change = np.array([np.linalg.norm(Fi - F[0]) / np.linalg.norm(F[0]) for Fi in F])
 
 marginal_v1_initial = np.sum(F[0], axis=1) * dv3
 marginal_v1_final = np.sum(F[-1], axis=1) * dv3
@@ -92,19 +58,9 @@ marginal_v1_final = np.sum(F[-1], axis=1) * dv3
 marginal_v3_initial = np.sum(F[0], axis=0) * dv1
 marginal_v3_final = np.sum(F[-1], axis=0) * dv1
 
-v1_change = (
-    np.linalg.norm(
-        marginal_v1_final - marginal_v1_initial
-    )
-    / np.linalg.norm(marginal_v1_initial)
-)
+v1_change = np.linalg.norm(marginal_v1_final - marginal_v1_initial) / np.linalg.norm(marginal_v1_initial)
 
-v3_change = (
-    np.linalg.norm(
-        marginal_v3_final - marginal_v3_initial
-    )
-    / np.linalg.norm(marginal_v3_initial)
-)
+v3_change = np.linalg.norm(marginal_v3_final - marginal_v3_initial) / np.linalg.norm(marginal_v3_initial)
 
 print("============================================================")
 print("DISTRIBUTION MOMENT ANALYSIS")

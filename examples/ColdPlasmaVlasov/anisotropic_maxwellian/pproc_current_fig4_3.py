@@ -17,12 +17,13 @@ have already been materialized.
 """
 
 from pathlib import Path
+
 import h5py
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 ROOT = Path(__file__).resolve().parent
-RUN = ROOT / "thesis_run1_full"
+RUN = ROOT / "sim_fig4_9"
 H5 = RUN / "data" / "data_proc0.hdf5"
 OUT = RUN / "post_processing" / "current_fig4_3"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -34,11 +35,13 @@ V_RESONANCE = abs((OMEGA_R - 1.0) / K)
 if not H5.is_file():
     raise FileNotFoundError(f"Missing completed simulation output:\n{H5}")
 
+
 def centers(ds, axis):
     key = f"bin_centers_{axis}"
     if key not in ds.attrs:
         raise KeyError(f"Missing HDF5 attribute {key!r} on {ds.name}")
     return np.asarray(ds.attrs[key], dtype=float)
+
 
 print("=" * 72)
 print("CURRENT FIG. 4.3 — VELOCITY-DISTRIBUTION POST-PROCESSING")
@@ -63,9 +66,7 @@ with h5py.File(H5, "r") as f:
 if f_v3_all.ndim != 2:
     raise RuntimeError(f"Expected v3_density to be 2-D, got {f_v3_all.shape}")
 if f_v1v3_all.ndim != 3:
-    raise RuntimeError(
-        f"Expected v1_v3_density to be 3-D, got {f_v1v3_all.shape}"
-    )
+    raise RuntimeError(f"Expected v1_v3_density to be 3-D, got {f_v1v3_all.shape}")
 
 if not np.allclose(v3, v3_2d):
     raise RuntimeError("v3 grids from 1-D and 2-D diagnostics do not match.")
@@ -102,12 +103,8 @@ norm_v3_f = np.sum(f_v3_f) * dv3
 norm_2d_0 = np.sum(F0) * dv1 * dv3
 norm_2d_f = np.sum(Ff) * dv1 * dv3
 
-marginal_err_0 = np.linalg.norm(f_v3_from_2d_0 - f_v3_0) / max(
-    np.linalg.norm(f_v3_0), 1e-300
-)
-marginal_err_f = np.linalg.norm(f_v3_from_2d_f - f_v3_f) / max(
-    np.linalg.norm(f_v3_f), 1e-300
-)
+marginal_err_0 = np.linalg.norm(f_v3_from_2d_0 - f_v3_0) / max(np.linalg.norm(f_v3_0), 1e-300)
+marginal_err_f = np.linalg.norm(f_v3_from_2d_f - f_v3_f) / max(np.linalg.norm(f_v3_f), 1e-300)
 
 print(f"v3 integral at t=0   : {norm_v3_0:.8e}")
 print(f"v3 integral at t=T   : {norm_v3_f:.8e}")
@@ -119,18 +116,20 @@ print(f"v3 marginal relative error at t=T: {marginal_err_f:.8e}")
 # ------------------------------------------------------------------
 # Plotting style kept compact and thesis-like.
 # ------------------------------------------------------------------
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.serif": ["DejaVu Serif"],
-    "mathtext.fontset": "cm",
-    "font.size": 7,
-    "axes.titlesize": 7,
-    "axes.labelsize": 7,
-    "xtick.labelsize": 6,
-    "ytick.labelsize": 6,
-    "legend.fontsize": 6,
-    "axes.linewidth": 0.7,
-})
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.serif": ["DejaVu Serif"],
+        "mathtext.fontset": "cm",
+        "font.size": 7,
+        "axes.titlesize": 7,
+        "axes.labelsize": 7,
+        "xtick.labelsize": 6,
+        "ytick.labelsize": 6,
+        "legend.fontsize": 6,
+        "axes.linewidth": 0.7,
+    }
+)
 
 fig, ax = plt.subplots(2, 2, figsize=(5.8, 4.35))
 

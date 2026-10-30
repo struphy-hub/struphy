@@ -1,15 +1,11 @@
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
-BASE = (
-    "thesis_postprocess_validation/post_processing/"
-    "kinetic_data/hot_elec/distribution_function/e3_density"
-)
+BASE = "thesis_postprocess_validation/post_processing/kinetic_data/hot_elec/distribution_function/e3_density"
 
-TIME_PATH = (
-    "thesis_postprocess_validation/post_processing/t_grid.npy"
-)
+TIME_PATH = "thesis_postprocess_validation/post_processing/t_grid.npy"
 
 OUT = "validation_plots"
 os.makedirs(OUT, exist_ok=True)
@@ -40,9 +36,7 @@ print("final =", integrals[-1])
 print("minimum =", np.min(integrals))
 print("maximum =", np.max(integrals))
 
-relative_variation = np.max(
-    np.abs(integrals - integrals[0])
-) / abs(integrals[0])
+relative_variation = np.max(np.abs(integrals - integrals[0])) / abs(integrals[0])
 
 print("maximum relative variation =", relative_variation)
 
