@@ -12,6 +12,17 @@ from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.topology import grids
 
 
+def _magnetosonic(model):
+    """The magnetosonic step of the variables of an allocated LinearMHD model (which uses the split sound wave and
+    background steps instead)."""
+    mag_sonic = Magnetosonic(b_field=model.em_fields.b_field)
+    mag_sonic.variables.n = model.mhd.density
+    mag_sonic.variables.u = model.mhd.velocity
+    mag_sonic.variables.p = model.mhd.pressure
+    mag_sonic.allocate()
+    return mag_sonic
+
+
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 @pytest.mark.parametrize("with_equil_background", [False, True])
 def test_magnetosonic_uses_shared_b_field(tmp_path, algo, with_equil_background):
@@ -34,15 +45,25 @@ def test_magnetosonic_uses_shared_b_field(tmp_path, algo, with_equil_background)
     )
     sim.allocate()
 
-    b = model.em_fields.b_field.spline.vector
+    # the shared b_field (with its initial condition) before Magnetosonic is allocated: it must neither be
+    # re-allocated nor re-initialized by the allocation
+    spline = model.em_fields.b_field.spline
+    b = spline.vector
+    b_init = b.toarray().copy()
+    assert xp.max(xp.abs(b_init)) > 0.0
+    mag_sonic = _magnetosonic(model)
+    assert model.em_fields.b_field.spline is spline
+    assert model.em_fields.b_field.spline.vector is b
+    assert xp.array_equal(b.toarray(), b_init)
+
     shear_alf = model.propagators.shear_alf
-    assert model.propagators.mag_sonic._b is b
+    assert mag_sonic._b is b
     assert shear_alf.variables.b.spline.vector is b
     if algo == "explicit":
         assert any(v is b for v in shear_alf._ode_solver.vector_field)
 
     b0 = b.toarray().copy()
-    for prop in model.prop_list:
+    for prop in (shear_alf, mag_sonic):
         prop(0.05)
     assert xp.max(xp.abs(model.em_fields.b_field.spline.vector.toarray() - b0)) > 0.0
 
@@ -73,7 +94,7 @@ def _lorentz_force_difference(tmp_path, num_elements):
 
     mass_ops = Propagator.mass_ops
     equil = Propagator.projected_equil
-    assert model.propagators.mag_sonic._MJ is mass_ops.M21J
+    assert _magnetosonic(model)._MJ is mass_ops.M21J
 
     M2_inv = inverse(mass_ops.M2, "pcg", pc=MassMatrixPreconditioner(mass_ops.M2), tol=1e-12, maxiter=1000)
     f2 = M2_inv.dot(mass_ops.M2J.dot(equil.b2))

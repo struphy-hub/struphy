@@ -23,6 +23,26 @@ Before adding a model, search the `doc_pde` of the existing models for the same 
   switched off is a different model; express it by inheritance as above.
 See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
 
+## Model families (check these first)
+
+Models whose equations extend those of another model are organized in families: a parent model and children that
+inherit from it and add terms (propagators). **Whenever a user wants to implement a new model, first check whether
+its equations are those of a family member plus new terms.** If so, tell the user which family (and parent) it fits
+and **ask whether to add it to that family** as a child, before writing code. The families (sections of
+`doc/sections/subsections/models-all.rst`):
+
+- **Vlasov family**: `Vlasov` → `VlasovAmpereOneSpecies` → `VlasovMaxwellOneSpecies`; `Vlasov` →
+  `VlasovPoissonAdiabatic` → `VlasovPoissonAdiabaticPauli`; `Vlasov` → `VlasovPauli`; `Vlasov` →
+  `VlasovMaxwellQuasiNeutral`; `Vlasov` → `LinearVlasovAmpereOneSpecies` → `LinearVlasovMaxwellOneSpecies`.
+- **Guiding-center family**: `GuidingCenter` → `DriftKineticElectrostaticAdiabatic`; `GuidingCenter` →
+  `DriftKineticMaxwell`.
+- **LinearEuler family** (zero-flow equilibrium): `LinearEuler` → `LinearMHD`.
+
+A parent model is the base of everything below it, so it must be well tested: verification tests against analytic
+results (dispersion relations, exact solutions in a curvilinear geometry such as `Colella`), conservation properties
+and the convergence order of the time stepping. When a new family is created, add it to this list and to
+`models-all.rst`.
+
 ## Required structure (`StruphyModel` in `base.py`)
 
 - **Species** as inner classes subclassing `FieldSpecies`, `FluidSpecies`, `ParticleSpecies` or `DiagnosticSpecies`
@@ -32,6 +52,12 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
 - **`Propagators`** inner class. Its `__init__` creates propagator instances as attributes. **The attribute order is
   the splitting order** used by Lie-Trotter/Strang, unless `Propagators` defines a tuple `splitting_order` with the
   names of all propagators (class attribute, or set in `__init__`); `apply_splitting_order` in `base.py` reorders them.
+  Consecutive propagators that do not commute but must stay second order in time (e.g. steps that are exact in time
+  each, such as the background steps around `sound` in the LinearEuler family) can be listed in the class attribute
+  `strang_groups` (tuple of tuples of names): each group is one block of the splitting, integrated symmetrically with
+  its last member in the middle (`splitting_blocks` in `base.py`). With plain Lie-Trotter sequencing such steps can
+  give wrong frequencies at large time steps. `strang_groups` is inherited by the `Propagators` of child models:
+  a child that inserts a propagator into a group (or reorders its members) must override it.
 - **`__init__`**, with the numbered steps:
   0. `self._store_params(locals())`. All constructor arguments need defaults, and only
      bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization;
