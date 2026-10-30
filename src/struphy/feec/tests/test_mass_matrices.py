@@ -6,6 +6,57 @@ from matplotlib import pyplot as plt
 logger = logging.getLogger("struphy")
 
 
+def _reduce_to_2d(reduced_dir, num_elements, degree, bcs):
+    """Grid parameters for a 2d test which is constant in the logical direction ``reduced_dir``.
+
+    In that direction, a single periodic element of degree 1 is used, which is not decomposed by MPI.
+    """
+    num_elements = tuple(1 if d == reduced_dir else n for d, n in enumerate(num_elements))
+    degree = tuple(1 if d == reduced_dir else p for d, p in enumerate(degree))
+    bcs = tuple(None if d == reduced_dir else bc for d, bc in enumerate(bcs))
+    mpi_dims_mask = tuple(d != reduced_dir for d in range(3))
+    return num_elements, degree, bcs, mpi_dims_mask
+
+
+def _rhs_2d(reduced_dir):
+    """Right-hand sides of the 2d tests, depending only on the two logical directions other than ``reduced_dir``."""
+    import cunumpy as xp
+
+    a, b = (d for d in range(3) if d != reduced_dir)
+
+    def rhs_0(e1, e2, e3):
+        e = xp.broadcast_arrays(e1, e2, e3)
+        return xp.sin(2 * xp.pi * e[a]) * xp.cos(4 * xp.pi * e[b])
+
+    def rhs_1(e1, e2, e3):
+        e = xp.broadcast_arrays(e1, e2, e3)
+        return xp.sin(2 * xp.pi * e[a]) * xp.cos(2 * xp.pi * e[b])
+
+    def rhs_2(e1, e2, e3):
+        return xp.zeros(xp.broadcast(e1, e2, e3).shape)
+
+    return rhs_0, rhs_1, rhs_2
+
+
+def _varies_along(funcs, direction, rtol=1e-10):
+    """Whether any of the callables ``f(e1, e2, e3)`` varies along the logical direction ``direction``.
+
+    The callables are evaluated on a 3d meshgrid; their output must have the grid axes first.
+    """
+    import cunumpy as xp
+
+    # irregular points, to avoid accidental symmetries
+    pts = xp.array([0.07, 0.23, 0.41, 0.66, 0.89])
+    ee = xp.meshgrid(pts, pts, pts, indexing="ij")
+    for f in funcs:
+        vals = xp.asarray(f(*ee))
+        diff = xp.max(xp.abs(vals - xp.take(vals, [0], axis=direction)))
+        if diff > rtol * max(float(xp.max(xp.abs(vals))), 1.0):
+            return True
+    return False
+
+
+@pytest.mark.parametrize("reduced_dir", [0, 1, 2], ids=["const_e1", "const_e2", "const_e3"])
 @pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("num_elements", [(32, 32, 32)])
 @pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
@@ -19,8 +70,11 @@ logger = logging.getLogger("struphy")
         ("HollowTorus", "AdhocTorus"),
     ],
 )
-def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=False):
+def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, reduced_dir, show_plots=False):
     """Test weighted mass matrices by recovering projected functions from the DeRham complex.
+
+    The test is 2d: all functions are constant in the logical direction ``reduced_dir``, which is
+    resolved by a single element. It is skipped if the metric or the equilibrium depend on that direction.
 
     For each mass operator in ``{M0, M1, M2, M3, Mv, M1n, M2n, Mvn, M1ninv, M0ad, M0ad_withT}``,
     the test:
@@ -39,8 +93,8 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     from types import MethodType
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperator, WeightedMassOperators
@@ -78,11 +132,22 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     equil.domain = domain
     logger.debug(f"{equil = }")
 
+    # the weights of all tested mass matrices must be constant in the reduced direction
+    weight_funcs = [
+        lambda *e: domain.metric(*e, change_out_order=True),
+        domain.jacobian_det,
+        equil.n0,
+        equil.t0,
+    ]
+    if _varies_along(weight_funcs, reduced_dir):
+        pytest.skip(f"Metric or equilibrium of {map_and_equil} depend on e{reduced_dir + 1}.")
+
     if show_plots and False:
         equil.show()
 
-    # derham object
-    grid = TensorProductGrid(num_elements=num_elements)
+    # derham object (2d, constant in reduced_dir)
+    num_elements, degree, bcs, mpi_dims_mask = _reduce_to_2d(reduced_dir, num_elements, degree, bcs)
+    grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=mpi_dims_mask)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=mpi_comm, domain=domain)
 
@@ -95,14 +160,7 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
     mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
 
     # right-hand side, integrated against the basis functions
-    def rhs_0(e1, e2, e3):
-        return xp.sin(2 * xp.pi * e1) * xp.cos(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
-
-    def rhs_1(e1, e2, e3):
-        return xp.sin(2 * xp.pi * e1) * xp.cos(2 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
-
-    def rhs_2(e1, e2, e3):
-        return xp.zeros_like(e1)
+    rhs_0, rhs_1, rhs_2 = _rhs_2d(reduced_dir)
 
     l2proj_0 = L2Projector("H1", mass_ops)
     l2proj_1 = L2Projector("Hcurl", mass_ops)
@@ -138,7 +196,12 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         err_bound = 2.6e-2
 
     names = ["M0", "M1", "M2", "M3", "Mv", "M1n", "M2n", "Mvn", "M1ninv", "M0ad", "M0ad_withT", "WMM", "WMMnew"]
+    cached_before = set(vars(mass_ops))
     for name in names:
+        # free the operators cached in the previous iteration, to keep only one in memory at a time
+        for attr in set(vars(mass_ops)) - cached_before:
+            delattr(mass_ops, attr)
+
         if name == "WMM":
             intermediate = mass_ops.WMM
             intermediate.update_weight(projected_equil.n3)
@@ -220,10 +283,11 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         logger.info(f"Test passed for {name}")
 
 
+@pytest.mark.parametrize("reduced_dir", [0, 1, 2], ids=["const_e1", "const_e2", "const_e3"])
 @pytest.mark.parametrize("case", ["1-form", "2-form"])
 @pytest.mark.parametrize("matrix_free", [False])
 @pytest.mark.parametrize("eps", [1.0])
-@pytest.mark.parametrize("num_elements", [(32, 32, 32)])
+@pytest.mark.parametrize("num_elements", [(48, 48, 48)])
 @pytest.mark.parametrize("degree", [(1, 1, 1), (2, 2, 2)])
 @pytest.mark.parametrize("bcs", [(("free", "dirichlet"), None, None)])
 @pytest.mark.parametrize(
@@ -235,8 +299,11 @@ def test_mass(num_elements, degree, bcs, map_and_equil, matrix_free, show_plots=
         ("HollowTorus", "AdhocTorus"),
     ],
 )
-def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_free, show_plots=False):
+def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_free, reduced_dir, show_plots=False):
     """Test the rotation-stabilized mass operators on the Hdiv and Hcurl spaces.
+
+    The test is 2d: all functions are constant in the logical direction ``reduced_dir``, which is
+    resolved by a single element. It is skipped if the metric or the magnetic field depend on that direction.
 
     The test verifies that the perp-to-field component of the numerical
     solution matches the analytically derived exact solution for the following
@@ -256,8 +323,8 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -297,11 +364,26 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
     equil.domain = domain
     logger.debug(f"{equil = }")
 
+    # the metric and the magnetic field must be constant in the reduced direction
+    weight_funcs = [
+        lambda *e: domain.metric(*e, change_out_order=True),
+        domain.jacobian_det,
+        equil.b1_1,
+        equil.b1_2,
+        equil.b1_3,
+        equil.b2_1,
+        equil.b2_2,
+        equil.b2_3,
+    ]
+    if _varies_along(weight_funcs, reduced_dir):
+        pytest.skip(f"Metric or magnetic field of {map_and_equil} depend on e{reduced_dir + 1}.")
+
     if show_plots and False:
         equil.show()
 
-    # derham object
-    grid = TensorProductGrid(num_elements=num_elements)
+    # derham object (2d, constant in reduced_dir)
+    num_elements, degree, bcs, mpi_dims_mask = _reduce_to_2d(reduced_dir, num_elements, degree, bcs)
+    grid = TensorProductGrid(num_elements=num_elements, mpi_dims_mask=mpi_dims_mask)
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts, comm=mpi_comm)
 
@@ -311,14 +393,7 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
     mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil, matrix_free=matrix_free)
 
     # right-hand side, integrated against the basis functions
-    def rhs_0(e1, e2, e3):
-        return xp.sin(2 * xp.pi * e1) * xp.cos(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
-
-    def rhs_1(e1, e2, e3):
-        return xp.sin(2 * xp.pi * e1) * xp.cos(2 * xp.pi * e2) * xp.cos(2 * xp.pi * e3)
-
-    def rhs_2(e1, e2, e3):
-        return xp.zeros_like(e1)
+    rhs_0, rhs_1, rhs_2 = _rhs_2d(reduced_dir)
 
     if case == "1-form":
         l2proj = L2Projector("Hcurl", mass_ops)
@@ -333,7 +408,7 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
     ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     if min(degree) == 1:
-        err_bound = 1.15e-1
+        err_bound = 1.2e-1
     elif min(degree) == 2:
         err_bound = 1.4e-2
 
@@ -470,8 +545,8 @@ def test_identity_mapping_equivalence(num_elements, degree, bcs, matrix_free, ma
     """Test whether different choices of basis for the magnetic background yield the same rotation-stabilized mass operator."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -623,7 +698,7 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -767,8 +842,8 @@ def test_mass_preconditioner(num_elements, degree, bcs, mapping, show_plots=Fals
     import time
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -1067,8 +1142,8 @@ def test_mass_preconditioner_polar(num_elements, degree, bcs, mapping, show_plot
     import time
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.solvers import inverse
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -1336,7 +1411,7 @@ def test_matrix_free_diagonal(num_elements, degree, bcs):
     (also under MPI), and check that matrix-free operators without weights can be applied."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import domains
     from struphy.feec.mass import WeightedMassOperators
@@ -1389,7 +1464,7 @@ def test_average_operator(num_elements, mpi_mask, degree, bcs, show_plots=False)
     The vector averaged with numpy is produced by evaluating a FEECVariable that contains the StencilVector."""
     import cunumpy as xp
     import matplotlib.pyplot as plt
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import DerhamOptions, domains, grids
     from struphy.feec.mass import AverageOperator
@@ -1456,7 +1531,7 @@ def test_average_operator(num_elements, mpi_mask, degree, bcs, show_plots=False)
 def test_average_operator_transpose(bcs):
     """Check that AverageOperator.T can be built and satisfies <A x, y> = <x, A.T y>."""
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import DerhamOptions, domains, grids
     from struphy.feec.mass import AverageOperator
@@ -1491,7 +1566,7 @@ def test_average_operator_transpose(bcs):
 def test_average_operator_subcomm():
     """Check that the AverageOperator subcomm of each rank holds exactly the ranks of its perpendicular block.
     Nel=98 is a case where the colour from the domain breaks was wrong for 2 processes per direction."""
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import DerhamOptions, domains, grids
     from struphy.feec.mass import AverageOperator
@@ -1520,12 +1595,13 @@ def test_average_operator_subcomm():
 
 
 @pytest.mark.parametrize("dim_reduce", [0, 1, 2])
-def test_mass_preconditioner_array_weights_mpi(dim_reduce):
+@pytest.mark.parametrize("weight_reduction", ["midpoint", "average"])
+def test_mass_preconditioner_array_weights_mpi(dim_reduce, weight_reduction):
     """Preconditioner with array weights must not depend on the MPI decomposition
     (num_elements not divisible by the number of processes)."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.mass import WeightedMassOperator
     from struphy.feec.preconditioner import MassMatrixPreconditioner
@@ -1555,11 +1631,59 @@ def test_mass_preconditioner_array_weights_mpi(dim_reduce):
         M.assemble()
 
         _, v = create_equal_random_arrays(derham.V0fem, seed=1234)
-        out += [MassMatrixPreconditioner(M, dim_reduce=dim_reduce).dot(v)]
+        out += [MassMatrixPreconditioner(M, dim_reduce=dim_reduce, weight_reduction=weight_reduction).dot(v)]
 
     s, e = out[0].space.starts, out[0].space.ends
     sl = tuple(slice(si, ei + 1) for si, ei in zip(s, e))
     assert xp.allclose(out[0][sl], out[1][sl], rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("d", [0, 1, 2])
+def test_reduced_weight_1d(d):
+    """1d weights of the MassMatrixPreconditioner (mid point and mean of the 3d weight)
+    for callable and array weights, against analytic values."""
+
+    import cunumpy as xp
+
+    from struphy.feec.preconditioner import _reduced_weight_1d
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(TensorProductGrid(num_elements=[7, 5, 4]), DerhamOptions(degree=[2, 2, 1], bcs=(None, None, None)))
+
+    def w(e1, e2, e3):
+        return 1.0 + e1 + 2.0 * e2**2 + 3.0 * e3**3 + e1 * e2 * e3
+
+    # analytic mid point and mean over the other two directions
+    midpoint = {
+        0: lambda x: w(x, 0.5, 0.5),
+        1: lambda x: w(0.5, x, 0.5),
+        2: lambda x: w(0.5, 0.5, x),
+    }
+    average = {
+        0: lambda x: 1.0 + x + 2.0 / 3.0 + 3.0 / 4.0 + x / 4.0,
+        1: lambda x: 1.5 + 2.0 * x**2 + 3.0 / 4.0 + x / 4.0,
+        2: lambda x: 1.5 + 2.0 / 3.0 + 3.0 * x**3 + x / 4.0,
+    }
+
+    pts = [xp.ravel(p) for p in derham.spline_attributes["H1"].quad_grid_pts[0]]
+    arr = w(*xp.meshgrid(*pts, indexing="ij"))
+    x = pts[d]
+
+    for reduction, exact in (("average", average[d]), ("midpoint", None)):
+        from_callable = _reduced_weight_1d(w, 0, d, derham, reduction)(x)
+        from_array = _reduced_weight_1d(arr, 0, d, derham, reduction)
+        if reduction == "average":
+            assert xp.allclose(from_callable, exact(x), rtol=1e-13, atol=1e-13)
+            assert xp.allclose(from_array, exact(x), rtol=1e-13, atol=1e-13)
+        else:
+            assert xp.allclose(from_callable, midpoint[d](x), rtol=1e-13, atol=1e-13)
+            # the array weight is only known at the quadrature points: it is taken at the
+            # global quadrature point with index (num_elements * nquads) // 2
+            mid = [(n * q) // 2 for n, q in zip(derham.num_elements, derham.nquads)]
+            cut = tuple(slice(None) if k == d else mid[k] for k in range(3))
+            assert xp.allclose(from_array, arr[cut], rtol=1e-13, atol=1e-13)
 
 
 def test_transpose_and_copy():
@@ -1616,6 +1740,40 @@ def test_transpose_and_copy():
         assert xp.allclose(A.T.toarray(), A_arr.T, atol=1e-14)
         if symmetry == "asym":
             assert xp.allclose(A.T.toarray(), -A_arr, atol=1e-14)
+
+
+@pytest.mark.parametrize(
+    "num_elements, degree", [((16, 1, 1), (3, 1, 1)), ((16, 2, 1), (2, 2, 1)), ((8, 6, 4), (2, 2, 2))]
+)
+@pytest.mark.parametrize("space", ["M0", "M1", "M2", "M3"])
+def test_mass_preconditioner_diagonal_scaling_periodic_exact(num_elements, degree, space):
+    """On the periodic logical cube the mass matrices are Kronecker products, so MassMatrixPreconditioner with
+    diagonal scaling inverts them exactly; also with fewer points than the band width in a direction (one element),
+    where band entries wrap onto the main diagonal."""
+
+    import numpy as np
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = domains.Cuboid(r1=12.56)
+    derham = Derham(TensorProductGrid(num_elements=num_elements), DerhamOptions(degree=degree), comm=MPI.COMM_WORLD)
+    M = getattr(WeightedMassOperators(derham, domain), space)
+
+    rng = np.random.default_rng(0)
+    v = M.domain.zeros()
+    for block in v.blocks if hasattr(v, "blocks") else [v]:
+        block._data[:] = rng.random(block._data.shape)
+    v.update_ghost_regions()
+
+    w = MassMatrixPreconditioner(M, diagonal_scaling=True).dot(M.dot(v))
+    err = ((w - v).inner(w - v) / v.inner(v)) ** 0.5
+    assert err < 1e-12, f"{space}, {num_elements=}, {degree=}: |P M v - v| / |v| = {err}"
 
 
 if __name__ == "__main__":

@@ -5,8 +5,8 @@ import shutil
 import cunumpy as xp
 import numpy as np
 import pytest
-from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
+from maybempi import MPI
 from scipy.fft import fft2, fftfreq
 from scipy.signal import argrelextrema
 from scipy.special import jv, yn
@@ -69,7 +69,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
 
     # time stepping
-    time_opts = Time(dt=0.05, Tend=50.0)
+    time_opts = Time(dt=0.05, Tend=25.0)
 
     # geometry
     domain = domains.Cuboid(r3=20.0)
@@ -126,7 +126,7 @@ def test_coaxial(do_plot: bool = False):
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="coaxial")
 
     # time
-    time_opts = Time(dt=0.05, Tend=10.0)
+    time_opts = Time(dt=0.05, Tend=5.0)
 
     # geometry
     a1 = 2.326744

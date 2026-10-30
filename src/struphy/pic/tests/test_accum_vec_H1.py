@@ -1,9 +1,10 @@
 import logging
 
 import pytest
-from cunumpy import PyccelKernel
 
 from struphy import set_logging_level
+from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
+from struphy.pic.accumulation.kernels.div_u_weak_1form import div_u_weak_1form
 
 pytestmark = pytest.mark.mpi_pic
 
@@ -88,20 +89,18 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
     from struphy import LoadingParameters, domains, maxwellians, perturbations
     from struphy.feec.mass import L2Projector, WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
-    from struphy.pic.accumulation import accum_kernels
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
     from struphy.topology.grids import TensorProductGrid
     from struphy.utils.clone_config import CloneConfig
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         mpi_comm = None
         mpi_rank = 0
     else:
@@ -191,7 +190,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     acc = AccumulatorVector(
         particles,
         "H1",
-        PyccelKernel(accum_kernels.charge_density_0form),
+        charge_density_0form,
         mass_ops,
         domain.args_domain,
     )
@@ -329,7 +328,7 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     ],
 )
 def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: bool = False):
-    r"""Test that AccumulatorVector with kernel :func:`~struphy.pic.accumulation.accum_kernels.div_u_weak_1form`
+    r"""Test that AccumulatorVector with kernel :func:`~struphy.pic.accumulation.kernels.div_u_weak_1form.div_u_weak_1form_kernels.div_u_weak_1form`
     provides an MC approximation of the L2 projection RHS into V1 (Hcurl).
 
     Particles are of type :class:`~struphy.pic.particles.ParticlesSPH`, loaded uniformly in
@@ -395,19 +394,17 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     """
 
     import cunumpy as xp
-    from feectools.ddm.mpi import MockComm
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI, SerialComm
 
     from struphy import LoadingParameters, domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
-    from struphy.pic.accumulation import accum_kernels
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import ParticlesSPH
     from struphy.topology.grids import TensorProductGrid
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, SerialComm):
         mpi_comm = None
         mpi_rank = 0
     else:
@@ -469,7 +466,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     # correct valid_mks mask (excludes holes and ghosts).                #
     # ------------------------------------------------------------------ #
     eta = particles.positions
-    particles.markers[particles.valid_mks, particles.first_free_idx] = n_xyz(eta[:, 0], eta[:, 1], eta[:, 2])
+    particles.markers[particles.first_free_idx, particles.valid_mks] = n_xyz(eta[0], eta[1], eta[2])
 
     # ------------------------------------------------------------------ #
     # Accumulate the weak-divergence-1form RHS vector V^1.                #
@@ -479,7 +476,7 @@ def test_accum_div_u_weak_1form(num_elements, degree, bcs, Np=10000, show_plot: 
     acc = AccumulatorVector(
         particles,
         "Hcurl",
-        PyccelKernel(accum_kernels.div_u_weak_1form),
+        div_u_weak_1form,
         mass_ops,
         domain.args_domain,
     )

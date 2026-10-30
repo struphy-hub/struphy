@@ -4,15 +4,22 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import CoordinateProjector
 from struphy.feec.mass import L2Projector
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.variational_utilities import (
+    InternalEnergyEvaluator,
+    LinearPressureHeating,
+    NewtonConvergence,
+    dot_normalized,
+    inv_norm2,
+    kinetic_metric,
+)
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -67,6 +74,37 @@ class VariationalViscosity(Propagator):
     .. math::
         P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
 
+    With a div-div regularization (``divdiv_alpha`` :math:`> 0`), the mass matrix :math:`\mathbb M^v[\hat\rho]` is
+    replaced by the metric :math:`\mathbb A[\hat\rho]` of the regularized kinetic energy, see
+    :func:`~struphy.feec.variational_utilities.kinetic_metric`.
+
+    For ``model="linear_p"`` the viscous heating, which is quadratic in the perturbation, goes into the auxiliary
+    pressure :math:`\hat p` (``pt3``) with the energy density :math:`\hat p/(\gamma - 1)`: the thermal energy increases
+    by exactly the dissipated kinetic energy :math:`\Delta t\, \mu\, (\mathbf u^{n+1})^\top \mathbb K\, \mathbf u^{n+1/2}`,
+    where :math:`\mathbb K` is the stiffness matrix (see
+    :class:`~struphy.feec.variational_utilities.LinearPressureHeating`).
+
+    **Velocity in** :math:`H(\textnormal{div})` (``model="linear_p"`` only): :math:`\mathbf u` is a 2-form, which has no
+    gradient. The viscous term is discretized with its divergence and curl,
+
+    .. math::
+
+        \int_\Omega \mu \left( \nabla \cdot \mathbf u\, \nabla \cdot \mathbf v + \nabla \times \mathbf u \cdot \nabla \times \mathbf v \right) \textrm d \mathbf x \,,
+        \qquad
+        \mathbb K = \mathbb D^\top \mathbb M_3 \mathbb D + (\mathbb C \mathcal S^{21})^\top \mathbb M_2\, \mathbb C \mathcal S^{21} \,,
+
+    which equals :math:`\int \mu \nabla \mathbf u : \nabla \mathbf v` up to boundary terms. The curl is taken of the
+    1-form :math:`\mathcal S^{21} \mathbf u = \hat\Pi^1[G \hat{\mathbf u}^2 / \sqrt g]`. With Dirichlet boundary
+    conditions its tangential trace is zero, which acts as a weak no-slip penalty (of order :math:`\mu/h`) on the
+    tangential velocity at the wall. The velocity mass matrix is :math:`\mathbb M^2_n` (as in the ideal propagators of
+    the linear model):
+
+    .. math::
+
+        (\mathbb M^2_n + \Delta t\, \mu\, \mathbb K)\, \mathbf u^{n+1} = \mathbb M^2_n \mathbf u^n \,.
+
+    The artificial viscosity :math:`\mu_a`, the damping ``alpha`` and the div-div regularization are not available
+    in this case.
     """
 
     class Variables:
@@ -77,7 +115,7 @@ class VariationalViscosity(Propagator):
         s : FEECVariable
             Thermodynamic scalar variable in ``"L2"`` space.
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space.
+            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space (only for ``model="linear_p"``).
         """
 
         def __init__(self):
@@ -101,22 +139,31 @@ class VariationalViscosity(Propagator):
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1vec"
+            assert new.space in ("H1vec", "Hdiv")
             self._u = new
 
-    def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
-        """
+    def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None, divdiv_alpha: float = 0.0):
+        r"""
         Parameters
         ----------
         rho : FEECVariable, default=None
             Mass density 3-form (``"L2"`` space) weighting the velocity mass matrix.
         pt3 : FEECVariable, default=None
-            Pressure or entropy 3-form (``"L2"`` space) evolved alongside the velocity.
-            If ``None``, the thermodynamic equation is skipped.
+            For ``model="linear_q"`` and ``"perturbative_q"``: the auxiliary variable :math:`\hat q` (``"L2"`` space),
+            which receives the viscous heating with the energy density :math:`2 q_0 \hat q / (\gamma - 1)`, i.e.
+            :math:`\partial_t \hat q = (\gamma - 1)/(2 q_0)\, \mu |\nabla \mathbf u|^2`. For ``model="linear_p"``: the
+            auxiliary pressure :math:`\hat p` (``"L2"`` space), with the energy density :math:`\hat p / (\gamma - 1)`,
+            heated by :class:`~struphy.feec.variational_utilities.LinearPressureHeating`. If ``None``, the thermodynamic
+            equation is skipped. For the other models the heating goes into the variable ``s``.
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
         """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
         self.rho = rho
         self.pt3 = pt3
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -124,18 +171,20 @@ class VariationalViscosity(Propagator):
 
         Parameters
         ----------
-        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"}, default="full"
+        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "perturbative_q"}, default="full"
             Thermodynamic model variant.
         gamma : float, default=5/3
             Adiabatic index.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Linear solver for implicit subproblems.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below
+            ``tol`` times the norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or
+            when it stagnates (with a warning).
         mu : float, default=0.0
             Physical viscosity coefficient.
         mu_a : float, default=0.0
@@ -147,12 +196,12 @@ class VariationalViscosity(Propagator):
         """
 
         # specific literals
-        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
+        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "perturbative_q"]
         # propagator options
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         mu: float = 0.0
@@ -198,17 +247,26 @@ class VariationalViscosity(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
-        # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
-        self._Mrho_inv = inverse(
-            self._Mrho,
-            "pcg",
-            pc=pc,
-            tol=1e-16,
-            maxiter=500,
-            recycle=True,
-        )
+        self._u_space = self.variables.u.space
+        if self._u_space == "Hdiv":
+            assert self._model == "linear_p", f'u in "Hdiv" needs model="linear_p", got {self._model!r}.'
+            assert self._mu_a == 0.0 and self._alpha == 0.0 and self.divdiv_alpha == 0.0, (
+                'u in "Hdiv": mu_a, alpha and divdiv_alpha are not available.'
+            )
+            # the fixed velocity mass matrix of the linear model (as in its ideal propagators)
+            self._Mrho = self.mass_ops.M2n
+            self._Mrho_pc = MassMatrixPreconditioner(self._Mrho)
+        else:
+            # assembly of WMMnew happens in VariationalDensityEvolve
+            self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+            self._Mrho_pc = MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
+
+        # linear p model: the heating goes into the auxiliary pressure, whose energy is linear
+        self._heating = None
+        if self._model == "linear_p" and self.pt3 is not None:
+            self._heating = LinearPressureHeating(
+                self.derham, self.mass_ops, self.domain, self._gamma, tol=self._lin_solver.tol
+            )
 
         # Femfields for the projector
         self.sf = self.derham.create_spline_function("sf", "L2")
@@ -232,6 +290,7 @@ class VariationalViscosity(Propagator):
 
         self._tmp_un1 = u.space.zeros()
         self._tmp_un12 = u.space.zeros()
+        self._tmp_rhs = u.space.zeros()
         self._tmp_sn1 = s.space.zeros()
         self._tmp_sn_incr = s.space.zeros()
         self._tmp_sn_weak_diff = s.space.zeros()
@@ -246,6 +305,10 @@ class VariationalViscosity(Propagator):
         self.tot_rhs = s.space.zeros()
 
     def __call__(self, dt):
+        if self._u_space == "H1vec":
+            # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+            self._Mrho_pc.refresh()
+
         if self._nonlin_solver.type == "Newton":
             self.__call_newton(dt)
         else:
@@ -267,17 +330,31 @@ class VariationalViscosity(Propagator):
             logger.info("")
             logger.info("Computing the dissipation in VariationalViscosity")
 
-        # Update artificial viscosity weighted mass matrix
-        total_viscosity = self._update_artificial_viscosity(un, dt)
-
         self._scaled_stiffness._scalar = dt * self._mu  # /2.
-        self._scaled_Mv._scalar = dt * self._alpha
-        # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
-        un1 = self.evol_op.dot(un, out=self._tmp_un1)
+        if self._u_space == "H1vec":
+            # Update artificial viscosity weighted mass matrix
+            total_viscosity = self._update_artificial_viscosity(un, dt)
+            self._scaled_Mv._scalar = dt * self._alpha
+        # self.evol_op._multiplicands[1]._addends[0]._scalar = - dt*self._mu/2.
+        # normalized: the tolerance of the implicit solve is relative to the size of its right-hand side M u^n
+        rhs = self.r_op.dot(un, out=self._tmp_rhs)
+        un1 = dot_normalized(self.inv_lop, rhs, self._tmp_un1)
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
-        if self._model == "linear_p" or (self._model == "linear_q" and self._fast):
+        if self._model == "linear_p":
+            # the dissipated kinetic energy dt mu u^{n+1} . K u^{n+1/2} goes into the auxiliary pressure
+            if self._heating is not None:
+                if self._u_space == "Hdiv":
+                    energy_change = self._get_energy_change_hdiv(un, un1, dt)
+                else:
+                    energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
+                self._heating(energy_change, self.pt3.spline.vector)
+                self.pt3.spline.vector.update_ghost_regions()
+            self.update_feec_variables(s=sn, u=un1)
+            return
+
+        if self._model == "linear_q" and self._fast:
             self.update_feec_variables(s=sn, u=un1)
             return
 
@@ -286,7 +363,7 @@ class VariationalViscosity(Propagator):
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
         # 2) Initial energy and linear form
         rho = self.rho.spline.vector
-        if self._model in ["deltaf_q", "linear_q"]:
+        if self._model in ["perturbative_q", "linear_q"]:
             self.sf.vector = self.pt3.spline.vector
         else:
             self.sf.vector = sn
@@ -323,7 +400,7 @@ class VariationalViscosity(Propagator):
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
-        elif self._model in ["linear_q", "deltaf_q"]:
+        elif self._model in ["linear_q", "perturbative_q"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -339,10 +416,11 @@ class VariationalViscosity(Propagator):
         sn1 = sn.copy(out=self._tmp_sn1)
 
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalViscosity", tol, self._get_error_newton(self._linear_form_tot_e))
 
         for it in range(self._nonlin_solver.maxiter):
-            if self._model in ["deltaf_q", "linear_q"]:
+            if self._model in ["perturbative_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
                 self.sf1.vector = sn1
@@ -376,7 +454,7 @@ class VariationalViscosity(Propagator):
                 e_n1 *= 1.0 / (self._gamma - 1.0)
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["linear_q", "deltaf_q"]:
+            elif self._model in ["linear_q", "perturbative_q"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -390,13 +468,13 @@ class VariationalViscosity(Propagator):
             self.tot_rhs -= self._linear_form_en1
             self.tot_rhs += self._linear_form_tot_e
 
-            err = self._get_error_newton(self.tot_rhs)
+            # at least one iteration
+            stop = conv.stop(self._get_error_newton(self.tot_rhs), it, min_iter=1)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if (err < tol**2 and it > 0) or xp.isnan(err):
-                # force at least one iteration
+            if stop:
                 break
 
             if self._model == "full":
@@ -408,10 +486,11 @@ class VariationalViscosity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]])
-                self.pc_jac.update_mass_operator(self.M_de_ds)
+                if self.pc_jac is not None:
+                    self.pc_jac.update_mass_operator(self.M_de_ds)
 
-            elif self._model in ["full_q", "linear_q", "deltaf_q"]:
-                if self._model in ["deltaf_q", "linear_q"]:
+            elif self._model in ["full_q", "linear_q", "perturbative_q"]:
+                if self._model in ["perturbative_q", "linear_q"]:
                     sf1_values = self._q0_values
 
                 deds = self._de_s1_values
@@ -421,57 +500,39 @@ class VariationalViscosity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]])
-                self.pc_jac.update_mass_operator(self.M_de_ds)
+                if self.pc_jac is not None:
+                    self.pc_jac.update_mass_operator(self.M_de_ds)
 
-            incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self.inv_jac, self.tot_rhs, self._tmp_sn_incr)
 
             if self._info:
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
-            if self._model in ["deltaf_q", "linear_q"]:
+            if self._model in ["perturbative_q", "linear_q"]:
                 pt3_vec = self.pt3.spline.vector
                 pt3_vec += incr
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
 
         self.update_feec_variables(s=sn1, u=un1)
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
-        Xv = getattr(self.basis_ops, "Xv")
-        Pcoord0 = CoordinateProjector(
-            0,
-            self.derham.Vvpol,
-            self.derham.V0pol,
-        )
-        Pcoord1 = CoordinateProjector(
-            1,
-            self.derham.Vvpol,
-            self.derham.V0pol,
-        )
-        Pcoord2 = CoordinateProjector(
-            2,
-            self.derham.Vvpol,
-            self.derham.V0pol,
-        )
-
-        M1 = self.mass_ops.M1
         self.M1_du = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl")
 
-        self.pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_M3 = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.M3,
+            dim_reduce=None,
         )
         self._inv_M3 = inverse(
             self.mass_ops.M3,
             "pcg",
             pc=self.pc_M3,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -485,7 +546,8 @@ class VariationalViscosity(Propagator):
                 preconditioner,
                 self.options.precond,
             )
-            self.pc_jac = pc_class(self.M_de_ds)
+            # dim_reduce=None: the Kronecker factors do not depend on the weights, cheap to update
+            self.pc_jac = pc_class(self.M_de_ds, dim_reduce=None)
 
         self.inv_jac = inverse(
             self.M_de_ds,
@@ -497,50 +559,11 @@ class VariationalViscosity(Propagator):
             recycle=True,
         )
 
-        grad = self.derham.grad_bcfree
-        self.scalar_stiffness = grad.T @ M1 @ grad
-        self.log_stiffness = (
-            Pcoord0.T @ self.scalar_stiffness @ Pcoord0
-            + Pcoord1.T @ self.scalar_stiffness @ Pcoord1
-            + Pcoord2.T @ self.scalar_stiffness @ Pcoord2
-        )
+        if self._u_space == "Hdiv":
+            self._init_hdiv_operators()
+        else:
+            self._init_h1vec_operators()
 
-        self.phy_stiffness = Xv.T @ self.log_stiffness @ Xv
-
-        self._scaled_stiffness = 0.00001 * self.phy_stiffness
-
-        self.du_stiffness = grad.T @ self.M1_du @ grad
-        self.du_log_stiffness = (
-            Pcoord0.T @ self.du_stiffness @ Pcoord0
-            + Pcoord1.T @ self.du_stiffness @ Pcoord1
-            + Pcoord2.T @ self.du_stiffness @ Pcoord2
-        )
-
-        self.du_phy_stiffness = Xv.T @ self.du_log_stiffness @ Xv
-
-        self._scaled_stiffness = 0.00001 * self.phy_stiffness
-
-        self._scaled_Mv = 0.1 * self.mass_ops.Mv
-
-        self.r_op = self._Mrho  # - self._scaled_stiffness - self.du_phy_stiffness
-        self.l_op = self._Mrho + self._scaled_Mv + self._scaled_stiffness + self.du_phy_stiffness
-
-        self.grad_0 = grad @ Pcoord0 @ Xv
-        self.grad_1 = grad @ Pcoord1 @ Xv
-        self.grad_2 = grad @ Pcoord2 @ Xv
-
-        self.inv_lop = inverse(
-            self.l_op,
-            "pcg",
-            pc=self._Mrho_inv,
-            tol=self._lin_solver.tol,
-            maxiter=self._lin_solver.maxiter,
-            verbose=False,
-            recycle=True,
-        )
-
-        self.evol_op = self.inv_lop @ self.r_op
-        # self.evol_op = IdentityOperator(self.derham.Vvpol)
         integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
             self.derham.prepare_eval_tp_fixed(
@@ -636,9 +659,10 @@ class VariationalViscosity(Propagator):
             deds *= self._mass_metric_term
 
             self.M_de_ds.assemble([[deds]])
-            self.pc_jac.update_mass_operator(self.M_de_ds)
+            if self.pc_jac is not None:
+                self.pc_jac.update_mass_operator(self.M_de_ds)
 
-        elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+        elif self._model in ["full_q", "linear_q", "perturbative_q"]:
             metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
@@ -668,7 +692,7 @@ class VariationalViscosity(Propagator):
         ) * self.domain.jacobian_det(*integration_grid)
         self._mass_M1_metric = deepcopy(metric)
 
-        if self._model in ["linear_q", "deltaf_q"]:
+        if self._model in ["linear_q", "perturbative_q"]:
             self.sf1.vector = self.projected_equil.q3
 
             self._q0_values = self.sf1.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd)
@@ -680,8 +704,124 @@ class VariationalViscosity(Propagator):
 
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
+        if self._u_space == "Hdiv":
+            bn, bd = self.integration_grid_bn, self.integration_grid_bd
+            self.integration_grid_2form = [[bn[0], bd[1], bd[2]], [bd[0], bn[1], bd[2]], [bd[0], bd[1], bn[2]]]
+            sqrt_g = self.domain.jacobian_det(*integration_grid)
+            self._inv_sqrt_g = 1.0 / sqrt_g
+            self._G_over_sqrt_g = self.domain.metric(*integration_grid) / sqrt_g
+            self.du1f = self.derham.create_spline_function("du1", "L2")
+            self.du12f = self.derham.create_spline_function("du12", "L2")
+            self.cu1f = self.derham.create_spline_function("cu1", "Hdiv")
+            self.cu12f = self.derham.create_spline_function("cu12", "Hdiv")
+            self._tmp_du1 = self.derham.V3pol.zeros()
+            self._tmp_du12 = self.derham.V3pol.zeros()
+            self._tmp_cu1 = self.derham.V2pol.zeros()
+            self._tmp_cu12 = self.derham.V2pol.zeros()
+            self._du1_values = xp.zeros(grid_shape, dtype=float)
+            self._du12_values = xp.zeros(grid_shape, dtype=float)
+            self._cu1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+            self._cu12_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+
+    def _init_h1vec_operators(self):
+        """Velocity in H1vec: the stiffness of the components of the gradient, and the implicit step."""
+        Xv = getattr(self.basis_ops, "Xv")
+        Pcoord0 = CoordinateProjector(
+            0,
+            self.derham.Vvpol,
+            self.derham.V0pol,
+        )
+        Pcoord1 = CoordinateProjector(
+            1,
+            self.derham.Vvpol,
+            self.derham.V0pol,
+        )
+        Pcoord2 = CoordinateProjector(
+            2,
+            self.derham.Vvpol,
+            self.derham.V0pol,
+        )
+
+        M1 = self.mass_ops.M1
+        grad = self.derham.grad_bcfree
+        self.scalar_stiffness = grad.T @ M1 @ grad
+        self.log_stiffness = (
+            Pcoord0.T @ self.scalar_stiffness @ Pcoord0
+            + Pcoord1.T @ self.scalar_stiffness @ Pcoord1
+            + Pcoord2.T @ self.scalar_stiffness @ Pcoord2
+        )
+
+        self.phy_stiffness = Xv.T @ self.log_stiffness @ Xv
+
+        self._scaled_stiffness = 0.00001 * self.phy_stiffness
+
+        self.du_stiffness = grad.T @ self.M1_du @ grad
+        self.du_log_stiffness = (
+            Pcoord0.T @ self.du_stiffness @ Pcoord0
+            + Pcoord1.T @ self.du_stiffness @ Pcoord1
+            + Pcoord2.T @ self.du_stiffness @ Pcoord2
+        )
+
+        self.du_phy_stiffness = Xv.T @ self.du_log_stiffness @ Xv
+
+        self._scaled_stiffness = 0.00001 * self.phy_stiffness
+
+        self._scaled_Mv = 0.1 * self.mass_ops.Mv
+
+        self.r_op = self._Mrho  # - self._scaled_stiffness - self.du_phy_stiffness
+        self.l_op = self._Mrho + self._scaled_Mv + self._scaled_stiffness + self.du_phy_stiffness
+
+        # with the boundary conditions of M1 (which acts only on their range): the pointwise energy change of the heating
+        # is then the same quadratic form as the stiffness
+        B1 = self.derham.boundary_ops["1"]
+        self.grad_0 = B1 @ grad @ Pcoord0 @ Xv
+        self.grad_1 = B1 @ grad @ Pcoord1 @ Xv
+        self.grad_2 = B1 @ grad @ Pcoord2 @ Xv
+
+        # a fixed preconditioner: an inner iterative solve (of fixed tolerance) would vary from one application to the
+        # next, and the PCG then stagnates at tight tolerances
+        self.inv_lop = inverse(
+            self.l_op,
+            "pcg",
+            pc=self._Mrho_pc,
+            tol=self._lin_solver.tol,
+            maxiter=self._lin_solver.maxiter,
+            verbose=False,
+            recycle=True,
+        )
+
+        self.evol_op = self.inv_lop @ self.r_op
+
+    def _init_hdiv_operators(self):
+        r"""Velocity in Hdiv: the stiffness :math:`\mathbb D^\top \mathbb M^3 \mathbb D + (\mathbb C \mathcal S^{21})^\top
+        \mathbb M^2 \,\mathbb C \mathcal S^{21}` (div and curl of :math:`\mathbf u`, the curl of the 1-form
+        :math:`\mathcal S^{21} \mathbf u = \hat \Pi^1[G \hat{\mathbf u}^2/\sqrt g]`), with the velocity mass matrix
+        :math:`\mathbb M^2_n` of the linear model, and the implicit step."""
+        self._div = self.derham.div
+        self._curl_S21 = self.derham.curl @ self.basis_ops.S21
+        self.phy_stiffness = (
+            self._div.T @ self.mass_ops.M3 @ self._div + self._curl_S21.T @ self.mass_ops.M2 @ self._curl_S21
+        )
+        self._scaled_stiffness = 0.00001 * self.phy_stiffness
+
+        self.r_op = self._Mrho
+        self.l_op = self._Mrho + self._scaled_stiffness
+
+        self.inv_lop = inverse(
+            self.l_op,
+            "pcg",
+            pc=self._Mrho_pc,
+            tol=self._lin_solver.tol,
+            maxiter=self._lin_solver.maxiter,
+            verbose=False,
+            recycle=True,
+        )
+
+        self.evol_op = self.inv_lop @ self.r_op
+
     def _get_error_newton(self, sn_diff):
-        err_s = self._inv_M3.dot_inner(sn_diff, sn_diff)
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_s = inv_norm2(self._inv_M3, sn_diff)
         return err_s
 
     def _update_artificial_viscosity(self, un, dt):
@@ -833,3 +973,35 @@ class VariationalViscosity(Propagator):
         gu_sq_v += u_sq_v
 
         return gu_sq_v
+
+    def _get_energy_change_hdiv(self, un, un1, dt):
+        """Velocity in Hdiv: the dissipated energy density dt mu (div u^{n+1} div u^{n+1/2} + curl S21 u^{n+1} . G curl
+        S21 u^{n+1/2}) / sqrt(g) at the quadrature points, whose integral is dt mu u^{n+1} . K u^{n+1/2}."""
+        un12 = un.copy(out=self._tmp_un12)
+        un12 += un1
+        un12 /= 2.0
+
+        self.du1f.vector = self._div.dot(un1, out=self._tmp_du1)
+        self.du12f.vector = self._div.dot(un12, out=self._tmp_du12)
+        self.cu1f.vector = self._curl_S21.dot(un1, out=self._tmp_cu1)
+        self.cu12f.vector = self._curl_S21.dot(un12, out=self._tmp_cu12)
+
+        du1_v = self.du1f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd, out=self._du1_values)
+        du12_v = self.du12f.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_bd, out=self._du12_values
+        )
+        cu1_v = self.cu1f.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_2form, out=self._cu1_values
+        )
+        cu12_v = self.cu12f.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_2form, out=self._cu12_values
+        )
+
+        e = self._gu_sq_values
+        e *= 0.0
+        e += du1_v * du12_v * self._inv_sqrt_g
+        for i in range(3):
+            for j in range(3):
+                e += cu1_v[i] * self._G_over_sqrt_g[i, j] * cu12_v[j]
+        e *= dt * self._mu
+        return e

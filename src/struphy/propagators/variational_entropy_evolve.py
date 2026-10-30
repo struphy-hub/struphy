@@ -4,15 +4,21 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.variational_utilities import (
+    InternalEnergyEvaluator,
+    NewtonConvergence,
+    dot_normalized,
+    inv_norm2,
+    kinetic_metric,
+)
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -65,6 +71,10 @@ class VariationalEntropyEvolve(Propagator):
     .. math::
 
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
+
+    With a div-div regularization (``divdiv_alpha`` :math:`> 0`), the mass matrix :math:`\mathbb M^v[\hat\rho]` is
+    replaced by the metric :math:`\mathbb A[\hat\rho]` of the regularized kinetic energy, see
+    :func:`~struphy.feec.variational_utilities.kinetic_metric`.
     """
 
     class Variables:
@@ -102,15 +112,21 @@ class VariationalEntropyEvolve(Propagator):
             assert new.space == "H1vec"
             self._u = new
 
-    def __init__(self, rho: FEECVariable = None):
+    def __init__(self, rho: FEECVariable = None, divdiv_alpha: float = 0.0):
         """
         Parameters
         ----------
         rho : FEECVariable, default=None
             Mass density 3-form (``"L2"`` space) weighting the entropy mass matrix.
+
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
         """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
         self.rho = rho
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -127,9 +143,11 @@ class VariationalEntropyEvolve(Propagator):
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below
+            ``tol`` times the norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or
+            when it stagnates (with a warning).
         """
 
         # specific literals
@@ -181,13 +199,13 @@ class VariationalEntropyEvolve(Propagator):
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        self._Mrho_pc = MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
-            pc=pc,
-            tol=1e-16,
+            pc=self._Mrho_pc,
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -220,6 +238,9 @@ class VariationalEntropyEvolve(Propagator):
             self._compute_init_linear_form()
 
     def __call__(self, dt):
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        self._Mrho_pc.refresh()
+
         self.__call_newton(dt)
 
     def __call_newton(self, dt):
@@ -242,7 +263,8 @@ class VariationalEntropyEvolve(Propagator):
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalEntropyEvolve", tol, self._get_error_newton(mn, sn))
 
         for it in range(self._nonlin_solver.maxiter):
             # Newton iteration
@@ -277,12 +299,12 @@ class VariationalEntropyEvolve(Propagator):
             mn_diff += advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, sn_diff)
+            stop = conv.stop(self._get_error_newton(mn_diff, sn_diff), it)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if err < tol**2 or xp.isnan(err):
+            if stop:
                 break
 
             # Derivative for Newton
@@ -292,7 +314,8 @@ class VariationalEntropyEvolve(Propagator):
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = sn_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
@@ -301,10 +324,7 @@ class VariationalEntropyEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
         self._tmp_sn_diff = sn1 - sn
         self._tmp_un_diff = un1 - un
         self.update_feec_variables(s=sn1, u=un1)
@@ -320,14 +340,15 @@ class VariationalEntropyEvolve(Propagator):
         self.divPisT = self.divPis.T
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -462,6 +483,7 @@ class VariationalEntropyEvolve(Propagator):
         self._dt2_divPis._scalar = dt / 2
 
     def _get_error_newton(self, mn_diff, sn_diff):
-        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
         err_rho = self.mass_ops.M3.dot_inner(sn_diff, sn_diff)
         return max(err_rho, err_u)

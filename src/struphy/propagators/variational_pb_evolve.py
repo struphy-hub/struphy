@@ -4,18 +4,22 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
+    NewtonConvergence,
     Pressure_transport_operator,
+    alfven_schur_preconditioner,
+    dot_normalized,
+    inv_norm2,
 )
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -60,13 +64,13 @@ class VariationalPBEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
-        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}} = 0 ~ ,
-        - (\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3(\frac{g}{\gamma-1})
+        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}}
+        - (\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3(\frac{g}{\gamma-1}) = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf p^{n+1}- \mathbf p^n}{\Delta t} + \big(\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v]]
-        + (\gamma - 1)\hat{\Pi}^{3}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf u^{n+1/2}= 0 ~ ,
+        &\frac{\mathbf p^{n+1}- \mathbf p^n}{\Delta t} + \big(\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v]]
+        + (\gamma - 1)\hat{\Pi}^{3}[\hat{p_h^{n}} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf u^{n+1/2}= 0 ~ ,
         \\[2mm]
         \end{align}
 
@@ -80,11 +84,14 @@ class VariationalPBEvolve(Propagator):
 
     .. math::
 
-        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+\frac{1}{2}})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
+        \hat{\mathbf{B}}_h^{n} = (\mathbf{b}^{n})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
         \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,
-        \qquad \hat{p}_h^{n+1/2} = (\boldsymbol p^{n+1/2})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
+        \qquad \hat{p}_h^{n} = (\boldsymbol p^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
     and :math:`\mathcal{U}^v` is :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`.
+
+    The weights of the transport operators are taken at :math:`t^n` (in all equations, which conserves the
+    energy); the step is therefore only first-order accurate in time.
     """
 
     class Variables:
@@ -142,7 +149,7 @@ class VariationalPBEvolve(Propagator):
         pt3: FEECVariable = None,
         bt2: FEECVariable = None,
     ):
-        """
+        r"""
         Parameters
         ----------
         div_u : FEECVariable, default=None
@@ -150,9 +157,11 @@ class VariationalPBEvolve(Propagator):
         u2 : FEECVariable, default=None
             Velocity 2-form diagnostic (``"Hdiv"`` space).
         pt3 : FEECVariable, default=None
-            Pressure 3-form (``"L2"`` space) used in the momentum source term.
+            Auxiliary second-order pressure :math:`p_2` (``"L2"`` space) of the linear and perturbative models,
+            advected by the pressure perturbation. It enters only the energy, not the momentum equation.
         bt2 : FEECVariable, default=None
-            Magnetic 2-form (``"Hdiv"`` space) providing the Lorentz force.
+            Auxiliary second-order magnetic field :math:`\mathbf B_2` (``"Hdiv"`` space) of the linear and perturbative
+            models, advected by the magnetic perturbation. It enters only the energy, not the momentum equation.
         """
         self.variables = self.Variables()
         self.div_u = div_u
@@ -162,11 +171,11 @@ class VariationalPBEvolve(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VariationalPBEvolve`.
+        r"""Configuration options for :class:`VariationalPBEvolve`.
 
         Parameters
         ----------
-        model : {"full_p", "linear", "deltaf"}, default="full_p"
+        model : {"full_p", "linear", "perturbative"}, default="full_p"
             Pressure-magnetic coupled model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -175,13 +184,29 @@ class VariationalPBEvolve(Propagator):
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The Newton systems are solved for a normalized right-hand side, so ``tol`` is
+            relative to the norm of the residual.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below ``tol`` times the
+            norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or when it
+            stagnates (with a warning).
+        schur_precond : {"MassMatrixPreconditioner", "StiffnessPreconditioner"}, default="MassMatrixPreconditioner"
+            Preconditioner of the Schur system of the Newton step: the mass-matrix preconditioner of the velocity
+            block, or the Kronecker (fast diagonalization) preconditioner of the whole shear-Alfven Schur operator
+            :math:`\mathbb M^v[\rho_0] + \frac{\Delta t^2}{4} \mathbb T_0^\top \mathbb M^2 \mathbb T_0`
+            (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, built from the equilibrium for
+            each time step in :meth:`prepare_time_step`). The latter needs ``model="linear"``, ``solver="pcg"``,
+            tensor-product splines and the global commuting projectors; otherwise the mass-matrix preconditioner is
+            used (with a warning).
+        exb_correction : bool, default=True
+            For ``schur_precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
+            :math:`\mathbf E \times \mathbf B` flows :math:`\mathbf B_0 \times \nabla \phi` (the incompressible shear
+            Alfven modes with small parallel wave number, which block Jacobi does not reduce).
         """
 
         # specific literals
-        OptsModel = Literal["full_p", "linear", "deltaf"]
+        OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
+        OptsModel = Literal["full_p", "linear", "perturbative"]
         # propagator options
         model: OptsModel = "full_p"
         gamma: float = 5.0 / 3.0
@@ -189,12 +214,15 @@ class VariationalPBEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
+        schur_precond: OptsSchurPrecond = "MassMatrixPreconditioner"
+        exb_correction: bool = True
 
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.schur_precond, self.OptsSchurPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -247,18 +275,14 @@ class VariationalPBEvolve(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
-        self._Mrho_inv = inverse(
-            self._Mrho,
-            "pcg",
-            pc=pc,
-            tol=1e-16,
-            maxiter=500,
-            recycle=True,
-        )
+        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
 
         # Projector
         self._initialize_projectors_and_mass()
+
+        # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
+        self._schur_pc = alfven_schur_preconditioner(self, [] if self._model == "linear" else ['model="linear"'])
+        self._schur_pc_dt = None
 
         # bunch of temporaries to avoid allocating in the loop
         u = self.variables.u.spline.vector
@@ -297,7 +321,19 @@ class VariationalPBEvolve(Propagator):
         if self._linearize:
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
+    def prepare_time_step(self, dt: float):
+        """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
+        ``schur_precond="StiffnessPreconditioner"``): built in the setup, rebuilt when dt changes."""
+        if self._schur_pc is not None and dt != self._schur_pc_dt:
+            self._inv_Jacobian.precond = self._schur_pc.build(dt)
+            self._schur_pc_dt = dt
+
     def __call__(self, dt):
+        # preconditioner for the current time step (no-op unless dt changed since the setup)
+        self.prepare_time_step(dt)
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        self._Mrho_pc.refresh()
+
         if self._nonlin_solver.type == "Picard":
             self.__call_picard(dt)
         else:
@@ -326,7 +362,8 @@ class VariationalPBEvolve(Propagator):
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalPBEvolve", tol, self._get_error(mn, bn))
 
         for it in range(self._nonlin_solver.maxiter):
             # Picard iteration
@@ -369,7 +406,7 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_p_advection,
                 )
 
-            elif self._model == "deltaf":
+            elif self._model == "perturbative":
                 advection = self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
@@ -448,12 +485,12 @@ class VariationalPBEvolve(Propagator):
             pn1 -= p_advection
 
             # Get error
-            err = self._get_error(mn_diff, bn_diff)  # , pn_diff)
+            stop = conv.stop(self._get_error(mn_diff, bn_diff), it)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if err < tol**2 or xp.isnan(err):
+            if stop:
                 break
 
             # Derivative for Newton
@@ -463,7 +500,8 @@ class VariationalPBEvolve(Propagator):
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = bn_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
@@ -472,10 +510,13 @@ class VariationalPBEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
+
+        if not conv.converged:
+            # the last iteration applied an update after the residual: midpoint velocity of the final iterate
+            un12 = un.copy(out=self._tmp_un12)
+            un12 += un1
+            un12 *= 0.5
 
         self._tmp_un_diff = un1 - un
         self._tmp_bn_diff = bn1 - bn
@@ -524,14 +565,15 @@ class VariationalPBEvolve(Propagator):
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -558,7 +600,7 @@ class VariationalPBEvolve(Propagator):
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
 
-        elif self._model == "deltaf":
+        elif self._model == "perturbative":
             # initialize the jacobian differently if linear model
             self._create_Pib0()
             self._create_transop0()
@@ -594,7 +636,8 @@ class VariationalPBEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho_inv,
+            # fixed (linear) preconditioner: an inner iterative solve is expensive and not a linear operator
+            pc=self._Mrho_pc,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -617,7 +660,7 @@ class VariationalPBEvolve(Propagator):
 
     def _create_Pib0(self):
         self.curlPib0 = Hdiv0_transport_operator(self.derham)
-        self.curlPibT0 = self.curlPib.T
+        self.curlPibT0 = self.curlPib0.T
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
 
@@ -648,7 +691,7 @@ class VariationalPBEvolve(Propagator):
     def _create_linear_form_p(self):
         """Update the linearform representing integration in V3 against pressure energy"""
 
-        if self._model in ["full_p", "linear", "deltaf"]:
+        if self._model in ["full_p", "linear", "perturbative"]:
             self._tmp_int_grid *= 0.0
             self._tmp_int_grid -= 1.0 / (self._gamma - 1.0)
             self._tmp_int_grid *= self._energy_metric_term
@@ -656,7 +699,8 @@ class VariationalPBEvolve(Propagator):
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_dp)
 
     def _get_error(self, mn_diff, bn_diff):  # , pn_diff):
-        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
         err_b = self.mass_ops.M2.dot_inner(bn_diff, bn_diff)
         # weak_pn_diff = self.mass_ops.M3.dot(
         #     pn_diff,

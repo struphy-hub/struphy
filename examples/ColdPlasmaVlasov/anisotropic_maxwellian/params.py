@@ -1,33 +1,33 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 import logging
+
 import numpy as np
 
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    LoadingParameters,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
+    WeightsParameters,
     domains,
     equils,
     grids,
-    perturbations,
-    LoadingParameters,
-    WeightsParameters,
-    BoundaryParameters,
-    SortingParameters,
-    SavingParameters,
-    BinningPlot,
     maxwellians,
+    perturbations,
     set_logging_level,
 )
-
 from struphy.models import ColdPlasmaVlasov
 
 set_logging_level(logging.INFO)
@@ -177,9 +177,7 @@ model.initial_poisson.options = model.initial_poisson.Options()
 # ----------------
 
 # Cold current initially zero.
-model.thermal_elec.current.add_background(
-    FieldsBackground(values=(0.0, 0.0, 0.0))
-)
+model.thermal_elec.current.add_background(FieldsBackground(values=(0.0, 0.0, 0.0)))
 
 # Hot anisotropic Maxwellian:
 # parallel direction is v3 (along B0 / z)

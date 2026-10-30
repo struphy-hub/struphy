@@ -66,7 +66,7 @@ class Maxwellian3D(Maxwellian):
     def velocity_jacobian_det(self, eta1, eta2, eta3, vx, vy, vz):
         """Jacobian determinant is 1 (Cartesian velocity coordinates).
 
-        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
+        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords)
 
         Parameters
         ----------
@@ -194,7 +194,7 @@ class GyroMaxwellian2D(Maxwellian):
     def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, mu):
         r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, mu)`, is :math:`B_0`.
 
-        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
+        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords)
 
         Parameters
         ----------
@@ -216,7 +216,7 @@ class GyroMaxwellian2D(Maxwellian):
         B0 = self.params["B0"]
 
         if callable(B0):
-            etas = xp.stack((eta1, eta2, eta3), axis=1)
+            etas = xp.stack((eta1, eta2, eta3), axis=0)
             return B0(etas)
 
         return B0 + 0 * eta1
@@ -324,7 +324,7 @@ class GyroMaxwellian2Dvperp(Maxwellian):
     def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, v_perp):
         r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, v_\perp)`, is :math:`v_\perp`.
 
-        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
+        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords)
 
         Parameters
         ----------
@@ -442,6 +442,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     cache_size : int, optional
         Number of rows in the cache buffer for :math:`\psi_c` evaluation. If ``None``, no caching is used.
         Must be able to accomodate all markers on the current process.
+
+    shifted : bool, default=True
+        Whether to add the shift :math:`-\text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)} \frac{m_s F}{q_s B}
+        \mathcal{H}(\epsilon - \mu B)` (with the on-axis field :math:`B`) to the canonical toroidal momentum, such
+        that the profiles :math:`n(\psi_c)`, :math:`v_\text{th}(\psi_c)` are close to the profiles in the flux
+        label of the position. The shift is not a constant of motion for the trapped particles that bounce where the
+        field is larger than on the axis (the sign of :math:`v_\parallel` changes at the bounce points), so the
+        distribution is then not an exact equilibrium of the guiding-center motion: with steep profiles, use
+        ``shifted=False`` (the exact canonical toroidal momentum :math:`\psi + \frac{m_s F}{q_s B}v_\parallel`,
+        whose profiles are shifted by the drift-orbit width with respect to the position).
     """
 
     def __init__(
@@ -453,6 +463,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         equil: AxisymmMHDequilibrium = None,
         epsilon: float = 1.0,
         cache_size: int | None = None,
+        shifted: bool = True,
     ):
         assert isinstance(equil, AxisymmMHDequilibrium)
 
@@ -470,10 +481,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         # store additional parameters
         self._equil = equil
         self._epsilon = epsilon
+        self._shifted = shifted
         self.params["vth"] = vth
         self.params["equil"] = equil
         self.params["epsilon"] = epsilon
         self.params["cache_size"] = cache_size
+        self.params["shifted"] = shifted
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -562,14 +575,9 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         assert isinstance(params, tuple)
         assert len(params) == 2
 
-        # flat evaluation for markers
+        # flat evaluation for markers (one column per marker)
         if eta1.ndim == 1:
-            coords = [
-                xp.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None], v_parallel[:, None], mu[:, None]),
-                    axis=1,
-                ),
-            ]
+            coords = [xp.stack((eta1, eta2, eta3, v_parallel, mu), axis=0)]
         # assuming that input comes from meshgrid.
         elif eta1.ndim == 5:
             coords = (eta1, eta2, eta3, v_parallel, mu)
@@ -625,16 +633,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         """Check if psi_c has been cached for the given coordinates."""
         cached = False
         if getattr(self, "psi_c", None) is not None:
-            # markers: coords[0] is (n_markers, 5) and psi_c is (n_markers,); meshgrid: all have the same 5d shape
-            shape = coords[0].shape[:1] if len(coords) == 1 else coords[0].shape
+            # markers: coords[0] is (5, n_markers) and psi_c is (n_markers,); meshgrid: all have the same 5d shape
+            shape = coords[0].shape[1:] if len(coords) == 1 else coords[0].shape
             if self.psi_c.shape == shape and self.psi_c.size > 0:
                 # compare the cached values with a fresh evaluation at a few test points
                 size = self.psi_c.size
                 test_idx = xp.unique(xp.array([0, size // 3, 2 * size // 3, size - 1]))
                 if len(coords) == 1:
-                    test_coords = coords[0][test_idx]
+                    test_coords = coords[0][:, test_idx]
                 else:
-                    test_coords = xp.stack([c.reshape(-1)[test_idx] for c in coords], axis=1)
+                    test_coords = xp.stack([c.reshape(-1)[test_idx] for c in coords], axis=0)
                 # do not use the cache buffers here, self.psi_c may point to them
                 cached_psi_c = self.eval_psic(test_coords, use_cbufs=False)
                 cached = xp.allclose(self.psi_c.reshape(-1)[test_idx], cached_psi_c)
@@ -647,7 +655,6 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
         cbufs = self.cbufs if use_cbufs else None
 
-        a1 = self.equil.domain.params["a1"]
         B0 = self.equil.params["B0"]
         R0 = self.equil.params["R0"]
 
@@ -656,10 +663,10 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                 logger.warning(
                     f"Initialize {self.__class__.__name__} with `cache_size` for faster psi_c evaluation for markers!"
                 )
-            etas = coords[0][:, :3]  # these are views (no mem allocation)
-            vparallel = coords[0][:, 3]
-            mu = coords[0][:, 4]
-            n_markers = etas.shape[0]
+            etas = coords[0][:3]  # these are views (no mem allocation)
+            vparallel = coords[0][3]
+            mu = coords[0][4]
+            n_markers = etas.shape[1]
             if cbufs is None:
                 absB0 = self.equil.absB0(etas)
                 x, y, z = self.equil.domain(etas)
@@ -692,15 +699,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            positive_mask = (energy - mu * B0) > 0
-            correction = xp.zeros_like(psi_c)
-            correction[positive_mask] = (
-                self._epsilon
-                * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-                * R0
-            )
-            psi_c += correction
+            if self._shifted:
+                positive_mask = (energy - mu * B0) > 0
+                correction = xp.zeros_like(psi_c)
+                correction[positive_mask] = (
+                    self._epsilon
+                    * xp.sign(vparallel[positive_mask])
+                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                    * R0
+                )
+                psi_c += correction
         else:
             R = cbufs["R"][:n_markers]
             P = cbufs["P"][:n_markers]
@@ -718,15 +726,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            positive_mask[:] = (energy - mu * B0) > 0
-            correction[:] = 0.0
-            correction[positive_mask] = (
-                self._epsilon
-                * xp.sign(vparallel[positive_mask])
-                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-                * R0
-            )
-            psi_c[:] += correction
+            if self._shifted:
+                positive_mask[:] = (energy - mu * B0) > 0
+                correction[:] = 0.0
+                correction[positive_mask] = (
+                    self._epsilon
+                    * xp.sign(vparallel[positive_mask])
+                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                    * R0
+                )
+                psi_c[:] += correction
         return psi_c
 
     def eval_rc(self, eta1, eta2, eta3, vparallel, mu):

@@ -1,17 +1,15 @@
 import os
-import h5py
-import numpy as np
-import matplotlib.pyplot as plt
 
-DATA = (
-    "thesis_postprocess_validation/data/data_proc0.hdf5"
-)
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+
+DATA = "thesis_postprocess_validation/data/data_proc0.hdf5"
 
 OUT = "validation_plots"
 os.makedirs(OUT, exist_ok=True)
 
 with h5py.File(DATA, "r") as f:
-
     t = f["time/value"][:]
 
     en_B = f["scalar/en_B"][:]
@@ -20,10 +18,7 @@ with h5py.File(DATA, "r") as f:
     en_f = f["scalar/en_f"][:]
     en_tot = f["scalar/en_tot"][:]
 
-relative_energy_error = (
-    (en_tot - en_tot[0])
-    / en_tot[0]
-)
+relative_energy_error = (en_tot - en_tot[0]) / en_tot[0]
 
 print("============================================================")
 print("ENERGY DIAGNOSTICS")

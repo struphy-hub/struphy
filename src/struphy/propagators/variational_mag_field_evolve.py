@@ -3,15 +3,21 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
-from struphy.feec.variational_utilities import Hdiv0_transport_operator
+from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.variational_utilities import (
+    Hdiv0_transport_operator,
+    NewtonConvergence,
+    dot_normalized,
+    inv_norm2,
+    kinetic_metric,
+)
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolverFull
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -63,6 +69,9 @@ class VariationalMagFieldEvolve(Propagator):
 
         \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \, \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
+    With a div-div regularization (``divdiv_alpha`` :math:`> 0`), the mass matrix :math:`\mathbb M^v[\hat\rho]` is
+    replaced by the metric :math:`\mathbb A[\hat\rho]` of the regularized kinetic energy, see
+    :func:`~struphy.feec.variational_utilities.kinetic_metric`.
     """
 
     class Variables:
@@ -100,8 +109,17 @@ class VariationalMagFieldEvolve(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, divdiv_alpha: float = 0.0):
+        """
+        Parameters
+        ----------
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
+        """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -116,9 +134,11 @@ class VariationalMagFieldEvolve(Propagator):
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below
+            ``tol`` times the norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or
+            when it stagnates (with a warning).
         """
 
         OptsModel = Literal["full", "full_p", "linear"]
@@ -164,13 +184,13 @@ class VariationalMagFieldEvolve(Propagator):
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
+        self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        self._Mrho_pc = MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
         self._Mrho_inv = inverse(
             self._Mrho,
             "pcg",
-            pc=pc,
-            tol=1e-16,
+            pc=self._Mrho_pc,
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -204,6 +224,9 @@ class VariationalMagFieldEvolve(Propagator):
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
     def __call__(self, dt):
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        self._Mrho_pc.refresh()
+
         self.__call_newton(dt)
 
     def __call_newton(self, dt):
@@ -227,7 +250,8 @@ class VariationalMagFieldEvolve(Propagator):
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalMagFieldEvolve", tol, self._get_error_newton(mn, bn))
 
         for it in range(self._nonlin_solver.maxiter):
             # Newton iteration
@@ -285,12 +309,12 @@ class VariationalMagFieldEvolve(Propagator):
             mn_diff += advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, bn_diff)
+            stop = conv.stop(self._get_error_newton(mn_diff, bn_diff), it)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if err < tol**2 or xp.isnan(err):
+            if stop:
                 break
 
             # Derivative for Newton
@@ -300,7 +324,8 @@ class VariationalMagFieldEvolve(Propagator):
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = bn_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
@@ -309,10 +334,7 @@ class VariationalMagFieldEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
 
         self._tmp_un_diff = un1 - un
         self._tmp_bn_diff = bn1 - bn
@@ -325,14 +347,15 @@ class VariationalMagFieldEvolve(Propagator):
         self.curlPibT = self.curlPib.T
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -408,7 +431,8 @@ class VariationalMagFieldEvolve(Propagator):
         wb *= -1
 
     def _get_error_newton(self, mn_diff, bn_diff):
-        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
         err_b = self.mass_ops.M2.dot_inner(bn_diff, bn_diff)
         return max(err_b, err_u)
 

@@ -1,4 +1,4 @@
-r"""Geometric multigrid V-cycle as a preconditioner, and a multigrid-preconditioned CG solver.
+r"""Geometric multigrid V-cycle as a preconditioner.
 
 Given a symmetric positive (semi-)definite operator :math:`A` on one space of a :class:`Derham`,
 for example the Poisson operator :math:`\sigma \mathbb M^0 + \mathbb G^\top \mathbb M^1 \mathbb G`:
@@ -22,10 +22,11 @@ from typing import Literal
 
 import numpy as np
 import scipy.linalg as sla
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
+from maybempi import MPI
+from scope_profiler import ProfileManager
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixPreconditioner
@@ -37,6 +38,7 @@ from struphy.linear_algebra.multigrid.hierarchy import MultiGridHierarchy
 from struphy.linear_algebra.multigrid.smoothers import (
     ChebyshevSmoother,
     DiagonalComputer,
+    HiptmairSmoother,
     JacobiSmoother,
     KrylovSmoother,
     Smoother,
@@ -103,6 +105,12 @@ class MultiGridOptions(OptionsBase):
 
     matrix_free_mass : bool
         Whether re-discretized mass matrices on coarse levels are matrix-free.
+
+    hiptmair : bool
+        Whether to use the hybrid smoother of Hiptmair for curl-curl operators on 1-forms
+        (:class:`~struphy.linear_algebra.multigrid.smoothers.HiptmairSmoother`): each smoothing step is followed
+        by a smoothing step on the potentials, with the same kind of smoother (``smoother``,
+        ``smoother_precond`` with the 0-form mass matrix for "mass").
     """
 
     smoother: OptsSmoother = "chebyshev"
@@ -119,6 +127,7 @@ class MultiGridOptions(OptionsBase):
     coarse_tol: float = 1e-10
     nullspace: OptsNullspace | None = None
     matrix_free_mass: bool = False
+    hiptmair: bool = False
 
     def __post_init__(self):
         check_option(self.smoother, OptsSmoother)
@@ -171,6 +180,8 @@ class MultiGridPreconditioner(LinearOperator):
         assert A.codomain is A.domain, "MultiGridPreconditioner requires a square operator."
         if opts.nullspace == "constants":
             assert self._form == "0", "nullspace='constants' is only implemented for 0-forms."
+        if opts.hiptmair:
+            assert self._form == "1", "The Hiptmair smoother is only implemented for 1-forms."
 
         self._hierarchy = MultiGridHierarchy(derham, max_levels=opts.max_levels, min_cells=opts.min_cells)
         L = self._hierarchy.n_levels
@@ -188,6 +199,12 @@ class MultiGridPreconditioner(LinearOperator):
             fine_mass = WeightedMassOperators(derham, domain) if mass_ops is None else mass_ops
             mass = [fine_mass] + [c.mass_ops for c in self._coarseners]
             self._mass_pc = [MassMatrixPreconditioner(getattr(m, "M" + self._form)) for m in mass]
+            if opts.hiptmair:
+                self._mass_pc_0 = [MassMatrixPreconditioner(m.M0) for m in mass]
+        if opts.hiptmair:
+            self._grad = [d.grad for d in self._hierarchy.derhams]
+            # G^T A G couples one more index than A in every direction
+            self._diag_0 = [DiagonalComputer(tuple(p + 1 for p in d.degree)) for d in self._hierarchy.derhams]
 
         # work vectors per level
         self._b = [d.coeff_spaces[self._form].zeros() for d in self._hierarchy.derhams]
@@ -246,29 +263,41 @@ class MultiGridPreconditioner(LinearOperator):
         self._smoothers = [self._make_smoother(l) for l in range(self._hierarchy.n_levels - 1)]
         self._setup_coarse_solver()
 
-    def _smoother_precond(self, l: int) -> LinearOperator:
+    def _smoother_precond(self, l: int, A: LinearOperator | None = None) -> LinearOperator:
+        """Preconditioner of the smoother on level ``l`` for ``A`` (default: the system operator; else the
+        operator on the potentials of the Hiptmair smoother)."""
         opts = self._options
+        potentials = A is not None
+        A = self._A[l] if A is None else A
         if opts.smoother_precond == "mass":
-            return self._mass_pc[l]
+            return self._mass_pc_0[l] if potentials else self._mass_pc[l]
         if opts.smoother_precond == "jacobi":
-            return inverse_diagonal(self._diag[l](self._A[l]))
-        return IdentityOperator(self._A[l].domain)
+            return inverse_diagonal((self._diag_0 if potentials else self._diag)[l](A))
+        return IdentityOperator(A.domain)
 
     def _make_smoother(self, l: int) -> Smoother:
+        S = self._make_simple_smoother(l, self._A[l])
+        if not self._options.hiptmair:
+            return S
+        G = self._grad[l]
+        A_0 = G.T @ self._A[l] @ G
+        return HiptmairSmoother(self._A[l], G, S, self._make_simple_smoother(l, A_0, potentials=True))
+
+    def _make_simple_smoother(self, l: int, A: LinearOperator, potentials: bool = False) -> Smoother:
         opts = self._options
-        A = self._A[l]
+        M_inv = self._smoother_precond(l, A if potentials else None)
         if opts.smoother == "chebyshev":
             return ChebyshevSmoother(
                 A,
-                self._smoother_precond(l),
+                M_inv,
                 degree=opts.smoother_degree,
                 bounds=opts.chebyshev_bounds,
                 eig_iter=opts.eig_iter,
             )
         if opts.smoother == "jacobi":
-            D_inv = inverse_diagonal(self._diag[l](A))
+            D_inv = inverse_diagonal((self._diag_0 if potentials else self._diag)[l](A))
             return JacobiSmoother(A, D_inv, omega=opts.jacobi_omega, sweeps=opts.smoother_degree)
-        return KrylovSmoother(A, self._smoother_precond(l), iterations=opts.smoother_degree)
+        return KrylovSmoother(A, M_inv, iterations=opts.smoother_degree)
 
     def _setup_coarse_solver(self) -> None:
         opts = self._options
@@ -298,7 +327,8 @@ class MultiGridPreconditioner(LinearOperator):
         b.copy(out=self._b[0])
         if self._options.nullspace == "constants":
             _remove_mean(self._b[0])
-        self._vcycle(0)
+        with ProfileManager.profile_region("multigrid V-cycle", functions=[self._vcycle]):
+            self._vcycle(0)
         self._x[0].copy(out=out)
         if self._options.nullspace == "constants":
             _remove_mean(out)
@@ -312,17 +342,20 @@ class MultiGridPreconditioner(LinearOperator):
 
         x *= 0.0
         S = self._smoothers[l]
-        for _ in range(self._options.n_pre):
-            S.smooth(b, x)
+        with ProfileManager.profile_region(f"pre-smoother level {l}", functions=[S.smooth]):
+            for _ in range(self._options.n_pre):
+                S.smooth(b, x)
 
         r = S.residual(b, x, self._r[l])
         self._R[l].dot(r, out=self._b[l + 1])
-        self._vcycle(l + 1)
+        with ProfileManager.profile_region(f"coarse-grid correction level {l}", functions=[self._vcycle]):
+            self._vcycle(l + 1)
         self._P[l].dot(self._x[l + 1], out=self._e[l])
         x += self._e[l]
 
-        for _ in range(self._options.n_post):
-            S.smooth(b, x)
+        with ProfileManager.profile_region(f"post-smoother level {l}", functions=[S.smooth]):
+            for _ in range(self._options.n_post):
+                S.smooth_post(b, x)
 
     def _coarse_solve(self, b: Vector, x: Vector) -> None:
         if self._options.coarse_solver == "cg":
@@ -338,77 +371,6 @@ class MultiGridPreconditioner(LinearOperator):
         if self._options.nullspace == "constants":
             bg -= bg.mean()
         _scatter(sla.lu_solve(self._coarse_lu, bg), x)
-
-
-class MultiGridSolver(LinearOperator):
-    r"""Conjugate gradient method preconditioned with :class:`MultiGridPreconditioner`.
-
-    Parameters
-    ----------
-    A, derham, domain, options, mass_ops :
-        See :class:`MultiGridPreconditioner`.
-
-    tol : float
-        Relative tolerance, the iteration stops when :math:`\|b - A x\|_2 \leq \mathrm{tol}\, \|b\|_2`.
-
-    maxiter : int
-        Maximal number of CG iterations.
-
-    verbose : bool
-        Print the residual in every iteration.
-    """
-
-    def __init__(
-        self,
-        A: LinearOperator,
-        derham: Derham,
-        domain: Domain,
-        options: MultiGridOptions | None = None,
-        *,
-        mass_ops: WeightedMassOperators | None = None,
-        tol: float = 1e-8,
-        maxiter: int = 100,
-        verbose: bool = False,
-    ):
-        self._pc = MultiGridPreconditioner(A, derham, domain, options, mass_ops=mass_ops)
-        self._tol = tol
-        self._solver = inverse(A, "pcg", pc=self._pc, tol=tol, maxiter=maxiter, verbose=verbose, recycle=False)
-
-    @property
-    def domain(self):
-        return self._pc.domain
-
-    @property
-    def codomain(self):
-        return self._pc.codomain
-
-    @property
-    def dtype(self):
-        return self._pc.dtype
-
-    @property
-    def preconditioner(self) -> MultiGridPreconditioner:
-        return self._pc
-
-    @property
-    def info(self) -> dict:
-        """Information of the last solve: ``niter``, ``success``, ``res_norm``."""
-        return self._solver._info
-
-    def update(self, A: LinearOperator) -> None:
-        """Set a new operator (see :meth:`MultiGridPreconditioner.update`)."""
-        self._pc.update(A)
-        self._solver.linop = A
-
-    def transpose(self, conjugate: bool = False) -> "MultiGridSolver":
-        return self
-
-    def dot(self, b: Vector, out: Vector | None = None, x0: Vector | None = None) -> Vector:
-        """Solve ``A x = b`` (initial guess ``x0``, zero by default)."""
-        nb = np.sqrt(b.inner(b))
-        self._solver._options["tol"] = self._tol * nb if nb > 0.0 else self._tol
-        self._solver._options["x0"] = x0 if x0 is not None else self.domain.zeros()
-        return self._solver.dot(b, out=out)
 
 
 # ----------------------------------------------------------------------------------------------------

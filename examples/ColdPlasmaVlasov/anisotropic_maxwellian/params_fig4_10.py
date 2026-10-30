@@ -1,36 +1,47 @@
 # -----------------------------
 # Description of the simulation
 # -----------------------------
-# Please fill in a verbal description of the simulation. 
+# Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
+import argparse
 import logging
+from pathlib import Path
+
 import numpy as np
 
 from struphy import (
     BaseUnits,
+    BinningPlot,
+    BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
     FieldsBackground,
+    LoadingParameters,
+    SavingParameters,
     Simulation,
+    SortingParameters,
     Time,
+    WeightsParameters,
     domains,
     equils,
     grids,
-    perturbations,
-    LoadingParameters,
-    WeightsParameters,
-    BoundaryParameters,
-    SortingParameters,
-    SavingParameters,
-    BinningPlot,
     maxwellians,
+    perturbations,
     set_logging_level,
 )
-
 from struphy.models import ColdPlasmaVlasov
 
 set_logging_level(logging.INFO)
+
+# Command line options; unknown flags are ignored.
+parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
+parser.add_argument(
+    "--test-run",
+    action="store_true",
+    help="Few markers and two time steps, for the tests (test_examples.py).",
+)
+args, _ = parser.parse_known_args()
 
 name = "Thesis geometric benchmark - Run 1"
 
@@ -65,13 +76,14 @@ model.hot_elec.var.save_data = True
 # ----------------
 
 env = EnvironmentOptions(
-    sim_folder="thesis_run1_fig4_10",
+    out_folders=str(Path(__file__).resolve().parent),
+    sim_folder="sim_fig4_10",
     save_step=1,
 )
 
 time_opts = Time(
     dt=0.0125,
-    Tend=200.0,
+    Tend=2 * 0.0125 if args.test_run else 200.0,
     split_algo="LieTrotter",
 )
 
@@ -116,7 +128,7 @@ sim = Simulation(
 # ----------------
 
 loading_params = LoadingParameters(
-    Np=100000,
+    Np=2000 if args.test_run else 100000,
     loading="pseudo_random",
     seed=1234,
     moments=(0.0, 0.0, 0.0, 0.53, 0.53, 0.20),
@@ -180,9 +192,7 @@ model.initial_poisson.options = model.initial_poisson.Options()
 # ----------------
 
 # Cold current initially zero.
-model.thermal_elec.current.add_background(
-    FieldsBackground(values=(0.0, 0.0, 0.0))
-)
+model.thermal_elec.current.add_background(FieldsBackground(values=(0.0, 0.0, 0.0)))
 
 # Hot anisotropic Maxwellian:
 # parallel direction is v3 (along B0 / z)

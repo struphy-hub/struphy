@@ -102,9 +102,9 @@ logger = logging.getLogger("struphy")
 def test_psydac_derham(num_elements, init_kwargs, expected):
     """Test Derham initialization across multiple valid constructor configurations."""
 
-    from feectools.ddm.mpi import mpi as MPI
     from feectools.linalg.block import BlockVector
     from feectools.linalg.stencil import StencilVector
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions

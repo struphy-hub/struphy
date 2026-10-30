@@ -3,7 +3,7 @@ import logging
 import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import domains, equils, set_logging_level
 from struphy.feec.mass import L2Projector, WeightedMassOperators
@@ -170,7 +170,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 divide_by_dt=True,
                 diffusion_mat="M1perp",
                 solver="pcg",
-                precond="MassMatrixPreconditioner",
+                precond=None,
                 solver_params=solver_params,
             )
 
@@ -377,7 +377,7 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
         divide_by_dt=True,
         diffusion_mat="M1perp",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -396,7 +396,7 @@ def test_poisson_M1perp_2d(num_elements, degree, bc_type, mapping, projected_rhs
         divide_by_dt=True,
         diffusion_mat="M1perp",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -519,7 +519,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         stab_eps=1e-8,
         diffusion_mat="M1",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -538,7 +538,7 @@ def test_poisson_M1perp_3d_compare_M1(num_elements, degree, mapping, show_plot=F
         stab_eps=1e-8,
         diffusion_mat="M1perp",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -694,7 +694,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
         stab_eps=1e-8,
         diffusion_mat="M1perp",
         solver="pcg",
-        precond="MassMatrixPreconditioner",
+        precond=None,
         solver_params=solver_params,
     )
 
@@ -748,7 +748,7 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
             stab_eps=1e-8,
             diffusion_mat="M1",
             solver="pcg",
-            precond="MassMatrixPreconditioner",
+            precond=None,
             solver_params=solver_params,
         )
         poisson_solver_2p5d.allocate()
@@ -806,6 +806,70 @@ def test_poisson_M1perp_3d_compare_2p5d(num_elements, degree, mapping, show_plot
             ax.set_aspect("equal", adjustable="box")
 
         plt.show()
+
+
+@pytest.mark.parametrize("which_geometry", ["cylindrical", "toroidal"])
+def test_gyrokinetic_poisson_solve_preconditioners(which_geometry):
+    """GyrokineticPoissonSolve (M1gyro, M0ad_withT and the average in the stabilization): the stiffness
+    and multigrid preconditioners give the solution without preconditioner, in fewer iterations."""
+    from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
+
+    if which_geometry == "cylindrical":
+        domain = domains.HollowCylinder(a1=0.1, a2=1.0, Lz=4.0)
+    else:
+        domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=4.0, tor_period=1)
+    equil = equils.HomogenSlab(B0x=0.0, B0y=0.0, B0z=1.0)
+    equil.domain = domain
+
+    derham = Derham(
+        TensorProductGrid(num_elements=[12, 12, 8]),
+        DerhamOptions(degree=[2, 2, 2], bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=comm,
+    )
+    mass_ops = WeightedMassOperators(derham, domain, eq_mhd=equil)
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
+
+    def rho(e1, e2, e3):
+        return xp.sin(xp.pi * e1) * (1.0 + xp.cos(2 * xp.pi * e2) * xp.sin(2 * xp.pi * e3))
+
+    from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
+
+    # the Jacobi smoother uses the diagonal of the stabilization without the average
+    variants = [
+        (None, None),
+        ("StiffnessPreconditioner", None),
+        ("MultiGrid", MultiGridOptions()),
+        ("MultiGrid", MultiGridOptions(smoother="jacobi", smoother_degree=2)),
+    ]
+    phis, infos = [], []
+    for precond, multigrid in variants:
+        phi = FEECVariable(space="H1")
+        phi.allocate(derham=derham, domain=domain)
+        prop = GyrokineticPoissonSolve(rho=rho, epsilon=0.1)
+        prop.variables.phi = phi
+        prop.options = prop.Options(
+            which_geometry=which_geometry,
+            precond=precond,
+            multigrid=multigrid,
+            solver_params=SolverParameters(tol=1e-11, maxiter=3000, recycle=False),
+        )
+        prop.allocate()
+        prop(1.0)
+        phis.append(phi.spline.vector.toarray())
+        infos.append(prop._solver._info)
+
+    if comm.Get_size() > 1:
+        phis = [comm.allreduce(p, op=MPI.SUM) for p in phis]
+    assert all(info["success"] for info in infos)
+    for phi in phis[1:]:
+        assert xp.max(xp.abs(phis[0] - phi)) < 1e-7 * xp.max(xp.abs(phis[0]))
+    # stiffness and multigrid (Chebyshev smoother) at least halve the iterations; the Jacobi smoother
+    # (approximate diagonal) is weaker
+    assert infos[1]["niter"] < infos[0]["niter"] / 2
+    assert infos[2]["niter"] < infos[0]["niter"] / 2
+    assert infos[3]["niter"] < infos[0]["niter"]
 
 
 if __name__ == "__main__":

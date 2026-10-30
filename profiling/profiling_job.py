@@ -1,19 +1,21 @@
 """Shared machinery for running profiling jobs.
 
-A concrete profiling job (e.g. ``profile_diocotron_scaling.py``) defines its own `ProfilingCase`
+A concrete profiling job (a `submit_*.py` script next to a case in `examples/`) defines its own `ProfilingCase`
 and drives the run itself, looping over whichever rank counts it wants to profile.
 
 - `ProfilingCase.setup_run` validates the venv, compiles Struphy, and creates the
   results directories. It stores everything it computes as attributes on the case
   itself (`venv_path`, `use_slurm`, `launcher`, `case_output_root`, ...), so there's
   a single object to thread through the rest of the run.
-- For each rank count, the caller calls `ProfilingCase.launch(ntasks, param_flags=None)`, which builds
+- For each rank count, the caller calls `ProfilingCase.launch(ntasks, param_flags=None, backend="numpy")`, which builds
   the per-rank shell commands and either submits a `SlurmScript` (under SLURM) or
-  writes and runs a plain bash script to completion (otherwise) — the caller doesn't
-  need to know which. Pass `param_flags` to override the default commands (e.g. to add a
-  case-specific flag such as an arbitrary `ppc`) before they're wrapped in a script.
-  Under SLURM, the cluster preset is picked on each call from
-  `clusters.SLURM_PRESETS` unless a `slurm_presets` argument overrides it.
+  writes and runs a plain bash script to completion (otherwise, or with
+  STRUPHY_PROFILING_LOCAL=1) — the caller doesn't need to know which. Pass `param_flags`
+  to override the default commands (e.g. to add a case-specific flag such as an arbitrary
+  `ppc`) before they're wrapped in a script.
+  Under SLURM, the preset of the detected cluster is taken from `clusters.SLURM_PRESETS`
+  on each call, unless `slurm_preset` names another one (e.g. a GPU partition);
+  `slurm_options` overrides single pragmas of it.
 - `ProfilingCase.finalize_run` packages and pushes the case-level metadata straight
   away, then waits on the runs one by one, packaging and pushing each run's results
   into that same folder as soon as its own job finishes. With `upload=True`, the
@@ -26,7 +28,7 @@ and drives the run itself, looping over whichever rank counts it wants to profil
 The remaining module-level functions are generic helpers with no case-specific
 knowledge (detecting the MPI launcher/module system).
 
-See `profile_diocotron_scaling.py` for a template.
+See `examples/Poisson/gaussian_on_axis_cylinder/submit_gaussian_on_axis_cylinder.py` for a template.
 """
 
 import getpass
@@ -79,9 +81,13 @@ def has_module_system() -> bool:
     )
 
 
-def detect_launcher() -> str:
-    """The MPI launcher to use: `srun` under SLURM, otherwise `mpirun`/`mpiexec`."""
-    if shutil.which("srun"):
+def detect_launcher(use_slurm: bool = True) -> str:
+    """The MPI launcher to use: `srun` under SLURM, otherwise `mpirun`/`mpiexec`.
+
+    With `use_slurm=False` (local runs) `srun` is never used, even where it exists: on a login
+    node it would request a new allocation instead of running on this machine.
+    """
+    if use_slurm and shutil.which("srun"):
         return "srun"
     for launcher in ("mpirun", "mpiexec"):
         if shutil.which(launcher):
@@ -99,6 +105,10 @@ class ProfilingCase:
     physics_problem: str
     struphy_model_used: str
     params_source: Path
+    # Post-processing script run (serially) after each simulation, e.g. `pproc_gaussian_cube.py`. It is passed
+    # the run's output folder and the `param_flags` of the run, and writes what is to be packaged into
+    # `<sim_dir>/results`. None for no post-processing.
+    pproc_source: Path | None = None
     language: str = "fortran"  # Pyccel language to compile the Struphy kernels with: "fortran" or "c".
     compiler: str = "GNU"  # Pyccel compiler family: "GNU", "intel", "PGI", "nvidia", or "LLVM".
     # Whether the packaged results are pushed to the profiling-data repo. Set here rather
@@ -132,7 +142,12 @@ class ProfilingCase:
     def __post_init__(self) -> None:
         self.setup_run()
 
-    def build_commands(self, ntasks: int, param_flags: list[str] | None = None) -> list[str]:
+    def build_commands(
+        self,
+        ntasks: int,
+        param_flags: list[str] | None = None,
+        backend: str = "numpy",
+    ) -> list[str]:
         """Build the shell commands that run this case with a single MPI rank count.
 
         Reads the setup computed by `setup_run` (`case_output_root`, `venv_path`,
@@ -142,8 +157,11 @@ class ProfilingCase:
         Args:
             ntasks: Number of MPI ranks to run `params_source` with.
             param_flags: Extra CLI flags appended to the `params_source` invocation,
-                e.g. `["--ppc", "10"]`. Omit for none. `--id` is always passed on top
-                of these.
+                e.g. `["--ppc", "10"]`. Omit for none. `--out-folder` and `--sim-folder`
+                are always passed on top of these. The `pproc_source` invocation gets
+                the run's output folder and these flags.
+            backend: cunumpy backend of the run, "numpy" (CPU) or "cupy" (GPU),
+                exported as CUNUMPY_BACKEND before the simulation.
 
         Returns:
             The shell commands to run, in order, as one script.
@@ -152,11 +170,22 @@ class ProfilingCase:
         activate_path = self.venv_path / "bin" / "activate"
         # Every run is identified by its launch id alone — nothing in the naming carries
         # the rank count, so two launches that share one stay separate. The rank count is
-        # recorded in the run's `run_metadata.json`. `params_source` is passed the same
-        # counter as `--id` and names its output folder from it.
+        # recorded in the run's `run_metadata.json`. `params_source` is passed the output
+        # folder via `--out-folder` and `--sim-folder`.
         sim_dir = output_root / f"sim_{self.launch_count:02d}"
         python = self.venv_path / "bin" / "python"
-        flags = " ".join(["--id", str(self.launch_count), *(param_flags or [])])
+        param_flags = [shlex.quote(flag) for flag in (param_flags or [])]
+        flags = " ".join(["--out-folder", shlex.quote(str(output_root)), "--sim-folder", sim_dir.name, *param_flags])
+        pproc_commands = (
+            [
+                "",
+                f'echo "Post-processing {self.label} with {self.pproc_source}"',
+                f'STRUPHY_LOG_FILE="{sim_dir / "struphy.log"}" '
+                f'{python} {self.pproc_source} "{sim_dir}" {" ".join(param_flags)} > "{sim_dir / "pproc.out"}" 2>&1',
+            ]
+            if self.pproc_source is not None
+            else []
+        )
 
         return [
             # Environment modules only exist on the clusters, not on a laptop.
@@ -171,11 +200,14 @@ class ProfilingCase:
             ),
             "set -e",
             f"source {activate_path!s}",
+            # cunumpy reads its backend from this variable when it is imported, so it is exported before the run
+            f"export CUNUMPY_BACKEND={backend}",
             'echo "----------------------------------------"',
             f'echo "Running profiling case: {self.label} ({ntasks} MPI ranks)"',
             f'echo "Description: {self.description}"',
             f'echo "Physics problem: {self.physics_problem}"',
             f'echo "Struphy model used: {self.struphy_model_used}"',
+            f'echo "cunumpy backend: {backend}"',
             f'echo "Case directory: {output_root}"',
             'echo "----------------------------------------"',
             f'mkdir -p "{sim_dir}"',
@@ -191,6 +223,7 @@ class ProfilingCase:
             # the same file for all of them, racing on log rotation across processes.
             f'STRUPHY_LOG_FILE="{sim_dir / "struphy.log"}" '
             f'{self.launcher} -n {ntasks} {python} {self.params_source} {flags} > "{sim_dir / "struphy.out"}" 2>&1',
+            *pproc_commands,
             "",
             'echo "----------------------------------------"',
             f'echo "Completed profiling case: {self.label} ({ntasks} MPI ranks)"',
@@ -202,7 +235,9 @@ class ProfilingCase:
         num_tasks: int = 1,
         num_nodes: int | None = None,
         param_flags: list[str] | None = None,
-        slurm_presets: dict[str, dict] | None = None,
+        backend: str = "numpy",
+        slurm_preset: str | None = None,
+        slurm_options: dict | None = None,
     ) -> None:
         """Build, submit/run, and record the run for a single rank count.
 
@@ -223,14 +258,24 @@ class ProfilingCase:
                 outside SLURM, where every rank runs in a single local process group.
             param_flags: Extra CLI flags forwarded to `build_commands` and appended
                 to the `params_source` invocation, e.g. `["--ppc", "10"]`.
-            slurm_presets: Candidate SLURM presets, keyed by cluster name; one is
-                picked via `detect_machine_name` on every call. Defaults to
-                `clusters.SLURM_PRESETS`. Ignored outside SLURM.
+            backend: cunumpy backend of this run, "numpy" (CPU) or "cupy" (GPU):
+                exported as CUNUMPY_BACKEND in the job script and recorded in the
+                run's metadata, so one case can mix runs on both backends.
+            slurm_preset: Key of the `clusters.SLURM_PRESETS` entry the job is
+                submitted with, e.g. "pitagora_booster" for a GPU partition.
+                Defaults to the cluster found by `detect_machine_name`. Its
+                `HARDWARE_INFO` entry is only needed when `num_nodes` is not given.
+                Ignored outside SLURM.
+            slurm_options: SLURM pragmas that override those of the preset, e.g.
+                `{"time": "00:30:00"}`. Ignored outside SLURM.
 
         Raises:
-            ValueError: If `num_tasks` is not evenly divisible by `num_nodes`
-                (SLURM only).
+            ValueError: If `backend` is neither "numpy" nor "cupy", or if
+                `num_tasks` is not evenly divisible by `num_nodes` (SLURM only).
         """
+        if backend not in ("numpy", "cupy"):
+            raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
+
         if not self.use_slurm:
             available = os.cpu_count() or 1
             if num_tasks > available:
@@ -243,23 +288,19 @@ class ProfilingCase:
         script_path = profiling_results_base / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
 
         # Build the commands to run this case with the given rank count, and write/submit
-        case_commands = self.build_commands(num_tasks, param_flags)
+        case_commands = self.build_commands(num_tasks, param_flags, backend)
 
         # Submit a SLURM script or run a local bash script, depending on whether SLURM is available.
         if self.use_slurm:
-            cluster_name = detect_machine_name()
+            # The preset of this run: the caller's choice, or the one of the detected cluster.
+            preset_name = slurm_preset or detect_machine_name()
             if num_nodes is None:
                 # Compute the number of nodes needed to run `num_tasks` ranks, given the cluster's hardware.
-                cpus_per_node = HARDWARE_INFO[cluster_name]["cpus_per_node"]
+                cpus_per_node = HARDWARE_INFO[preset_name]["cpus_per_node"]
                 num_nodes = (num_tasks + cpus_per_node - 1) // cpus_per_node
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
-
-            # Pick the cluster preset for this run, either from the caller's override or the default.
-            if slurm_presets is not None:
-                cluster_preset = slurm_presets[cluster_name]
-            else:
-                cluster_preset = SLURM_PRESETS[cluster_name]
+            cluster_preset = {**SLURM_PRESETS[preset_name], **(slurm_options or {})}
 
             # Build the slurm script
             script = SlurmScript(
@@ -299,6 +340,7 @@ class ProfilingCase:
         job_info = {
             "launch_id": self.launch_count,
             "ranks": num_tasks,
+            "backend": backend,
             "job_id": job_id,
             "job_script_path": str(script_path),
             "job_script": script_text,
@@ -342,13 +384,17 @@ class ProfilingCase:
         # pushing a run is just a commit — there is no intermediate export folder to
         # copy out of. Without `--upload` the clone is pointless, so the packaged
         # folders are simply written into the same, plain directory.
+        # Prepared once per process: the cases of a sweep (see `begin_sweep`) share the folder, and
+        # preparing it again (deleting or re-cloning it) would drop what the others packaged.
         self.output_root = profiling_results_base / "profiling-data"
-        if self.upload:
-            _clone_profiling_data(self.output_root)
-        else:
-            if self.output_root.exists():
-                shutil.rmtree(self.output_root)
-            self.output_root.mkdir(parents=True, exist_ok=True)
+        if self.output_root not in _PREPARED_OUTPUT_ROOTS:
+            if self.upload:
+                _clone_profiling_data(self.output_root)
+            else:
+                if self.output_root.exists():
+                    shutil.rmtree(self.output_root)
+                self.output_root.mkdir(parents=True, exist_ok=True)
+            _PREPARED_OUTPUT_ROOTS.add(self.output_root)
 
         # Determine the current git commit hash for the Struphy repo
         self.run_commit = _git_commit(repo_root)
@@ -365,9 +411,11 @@ class ProfilingCase:
         self.case_output_root = self.run_results_root / self.label
         self.case_output_root.mkdir(parents=True, exist_ok=True)
 
-        self.use_slurm = shutil.which("sbatch") is not None
+        # STRUPHY_PROFILING_LOCAL=1 runs on this machine even where SLURM is available (e.g. on a login node)
+        force_local = os.environ.get("STRUPHY_PROFILING_LOCAL", "0").lower() in ("1", "true", "yes")
+        self.use_slurm = shutil.which("sbatch") is not None and not force_local
         self.use_modules = self.use_slurm and has_module_system()
-        self.launcher = detect_launcher()
+        self.launcher = detect_launcher(self.use_slurm)
 
     def case_info_dict(self) -> dict:
         """This case's metadata plus every submitted/launched job, as written to `profiling_case_info.json`.
@@ -480,7 +528,7 @@ class ProfilingCase:
         """Copy one finished run's output into the packaged folder.
 
         Everything one run produced goes into a folder of its own,
-        `results-run<launch_id>`: its `.h5` files, anything the parameter file
+        `results-run<launch_id>`: its `.h5` files, anything the pproc script
         post-processed into `sim_<launch_id>/results` (`.png` figures, `.npy` arrays),
         and a `run<launch_id>.json` describing all of it. Only packages what that run
         actually produced, so a run whose job never started (or failed before writing
@@ -527,7 +575,7 @@ class ProfilingCase:
             shutil.copy2(source_h5, run_dir / output_name)
             profiling_data.append(f"{run_dir.name}/{output_name}")
 
-        # Whatever the parameter file post-processed into `sim_dir/results` (figures,
+        # Whatever the pproc script wrote into `sim_dir/results` (figures,
         # small arrays) joins the run's `.h5` files in the same folder.
         results_files = _copy_run_results(sim_dir, run_dir)
         if verbose and results_files:
@@ -620,45 +668,64 @@ class ProfilingCase:
 
         Whether the pushes happen at all is the case's `upload` flag, set at construction.
 
+        Inside a sweep (see `sweep.py` and `begin_sweep`), this only registers the case:
+        `finalize_all` then waits on the runs of all cases of the sweep together.
+
         Args:
             poll_interval: Seconds between polls for finished runs.
         """
-        print(
-            f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
-        )
-        case_info = self.case_info_dict()
-        (self.case_output_root / "profiling_case_info.json").write_text(
-            json.dumps(case_info, indent=2),
-            encoding="utf-8",
-        )
+        if _SWEEP_CASES is not None:
+            _SWEEP_CASES.append(self)
+            print(f"Submitted {len(self.job_infos)} run(s) of '{self.label}'; packaging deferred to the sweep.")
+            return
 
-        # Package and push the case-level metadata before waiting on any run, so the
-        # packaged folder is already in place when the per-run pushes start updating it.
-        self.package_case_metadata(case_info)
-        print(f"Packaged case metadata for '{self.label}' into {self.destination_dir}")
+        self.package_case_start()
         if self.upload:
             print("Uploading case metadata to the profiling-data repo ...")
             _push_profiling_data(self.output_root, self.run_commit)
 
         # Then package and push each run's results as soon as its own job finishes,
         # rather than waiting for every run to complete first.
-        num_runs = len(self.job_infos)
-        print(f"Waiting for {num_runs} run(s) of '{self.label}' to complete...")
-        packaged_launch_ids = []
+        print(f"Waiting for {len(self.job_infos)} run(s) of '{self.label}' to complete...")
         for job_info in self._iter_finished_runs(poll_interval=poll_interval):
-            # The launch id identifies the run; the rank count is just context.
-            run = f"run {job_info['launch_id']:02d} ({job_info['ranks']} MPI ranks)"
-            if not self.package_run(job_info, verbose=True):
-                print(f"No profiling output for '{self.label}' {run}; nothing to package.")
-                continue
-            packaged_launch_ids.append(job_info["launch_id"])
-            # Refresh `case_metadata.json` so it lists the runs packaged so far.
-            self.package_case_metadata(case_info)
-            print(f"Packaged '{self.label}' {run} into {self.destination_dir}")
-            if self.upload:
-                print(f"Uploading '{self.label}' {run} to the profiling-data repo ...")
+            if self.package_finished_run(job_info) and self.upload:
+                print(f"Uploading '{self.label}' run {job_info['launch_id']:02d} to the profiling-data repo ...")
                 _push_profiling_data(self.output_root, self.run_commit)
 
+        self.report_packaged()
+
+    def package_case_start(self) -> None:
+        """Write `profiling_case_info.json` and package the case-level metadata (the first step of packaging)."""
+        print(
+            f"Writing metadata for '{self.label}' to {self.case_output_root / 'profiling_case_info.json'}",
+        )
+        self._case_info = self.case_info_dict()
+        (self.case_output_root / "profiling_case_info.json").write_text(
+            json.dumps(self._case_info, indent=2),
+            encoding="utf-8",
+        )
+        # The case-level metadata goes in before any run, so the packaged folder is already in
+        # place when the per-run packaging starts updating it.
+        self.package_case_metadata(self._case_info)
+        self._packaged_launch_ids = []
+        print(f"Packaged case metadata for '{self.label}' into {self.destination_dir}")
+
+    def package_finished_run(self, job_info: dict) -> bool:
+        """Package one finished run and refresh the case metadata; whether there was output to package."""
+        # The launch id identifies the run; the rank count is just context.
+        run = f"run {job_info['launch_id']:02d} ({job_info['ranks']} MPI ranks)"
+        if not self.package_run(job_info, verbose=True):
+            print(f"No profiling output for '{self.label}' {run}; nothing to package.")
+            return False
+        self._packaged_launch_ids.append(job_info["launch_id"])
+        # Refresh `case_metadata.json` so it lists the runs packaged so far.
+        self.package_case_metadata(self._case_info)
+        print(f"Packaged '{self.label}' {run} into {self.destination_dir}")
+        return True
+
+    def report_packaged(self) -> None:
+        """Print what was packaged for this case (and how to push or plot it if it was not uploaded)."""
+        packaged_launch_ids = self._packaged_launch_ids
         if packaged_launch_ids:
             print(f"Packaged {len(packaged_launch_ids)} run(s) of '{self.label}' (ids {sorted(packaged_launch_ids)}):")
             print(f" - {self.destination_dir}")
@@ -675,3 +742,97 @@ class ProfilingCase:
                 )
         else:
             print(f"No profiling output found for '{self.label}'; nothing to package.")
+
+
+# ---------------------------------------------------------------------------
+# Sweeps: many cases in one process (see sweep.py)
+# ---------------------------------------------------------------------------
+# Cases whose `finalize_run` was deferred, or None outside a sweep.
+_SWEEP_CASES: list | None = None
+# Packaging folders prepared by `ProfilingCase.setup_run` in this process.
+_PREPARED_OUTPUT_ROOTS: set = set()
+
+
+def begin_sweep() -> None:
+    """Start collecting cases: from now on `ProfilingCase.finalize_run` only registers its case.
+
+    Several drivers running at the same time would each prepare (delete or re-clone) the
+    shared packaging folder `_profiling_jobs/profiling-data` and push to it, so a sweep runs
+    all cases in one process instead: every case submits its jobs right away (SLURM runs them
+    concurrently), and `finalize_all` packages them one at a time as they finish.
+    """
+    global _SWEEP_CASES
+    _SWEEP_CASES = []
+
+
+def end_sweep() -> list:
+    """Stop collecting cases; returns the cases registered since `begin_sweep`."""
+    global _SWEEP_CASES
+    cases, _SWEEP_CASES = _SWEEP_CASES or [], None
+    return cases
+
+
+def _iter_finished_jobs(cases: list, poll_interval: float = 10.0):
+    """Yield `(case, job_info)` for every run of `cases` as soon as it finishes, in completion order.
+
+    One poll of the SLURM queue serves all cases. Runs without a SLURM job (local runs, which
+    `launch` already ran to completion) are yielded first, in launch order.
+    """
+    pending = {}
+    for case in cases:
+        for info in case.job_infos:
+            if info.get("job_id") is None:
+                yield case, info
+            else:
+                pending[info["job_id"]] = (case, info)
+
+    queue = SQueue(user=getpass.getuser()) if pending else None
+    while pending:
+        queue.refresh()
+        active = {job.job_id for job in queue.jobs() if job.is_active}
+        finished = [job_id for job_id in pending if job_id not in active]
+        states = job_states(finished)
+        for job_id in finished:
+            case, info = pending.pop(job_id)
+            state = states.get(job_id)
+            if state is not None and state != "COMPLETED":
+                print(f"WARNING: job {job_id} for '{case.label}' ({info['ranks']} MPI ranks) ended in state {state}.")
+            else:
+                print(f"Job {job_id} for '{case.label}' ({info['ranks']} MPI ranks) finished.")
+            yield case, info
+        if pending:
+            n_cases = len({id(case) for case, _ in pending.values()})
+            print(f"{len(pending)} run(s) of {n_cases} case(s) still pending ...", flush=True)
+            time.sleep(poll_interval)
+
+
+def finalize_all(cases: list, poll_interval: float = 30.0) -> None:
+    """`ProfilingCase.finalize_run` for several cases at once: package (and push) every run as it finishes.
+
+    The case metadata of all cases is packaged first (one push), then every finished run is
+    packaged into its case and pushed, one at a time, in the order the jobs finish.
+
+    Args:
+        cases: The cases, e.g. from `end_sweep`. With `upload`, all must share one packaging
+            folder (`output_root`), as cases of one process do.
+        poll_interval: Seconds between polls of the SLURM queue.
+    """
+    if not cases:
+        print("No cases to finalize.")
+        return
+    for case in cases:
+        case.package_case_start()
+    uploads = [case for case in cases if case.upload]
+    if uploads:
+        print("Uploading the case metadata to the profiling-data repo ...")
+        _push_profiling_data(uploads[0].output_root, uploads[0].run_commit)
+
+    n_runs = sum(len(case.job_infos) for case in cases)
+    print(f"Waiting for {n_runs} run(s) of {len(cases)} case(s) to complete ...")
+    for case, info in _iter_finished_jobs(cases, poll_interval=poll_interval):
+        if case.package_finished_run(info) and case.upload:
+            print(f"Uploading '{case.label}' run {info['launch_id']:02d} to the profiling-data repo ...")
+            _push_profiling_data(case.output_root, case.run_commit)
+
+    for case in cases:
+        case.report_packaged()

@@ -1,15 +1,14 @@
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 from struphy import PostProcessor
-
 
 SIM_PATH = os.path.abspath("thesis_fig4_9_validation")
 
 
 def main():
-
     print("=" * 60)
     print("POST PROCESSING: ANISOTROPIC MAXWELLIAN")
     print("=" * 60)
@@ -64,11 +63,7 @@ def main():
     fig, ax = plt.subplots(figsize=(8, 5))
 
     for idx in indices:
-        ax.plot(
-            e3,
-            f_e3[idx],
-            label=f"t = {t[idx]:.2f}"
-        )
+        ax.plot(e3, f_e3[idx], label=f"t = {t[idx]:.2f}")
 
     ax.set_xlabel("e3")
     ax.set_ylabel("Distribution")
@@ -97,11 +92,7 @@ def main():
     fig, ax = plt.subplots(figsize=(8, 5))
 
     for idx in indices:
-        ax.plot(
-            v3,
-            f_v3[idx],
-            label=f"t = {t[idx]:.2f}"
-        )
+        ax.plot(v3, f_v3[idx], label=f"t = {t[idx]:.2f}")
 
     ax.set_xlabel(r"$v_3$")
     ax.set_ylabel("Distribution")
@@ -133,41 +124,17 @@ def main():
     dv3 = np.mean(np.diff(v3))
 
     def moments(Fi):
-
         norm = np.sum(Fi) * dv1 * dv3
 
-        mean_v1 = (
-            np.sum(v1[:, None] * Fi)
-            * dv1 * dv3 / norm
-        )
+        mean_v1 = np.sum(v1[:, None] * Fi) * dv1 * dv3 / norm
 
-        mean_v3 = (
-            np.sum(v3[None, :] * Fi)
-            * dv1 * dv3 / norm
-        )
+        mean_v3 = np.sum(v3[None, :] * Fi) * dv1 * dv3 / norm
 
-        variance_v1 = (
-            np.sum(
-                (v1[:, None] - mean_v1) ** 2 * Fi
-            )
-            * dv1 * dv3 / norm
-        )
+        variance_v1 = np.sum((v1[:, None] - mean_v1) ** 2 * Fi) * dv1 * dv3 / norm
 
-        variance_v3 = (
-            np.sum(
-                (v3[None, :] - mean_v3) ** 2 * Fi
-            )
-            * dv1 * dv3 / norm
-        )
+        variance_v3 = np.sum((v3[None, :] - mean_v3) ** 2 * Fi) * dv1 * dv3 / norm
 
-        covariance = (
-            np.sum(
-                (v1[:, None] - mean_v1)
-                * (v3[None, :] - mean_v3)
-                * Fi
-            )
-            * dv1 * dv3 / norm
-        )
+        covariance = np.sum((v1[:, None] - mean_v1) * (v3[None, :] - mean_v3) * Fi) * dv1 * dv3 / norm
 
         return (
             norm,
@@ -187,7 +154,6 @@ def main():
     print("=" * 60)
 
     for idx in indices:
-
         result = moments(F[idx])
 
         print(f"\nt = {t[idx]:.6f}")
@@ -214,7 +180,6 @@ def main():
     )
 
     for ax, idx in zip(axes, selected):
-
         pcm = ax.pcolormesh(
             v1,
             v3,
@@ -224,26 +189,15 @@ def main():
 
         ax.set_xlabel(r"$v_1$")
         ax.set_ylabel(r"$v_3$")
-        ax.set_title(
-            rf"$f(v_1,v_3)$ at $t={t[idx]:.2f}$"
-        )
+        ax.set_title(rf"$f(v_1,v_3)$ at $t={t[idx]:.2f}$")
 
-        fig.colorbar(
-            pcm,
-            ax=ax,
-            label="Distribution"
-        )
+        fig.colorbar(pcm, ax=ax, label="Distribution")
 
-    fig.suptitle(
-        r"Hot-electron velocity-space anisotropy: $v_1$-$v_3$"
-    )
+    fig.suptitle(r"Hot-electron velocity-space anisotropy: $v_1$-$v_3$")
 
     fig.tight_layout()
 
-    filename = os.path.join(
-        out,
-        "v1_v3_distribution_t0_t1.png"
-    )
+    filename = os.path.join(out, "v1_v3_distribution_t0_t1.png")
 
     fig.savefig(filename, dpi=200)
     plt.close(fig)

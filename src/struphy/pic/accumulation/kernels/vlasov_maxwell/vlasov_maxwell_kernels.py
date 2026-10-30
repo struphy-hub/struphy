@@ -1,0 +1,133 @@
+"Accumulation kernel for full-orbit (6D) particles."
+
+from numpy import shape, zeros
+from pyccel.decorators import stack_array
+
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+
+
+@stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "v", "df_inv_times_v", "filling_m", "filling_v")
+def vlasov_maxwell(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    mat11: "float[:,:,:,:,:,:]",
+    mat12: "float[:,:,:,:,:,:]",
+    mat13: "float[:,:,:,:,:,:]",
+    mat22: "float[:,:,:,:,:,:]",
+    mat23: "float[:,:,:,:,:,:]",
+    mat33: "float[:,:,:,:,:,:]",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+):
+    r"""
+    Accumulates into V1 with the filling functions
+
+    .. math::
+
+        A_p^{\mu, \nu} &= w_p \, G^{-1}_{\mu, \nu}(\boldsymbol \eta_p) \,,
+        \\[2mm]
+        B_p^\mu &= w_p [DF^{-1}(\boldsymbol \eta_p) \cdot \mathbf{v}_p ]_\mu \,.
+
+    Parameters
+    ----------
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    markers = args_markers.markers
+
+    # allocate for metric coeffs
+    dfm = zeros((3, 3), dtype=float)
+    df_inv = zeros((3, 3), dtype=float)
+    df_inv_t = zeros((3, 3), dtype=float)
+    g_inv = zeros((3, 3), dtype=float)
+
+    # allocate for filling
+    v = zeros(3, dtype=float)
+    df_inv_times_v = zeros(3, dtype=float)
+    filling_m = zeros((3, 3), dtype=float)
+    filling_v = zeros(3, dtype=float)
+
+    # fmt: off
+    #$ omp parallel private(df_inv, df_inv_t, df_inv_times_v, dfm, eta1, eta2, eta3, filling_m, filling_v, g_inv, ip, thread_derham, v)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    # fmt: on
+    for ip in range(args_markers.n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[0, ip] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # compute shifted and stretched velocity
+        v[0] = markers[3, ip]
+        v[1] = markers[4, ip]
+        v[2] = markers[5, ip]
+
+        # filling functions
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
+
+        # filling_m = w_p * DF^{-1} * DF^{-T}
+        filling_m[:, :] = markers[6, ip] * g_inv
+
+        # filling_v = w_p * DF^{-1} * \V
+        filling_v[:] = markers[6, ip] * df_inv_times_v
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+            thread_derham,
+            eta1,
+            eta2,
+            eta3,
+            mat11,
+            mat12,
+            mat13,
+            mat22,
+            mat23,
+            mat33,
+            filling_m[0, 0],
+            filling_m[0, 1],
+            filling_m[0, 2],
+            filling_m[1, 1],
+            filling_m[1, 2],
+            filling_m[2, 2],
+            vec1,
+            vec2,
+            vec3,
+            filling_v[0],
+            filling_v[1],
+            filling_v[2],
+        )
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

@@ -1,19 +1,20 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D import cc_lin_mhd_5d_D
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf import cc_lin_mhd_5d_D_mf
+from struphy.pic.accumulation.kernels.marker_operator_asym_dot import marker_operator_asym_dot
+from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -81,13 +82,13 @@ class CurrentCoupling5DDensity(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`CurrentCoupling5DDensity`.
+        r"""Configuration options for :class:`CurrentCoupling5DDensity`.
 
         Parameters
         ----------
-        ep_scale : float, default=1.0
-            Scaling factor applied in the energetic-particle accumulation
-            kernel.
+        ep_scale : float, default=None
+            Factor of the energetic-particle contributions (accumulation): the mass ratio
+            :math:`A_\textnormal{h}/A_\textnormal{b}` of the energetic ions and the MHD bulk if ``None``.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for the unknown ``u`` variable.
@@ -103,24 +104,35 @@ class CurrentCoupling5DDensity(Propagator):
             ``SolverParameters()``.
 
         filter_params : FilterParameters, default=None
-            Particle-to-grid filtering parameters used by the accumulator.
-            If ``None``, defaults to ``FilterParameters()``.
+            Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
+            The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
+            but the propagator then no longer conserves the energy exactly (the filter is applied to the
+            accumulated vectors only, not to the fields seen by the particles).
+
+        matrix_free : bool, default=True
+            Apply the particle matrix :math:`\sum_p \vec \Lambda_p F_p \vec \Lambda_p^\top` (antisymmetric 3x3
+            :math:`F_p`) in each iteration of the solver from data stored per marker
+            (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`) instead of assembling it: one spline
+            evaluation and one deposition per marker and iteration instead of 3 blocks of size
+            :math:`n_\textnormal{basis}^2` per marker. Same result up to the solver tolerance.
         """
 
         # propagator options
-        ep_scale: float = 1.0
+        ep_scale: float = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
+        matrix_free: bool = True
 
         def __post_init__(self):
             # checks
+            assert isinstance(self.matrix_free, bool)
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.ep_scale, float)
+            assert self.ep_scale is None or isinstance(self.ep_scale, float)
 
             # defaults
             if self.solver_params is None:
@@ -143,6 +155,12 @@ class CurrentCoupling5DDensity(Propagator):
 
     @profile
     def allocate(self):
+        # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
+        self._ep_scale = self.options.ep_scale
+        if self._ep_scale is None:
+            self._ep_scale = self.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+            logger.info(f"{self.__class__.__name__}: ep_scale = A_h/A_b = {self._ep_scale} (mass ratio, default).")
+
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -166,20 +184,10 @@ class CurrentCoupling5DDensity(Propagator):
         self._u_new = self.variables.u.spline.vector.space.zeros()
 
         # define Accumulator and arguments
-        self._ACC = Accumulator(
-            self.energetic_ions.particles,
-            self.options.u_space,
-            PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_D),
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=False,
-            symmetry="asym",
-            filter_params=self.options.filter_params,
-        )
-
+        particles = self.energetic_ions.particles
         self._args_accum_kernel = (
             epsilon,
-            self.options.ep_scale,
+            self._ep_scale,
             self._b_full[0]._data,
             self._b_full[1]._data,
             self._b_full[2]._data,
@@ -191,6 +199,34 @@ class CurrentCoupling5DDensity(Propagator):
             curl_unit_b2[2]._data,
             self._u_form_int,
         )
+        if self.options.matrix_free:
+            # the 3x3 filling matrices per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 4, "matrix_free needs 4 free (auxiliary) marker columns."
+            self._args_accum_kernel += (column,)
+            # the kernel that stores the filling matrices (called in __call__, kept for kernels())
+            self._store_kernel = cc_lin_mhd_5d_D_mf
+            self._A_particles = MarkerOperator(
+                particles,
+                self.options.u_space,
+                marker_operator_asym_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (self._u_form_int, column),
+                symmetry="asym",
+            )
+        else:
+            self._ACC = Accumulator(
+                particles,
+                self.options.u_space,
+                cc_lin_mhd_5d_D,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=False,
+                symmetry="asym",
+                filter_params=self.options.filter_params,
+            )
+            self._A_particles = self._ACC.operators[0]
 
         # Preconditioner
         if self.options.precond is None:
@@ -220,13 +256,24 @@ class CurrentCoupling5DDensity(Propagator):
             b_full += self.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
-        self._ACC(
-            *self._args_accum_kernel,
-        )
+        if self.options.matrix_free:
+            particles = self.energetic_ions.particles
+            with ProfileManager.profile_region("kernel: " + self._store_kernel.name):
+                self._store_kernel(
+                    particles.args_markers,
+                    self.derham.args_derham,
+                    self.domain.args_domain,
+                    *self._args_accum_kernel,
+                    n_threads=particles.args_markers.n_markers,
+                )
+        else:
+            self._ACC(
+                *self._args_accum_kernel,
+            )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        lhs = self._A - dt / 2 * self._ACC.operators[0]
-        rhs = self._A + dt / 2 * self._ACC.operators[0]
+        lhs = self._A - dt / 2 * self._A_particles
+        rhs = self._A + dt / 2 * self._A_particles
 
         # solve linear system for updated u coefficients (in-place)
         rhs = rhs.dot(un, out=self._rhs_v)

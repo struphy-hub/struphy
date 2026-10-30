@@ -1,6 +1,11 @@
 import copy
+import importlib.util
 import logging
+import os
 import pickle
+import signal
+import subprocess
+import sys
 
 import cunumpy
 import pytest
@@ -27,7 +32,7 @@ def test_domain_deepcopy(mapping):
     assert domain_copy.args_domain.params is not domain.args_domain.params
     assert domain_copy.args_domain.degree is not domain.args_domain.degree
 
-    markers = xp.array([[0.2, 0.4, 0.6]])
+    markers = xp.array([[0.2], [0.4], [0.6]])
     assert xp.allclose(domain(markers), domain_copy(markers))
     assert xp.allclose(domain.jacobian(markers), domain_copy.jacobian(markers))
 
@@ -48,7 +53,7 @@ def test_domain_pickle_roundtrip(mapping):
     assert restored.args_domain is not None
     assert restored.args_domain.kind_map == domain.args_domain.kind_map
 
-    markers = xp.array([[0.3, 0.5, 0.7]])
+    markers = xp.array([[0.3], [0.5], [0.7]])
     assert xp.allclose(domain(markers), restored(markers))
     assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
@@ -72,7 +77,7 @@ def test_spline_default(with_gvec=False):
     assert xp.allclose(domain.cy, ref.cy)
     assert xp.allclose(domain.cz, ref.cz)
 
-    markers = xp.array([[0.3, 0.5, 0.7]])
+    markers = xp.array([[0.3], [0.5], [0.7]])
     assert xp.allclose(domain(markers), ref(markers))
     assert xp.allclose(domain.jacobian_det(markers), ref.jacobian_det(markers))
 
@@ -161,10 +166,10 @@ def test_prepare_arg():
     assert Domain.prepare_arg([A1, A2, A3], E1, E2, E3).shape == shape_vector
 
     # ============== markers evaluation ==========================
-    markers = xp.random.rand(10, 6)
+    markers = xp.random.rand(6, 10)
 
-    shape_scalar = (markers.shape[0], 1)
-    shape_vector = (markers.shape[0], 3)
+    shape_scalar = (markers.shape[1], 1)
+    shape_vector = (markers.shape[1], 3)
 
     # ======== callables ============
 
@@ -188,11 +193,11 @@ def test_prepare_arg():
 
     # ======== arrays ===============
 
-    A1 = a1(markers[:, 0], markers[:, 1], markers[:, 2])
-    A2 = a2(markers[:, 0], markers[:, 1], markers[:, 2])
-    A3 = a3(markers[:, 0], markers[:, 1], markers[:, 2])
+    A1 = a1(markers[0], markers[1], markers[2])
+    A2 = a2(markers[0], markers[1], markers[2])
+    A3 = a3(markers[0], markers[1], markers[2])
 
-    A = a_vec(markers[:, 0], markers[:, 1], markers[:, 2])
+    A = a_vec(markers[0], markers[1], markers[2])
 
     # scalar function
     assert Domain.prepare_arg(A1, markers).shape == shape_scalar
@@ -224,18 +229,18 @@ def test_hollow_torus_inverse_map(sfl, pol_period):
     domain = HollowTorus(sfl=sfl, pol_period=pol_period)
 
     xp.random.seed(1234)
-    etas = xp.random.rand(50, 3)
+    etas = xp.random.rand(3, 50)
     # eta2 = 0 and eta2 = 0.5 lie on the midplane
-    etas[:10, 1] = 0.0
-    etas[10:20, 1] = 0.5
+    etas[1, :10] = 0.0
+    etas[1, 10:20] = 0.5
 
     x, y, z = domain(etas, remove_outside=False)
     e1, e2, e3 = domain.inverse_map(x, y, z)
 
-    assert xp.allclose(domain(xp.stack([e1, e2, e3], axis=1), remove_outside=False), xp.stack([x, y, z]))
-    assert xp.allclose(e1, etas[:, 0])
-    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[:, 1]), 1 - xp.abs(e2 - etas[:, 1])), 0.0)
-    assert xp.allclose(e3, etas[:, 2])
+    assert xp.allclose(domain(xp.stack([e1, e2, e3]), remove_outside=False), xp.stack([x, y, z]))
+    assert xp.allclose(e1, etas[0])
+    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[1]), 1 - xp.abs(e2 - etas[1])), 0.0)
+    assert xp.allclose(e3, etas[2])
 
 
 @pytest.mark.parametrize(
@@ -269,7 +274,7 @@ def test_evaluation_mappings(mapping):
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    arrm = xp.random.rand(10, 8)
+    arrm = xp.random.rand(8, 10)
     logger.info("")
     logger.info('Testing "evaluate"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape} {arrm.shape}")
@@ -301,12 +306,12 @@ def test_evaluation_mappings(mapping):
 
     # markers evaluation:
     logger.info(f"markers evaluation, shape: {domain(arrm).shape}")
-    assert domain(arrm).shape == (3, arrm.shape[0])
-    assert domain.jacobian(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.jacobian_det(arrm).shape == (arrm.shape[0],)
-    assert domain.jacobian_inv(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.metric(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.metric_inv(arrm).shape == (3, 3, arrm.shape[0])
+    assert domain(arrm).shape == (3, arrm.shape[1])
+    assert domain.jacobian(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.jacobian_det(arrm).shape == (arrm.shape[1],)
+    assert domain.jacobian_inv(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.metric(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.metric_inv(arrm).shape == (3, 3, arrm.shape[1])
 
     # eta1-array evaluation:
     logger.info(f"eta1 array evaluation, shape: {domain(arr1, 0.5, 0.5, squeeze_out=True).shape}")
@@ -468,7 +473,7 @@ def test_pullback():
     logger.info('Testing "pull"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # physical function to pull back (used as components of forms too):
     def fun(x, y, z):
@@ -499,9 +504,9 @@ def test_pullback():
 
         # markers pullback:
         if p_str == "0" or p_str == "3":
-            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (markers.shape[0],)
+            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (markers.shape[1],)
         else:
-            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (3, markers.shape[0])
+            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (3, markers.shape[1])
 
         # eta1-array pullback:
         # logger.info('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
@@ -628,7 +633,7 @@ def test_pushforward():
     logger.info('Testing "push"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # logical function to push (used as components of forms too):
     def fun(e1, e2, e3):
@@ -659,9 +664,9 @@ def test_pushforward():
 
         # markers push:
         if p_str == "0" or p_str == "3":
-            assert domain.push(fun_form, markers, kind=p_str).shape == (markers.shape[0],)
+            assert domain.push(fun_form, markers, kind=p_str).shape == (markers.shape[1],)
         else:
-            assert domain.push(fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
+            assert domain.push(fun_form, markers, kind=p_str).shape == (3, markers.shape[1])
 
         # eta1-array push:
         # logger.info('eta1 array push, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
@@ -788,7 +793,7 @@ def test_transform():
     logger.info('Testing "transform"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # logical function to push (used as components of forms too):
     def fun(e1, e2, e3):
@@ -819,9 +824,9 @@ def test_transform():
 
         # markers transform:
         if p_str == "0_to_3" or p_str == "3_to_0":
-            assert domain.transform(fun_form, markers, kind=p_str).shape == (markers.shape[0],)
+            assert domain.transform(fun_form, markers, kind=p_str).shape == (markers.shape[1],)
         else:
-            assert domain.transform(fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
+            assert domain.transform(fun_form, markers, kind=p_str).shape == (3, markers.shape[1])
 
         # eta1-array transform:
         # logger.info('eta1 array transform, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
@@ -1091,14 +1096,14 @@ requires_cupy = pytest.mark.skipif(not cunumpy.cupy_available(), reason="CuPy/GP
 
 
 def test_args_domain_selects_backend():
-    """The argument object follows the active backend."""
+    """The argument object is the pyccel class on the NumPy backend and keeps it when the backend changes."""
     from struphy import domains
     from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
     with cunumpy.use_backend("numpy"):
         domain = domains.Cuboid()
         args = domain.args_domain
-        assert isinstance(args, DomainArguments)
+        assert type(args) is DomainArguments
     if cunumpy.cupy_available():
         with cunumpy.use_backend("cupy"):
             assert domain.args_domain is args
@@ -1108,51 +1113,136 @@ def test_args_domain_selects_backend():
 def test_args_domain_backend_is_fixed_at_creation():
     """Changing the active backend does not change a domain's argument object."""
     from struphy import domains
-    from struphy.utils.cuda_arguments import CudaDomainArguments
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
 
     with cunumpy.use_backend("cupy"):
         domain = domains.Cuboid()
         cuda_args = domain.args_domain
-        assert isinstance(cuda_args, CudaDomainArguments)
+        assert type(cuda_args) is CudaDomainArguments
     with cunumpy.use_backend("numpy"):
         args = domain.args_domain
         assert args is cuda_args
 
 
-@requires_cupy
-@pytest.mark.parametrize("mapping", ["Cuboid", "HollowTorus", "Colella"])
-def test_cuda_args_domain(mapping):
-    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments.
+# Mappings checked on the CuPy backend: analytic ones and every spline mapping (kind_map 0-2) except GVECunit and
+# Spline(), whose default needs GVEC (not tested here, like the other GVEC tests).
+CUDA_DOMAIN_MAPPINGS = ["Cuboid", "HollowTorus", "Colella", "IGAPolarCylinder", "IGAPolarTorus", "Tokamak", "DESCunit"]
+VIEW_FIELDS = ("t1", "t2", "t3", "ind1", "ind2", "ind3", "cx", "cy", "cz")
 
-    Only analytic mappings: spline mappings (e.g. IGAPolarCylinder) cannot be created on the CuPy backend yet.
+
+def check_cuda_args_domain(mapping):
+    """Create ``mapping`` on the CuPy backend and check its CUDA domain arguments against the pyccel ones.
+
+    The CUDA arguments reference the domain's device arrays, and the struct holds their device addresses (and,
+    for the array views ``t1``, ..., ``cz``, their shapes and strides). Runs with the real CuPy on a GPU and with
+    cunumpy's fake CuPy (``CUNUMPY_FAKE_CUPY=1``) without one.
     """
-    from struphy import domains
-    from struphy.utils.cuda_arguments import CudaDomainArguments
+    import numpy as np
 
+    from struphy import domains
+    from struphy.kernel_arguments.pusher_args_cuda import CudaDomainArguments
+
+    with cunumpy.use_backend("numpy"):
+        host = getattr(domains, mapping)().args_domain
     with cunumpy.use_backend("cupy"):
         domain = getattr(domains, mapping)()
         args = domain.args_domain
-        assert isinstance(args, CudaDomainArguments)
+        assert type(args) is CudaDomainArguments
         assert domain.args_domain is args  # built once
 
-        assert args.kind_map == domain.kind_map
+        assert args.kind_map == domain.kind_map == host.kind_map
         # no copies of arrays that already have the right dtype and layout
         assert args.t1 is domain.T[0] and args.ind3 is domain.indN[2]
 
         # the struct holds the device addresses of these arrays
-        (struct,) = args.get_cuda_args()
+        (struct,) = args.__cuda_args__()
         assert struct["kind_map"] == domain.kind_map
-        host = domain._pyccel_args_domain
-        for name in ("params", "degree", "t1", "t2", "t3", "ind1", "ind2", "ind3", "cx", "cy", "cz"):
+        for name in ("params", "degree", *VIEW_FIELDS):
             dev = getattr(args, name)
-            assert struct[name] == dev.data.ptr, name
-            assert (cunumpy.to_numpy(dev) == getattr(host, name)).all(), name
+            ref = np.asarray(getattr(host, name))
+            if name in VIEW_FIELDS:
+                view = struct[name]
+                assert view["data"] == dev.data.ptr, name
+                assert tuple(view["shape"]) == dev.shape == ref.shape, name
+                assert tuple(view["strides"]) == tuple(s // dev.itemsize for s in dev.strides), name
+            else:
+                assert struct[name] == dev.data.ptr, name
+            assert np.allclose(cunumpy.to_numpy(dev), ref, rtol=1e-13, atol=1e-13), name
 
 
 @requires_cupy
-@pytest.mark.parametrize("mapping", ["Cuboid", "Colella"])
+@pytest.mark.parametrize("mapping", CUDA_DOMAIN_MAPPINGS)
+def test_cuda_args_domain(mapping):
+    """The CUDA domain arguments reference the domain's device arrays and match the pyccel arguments."""
+    check_cuda_args_domain(mapping)
+
+
+def _cupy_installed():
+    try:
+        return importlib.util.find_spec("cupy") is not None
+    except ValueError:  # cunumpy's fake CuPy has no module spec
+        return False
+
+
+# environment variables through which an MPI launcher (Open MPI, MPICH/Hydra, Intel MPI, Slurm) hands a process
+# its place in the job
+MPI_LAUNCHER_PREFIXES = ("OMPI_", "PMIX_", "PMI_", "HYDRA_", "MPIR_", "I_MPI_", "SLURM_")
+
+
+def serial_child_env(**extra):
+    """Environment for a child Python process started from a test: serial, outside the MPI job.
+
+    Under ``mpirun`` the child would otherwise inherit the launcher's variables, join the parent's MPI job when it
+    imports struphy, and corrupt the parent's later collectives (a segfault in the next ``Alltoallv``).
+    """
+    env = {name: value for name, value in os.environ.items() if not name.startswith(MPI_LAUNCHER_PREFIXES)}
+    env.update(CUNUMPY_MPI="0", MAYBEMPI="0", **extra)
+    return env
+
+
+def run_fake_cupy_child(code: str):
+    """Run ``code`` in a serial child Python process on cunumpy's fake CuPy and fail the test if the child fails.
+
+    The check is serial, so under ``mpirun`` only rank 0 starts the child; the other ranks skip. Before, every rank
+    started the same child at the same time, and on CI the GVEC case crashed (SIGILL) in one of the two concurrent
+    children with no output. The child runs with ``faulthandler`` (a crash prints the Python traceback) and one OpenMP
+    thread, and a failure reports the signal or exit code and the end of both output streams (GVEC writes its Fortran
+    messages to stdout).
+    """
+    from maybempi import MPI
+
+    if MPI.COMM_WORLD.Get_rank() != 0:
+        pytest.skip("serial check, runs on MPI rank 0")
+    result = subprocess.run(
+        [sys.executable, "-X", "faulthandler", "-c", code],
+        env=serial_child_env(CUNUMPY_FAKE_CUPY="1", OMP_NUM_THREADS="1"),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        rc = result.returncode
+        how = f"signal {signal.Signals(-rc).name}" if rc < 0 else f"exit code {rc}"
+        pytest.fail(
+            f"child process failed with {how}\n"
+            f"--- stdout (end) ---\n{result.stdout[-2000:]}\n--- stderr (end) ---\n{result.stderr[-4000:]}",
+        )
+
+
+@pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
+@pytest.mark.parametrize("mapping", CUDA_DOMAIN_MAPPINGS)
+def test_cuda_args_domain_fake_cupy(mapping):
+    """Without a GPU: :func:`check_cuda_args_domain` with cunumpy's fake CuPy, which rejects host/device mixing.
+
+    Runs in a subprocess because the fake CuPy must be installed before cunumpy is imported.
+    """
+    code = f"from struphy.geometry.tests.test_domain import check_cuda_args_domain; check_cuda_args_domain({mapping!r})"
+    run_fake_cupy_child(code)
+
+
+@requires_cupy
+@pytest.mark.parametrize("mapping", ["Cuboid", "Colella", "IGAPolarCylinder"])
 def test_domain_deepcopy_and_pickle_on_cupy(mapping):
-    """Deepcopy and unpickling on the CuPy backend rebuild both the pyccel and the CUDA arguments."""
+    """Deepcopy and unpickling on the CuPy backend rebuild the CUDA arguments."""
     from struphy import domains
 
     with cunumpy.use_backend("cupy"):
@@ -1165,7 +1255,35 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
             other_cuda = other.args_domain
             assert other_cuda is not cuda_args
             assert other_cuda.t1 is other.T[0]
-            assert other_cuda.get_cuda_args()[0]["t1"] == other.T[0].data.ptr
+            assert other_cuda.__cuda_args__()[0]["t1"]["data"] == other.T[0].data.ptr
+            assert other_cuda.__cuda_args__()[0]["cx"]["data"] == other_cuda.cx.data.ptr
+            assert (other_cuda.cx == cuda_args.cx).all()
+
+
+@pytest.mark.mpi_skip
+def test_domain_subpackages_visible_to_type_checkers():
+    """Each domain sub-package resolves its class lazily through ``__getattr__`` (to avoid a circular import with the
+    kernels), which IDEs (Pylance) and type checkers do not follow: it must also import the class under
+    ``TYPE_CHECKING``, otherwise e.g. ``domains.Cuboid`` is unknown to them."""
+    import ast
+
+    from struphy.geometry import domains
+
+    root = os.path.dirname(domains.__file__)
+    for name in sorted(os.listdir(root)):
+        init = os.path.join(root, name, "__init__.py")
+        if not os.path.isfile(init):
+            continue
+        with open(init) as f:
+            tree = ast.parse(f.read())
+        exported = set()
+        checked = set()
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "__all__" for t in node.targets):
+                exported |= set(ast.literal_eval(node.value))
+            if isinstance(node, ast.If) and getattr(node.test, "id", None) == "TYPE_CHECKING":
+                checked |= {alias.asname or alias.name for imp in node.body for alias in getattr(imp, "names", [])}
+        assert exported <= checked, f"{name}/__init__.py: {exported - checked} not imported under TYPE_CHECKING"
 
 
 if __name__ == "__main__":

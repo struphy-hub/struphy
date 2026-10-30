@@ -1,9 +1,9 @@
 import logging
 from dataclasses import dataclass
 
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.basic import IdentityOperator
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -17,20 +17,67 @@ logger = logging.getLogger("struphy")
 
 
 class Magnetosonic(Propagator):
-    r"""FEEC discretization of the following equations:
-    find :math:`\tilde{\rho} \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
+    r"""Magnetosonic step of linear MHD (zero-flow equilibrium): density, velocity and pressure perturbations at a
+    fixed magnetic field perturbation.
+
+    **Continuous problem.** Find :math:`\tilde{\rho} \in L^2`, :math:`\tilde{\mathbf U} \in V_U` with
+    :math:`V_U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` (``Options.u_space``) and
+    :math:`\tilde p \in L^2` such that
 
     .. math::
 
-        \frac{\partial \tilde{\rho}}{\partial t} + \nabla\cdot(\rho_0 \tilde{\mathbf{U}}) &= 0
+        \frac{\partial \tilde{\rho}}{\partial t} + \nabla\cdot(\rho_0 \tilde{\mathbf{U}}) &= 0\,,
         \\[2mm]
-        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm{d}\mathbf x - \int_{\Omega} \tilde p\,\nabla\cdot\mathbf V\,\textrm{d}\mathbf x &= \int_{\Omega} (\nabla\times\mathbf{B}_0)\times\tilde{\mathbf{B}}\cdot\mathbf V\,\textrm{d}\mathbf x \qquad \forall\,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}
+        \int_{\Omega} \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm{d}\mathbf x - \int_{\Omega} \tilde p\,\nabla\cdot\mathbf V\,\textrm{d}\mathbf x &= \int_{\Omega} (\nabla\times\mathbf{B}_0)\times\tilde{\mathbf{B}}\cdot\mathbf V\,\textrm{d}\mathbf x \qquad \forall\,\mathbf V \in V_U\,,
         \\[2mm]
-        \frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) + \frac{2}{3}\,p_0\nabla\cdot\tilde{\mathbf{U}} &= 0
+        \frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) + \frac{2}{3}\,p_0\nabla\cdot\tilde{\mathbf{U}} &= 0\,.
 
-    Time discretization: Crank-Nicolson (implicit mid-point).
+    The continuity and pressure equations hold strongly in :math:`L^2`, the momentum equation is weak (integration by
+    parts of the pressure gradient; with free boundary conditions this imposes :math:`\tilde p = 0` weakly). For
+    :math:`V_U = H(\textnormal{curl})` or :math:`(H^1)^3`, the divergence acts on the projection of the velocity
+    (and of :math:`\mathbf V`) onto :math:`H(\textnormal{div})` (operator :math:`\mathbb U^\alpha` below). The
+    magnetic field perturbation :math:`\tilde{\mathbf B}` is not updated (it enters only the Lorentz force); it is the
+    constructor argument ``b_field``, either a 2-form (:math:`H(\textnormal{div})`, default) or a 1-form
+    (:math:`H(\textnormal{curl})`, only for :math:`V_U = H(\textnormal{div})`).
 
-    System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
+    **Semi-discrete problem.** With the FE coefficients :math:`\mathbf n`, :math:`\mathbf p` of
+    :math:`\tilde \rho_h, \tilde p_h \in V^3_h`, :math:`\mathbf u` of :math:`\tilde{\mathbf U}_h \in V^\alpha_h`
+    (:math:`\alpha = 1, 2, v` for ``u_space`` ``"Hcurl"``, ``"Hdiv"``, ``"H1vec"``) and :math:`\mathbf b` of
+    :math:`\tilde{\mathbf B}_h \in V^\beta_h` (:math:`\beta = 2` or :math:`1`),
+
+    .. math::
+
+        \dot{\mathbf n} = - \mathbb D \mathbb Q^\alpha \mathbf u\,, \qquad
+        \mathbb M^\alpha_{\rho_0} \dot{\mathbf u} = (\mathbb D \mathbb U^\alpha)^\top \mathbb M^3 \mathbf p + \mathbb M^{\alpha\beta}_{J_0} \mathbf b\,, \qquad
+        \dot{\mathbf p} = - \left(\mathbb D \mathbb S^\alpha + \frac 23 \mathbb K^3 \mathbb D \mathbb U^\alpha\right) \mathbf u\,,
+
+    with the discrete divergence :math:`\mathbb D` (:attr:`~struphy.feec.psydac_derham.Derham.div`), the mass matrix
+    :math:`\mathbb M^3` (:attr:`~struphy.feec.mass.WeightedMassOperators.M3`), the density-weighted mass matrix
+    :math:`\mathbb M^\alpha_{\rho_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1n`,
+    :attr:`~struphy.feec.mass.WeightedMassOperators.M2n`, :attr:`~struphy.feec.mass.WeightedMassOperators.Mvn`), the
+    current mass matrix :math:`\mathbb M^{\alpha\beta}_{J_0}` of :math:`\int (\mathbf J_0 \times \mathbf W) \cdot \mathbf V
+    \,\textnormal d \mathbf x`, :math:`\mathbf J_0 = \nabla \times \mathbf B_0`
+    (:attr:`~struphy.feec.mass.WeightedMassOperators.M1J`, :attr:`~struphy.feec.mass.WeightedMassOperators.M2J`,
+    :attr:`~struphy.feec.mass.WeightedMassOperators.MvJ`; :attr:`~struphy.feec.mass.WeightedMassOperators.M21J` for
+    the 1-form :math:`\tilde{\mathbf B}`), and the basis projection operators
+    (:class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`)
+    :math:`\mathbb Q^\alpha \approx \hat \Pi^2[\rho_0 \,\cdot\,]` (``Q1``, ``Q2``, ``Qv``),
+    :math:`\mathbb S^\alpha \approx \hat \Pi^2[p_0 \,\cdot\,]` (``S1``, ``S2``, ``Sv``),
+    :math:`\mathbb K^3 \approx \hat \Pi^3[p_0 \,\cdot\,]` (``K3``) and :math:`\mathbb U^\alpha \approx \hat \Pi^2[\,\cdot\,]`
+    (``U1``, ``Uv``; the identity for :math:`\alpha = 2`).
+
+    **Time discretization.** Crank-Nicolson (implicit mid-point), the only option. The pressure is eliminated with
+    :class:`~struphy.linear_algebra.schur_solver.SchurSolver` (:math:`x = \mathbf u`, :math:`y = \mathbf p`), with
+    the Schur complement
+
+    .. math::
+
+        S = \mathbb M^\alpha_{\rho_0} + \frac{\Delta t^2}{4} (\mathbb D \mathbb U^\alpha)^\top \mathbb M^3
+        \left(\mathbb D \mathbb S^\alpha + \frac 23 \mathbb K^3 \mathbb D \mathbb U^\alpha\right)\,,
+
+    solved by ``Options.solver`` (non-symmetric, default ``"pbicgstab"``) with the mass matrix preconditioner
+    ``Options.precond`` of :math:`\mathbb M^\alpha_{\rho_0}`; then :math:`\mathbf p^{n+1}` and :math:`\mathbf n^{n+1}`
+    follow from the mid-point velocity :math:`(\mathbf u^{n+1} + \mathbf u^n)/2`.
     """
 
     class Variables:
@@ -83,15 +130,17 @@ class Magnetosonic(Propagator):
             self._p = new
 
     def __init__(self, b_field: FEECVariable = None):
-        """
+        r"""
         Parameters
         ----------
         b_field : FEECVariable, default=None
-            Magnetic 2-form (``"Hdiv"`` space) providing the equilibrium magnetic field.
+            Magnetic field perturbation, as a 2-form (``"Hdiv"`` space) or a 1-form (``"Hcurl"`` space, requires
+            ``u_space="Hdiv"``), entering the Lorentz force :math:`(\nabla \times \mathbf B_0) \times \tilde{\mathbf B}`.
             If ``None``, an empty ``FEECVariable(space="Hdiv")`` is created and allocated internally.
             Otherwise the given variable is treated as shared (e.g. the model's ``em_fields.b_field``)
             and must already be allocated when :meth:`allocate` is called; it is not re-allocated.
         """
+        assert b_field is None or b_field.space in ("Hcurl", "Hdiv"), "b_field must be in Hcurl or Hdiv."
         self.variables = self.Variables()
         self.b_field = b_field if b_field is not None else FEECVariable(space="Hdiv")
         self._allocate_b_field = b_field is None
@@ -174,9 +223,15 @@ class Magnetosonic(Propagator):
             _UT = _U.T
 
         self._B = -1 / 2.0 * _UT @ self.derham.div.T @ self.mass_ops.M3
-        self._C = 1 / 2.0 * self.derham.div @ _S + 2 / 3 * _K @ self.derham.div @ _U
+        # the factor 1/2 of Crank-Nicolson multiplies the whole pressure operator div(p0 u) + 2/3 p0 div u
+        self._C = 1 / 2.0 * (self.derham.div @ _S + 2 / 3 * _K @ self.derham.div @ _U)
 
-        self._MJ = getattr(self.mass_ops, id_MJ)
+        if self.b_field.space == "Hcurl":
+            if u_space != "Hdiv":
+                raise NotImplementedError('A magnetic field in Hcurl requires u_space="Hdiv".')
+            self._MJ = self.mass_ops.M21J
+        else:
+            self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
         # only allocate the private default; a shared b_field is allocated (with initial conditions) by the model
