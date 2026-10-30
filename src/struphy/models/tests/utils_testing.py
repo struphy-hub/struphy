@@ -56,7 +56,7 @@ def call_test(
 
     case : str | None
         Name of the regression baseline; defaults to the model name. Give a distinct name for every non-default
-        model variant (e.g. ``"LinearMHD-split_sound"``).
+        model variant (e.g. ``"LinearMHD-b_space=Hcurl-projected=True"``).
 
     update_baselines : bool
         Overwrite the baseline instead of comparing against it.
