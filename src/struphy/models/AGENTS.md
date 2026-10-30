@@ -36,7 +36,8 @@ and **ask whether to add it to that family** as a child, before writing code. Th
   `VlasovMaxwellQuasiNeutral`; `Vlasov` → `LinearVlasovAmpereOneSpecies` → `LinearVlasovMaxwellOneSpecies`.
 - **Guiding-center family**: `GuidingCenter` → `DriftKineticElectrostaticAdiabatic`; `GuidingCenter` →
   `DriftKineticMaxwell`.
-- **LinearEuler family** (zero-flow equilibrium): `LinearEuler` → `LinearMHD`.
+- **LinearEuler family** (zero-flow equilibrium): `LinearEuler` → `LinearMHD` → `LinearMHDVlasovCC`,
+  `LinearMHDVlasovPC`, `LinearMHDDriftkineticCC` (hybrid models with energetic ions).
 
 A parent model is the base of everything below it, so it must be well tested: verification tests against analytic
 results (dispersion relations, exact solutions in a curvilinear geometry such as `Colella`), conservation properties
