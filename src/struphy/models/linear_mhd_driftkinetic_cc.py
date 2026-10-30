@@ -195,10 +195,6 @@ class LinearMHDDriftkineticCC(LinearMHD):
         """:meta private:"""
         super().post_allocate()
 
-        self._en_fv = xp.empty(1, dtype=float)
-        self._en_fB = xp.empty(1, dtype=float)
-        self._en_tot = xp.empty(1, dtype=float)
-
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 

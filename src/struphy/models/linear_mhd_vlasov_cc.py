@@ -1,7 +1,5 @@
 import logging
 
-import cunumpy as xp
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_mhd import LinearMHD
@@ -156,14 +154,9 @@ class LinearMHDVlasovCC(LinearMHD):
         """:meta private:"""
         super().post_allocate()
 
-        self._tmp = xp.empty(1, dtype=float)
-
         # add control variate to mass_ops object
         if self.energetic_ions.var.particles.control_variate:
             Propagator.mass_ops.weights["f0"] = self.energetic_ions.var.particles.f0
-
-        self._Ah = self.energetic_ions.mass_number
-        self._Ab = self.mhd.mass_number
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -222,8 +215,9 @@ class LinearMHDVlasovCC(LinearMHD):
 
             n_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}, \qquad n_\textnormal{h} \mathbf{u}_\textnormal{h} = \int_{\mathbb{R}^3} f_\textnormal{h} \mathbf{v} \, \textnormal{d}^3 \mathbf{v}
 
-        where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0`, :math:`\gamma = 5/3`, and the terms in blue are the
-        coupling terms added to :class:`~struphy.models.LinearMHD`.
+        where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0`, :math:`\gamma = 5/3`, the equations of
+        :class:`~struphy.models.LinearMHD` are extended by the energetic ions; the terms in blue couple them to the MHD
+        equations.
         """
 
     @classmethod
