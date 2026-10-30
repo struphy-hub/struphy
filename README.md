@@ -87,6 +87,8 @@ The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), 
 - [Available models](https://struphy-hub.github.io/struphy/sections/models.html)
 - [Numerical methods](https://struphy-hub.github.io/struphy/sections/numerics.html)
 
+The same doc is also on [Read the Docs](https://struphy.readthedocs.io/en/latest/). The Read the Docs build does not compile Struphy and therefore does not execute all the notebooks in the doc (e.g. the tutorials): since the notebooks are stored without outputs, most of them appear there without any outputs. The GitHub pages build executes them.
+
 ## Example: solve Maxwell’s equations
 
 Use the command line to generate a default launch file:
