@@ -85,18 +85,18 @@ def struphy():
     # 5. "test" sub-command
     add_parser_test(subparsers, list_models)
 
-    # 6. "format" and "lint" sub-commands
-    add_parser_format(subparsers)
+    # 6. "build-init-files" sub-command
+    add_parser_build_init_files(subparsers)
 
     # 7. output inspection and post-processing
     add_parser_output(subparsers)
 
+    # 8. usage guide for AI coding agents
+    add_parser_agents(subparsers)
+
     # parse argument
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-
-    # Set args.config if user ran struphy format / struphy lint
-    set_args_format_config(args, parser)
 
     # if no arguments are passed, print help and exit
     if all(v is None or not v for v in vars(args).values()):
@@ -126,14 +126,13 @@ def struphy():
     # load sub-command function
     command_map = {
         "compile": ("struphy.console.compile", "struphy_compile"),
-        "lint": ("struphy.console.format", "struphy_lint"),
-        "format": ("struphy.console.format", "struphy_format"),
-        "build-init-files": ("struphy.console.format", "struphy_build_init_files"),
+        "build-init-files": ("struphy.console.build_init_files", "struphy_build_init_files"),
         "likwid_profile": ("struphy.console.likwid", "struphy_likwid_profile"),
         "params": ("struphy.console.params", "struphy_params"),
         "profile": ("struphy.console.profile", "struphy_profile"),
         "test": ("struphy.console.test", "struphy_test"),
         "output": ("struphy.console.output", "struphy_output"),
+        "agents": ("struphy.console.agents", "struphy_agents"),
     }
 
     # import struphy.console.MODULE.FUNC_NAME as func
@@ -152,11 +151,6 @@ def struphy():
         "fluid",
         "kinetic",
         "hybrid",
-        # These options are stored in kwargs.config
-        "input_type",
-        "linters",
-        "iterations",
-        "output_format",
     ]:
         kwargs.pop(key, None)
     if not is_output:
@@ -255,6 +249,12 @@ def add_parser_compile(
         "-v",
         "--verbose",
         help="call pyccel with --verbose compiler option",
+        action="store_true",
+    )
+
+    parser_compile.add_argument(
+        "--debug",
+        help="call pyccel with --debug compiler option",
         action="store_true",
     )
 
@@ -448,6 +448,28 @@ def add_parser_output(subparsers):
     parser.add_argument("--directory", help="report directory")
 
 
+def add_parser_agents(subparsers):
+    """Add the command that prints or installs the usage guide for AI coding agents."""
+    parser = subparsers.add_parser(
+        "agents",
+        help="print the usage guide for AI coding agents, or install its skills into a project",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--path",
+        dest="show_path",
+        action="store_true",
+        help="print only the folder of the guide and its skills",
+    )
+    group.add_argument(
+        "--install",
+        nargs="?",
+        const=".",
+        metavar="DIR",
+        help="copy the skills to DIR/.claude/skills/ and point DIR/AGENTS.md and DIR/CLAUDE.md to the guide (default DIR: cwd)",
+    )
+
+
 def add_parser_test(subparsers, list_models):
     try:
         import pytest_mpi
@@ -514,145 +536,21 @@ def add_parser_test(subparsers, list_models):
         )
 
 
-def add_parser_format(subparsers):
-    try:
-        import autopep8
-        import isort
-        import ruff
+def add_parser_build_init_files(subparsers):
+    # the generated files live in the source tree, so this only makes sense for editable installs
+    if not is_installed_editable("struphy"):
+        return
 
-        add_lintformat_parser = True
-    except ModuleNotFoundError:
-        add_lintformat_parser = False
-
-    if is_installed_editable("struphy") and add_lintformat_parser:
-        parser_format = subparsers.add_parser(
-            "format",
-            help="format source files",
-            description="Format source files based on the given input.",
-        )
-
-        parser_lint = subparsers.add_parser(
-            "lint",
-            help="lint and analyze source files",
-            description="Check code statistics and formatting compliance.",
-        )
-
-        # Common argument for both 'format' and 'lint'
-        for subparser in [parser_format, parser_lint]:
-            subparser.add_argument(
-                "input_type",
-                type=str,
-                choices=["all", "staged", "branch"],
-                nargs="?",  # optional
-                help="specify the files to process",
-            )
-            subparser.add_argument(
-                "--path",
-                type=str,
-                # default=libpath,
-                help="the path to the directory or file",
-            )
-
-            subparser.add_argument(
-                "--verbose",
-                action="store_true",
-                help="use verbose output",
-            )
-
-        parser_format.add_argument(
-            "--linters",
-            type=str,
-            nargs="+",
-            default=["ruff"],
-            choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
-            help="list of linters to use",
-        )
-        parser_format.add_argument(
-            "--iterations",
-            type=int,
-            default=5,
-            help="maximum number of times to run each formatter",
-        )
-        # Avoid interfering with --yes flags in other subparsers
-        # by adding an argument group
-        format_group = parser_format.add_argument_group("format options")
-        format_group.add_argument(
-            "-y",
-            "--yes",
-            action="store_true",
-            help="say yes to prompt when asked if all files should be formatted",
-        )
-
-        parser_lint.add_argument(
-            "--linters",
-            type=str,
-            nargs="+",
-            default=["ruff", "omp_flags"],
-            choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint", "ruff", "omp_flags"],
-            help="list of linters to use",
-        )
-
-        parser_lint.add_argument(
-            "--output-format",
-            type=str,
-            default="table",
-            choices=["table", "plain", "report"],
-            help="specify the format of the output: 'table' for tabular output, 'plain' for regular output, or 'report' for saving a html report",
-        )
-
-        parser_build_init_files = subparsers.add_parser(
-            "build-init-files",
-            help="regenerate auto-generated __init__.py files",
-            description="Regenerate the auto-generated __init__.py files (e.g. struphy/models/__init__.py) and format them.",
-        )
-        parser_build_init_files.add_argument(
-            "--verbose",
-            action="store_true",
-            help="use verbose output",
-        )
-        parser_build_init_files.add_argument(
-            "--linters",
-            type=str,
-            nargs="+",
-            default=["ruff"],
-            choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
-            help="list of linters to use",
-        )
-        parser_build_init_files.add_argument(
-            "--iterations",
-            type=int,
-            default=5,
-            help="maximum number of times to run each formatter",
-        )
-        build_init_files_group = parser_build_init_files.add_argument_group("build-init-files options")
-        build_init_files_group.add_argument(
-            "-y",
-            "--yes",
-            action="store_true",
-            help="say yes to prompt when asked if all files should be formatted",
-        )
-
-
-def set_args_format_config(args, parser):
-    if args.command == "format" or args.command == "lint":
-        if not args.input_type and not args.path:
-            parser.error("Use with either 'all', 'staged', 'branch', or '--path PATH'")
-        args.config = {
-            "input_type": args.input_type,
-            "path": args.path,
-            "linters": args.linters,
-        }
-
-    if args.command == "format":
-        args.config["iterations"] = args.iterations
-    if args.command == "lint":
-        args.config["output_format"] = args.output_format
-
-    if args.command == "build-init-files":
-        args.config = {
-            "linters": args.linters,
-            "iterations": args.iterations,
-        }
+    parser_build_init_files = subparsers.add_parser(
+        "build-init-files",
+        help="regenerate auto-generated __init__.py files",
+        description="Regenerate the auto-generated __init__.py files (e.g. struphy/models/__init__.py) and format them with ruff.",
+    )
+    parser_build_init_files.add_argument(
+        "--verbose",
+        action="store_true",
+        help="use verbose output",
+    )
 
 
 def print_short_help(parser):

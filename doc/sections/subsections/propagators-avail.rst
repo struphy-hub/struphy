@@ -11,7 +11,12 @@ Field solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
-.. automodule:: struphy.propagators.poisson_adiabatic_gyrokinetic
+.. automodule:: struphy.propagators.gyrokinetic_poisson_solve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.adiabatic_poisson_solve
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -39,7 +44,27 @@ Linear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.shear_alfven_curl_curl_propagator
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.magnetosonic
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.sound_wave_linear
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_pressure_gradient
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_current
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -61,6 +86,11 @@ Linear MHD solvers
 
 Nonlinear MHD solvers
 ^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.propagators.variational_alfven_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
 
 .. automodule:: struphy.propagators.variational_density_evolve
     :members:
@@ -92,7 +122,27 @@ Nonlinear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.variational_linear_base
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_linear_alfven_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_linear_sound_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.variational_resistivity
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_sound_evolve
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -183,6 +233,16 @@ Vlasov-Maxwell coupling
     :show-inheritance:
 
 .. automodule:: struphy.propagators.maxwell_weak_ampere
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.vlasov_maxwell_coupling
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.drift_kinetic_maxwell_coupling
     :members:
     :exclude-members: options, allocate
     :show-inheritance:

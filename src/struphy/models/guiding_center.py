@@ -1,21 +1,11 @@
-import copy
-import logging
-
-import cunumpy as xp
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.scalars import FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC, Scalars
-from struphy.models.species import (
-    ParticleSpecies,
-)
-from struphy.models.variables import PICVariable
-from struphy.propagators.base import Propagator
+from struphy.models.scalars import FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC
+from struphy.models.variables import FEECVariable
+from struphy.models.vlasov import Vlasov
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
-
-logger = logging.getLogger("struphy")
 
 
 class GuidingCenter(StruphyModel):
@@ -39,26 +29,33 @@ class GuidingCenter(StruphyModel):
 
     ## species
 
-    class KineticIons(ParticleSpecies):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            epsilon: float = None,
-        ):
-            self.var = PICVariable(space="Particles5D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                epsilon=epsilon,
-            )
+    class KineticIons(Vlasov.KineticIons):
+        space = "Particles5D"
 
     ## propagators
 
     class Propagators:
-        def __init__(self):
-            self.push_bxe = PushGuidingCenterBxEstar()
-            self.push_parallel = PushGuidingCenterParallel()
+        """Propagators of the guiding-center equation: ``push_bxe`` (E* x b and grad-B drifts) and ``push_parallel``
+        (parallel streaming and mirror force).
+
+        Parameters
+        ----------
+        phi : FEECVariable, optional
+            Electric potential, -grad phi in E* of both pushers (default: None).
+        b_tilde : FEECVariable, optional
+            Magnetic field (2-form) added to the equilibrium field in both pushers (default: None).
+        e_field : FEECVariable, optional
+            Electric field (1-form) in the E* x b drift of ``push_bxe`` only; the parallel electric force is then
+            applied elsewhere (default: None).
+        """
+
+        def __init__(self, phi: FEECVariable = None, b_tilde: FEECVariable = None, e_field: FEECVariable = None):
+            self.push_bxe = PushGuidingCenterBxEstar(phi=phi, b_tilde=b_tilde, e_field=e_field)
+            self.push_parallel = PushGuidingCenterParallel(phi=phi, b_tilde=b_tilde)
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    kinetic_ions: KineticIons
+    propagators: Propagators
 
     ## abstract methods
 
@@ -69,38 +66,31 @@ class GuidingCenter(StruphyModel):
         mass_number: float = 1.0,
         epsilon: float = None,
     ):
+        # 0. store input parameters (a model inheriting from GuidingCenter stores its own before super().__init__)
+        self._store_params(locals())
 
-        # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        # 1.-5. species, units, propagators, variable links and scalars, see StruphyModel._setup
+        self._setup(base_units)
 
-        # 1. instantiate all species
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            epsilon,
-        )
+    def _create_species(self):
+        """:meta private:"""
+        self.kinetic_ions = self.KineticIons(**self._particle_species_args())
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators()
-
-        # 4. assign variables to propagators
+    def _link_propagator_variables(self):
+        """:meta private:"""
         self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
         self.propagators.push_parallel.variables.ions = self.kinetic_ions.var
 
-        # 5. define scalars to be tracked during simulation
-        kinetic_energy = KineticEnergyPIC(self.kinetic_ions.var)
-        magnetic_energy = FunctionScalarPIC(self._compute_en_fB, self.kinetic_ions.var)
-        self.scalars = Scalars(
-            en_fv=kinetic_energy,
-            en_fB=magnetic_energy,
-            en_tot=kinetic_energy + magnetic_energy,
-            n_lost_particles=LostMarkersPIC(self.kinetic_ions.var),
-        )
-
-        logger.info("Done.")
+    def _create_scalars(self):
+        """:meta private:"""
+        en_f = KineticEnergyPIC(self.kinetic_ions.var)
+        en_mu = FunctionScalarPIC(self._compute_en_fB, self.kinetic_ions.var)
+        return {
+            "en_f": en_f,
+            "en_mu": en_mu,
+            "en_tot": en_f + en_mu,
+            "n_lost_particles": LostMarkersPIC(self.kinetic_ions.var),
+        }
 
     @property
     def bulk_species(self):
@@ -117,8 +107,8 @@ class GuidingCenter(StruphyModel):
         particles = self.kinetic_ions.var.particles
         particles.save_magnetic_background_energy()
         # The weights (column 5) already carry the 1/N_p of the Monte-Carlo estimate, see KineticEnergyPIC.
-        energy = particles.markers[~particles.valid_mks, 5].dot(
-            particles.markers[~particles.valid_mks, 8],
+        energy = particles.markers[5, particles.valid_mks].dot(
+            particles.markers[8, particles.valid_mks],
         )
         return energy
 
@@ -154,27 +144,10 @@ class GuidingCenter(StruphyModel):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
-        - Parallel kinetic energy: ``en_fv``
-        - Magnetic-moment energy contribution: ``en_fB``
+        - Parallel kinetic energy: ``en_f``
+        - Magnetic-moment energy: ``en_mu``
         - Total particle energy: ``en_tot``
         - Lost markers: ``n_lost_particles``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
-        2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-        """
-        doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
-
-    {PushGuidingCenterBxEstar.__doc__}
-
-    **2. push_guiding_center_parallel.PushGuidingCenterParallel:**
-
-    {PushGuidingCenterParallel.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

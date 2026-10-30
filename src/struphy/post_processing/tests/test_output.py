@@ -160,7 +160,7 @@ def outside_mpi_job(monkeypatch):
     for name in list(os.environ):
         if name.startswith(MPI_LAUNCHER_ENV_PREFIXES):
             monkeypatch.delenv(name)
-    monkeypatch.setenv("STRUPHY_MPI", "0")
+    monkeypatch.setenv("MAYBEMPI", "0")
 
 
 @pytest.fixture
@@ -292,6 +292,13 @@ def test_configuration_is_restored_lazily_without_a_simulation(tmp_path, monkeyp
     assert run.with_time_units("physical").model.to_dict() == run.model.to_dict()
 
 
+def test_evaluate_raises_without_raw_data(tmp_path):
+    root = write_tree(str(tmp_path))
+    os.remove(os.path.join(root, "data", "data_proc0.hdf5"))
+    with pytest.raises(FileNotFoundError, match="No simulation data"):
+        Output(root).evaluate("em_fields/E")
+
+
 def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch):
     root = write_tree(str(tmp_path))
     os.remove(os.path.join(root, "post_processing", "manifest.json"))
@@ -316,6 +323,7 @@ def test_evaluate_triggers_default_processing_when_missing(tmp_path, monkeypatch
             guiding_center=False,
             classify=False,
             create_vtk=False,
+            vtk_steps=None,
             force=False,
         )
     ]
@@ -330,8 +338,9 @@ def test_evaluate_returns_xarray_and_xarray_exposes_the_product_tree(run):
 
 def test_evaluate_selects_positions_coordinates_and_slices(run):
     field = run.evaluate("em_fields/E", t=-1, component=2)
-    assert field.dims == ("t", "eta1", "eta2", "eta3")
-    assert field.sizes["t"] == 1
+    assert field.dims == ("eta1", "eta2", "eta3")
+    assert field.t.ndim == 0, "a single snapshot keeps its time as a scalar coordinate"
+    assert run.evaluate("em_fields/E", t=[-1], component=2).dims == ("t", "eta1", "eta2", "eta3")
     np.testing.assert_allclose(field, 3.0)
 
     every_second = run.evaluate("em_fields/E", t=slice(0, None, 2))
@@ -360,7 +369,7 @@ def test_evaluate_scalars_and_particle_defaults(run):
     scalars = run.evaluate("scalars", variables="en_tot", t=-1)
     assert isinstance(scalars, xr.Dataset)
     assert list(scalars.data_vars) == ["en_tot"]
-    assert scalars.sizes["t"] == 1
+    assert "t" not in scalars.dims
 
     distribution = run.evaluate("kinetic_ions/f")
     assert distribution.name == "f"
@@ -421,8 +430,8 @@ def test_evaluate_raw_spline_field_at_logical_point(run, monkeypatch):
     assert calls == [(0.25, 0.5, 0.75)] * NT
 
     last = run.evaluate("em_fields/e_field", eta1=0.25, eta2=0.5, eta3=0.75, t=-1)
-    assert last.dims == ("t", "component")
-    assert last.sizes["t"] == 1
+    assert last.dims == ("component",)
+    assert float(last.t) == 1.0
 
 
 def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
@@ -439,10 +448,10 @@ def test_evaluate_raw_spline_field_on_mixed_logical_grid(run, monkeypatch):
 
     values = run.evaluate("em_fields/phi", eta1=[0.25, 0.5], eta2=range(2), eta3=0.75, t=0)
 
-    assert values.dims == ("t", "eta1", "eta2")
+    assert values.dims == ("eta1", "eta2")
     np.testing.assert_allclose(values.eta1, [0.25, 0.5])
     np.testing.assert_allclose(values.eta2, [0.0, 1.0])
-    np.testing.assert_allclose(values[0], [[75.25, 85.25], [75.5, 85.5]])
+    np.testing.assert_allclose(values, [[75.25, 85.25], [75.5, 85.5]])
 
 
 def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run, monkeypatch):
@@ -466,8 +475,8 @@ def test_evaluate_raw_spline_field_defaults_to_simulation_grid_cell_centres(run,
 
     values = run.evaluate("em_fields/phi", t=0)
 
-    assert values.dims == ("t", "eta1", "eta2", "eta3")
-    assert values.shape == (1, 2, 3, 4)
+    assert values.dims == ("eta1", "eta2", "eta3")
+    assert values.shape == (2, 3, 4)
     np.testing.assert_allclose(values.eta1, [0.25, 0.75])
     np.testing.assert_allclose(values.eta2, [1 / 6, 0.5, 5 / 6])
     np.testing.assert_allclose(values.eta3, [0.125, 0.375, 0.625, 0.875])
@@ -492,10 +501,10 @@ def test_evaluate_raw_spline_field_keeps_omitted_directions_on_the_default_grid(
 
     plane = run.evaluate("em_fields/phi", t=0, eta3=0)
 
-    assert plane.dims == ("t", "eta1", "eta2")
+    assert plane.dims == ("eta1", "eta2")
     np.testing.assert_allclose(plane.eta1, eta1_default)
     np.testing.assert_allclose(plane.eta2, eta2_default)
-    np.testing.assert_allclose(plane[0], eta1_default[:, None] + 10 * eta2_default[None, :])
+    np.testing.assert_allclose(plane, eta1_default[:, None] + 10 * eta2_default[None, :])
 
 
 def test_evaluate_raw_spline_field_rejects_coordinates_outside_unit_cube(run):
@@ -579,8 +588,8 @@ def test_evaluate_transforms_hcurl_fields_on_mapped_domains(run, monkeypatch, do
             )
         )
         expected = np.squeeze(np.asarray(expected))
-        np.testing.assert_allclose(result.isel(t=0), expected)
-        assert result.dims == ("t", "component", "eta1", "eta2")
+        np.testing.assert_allclose(result, expected)
+        assert result.dims == ("component", "eta1", "eta2")
 
 
 @pytest.mark.parametrize(
@@ -658,9 +667,73 @@ def test_processing_options_are_part_of_the_manifest(tmp_path):
     assert not is_processed(root, dict(step=1, celldivide=2, physical=True))
 
 
+def test_vtk_steps_are_part_of_the_manifest_only_when_given(tmp_path):
+    root = write_tree(str(tmp_path))
+    # products processed before the option existed match a request without it
+    write_manifest(root, step=1, celldivide=1, physical=False)
+    assert "vtk_steps" not in normalize_options(step=1, vtk_steps=None)
+    assert is_processed(root, dict(step=1, celldivide=1, physical=False, vtk_steps=None))
+    assert not is_processed(root, dict(step=1, celldivide=1, physical=False, vtk_steps=[0, -1]))
+    write_manifest(root, step=1, celldivide=1, physical=False, vtk_steps=[-1, 0, 0])
+    assert is_processed(root, dict(step=1, celldivide=1, physical=False, vtk_steps=(0, -1)))
+
+
+@pytest.mark.parametrize("saved, expected", [(1, [0]), (2, [0, 1]), (3, [0, 1, 2]), (501, [0, 250, 500])])
+def test_standard_snapshots_are_first_middle_and_last(tmp_path, saved, expected):
+    run = Output(write_tree(str(tmp_path)))
+    with h5py.File(run.path_out / "data" / "data_proc0.hdf5", "a") as file:
+        del file["time/value"]
+        file.create_dataset("time/value", data=np.arange(saved, dtype=float))
+    assert run.standard_snapshots() == expected
+
+
+@pytest.mark.parametrize(
+    "bases, expected",
+    [
+        (None, "2"),
+        (["v"], "v"),
+        (["2", "2"], "2"),
+        (["1", "v"], "2"),  # different bases: the FEEC form
+        (["physical_at_eta"], "physical"),
+        ([None], "v"),  # the default of a perturbation
+    ],
+)
+def test_field_basis_is_that_of_the_initial_condition(tmp_path, monkeypatch, bases, expected):
+    from types import SimpleNamespace
+
+    run = Output(write_tree(str(tmp_path)))
+    with h5py.File(run.path_out / "data" / "data_proc0.hdf5", "a") as file:
+        file["feec/em_fields"].create_dataset("b_field", data=np.empty(0)).attrs["space_id"] = "Hdiv"
+    if bases is None:
+        conditions = {}
+    else:
+        perturbations = [SimpleNamespace(given_in_basis=basis) for basis in bases]
+        conditions = {
+            "em_fields": {"b_field": {"perturbations": perturbations[0] if len(bases) == 1 else perturbations}}
+        }
+    monkeypatch.setattr(Output, "initial_conditions", conditions)
+    assert run.field_form("em_fields/b_field") == "2"
+    assert run.field_basis("em_fields/b_field") == expected
+
+
+def test_create_vtk_writes_only_the_selected_steps(run, tmp_path):
+    shape = (3, 4, 5)
+    grids_phy = list(np.meshgrid(*(np.linspace(0, 1, n) for n in shape), indexing="ij"))
+    t_grid = np.arange(5.0)
+    point_data = {"em_fields": {"phi": {t: [np.full(shape, t)] for t in t_grid}}}
+    run._create_vtk(str(tmp_path), t_grid, grids_phy, point_data, steps=[0, 2, -1])
+    written = sorted(f.name for f in (tmp_path / "em_fields" / "vtk").glob("*.vts"))
+    assert written == ["step_0.vts", "step_2.vts", "step_4.vts"]
+    with pytest.raises(IndexError):
+        run._create_vtk(str(tmp_path), t_grid, grids_phy, point_data, steps=[5])
+
+
 def test_manifest_is_stale_when_raw_output_changes(tmp_path):
     root = write_tree(str(tmp_path))
-    os.utime(os.path.join(root, "data", "data_proc0.hdf5"), None)
+    # a later modification time; not utime(None), which may fall into the same tick of the file system clock
+    path = os.path.join(root, "data", "data_proc0.hdf5")
+    stat = os.stat(path)
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
     assert not is_processed(root)
 
 
@@ -677,7 +750,14 @@ def test_serial_process_runs_on_rank_zero_only(tmp_path, monkeypatch, rank):
         (
             "process",
             dict(
-                step=1, celldivide=1, physical=True, guiding_center=False, classify=False, create_vtk=False, force=False
+                step=1,
+                celldivide=1,
+                physical=True,
+                guiding_center=False,
+                classify=False,
+                create_vtk=False,
+                vtk_steps=None,
+                force=False,
             ),
         ),
     ]

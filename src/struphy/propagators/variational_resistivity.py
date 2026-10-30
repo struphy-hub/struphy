@@ -4,13 +4,19 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
+from struphy.feec.variational_utilities import (
+    InternalEnergyEvaluator,
+    LinearPressureHeating,
+    NewtonConvergence,
+    dot_normalized,
+    inv_norm2,
+)
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -99,14 +105,19 @@ class VariationalResistivity(Propagator):
             self._b = new
 
     def __init__(self, rho: FEECVariable = None, pt3: FEECVariable = None):
-        """
+        r"""
         Parameters
         ----------
         rho : FEECVariable, default=None
             Mass density 3-form (``"L2"`` space) weighting the thermodynamic equation.
         pt3 : FEECVariable, default=None
-            Pressure or entropy 3-form (``"L2"`` space) evolved by the resistive heating.
-            If ``None``, the thermodynamic equation is skipped.
+            For ``model="linear_q"`` and ``"perturbative_q"``: the auxiliary variable :math:`\hat q` (``"L2"`` space),
+            which receives the resistive heating with the energy density :math:`2 q_0 \hat q / (\gamma - 1)`, i.e.
+            :math:`\partial_t \hat q = (\gamma - 1)/(2 q_0)\, \eta |\nabla \times \mathbf B|^2`. For
+            ``model="linear_p"``: the auxiliary pressure :math:`\hat p` (``"L2"`` space), with the energy density
+            :math:`\hat p / (\gamma - 1)`, heated by :class:`~struphy.feec.variational_utilities.LinearPressureHeating`.
+            If ``None``, the thermodynamic equation is skipped. For the other models the heating goes into the variable
+            ``s``.
         """
         self.variables = self.Variables()
         self.rho = rho
@@ -118,18 +129,20 @@ class VariationalResistivity(Propagator):
 
         Parameters
         ----------
-        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"}, default="full"
+        model : {"full", "full_p", "full_q", "linear_p", "linear_q", "perturbative_q"}, default="full"
             Thermodynamic model variant.
         gamma : float, default=5/3
             Adiabatic index.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Linear solver for implicit subproblems.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixDiagonalPreconditioner"
+        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below
+            ``tol`` times the norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or
+            when it stagnates (with a warning).
         linearize_current : bool, default=False
             If ``True``, linearize current terms around background fields.
         eta : float, default=0.0
@@ -141,12 +154,12 @@ class VariationalResistivity(Propagator):
         """
 
         # specific literals
-        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
+        OptsModel = Literal["full", "full_p", "full_q", "linear_p", "linear_q", "perturbative_q"]
         # propagator options
         model: OptsModel = "full"
         gamma: float = 5.0 / 3.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         linearize_current: bool = False
@@ -205,6 +218,14 @@ class VariationalResistivity(Propagator):
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
         self._initialize_projectors_and_mass()
 
+        # linear p model: the heating goes into the auxiliary pressure, whose energy is linear
+        self._heating = None
+        if self._model == "linear_p" and self.pt3 is not None:
+            assert not self._linearize_current, "linearize_current is not compatible with the heating of linear_p."
+            self._heating = LinearPressureHeating(
+                self.derham, self.mass_ops, self.domain, self._gamma, tol=self._lin_solver.tol
+            )
+
         # bunch of temporaries to avoid allocating in the loop
         s = self.variables.s.spline.vector
         b = self.variables.b.spline.vector
@@ -249,23 +270,34 @@ class VariationalResistivity(Propagator):
         total_resistivity = self._update_artificial_resistivity(bn, dt)
 
         self._scaled_stiffness._scalar = dt * self._eta
-        # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
+        # self.evol_op._multiplicands[1]._addends[0]._scalar = -dt*self._eta/2.
         if self._linearize_current:
-            bn1 = self.evol_op.dot(
+            # normalized: the tolerance of the implicit solve is relative to the size of b
+            bn1 = dot_normalized(
+                self.evol_op,
                 bn
                 + dt
                 * self._eta
                 * self.curl.dot(
                     self.Tcurl.dot(self._extracted_b2),
                 ),
-                out=self._tmp_bn1,
+                self._tmp_bn1,
             )
         else:
-            bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
+            bn1 = dot_normalized(self.evol_op, bn, self._tmp_bn1)
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
-        if self._model == "linear_p" or (self._model == "linear_q" and self._fast):
+        if self._model == "linear_p":
+            # the dissipated magnetic energy goes into the auxiliary pressure
+            if self._heating is not None:
+                energy_change = self._get_energy_change(bn, bn1, total_resistivity)
+                self._heating(energy_change, self.pt3.spline.vector)
+                self.pt3.spline.vector.update_ghost_regions()
+            self.update_feec_variables(s=sn, b=bn1)
+            return
+
+        if self._model == "linear_q" and self._fast:
             self.update_feec_variables(s=sn, b=bn1)
             return
 
@@ -275,7 +307,7 @@ class VariationalResistivity(Propagator):
         # 2) Initial energy and linear form
         rho = self.rho.spline.vector
         self.rhof.vector = rho
-        if self._model in ["deltaf_q", "linear_q"]:
+        if self._model in ["perturbative_q", "linear_q"]:
             self.sf.vector = self.pt3.spline.vector
         else:
             self.sf.vector = sn
@@ -301,7 +333,7 @@ class VariationalResistivity(Propagator):
 
             e_n *= self._energy_metric
 
-        elif self._model in ["full_p", "linear_p", "delta_p"]:
+        elif self._model in ["full_p", "linear_p"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -316,7 +348,7 @@ class VariationalResistivity(Propagator):
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
-        elif self._model in ["linear_q", "deltaf_q"]:
+        elif self._model in ["linear_q", "perturbative_q"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -332,10 +364,11 @@ class VariationalResistivity(Propagator):
         sn1 = sn.copy(out=self._tmp_sn1)
 
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalResistivity", tol, self._get_error_newton(self._linear_form_tot_e))
 
         for it in range(self._nonlin_solver.maxiter):
-            if self._model in ["deltaf_q", "linear_q"]:
+            if self._model in ["perturbative_q", "linear_q"]:
                 self.sf1.vector = self.pt3.spline.vector
             else:
                 self.sf1.vector = sn1
@@ -354,7 +387,7 @@ class VariationalResistivity(Propagator):
                 )
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["full_p", "linear_p", "delta_p"]:
+            elif self._model in ["full_p", "linear_p"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -369,7 +402,7 @@ class VariationalResistivity(Propagator):
                 e_n1 *= 1.0 / (self._gamma - 1.0)
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["linear_q", "deltaf_q"]:
+            elif self._model in ["linear_q", "perturbative_q"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -383,12 +416,13 @@ class VariationalResistivity(Propagator):
             self.tot_rhs -= self._linear_form_en1
             self.tot_rhs += self._linear_form_tot_e
 
-            err = self._get_error_newton(self.tot_rhs)
+            # at least one iteration
+            stop = conv.stop(self._get_error_newton(self.tot_rhs), it, min_iter=1)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if (err < tol**2 and it > 0) or xp.isnan(err):
+            if stop:
                 break
 
             if self._model == "full":
@@ -400,10 +434,11 @@ class VariationalResistivity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]])
-                self.pc_jac.update_mass_operator(self.M_de_ds)
+                if self.pc_jac is not None:
+                    self.pc_jac.update_mass_operator(self.M_de_ds)
 
-            elif self._model in ["full_q", "linear_q", "deltaf_q"]:
-                if self._model in ["deltaf_q", "linear_q"]:
+            elif self._model in ["full_q", "linear_q", "perturbative_q"]:
+                if self._model in ["perturbative_q", "linear_q"]:
                     sf1_values = self._q0_values
                 deds = self._de_s1_values
                 deds *= 0.0
@@ -412,23 +447,22 @@ class VariationalResistivity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]])
-                self.pc_jac.update_mass_operator(self.M_de_ds)
+                if self.pc_jac is not None:
+                    self.pc_jac.update_mass_operator(self.M_de_ds)
 
-            incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self.inv_jac, self.tot_rhs, self._tmp_sn_incr)
 
             if self._info:
                 logger.info(f"information on the linear solver : {self.inv_jac._info}")
 
-            if self._model in ["deltaf_q", "linear_q"]:
+            if self._model in ["perturbative_q", "linear_q"]:
                 pt3_vec = self.pt3.spline.vector
                 pt3_vec += incr
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
 
         self.update_feec_variables(s=sn1, b=bn1)
 
@@ -521,26 +555,28 @@ class VariationalResistivity(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
-        pc_M1 = preconditioner.MassMatrixDiagonalPreconditioner(
+        pc_M1 = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.M1,
+            dim_reduce=None,
         )
         inv_M1 = inverse(
             self.mass_ops.M1,
             "pcg",
             pc=pc_M1,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
 
-        pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
+        pc_M3 = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.M3,
+            dim_reduce=None,
         )
         self._inv_M3 = inverse(
             self.mass_ops.M3,
             "pcg",
             pc=pc_M3,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -552,13 +588,14 @@ class VariationalResistivity(Propagator):
         self.M1_cb = self.mass_ops.create_weighted_mass("Hcurl", "Hcurl", weights=(D, "sqrt_g"))
 
         if self.options.precond is None:
-            self.pc = None
+            self.pc_jac = None
         else:
             pc_class = getattr(
                 preconditioner,
                 self.options.precond,
             )
-            self.pc_jac = pc_class(self.M_de_ds)
+            # dim_reduce=None: the Kronecker factors do not depend on the weights, cheap to update
+            self.pc_jac = pc_class(self.M_de_ds, dim_reduce=None)
 
         self.inv_jac = inverse(
             self.M_de_ds,
@@ -588,7 +625,7 @@ class VariationalResistivity(Propagator):
                 preconditioner,
                 self.options.precond,
             )
-            self.pc = pc_class(M2)
+            self.pc = pc_class(M2, dim_reduce=None)
 
         self.inv_lop = inverse(
             self.l_op,
@@ -656,7 +693,7 @@ class VariationalResistivity(Propagator):
             )
             self._energy_metric = deepcopy(metric)
 
-        elif self._model in ["full_p", "linear_p", "delta_p"]:
+        elif self._model in ["full_p", "linear_p"]:
             metric = 1.0 / self.domain.jacobian_det(
                 *integration_grid,
             )
@@ -678,9 +715,10 @@ class VariationalResistivity(Propagator):
             deds *= self._mass_metric_term
 
             self.M_de_ds.assemble([[deds]])
-            self.pc_jac.update_mass_operator(self.M_de_ds)
+            if self.pc_jac is not None:
+                self.pc_jac.update_mass_operator(self.M_de_ds)
 
-        elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+        elif self._model in ["full_q", "linear_q", "perturbative_q"]:
             metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
@@ -697,7 +735,7 @@ class VariationalResistivity(Propagator):
             )
             self._energy_metric = deepcopy(metric)
 
-        if self._model in ["linear_q", "deltaf_q"]:
+        if self._model in ["linear_q", "perturbative_q"]:
             self.sf1.vector = self.projected_equil.q3
 
             self._q0_values = self.sf1.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd)
@@ -715,7 +753,8 @@ class VariationalResistivity(Propagator):
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
     def _get_error_newton(self, sn_diff):
-        err_s = self._inv_M3.dot_inner(sn_diff, sn_diff)
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_s = inv_norm2(self._inv_M3, sn_diff)
         return err_s
 
     def _update_artificial_resistivity(self, bn, dt):
@@ -788,7 +827,7 @@ class VariationalResistivity(Propagator):
         # elif self._model in ["linear_p", "linear_q"]:
         #     cb12 = self.Tcurl.dot(self._extracted_b2, out=self._tmp_cb12)
 
-        elif self._model in ["delta_p", "deltaf_q", "linear_p", "linear_q"]:
+        elif self._model in ["perturbative_q", "linear_p", "linear_q"]:
             # bn12 += self._extracted_b2
             cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 

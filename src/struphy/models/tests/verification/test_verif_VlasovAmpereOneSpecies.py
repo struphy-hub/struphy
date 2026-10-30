@@ -4,8 +4,9 @@ import shutil
 
 import cunumpy as xp
 import h5py
-from feectools.ddm.mpi import mpi as MPI
+import pytest
 from matplotlib import pyplot as plt
+from maybempi import MPI
 
 from struphy import (
     BaseUnits,
@@ -24,7 +25,9 @@ from struphy import (
     maxwellians,
     perturbations,
 )
+from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import VlasovAmpereOneSpecies
+from struphy.propagators.base import Propagator
 
 logger = logging.getLogger("struphy")
 
@@ -34,7 +37,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
     The computed damping rate is compared to the analytical rate.
     """
     # light-weight model instance
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
@@ -75,8 +78,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
 
     # propagator options
     model.propagators.push_eta.options = model.propagators.push_eta.Options()
-    if model.with_B0:
-        model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
     model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
     model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 
@@ -130,7 +132,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
         pa_data = os.path.join(env.path_out, "data")
         with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
             time = f["time"]["value"][()]
-            E = f["scalar"]["electric_energy"][()]
+            E = f["scalar"]["en_E"][()]
         logE = xp.log10(E)
 
         # find where time derivative of E is zero
@@ -166,5 +168,216 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
         shutil.rmtree(test_folder)
 
 
+@pytest.mark.clones
+@pytest.mark.parametrize("control_variate", [False, True])
+def test_energy_conservation(control_variate: bool, nclones: int, exit_before_run: bool = False):
+    """``en_tot`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
+
+    A time step is :class:`~struphy.propagators.push_eta.PushEta` followed by the Crank-Nicolson step
+    :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling` (no B0). This checks two things that
+    went wrong at :math:`t=0` only:
+
+    * the initial field ``e = -grad(phi)`` must have its ghost regions in sync, otherwise the first push evaluates a
+      wrong field and the total energy jumps in the first step (by ~1e-6 relative here, ~2e-4 with 8 elements);
+    * with the control variate, ``en_f`` at :math:`t=0` must be computed with the delta-f weights, like
+      at all later times (it was computed with the full-f weights, i.e. the energy of the background too).
+
+    With full-f weights the scheme conserves the total energy to the solver tolerance. With the control variate
+    the weights are updated after the Crank-Nicolson step, :math:`w_p = w_{0,p} - f_0(\\mathbf v_p) / (s_{0,p} N)`,
+    which changes the delta-f kinetic energy by a Monte-Carlo estimate of zero plus an :math:`O(\\Delta t^2)` term
+    per step (the energy that the field gives to the background markers). So the total delta-f energy is
+    conserved only up to noise and time discretization error, and is checked with a loose tolerance and more
+    markers.
+    """
+    amplitude = 0.1
+    ppc = 400 if control_variate else 40
+
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
+
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
+    env = EnvironmentOptions(
+        out_folders=out_folders, sim_folder=f"energy_conservation_cv_{control_variate}", num_clones=nclones
+    )
+
+    time_opts = Time(dt=0.1, Tend=0.3)
+
+    domain = domains.Cuboid(r1=12.56)
+    # 16 elements, so that every rank has at least p=3 of them with 4 ranks (CI runs with clones on 4 ranks)
+    grid = grids.TensorProductGrid(num_elements=(16, 1, 1))
+    derham_opts = DerhamOptions(degree=(3, 1, 1))
+
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=ppc, loading="sobol_standard"),
+        weights_params=WeightsParameters(control_variate=control_variate),
+        boundary_params=BoundaryParameters(),
+        sorting_params=SortingParameters(),
+        saving_params=SavingParameters(),
+        bufsize=0.4,
+    )
+
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_va.options = model.propagators.coupling_va.Options(
+        solver_params=SolverParameters(tol=1e-12),
+    )
+    model.initial_poisson.options = model.initial_poisson.Options(
+        stab_mat="M0",
+        stab_eps=1e-6,
+        solver_params=SolverParameters(tol=1e-12),
+    )
+
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    perturbation = perturbations.ModesCos(ls=(1,), amps=(amplitude,))
+    model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, perturbation)))
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=time_opts,
+        domain=domain,
+        grid=grid,
+        derham_opts=derham_opts,
+    )
+
+    if exit_before_run:
+        logger.info("Exiting before running simulation.")
+        return sim
+
+    sim.run()
+    assert (sim.clone_config.num_clones if sim.clone_config else 1) == nclones
+
+    comm = MPI.COMM_WORLD
+
+    if comm.Get_rank() == 0:
+        with h5py.File(os.path.join(env.path_out, "data", "data_proc0.hdf5"), "r") as f:
+            en_E = f["scalar"]["en_E"][()]
+            en_tot = f["scalar"]["en_tot"][()]
+
+        # energy is exchanged between field and particles ...
+        assert abs(en_E[-1] - en_E[0]) > 1e-2 * en_E[0], f"{en_E =}"
+
+        # ... and the total is conserved, including the first step
+        drift = float(xp.max(xp.abs(en_tot - en_tot[0])) / abs(en_tot[0]))
+        tol = 0.1 if control_variate else 1e-10
+        assert drift < tol, f"Total energy not conserved: {en_tot =}, {drift =}."
+        logger.info(f"Assertion for energy conservation passed ({control_variate =}, {drift =}).")
+
+        shutil.rmtree(env.path_out)
+
+
+def test_initial_poisson_full_f():
+    r"""The initial Poisson solve with full-f markers deposits the charge of :math:`f - f_0` (delta-f weights, no
+    background source), i.e. subtracts :math:`n_0` once.
+
+    A uniform Maxwellian is neutral, so with :math:`\phi = 0` at the walls in :math:`x` the initial potential is at
+    noise level. Subtracting :math:`n_0` twice (delta-f weights plus a full-f background source) gives
+    :math:`-\Delta \phi = -\alpha^2 n_0 / \varepsilon`, i.e. :math:`\phi = -x(1 - x)/2` with root mean square 0.09.
+    This runs zero time steps.
+    """
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
+
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f")
+
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=200, seed=1234),
+        weights_params=WeightsParameters(control_variate=False),
+        boundary_params=BoundaryParameters(bc=("reflect", "periodic", "periodic")),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
+        saving_params=SavingParameters(),
+        bufsize=0.4,
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+    model.initial_poisson.options = model.initial_poisson.Options()
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=Time(dt=0.05, Tend=0.0),
+        domain=domains.Cuboid(),
+        grid=grids.TensorProductGrid(num_elements=(16, 1, 1)),
+        derham_opts=DerhamOptions(degree=(3, 1, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
+    )
+    sim.run()
+
+    # root mean square of phi over the unit cube (collective, on all ranks)
+    phi = model.em_fields.phi.spline.vector
+    phi_rms = float(xp.sqrt(Propagator.mass_ops.M0.dot_inner(phi, phi)))
+    logger.info(f"{phi_rms =}")
+    assert phi_rms < 0.02, (
+        f"Initial potential of a neutral full-f plasma: {phi_rms =} (n0 subtracted twice gives 0.09)."
+    )
+
+    MPI.COMM_WORLD.Barrier()
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        shutil.rmtree(test_folder)
+
+
+def test_initial_poisson_full_f_noise():
+    r"""The initial Poisson solve deposits the delta-f weights also for full-f markers.
+
+    For a density perturbation :math:`\delta n = a \cos(k x)` of a uniform Maxwellian, the exact initial potential is
+    :math:`\phi = (\alpha^2/\varepsilon)\, a \cos(k x) / k^2`. With the delta-f weights the Monte-Carlo noise is that
+    of :math:`f - f_0` (relative error of about 1% here), with the full-f weights minus the background :math:`n_0` it
+    is that of :math:`f` (relative error of about 400%). This runs zero time steps.
+    """
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
+
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f_noise")
+
+    r1, amp = 12.56, 1e-2
+    k = 2 * xp.pi / r1
+
+    model.kinetic_ions.set_markers(
+        loading_params=LoadingParameters(ppc=100, seed=1234),
+        weights_params=WeightsParameters(control_variate=False),
+        boundary_params=BoundaryParameters(),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
+        saving_params=SavingParameters(),
+        bufsize=0.4,
+    )
+    model.propagators.push_eta.options = model.propagators.push_eta.Options()
+    model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
+    model.initial_poisson.options = model.initial_poisson.Options()
+    model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
+    perturbation = perturbations.ModesCos(ls=(1,), amps=(amp,))
+    model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, perturbation)))
+
+    sim = Simulation(
+        model=model,
+        env=env,
+        time_opts=Time(dt=0.05, Tend=0.0),
+        domain=domains.Cuboid(r1=r1),
+        grid=grids.TensorProductGrid(num_elements=(32, 1, 1)),
+        derham_opts=DerhamOptions(degree=(3, 1, 1)),
+    )
+    sim.run()
+
+    # relative L2 error of phi along x (spline evaluation is collective, on all ranks)
+    e1 = xp.linspace(0.0, 1.0, 200, endpoint=False)
+    num = Propagator.domain.push(model.em_fields.phi.spline, e1, 0.5, 0.5, kind="0").squeeze()
+    exact = amp / k**2 * xp.cos(k * r1 * e1)
+    error = float(xp.sqrt(xp.mean((num - exact) ** 2) / xp.mean(exact**2)))
+    logger.info(f"{error =}")
+    assert error < 0.05, f"Initial potential too noisy: relative error {error} (full-f weights give about 4)."
+
+    # the full-f weights of the time stepping are restored after the delta-f deposit (rank-local check)
+    particles = model.kinetic_ions.var.particles
+    assert xp.allclose(particles.weights, particles.weights0), "Full-f weights not restored after the initial solve."
+
+    MPI.COMM_WORLD.Barrier()
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        shutil.rmtree(test_folder)
+
+
 if __name__ == "__main__":
     test_weak_Landau(do_plot=True)
+    test_initial_poisson_full_f_noise()
+    test_initial_poisson_full_f()
+    test_energy_conservation(control_variate=False, nclones=1)
+    test_energy_conservation(control_variate=True, nclones=1)

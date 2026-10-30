@@ -20,7 +20,7 @@ def test_bckgr_init_const(num_elements, degree, bcs, spaces, vec_comps):
     """Test field background initialization of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy import FieldsBackground
     from struphy.feec.psydac_derham import Derham
@@ -79,8 +79,8 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
     import inspect
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
+    from maybempi import MPI
 
     from struphy import FieldsBackground, domains, equils
     from struphy.feec.psydac_derham import Derham
@@ -223,16 +223,15 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
             )
 
             if isinstance(mhd_equil, FluidEquilibriumWithB):
-                logger.info(
-                    f"{xp.max(xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))}",
-                )
-                assert (
-                    xp.max(
-                        xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids)),
-                    )
-                    / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))
-                    < 0.057
-                )
+                absB0_ref = mhd_equil.absB0(*meshgrids)
+                absB0_max = xp.max(xp.abs(absB0_ref))
+                if absB0_max < 1e-11:
+                    # no background field: the projected field must vanish too
+                    logger.info(f"{xp.max(xp.abs(field_0(*meshgrids)))} (absB0 is near zero)")
+                    assert xp.max(xp.abs(field_0(*meshgrids))) < 1e-10
+                else:
+                    logger.info(f"{xp.max(xp.abs(field_0(*meshgrids) - absB0_ref)) / absB0_max}")
+                    assert xp.max(xp.abs(field_0(*meshgrids) - absB0_ref)) / absB0_max < 0.057
             logger.info("Scalar asserts passed.")
 
             # vector-valued spaces
@@ -1109,8 +1108,8 @@ def test_sincos_init_const(num_elements, degree, show_plot=False):
     """Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
     from matplotlib import pyplot as plt
+    from maybempi import MPI
 
     from struphy import FieldsBackground
     from struphy.feec.psydac_derham import Derham
@@ -1351,7 +1350,7 @@ def test_noise_init(num_elements, degree, bcs, space, direction):
     """Only tests 1d noise ('e1', 'e2', 'e3') !!"""
 
     import cunumpy as xp
-    from feectools.ddm.mpi import mpi as MPI
+    from maybempi import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays

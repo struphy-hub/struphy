@@ -10,7 +10,7 @@ import shutil
 import tempfile
 
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import EnvironmentOptions, Simulation, Time, grids
 from struphy.models import Maxwell

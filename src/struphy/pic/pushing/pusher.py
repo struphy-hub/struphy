@@ -1,19 +1,33 @@
 "Accelerated particle pushing."
 
 import logging
+from functools import cache
+from pathlib import Path
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
+from cunumpy.kernels import CudaKernel, Kernel, PyccelKernel
 from line_profiler import profile
+from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.pic.pushing.kernel_setup import KernelSetup
-from struphy.utils.kernel_backends import CudaKernel, Kernel
+from struphy.utils.cuda_arguments import check_mapping_on_device
 
 logger = logging.getLogger("struphy")
+
+
+# CUDA kernels that prepare each marker themselves at stage 0 when MarkerArgs.prepare_rows is set (see
+# pusher_utilities_kernels.prepare_marker_row), so that Pusher._push can skip the separate pass of prepare_push
+_KERNELS_PREPARING_ROWS = frozenset({"push_eta_stage", "push_vxb_analytic"})
+
+
+@cache
+def _prepare_push_cuda() -> CudaKernel:
+    """The CUDA kernel that fuses the column-slice assignments at the start of :meth:`Pusher._push`
+    (compiled on first call)."""
+    return CudaKernel.from_file(Path(__file__).with_name("prepare_push_cuda.cu"), "prepare_push")
 
 
 class Pusher:
@@ -33,8 +47,8 @@ class Pusher:
     for any :class:`~struphy.ode.utils.ButcherTableau`
     as well as iterative nonlinear methods.
 
-    The particle push is performed via accelerated :mod:`~struphy.pic.pushing.pusher_kernels`
-    or :mod:`~struphy.pic.pushing.pusher_kernels_gc` for guiding-center models.
+    The particle push is performed via an accelerated kernel from :mod:`struphy.pic.pushing.kernels`,
+    e.g. ``push_eta_stage`` from :mod:`struphy.pic.pushing.kernels.push_eta_stage`.
 
     Notes
     -----
@@ -62,7 +76,7 @@ class Pusher:
         Particles object holding the markers to push.
 
     kernel : PyccelKernel | Kernel
-        The pusher kernel. A :class:`~struphy.utils.kernel_backends.Kernel` also holds its CUDA version;
+        The pusher kernel. A :class:`~cunumpy.kernels.Kernel` also holds its CUDA version;
         on the CuPy backend, a kernel without CUDA version raises NotImplementedError.
 
     args_kernel : tuple
@@ -73,11 +87,11 @@ class Pusher:
 
     alpha_in_kernel: float | int | tuple | list
         For i=0,1,2, the spline/geometry evaluations in kernel are at
-        alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
+        alpha[i]*markers[i] + (1 - alpha[i])*markers[buffer_idx + i].
         If float or int or then alpha = (alpha, alpha, alpha).
         alpha must be between 0 and 1.
         alpha[i]=0 means that evaluation is at the initial positions (time n),
-        stored at markers[:, buffer_idx + i].
+        stored at markers[buffer_idx + i].
 
     init_kernels : tuple[KernelSetup, ...]
         Evaluations at the initial state, executed once per push in tuple order.
@@ -130,12 +144,9 @@ class Pusher:
         mpi_sort: str = None,
         local_eval_only: bool = False,
     ):
-        # choose the kernel for the active backend once; on the CuPy backend this raises
-        # if there is no CUDA version (yet), see CUDA_STRATEGY.md
-        if isinstance(kernel, PyccelKernel):
-            kernel = Kernel(kernel)
-        assert isinstance(kernel, Kernel), f"{kernel} is not of type Kernel or PyccelKernel"
-        self._kernel = kernel.get_kernel()
+        # on the CuPy backend a kernel without CUDA version (yet) raises when called, see CUDA_STRATEGY.md
+        self._kernel = kernel if isinstance(kernel, Kernel) else Kernel(kernel)
+        self._cuda = xp.cupy_backend
 
         self._particles = particles
         self._newton = "newton" in kernel.name
@@ -171,7 +182,7 @@ class Pusher:
         # profiling region names (cached, they are looked up on every call)
         self._region_name = "pusher: " + self.kernel.name
 
-        self._residuals = xp.zeros(self.particles.markers.shape[0])
+        self._residuals = xp.zeros(self.particles.n_markers_max)
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
 
@@ -211,17 +222,42 @@ class Pusher:
         logger.debug(f"{residual_idx =}")
         logger.debug(f"{self.particles.n_cols =}")
 
-        init_slice = slice(first_pusher_idx, first_shift_idx)
-        shift_slice = slice(first_shift_idx, residual_idx)
+        # only the markers (columns) that can hold markers; the columns after them are holes, which nothing reads
+        used = markers[:, : self.particles.n_markers_used]
 
-        # save initial phase space coordinates
-        markers[:, init_slice] = markers[:, : 3 + vdim]
+        # On the GPU the kernels of _KERNELS_PREPARING_ROWS prepare each marker themselves at stage 0 (the same markers
+        # as below: one thread per used marker), saving a pass over the marker buffer; only if no other kernel runs
+        # before them (init and evaluation kernels may read the prepared rows).
+        prepare_in_kernel = (
+            self._cuda
+            and self.kernel.name in _KERNELS_PREPARING_ROWS
+            and not self.init_kernels
+            and not self.eval_kernels
+        )
 
-        # set boundary shifts to zero
-        markers[:, shift_slice] = 0.0
+        if prepare_in_kernel:
+            pass
+        elif self._cuda:
+            # the three assignments below in one launch
+            n_cols, n_markers = used.shape
+            _prepare_push_cuda()(
+                used,
+                first_pusher_idx,
+                3 + vdim,
+                n_threads=n_markers * (n_cols - 2 - first_pusher_idx),
+            )
+        else:
+            init_slice = slice(first_pusher_idx, first_shift_idx)
+            shift_slice = slice(first_shift_idx, residual_idx)
 
-        # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
-        markers[:, residual_idx:-2] = 0.0
+            # save initial phase space coordinates
+            used[init_slice] = used[: 3 + vdim]
+
+            # set boundary shifts to zero
+            used[shift_slice] = 0.0
+
+            # clear buffer rows starting from residual index, dont clear ID (last row) and loc_box
+            used[residual_idx:-2] = 0.0
 
         rank = self.particles.mpi_rank
         logger.debug(f"rank {rank}: starting {self.kernel} ...")
@@ -237,8 +273,9 @@ class Pusher:
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
-            n_not_converged = xp.empty(1, dtype=int)
-            n_not_converged[0] = self.particles.n_mks_loc
+            if self.maxiter > 1:
+                n_not_converged = xp.empty(1, dtype=int)
+                n_not_converged[0] = self.particles.n_mks_loc
             k = 0
 
             if self.maxiter > 1:
@@ -247,7 +284,8 @@ class Pusher:
                     f"rank {rank}: {k =}, tol: {self._tol}, {n_not_converged[0] =}, {max_res =}",
                 )
 
-            n_not_converged[0] = self.particles.Np
+            if self.maxiter > 1:
+                n_not_converged[0] = self.particles.Np
             while True:
                 k += 1
 
@@ -259,15 +297,21 @@ class Pusher:
                 # sort according to alpha-weighted average
                 self._sort_for_alpha(self._alpha_in_kernel)
 
-                # push markers
+                # push markers (the first call prepares the rows if prepare_in_kernel)
+                args_markers = self.particles.args_markers
+                if prepare_in_kernel and stage == 0 and k == 1:
+                    args_markers.prepare_rows = 1
                 with ProfileManager.profile_region("kernel: " + self.kernel.name):
                     self.kernel(
                         dt,
                         stage,
-                        self.particles.args_markers,
+                        args_markers,
                         self._args_domain,
                         *self._args_kernel,
+                        n_threads=self.particles.args_markers.n_markers,  # CUDA: one thread per marker
                     )
+                if prepare_in_kernel and args_markers.prepare_rows:
+                    args_markers.prepare_rows = 0
 
                 # markers have moved
                 if self.pushes_eta:
@@ -282,14 +326,18 @@ class Pusher:
 
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
-                    self._residuals[:] = markers[:, residual_idx]
-                    max_res = xp.max(self._residuals)
+                    # the markers (columns) that can hold markers (sorting in the loop may have added some)
+                    n = self.particles.n_markers_used
+                    residuals = self._residuals[:n]
+                    converged = self._converged_loc[:n]
+                    residuals[:] = markers[residual_idx, :n]
+                    max_res = xp.max(residuals) if n > 0 else -1.0
                     if max_res < 0.0:
                         max_res = None
-                    self._converged_loc[:] = self._residuals < self._tol
-                    self._not_converged_loc[:] = ~self._converged_loc
+                    converged[:] = residuals < self._tol
+                    self._not_converged_loc[:n] = ~converged
                     n_not_converged[0] = xp.count_nonzero(
-                        self._not_converged_loc,
+                        self._not_converged_loc[:n],
                     )
 
                     logger.debug(
@@ -304,7 +352,7 @@ class Pusher:
                         )
 
                     # take converged markers out of the loop
-                    markers[self._converged_loc, first_pusher_idx] = -1.0
+                    markers[first_pusher_idx, :n][converged] = -1.0
 
                 # maxiter=1 for explicit schemes
                 if k == self.maxiter:
@@ -333,8 +381,8 @@ class Pusher:
 
         # sort markers according to domain decomposition
         if self.mpi_sort == "last":
-            if self.particles.mpi_comm is not None:
-                self.particles.mpi_sort_markers(apply_bc=False, do_test=True)
+            if self.particles.mpi_comm is not None and self.particles.mpi_size > 1:
+                self.particles.mpi_sort_markers(apply_bc=False, do_test=not self._cuda)
 
     def _sort_for_alpha(self, alpha: float | int | tuple | list, remove_ghost: bool = False):
         """MPI sort markers according to the alpha-weighted average of positions,
@@ -362,9 +410,13 @@ class Pusher:
         return self._particles
 
     @property
-    def kernel(self) -> PyccelKernel | CudaKernel:
+    def kernel(self) -> Kernel:
         """The pusher kernel for the active backend (pyccel or CUDA)."""
         return self._kernel
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernels this pusher calls: the pusher kernel and those of its init and eval kernel setups."""
+        return (self._kernel,) + tuple(setup.kernel for setup in self._init_kernels + self._eval_kernels)
 
     @property
     def init_kernels(self) -> tuple[KernelSetup, ...]:

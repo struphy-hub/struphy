@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.feec import preconditioner
@@ -12,9 +11,11 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
-from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.accumulation.kernels.marker_operator_symm_dot import marker_operator_symm_dot
+from struphy.pic.accumulation.kernels.vlasov_maxwell import vlasov_maxwell
+from struphy.pic.accumulation.kernels.vlasov_maxwell_mf import vlasov_maxwell_mf
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
+from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -32,13 +33,62 @@ class VlasovAmpereCoupling(Propagator):
         \\[2mm]
         \frac{\partial f}{\partial t} + \frac{1}{\varepsilon}\, \mathbf{E} \cdot \frac{\partial f}{\partial \mathbf{v}} &= 0 .
 
-    Time discretization: Crank-Nicolson (implicit mid-point).
+    With :math:`f` approximated by :math:`N` markers with positions :math:`\boldsymbol \eta_p` (logical, fixed in this
+    step), velocities :math:`\mathbf v_p` and weights :math:`w_p` (including the factor :math:`1/N`), and the FE
+    coefficients :math:`\mathbf e \in \mathbb R^{N_1}` of :math:`\mathbf E \in V^1_h`, the semi-discrete system reads
 
-    System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
+    .. math::
+
+        \mathbb M_1 \dot{\mathbf e} = - \frac{\alpha^2}{\varepsilon} \, (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \mathbf V \,,
+        \qquad
+        \dot{\mathbf V} = \frac{1}{\varepsilon} \, \overline{DF^{-\top}} \, \mathbf \Lambda^1 \, \mathbf e\,,
+
+    where :math:`\mathbf V = (\mathbf v_p)_p \in \mathbb R^{3N}`, :math:`\mathbb W = \textnormal{diag}(w_p)`
+    (acting on each velocity component), :math:`\mathbf \Lambda^1 \in \mathbb R^{3N \times N_1}` holds the
+    :math:`V^1_h` basis functions evaluated at the markers, :math:`(\mathbf \Lambda^1 \mathbf e)_p = \hat{\mathbf E}^1(\boldsymbol \eta_p)`,
+    and :math:`\overline{DF^{-1}}` is block-diagonal with the inverse Jacobian matrices :math:`DF^{-1}(\boldsymbol \eta_p)`.
+    It conserves the energy
+    :math:`\frac 12 \mathbf e^\top \mathbb M_1 \mathbf e + \frac{\alpha^2}{2} \mathbf V^\top \mathbb W \mathbf V`.
+
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point),
+
+    .. math::
+
+        \mathbb M_1 \frac{\mathbf e^{n+1} - \mathbf e^n}{\Delta t} = - \frac{\alpha^2}{\varepsilon} \, (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \frac{\mathbf V^{n+1} + \mathbf V^n}{2}\,,
+        \qquad
+        \frac{\mathbf V^{n+1} - \mathbf V^n}{\Delta t} = \frac{1}{\varepsilon} \, \overline{DF^{-\top}} \, \mathbf \Lambda^1 \, \frac{\mathbf e^{n+1} + \mathbf e^n}{2}\,,
+
+    which conserves the energy exactly (up to the solver tolerance; for constant weights, i.e. without control
+    variate). The velocities are eliminated by :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with
+    :math:`x = \mathbf e`, :math:`y = \mathbf V`, :math:`A = \mathbb M_1`,
+    :math:`B = \frac{\alpha^2}{2 \varepsilon} (\mathbf \Lambda^1)^\top \overline{DF^{-1}} \mathbb W` and
+    :math:`C = - \frac{1}{2 \varepsilon} \overline{DF^{-\top}} \mathbf \Lambda^1`, which gives
+
+    .. math::
+
+        \left(\mathbb M_1 + \frac{\Delta t^2 \alpha^2}{4 \varepsilon^2} \mathbb A\right) \mathbf e^{n+1}
+        = \left(\mathbb M_1 - \frac{\Delta t^2 \alpha^2}{4 \varepsilon^2} \mathbb A\right) \mathbf e^n
+        - \Delta t \frac{\alpha^2}{\varepsilon} \, \mathbf j\,,
+
+    with the accumulated matrix and vector (:class:`~struphy.pic.accumulation.particles_to_grid.Accumulator`,
+    kernel :func:`~struphy.pic.accumulation.kernels.vlasov_maxwell.vlasov_maxwell_kernels.vlasov_maxwell`)
+
+    .. math::
+
+        \mathbb A = (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \overline{DF^{-\top}} \, \mathbf \Lambda^1
+        = \sum_p w_p \, \mathbf \Lambda^1_p{}^\top G^{-1}(\boldsymbol \eta_p) \, \mathbf \Lambda^1_p\,,
+        \qquad
+        \mathbf j = (\mathbf \Lambda^1)^\top \, \overline{DF^{-1}} \, \mathbb W \, \mathbf V^n\,.
+
+    :math:`\mathbb A` is a particle approximation of the :math:`n`-weighted mass matrix :math:`\mathbb M_1`,
+    so the Schur operator is a mass matrix with weight :math:`1 + \Delta t^2 \alpha^2 n / (4 \varepsilon^2)`,
+    solved with ``solver`` and ``precond`` (built from :math:`\mathbb M_1`). The velocities are then updated by
+    :func:`~struphy.pic.pushing.kernels.push_v_with_efield.push_v_with_efield_kernels.push_v_with_efield` with the mid-point field
+    :math:`\frac 12 (\mathbf e^{n+1} + \mathbf e^n)`.
     """
 
     class Variables:
-        """Container for variables advanced by :class:`VlasovAmpereCoupling`.
+        """Container for variables advanced by :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`.
 
         Attributes
         ----------
@@ -77,26 +127,33 @@ class VlasovAmpereCoupling(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VlasovAmpereCoupling`.
+        """Configuration options for :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`.
 
         Parameters
         ----------
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Symmetric iterative solver used by :class:`SchurSolver`.
+            Symmetric iterative solver used by :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner for electric-field mass matrix block.
         solver_params : SolverParameters, default=None
             Solver controls.
+        matrix_free : bool, default=False
+            Apply the particle matrix matrix-free, with the filling :math:`w_p G^{-1}(\boldsymbol \eta_p)` stored per
+            marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it:
+            one spline evaluation and one deposition per marker and solver iteration instead of the products of all
+            pairs of basis functions per marker. Needs 6 auxiliary marker columns. Ignored on the CuPy backend.
         """
 
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        matrix_free: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            assert isinstance(self.matrix_free, bool)
 
             # defaults
             if self.solver_params is None:
@@ -125,21 +182,44 @@ class VlasovAmpereCoupling(Propagator):
 
         self._info = self.options.solver_params.info
 
-        # get accumulation kernel
-        accum_kernel = PyccelKernel(accum_kernels.vlasov_maxwell)
-
         # Initialize Accumulator object
         particles = self.variables.ions.particles
 
-        self._accum = Accumulator(
-            particles,
-            "Hcurl",
-            accum_kernel,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-        )
+        # the matrix-free kernels have no CUDA version
+        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        if self._matrix_free:
+            # the vector, and the filling of the matrix per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 6, "matrix_free needs 6 free (auxiliary) marker columns."
+            self._args_accum = (column,)
+            self._accum = AccumulatorVector(
+                particles,
+                "Hcurl",
+                vlasov_maxwell_mf,
+                self.mass_ops,
+                self.domain.args_domain,
+            )
+            self._A_particles = MarkerOperator(
+                particles,
+                "Hcurl",
+                marker_operator_symm_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (1, column),
+                symmetry="symm",
+            )
+        else:
+            self._args_accum = ()
+            self._accum = Accumulator(
+                particles,
+                "Hcurl",
+                vlasov_maxwell,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="symm",
+            )
+            self._A_particles = self._accum.operators[0]
 
         # Create buffers to store temporarily e and its sum with old e
         self._e_tmp = self.derham.V1.zeros()
@@ -159,7 +239,7 @@ class VlasovAmpereCoupling(Propagator):
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
-        _BC = -self._accum.operators[0]
+        _BC = -self._c1 * self._c2 / 4.0 * self._A_particles
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(
@@ -181,7 +261,7 @@ class VlasovAmpereCoupling(Propagator):
 
         self._pusher = Pusher(
             particles,
-            PyccelKernel(pusher_kernels.push_v_with_efield),
+            push_v_with_efield,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -191,11 +271,12 @@ class VlasovAmpereCoupling(Propagator):
     @profile
     def __call__(self, dt):
         # accumulate
-        self._accum()
+        self._accum(*self._args_accum)
 
-        # Update Schur solver
-        self._schur_solver.BC = self._accum.operators[0]
-        self._schur_solver.BC *= -self._c1 * self._c2 / 4.0
+        # Update Schur solver (the matrix-free operator reads the new fillings from the markers)
+        if not self._matrix_free:
+            self._schur_solver.BC = self._accum.operators[0]
+            self._schur_solver.BC *= -self._c1 * self._c2 / 4.0
 
         # Vector for Schur solver
         self._e_scale *= 0.0
@@ -215,6 +296,8 @@ class VlasovAmpereCoupling(Propagator):
         self._e_sum += self.variables.e.spline.vector
         self._e_sum += self._e_tmp
         self._e_sum *= 0.5
+        # the pusher kernel reads the ghost regions directly (the solver output may leave them stale)
+        self._e_sum.update_ghost_regions()
 
         # Update velocities
         self._pusher(dt)
@@ -232,20 +315,11 @@ class VlasovAmpereCoupling(Propagator):
             logger.info(f"Iterations  for VlasovMaxwell: {info['niter']}")
             logger.info(f"Maxdiff e1  for VlasovMaxwell: {max_de}")
             particles = self.variables.ions.particles
-            buffer_idx = particles.bufferindex
-            max_diff = xp.max(
-                xp.abs(
-                    xp.sqrt(
-                        particles.markers_wo_holes[:, 3] ** 2
-                        + particles.markers_wo_holes[:, 4] ** 2
-                        + particles.markers_wo_holes[:, 5] ** 2,
-                    )
-                    - xp.sqrt(
-                        particles.markers_wo_holes[:, buffer_idx + 3] ** 2
-                        + particles.markers_wo_holes[:, buffer_idx + 4] ** 2
-                        + particles.markers_wo_holes[:, buffer_idx + 5] ** 2,
-                    ),
-                ),
-            )
+            # the velocities before the push are saved at first_pusher_idx + 3 (see Pusher._push);
+            # gather only the six rows (quantities) needed, not all quantities of the markers
+            not_holes = ~particles.holes
+            v_new = particles.markers[3:6, not_holes]
+            v_old = particles.markers[particles.first_pusher_idx + 3 : particles.first_pusher_idx + 6, not_holes]
+            max_diff = xp.max(xp.abs(xp.linalg.norm(v_new, axis=0) - xp.linalg.norm(v_old, axis=0)))
             logger.info(f"Maxdiff |v| for VlasovMaxwell: {max_diff}")
             logger.info("")

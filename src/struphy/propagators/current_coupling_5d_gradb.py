@@ -5,21 +5,25 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
-from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic import utilities_kernels
-from struphy.pic.accumulation import accum_kernels_gc
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.pushing import pusher_kernels_gc
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB import cc_lin_mhd_5d_gradB
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg import cc_lin_mhd_5d_gradB_dg
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg_init import cc_lin_mhd_5d_gradB_dg_init
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.pic.diagnostics.kernels.eval_gradB_ediff import eval_gradB_ediff
+from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_Hdiv import push_gc_cc_J2_dg_Hdiv
+from struphy.pic.pushing.kernels.push_gc_cc_J2_dg_init_Hdiv import push_gc_cc_J2_dg_init_Hdiv
+from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_H1vec import push_gc_cc_J2_stage_H1vec
+from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_Hdiv import push_gc_cc_J2_stage_Hdiv
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -111,12 +115,13 @@ class CurrentCoupling5DGradB(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`CurrentCoupling5DGradB`.
+        r"""Configuration options for :class:`CurrentCoupling5DGradB`.
 
         Parameters
         ----------
-        ep_scale : float, default=1.0
-            Scaling factor applied in particle accumulation.
+        ep_scale : float, default=None
+            Factor of the energetic-particle contributions (accumulation): the mass ratio
+            :math:`A_\textnormal{h}/A_\textnormal{b}` of the energetic ions and the MHD bulk if ``None``.
 
         algo : {"discrete_gradient", "explicit"}, default="explicit"
             Time integration algorithm.
@@ -144,8 +149,10 @@ class CurrentCoupling5DGradB(Propagator):
             ``SolverParameters()``.
 
         filter_params : FilterParameters, default=None
-            Particle-to-grid filtering parameters used by the accumulator.
-            If ``None``, defaults to ``FilterParameters()``.
+            Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
+            The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
+            but the propagator then no longer conserves the energy exactly (the filter is applied to the
+            accumulated vectors only, not to the fields seen by the particles).
 
         dg_solver_params : DiscreteGradientSolverParameters, default=None
             Nonlinear solver controls for discrete-gradient mode. If ``None``
@@ -159,7 +166,7 @@ class CurrentCoupling5DGradB(Propagator):
             "explicit",
         ]
         # propagator options
-        ep_scale: float = 1.0
+        ep_scale: float = None
         algo: OptsAlgo = "explicit"
         butcher: ButcherTableau = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
@@ -175,7 +182,7 @@ class CurrentCoupling5DGradB(Propagator):
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.ep_scale, float)
+            assert self.ep_scale is None or isinstance(self.ep_scale, float)
 
             # supported u_space per algorithm (pusher kernels exist only for these)
             if self.algo == "explicit":
@@ -215,6 +222,12 @@ class CurrentCoupling5DGradB(Propagator):
 
     @profile
     def allocate(self):
+        # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
+        self._ep_scale = self.options.ep_scale
+        if self._ep_scale is None:
+            self._ep_scale = self.variables.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+            logger.info(f"{self.__class__.__name__}: ep_scale = A_h/A_b = {self._ep_scale} (mass ratio, default).")
+
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
@@ -261,21 +274,19 @@ class CurrentCoupling5DGradB(Propagator):
             self._PB_b = self._PB.codomain.zeros()
             self._grad_PB_b = self.derham.grad.codomain.zeros()
 
-            # define Accumulator and arguments
-            self._ACC = Accumulator(
+            # define Accumulator (vector only) and arguments
+            self._ACC = AccumulatorVector(
                 self.variables.energetic_ions.particles,
                 self.options.u_space,
-                PyccelKernel(accum_kernels_gc.cc_lin_mhd_5d_gradB),
+                cc_lin_mhd_5d_gradB,
                 self.mass_ops,
                 self.domain.args_domain,
-                add_vector=True,
-                symmetry="symm",
                 filter_params=self.options.filter_params,
             )
 
             self._args_accum_kernel = (
                 epsilon,
-                self.options.ep_scale,
+                self._ep_scale,
                 self._b_full[0]._data,
                 self._b_full[1]._data,
                 self._b_full[2]._data,
@@ -296,9 +307,9 @@ class CurrentCoupling5DGradB(Propagator):
 
             # define Pusher
             if self.options.u_space == "Hdiv":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
+                self._pusher_kernel = push_gc_cc_J2_stage_Hdiv
             elif self.options.u_space == "H1vec":
-                self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
+                self._pusher_kernel = push_gc_cc_J2_stage_H1vec
             else:
                 raise ValueError(
                     f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
@@ -347,13 +358,13 @@ class CurrentCoupling5DGradB(Propagator):
                 b_tilde = self.b_tilde.spline.vector
 
             # Call the accumulation and Pusher class
-            accum_kernel_init = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg
-            self._accum_kernel_en_fB_mid = utilities_kernels.eval_gradB_ediff
+            accum_kernel_init = cc_lin_mhd_5d_gradB_dg_init
+            accum_kernel = cc_lin_mhd_5d_gradB_dg
+            self._accum_kernel_en_fB_mid = eval_gradB_ediff
 
             self._args_accum_kernel = (
                 epsilon,
-                self.options.ep_scale,
+                self._ep_scale,
                 b_tilde[0]._data,
                 b_tilde[1]._data,
                 b_tilde[2]._data,
@@ -443,8 +454,8 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[2]._data,
             )
 
-            self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
-            self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_dg_Hdiv
+            self._pusher_kernel_init = push_gc_cc_J2_dg_init_Hdiv
+            self._pusher_kernel = push_gc_cc_J2_dg_Hdiv
 
     def __call__(self, dt):
         # current FE coeffs
@@ -455,14 +466,14 @@ class CurrentCoupling5DGradB(Propagator):
         holes = particles.holes
         args_markers = particles.args_markers
         markers = args_markers.markers
-        first_init_idx = args_markers.first_init_idx
+        first_pusher_idx = args_markers.first_pusher_idx
         first_free_idx = args_markers.first_free_idx
 
         # clear buffer
-        markers[:, first_init_idx:-2] = 0.0
+        markers[first_pusher_idx:-2] = 0.0
 
         # save old marker positions
-        markers[:, first_init_idx : first_init_idx + 3] = markers[:, :3]
+        markers[first_pusher_idx : first_pusher_idx + 3] = markers[:3]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b2.copy(out=self._b_full)
@@ -526,7 +537,7 @@ class CurrentCoupling5DGradB(Propagator):
             diffs = self.update_feec_variables(u=u_new)
 
             # clear the buffer
-            markers[:, first_init_idx:-2] = 0.0
+            markers[first_pusher_idx:-2] = 0.0
 
             # update_weights
             if self.variables.energetic_ions.species.weights_params.control_variate:
@@ -561,7 +572,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_old
             particles.save_magnetic_energy(PB_b)
-            en_fB_old = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_old = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self._ep_scale
             en_fB_old /= n_mks_tot
 
             buffer_array = xp.array([en_fB_old])
@@ -607,7 +618,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_new
             particles.save_magnetic_energy(PB_b)
-            en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_new = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self._ep_scale
             en_fB_new /= n_mks_tot
 
             buffer_array = xp.array([en_fB_new])
@@ -651,13 +662,13 @@ class CurrentCoupling5DGradB(Propagator):
                 u_mid.update_ghost_regions()
 
                 # save H^{n+1, k}
-                markers[~holes, first_free_idx : first_free_idx + 3] = markers[~holes, 0:3]
+                markers[first_free_idx : first_free_idx + 3, ~holes] = markers[0:3, ~holes]
 
                 # calculate denominator ||z^{n+1, k} - z^n||^2
                 sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
 
                 sum_H_diff_loc = xp.sum(
-                    (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2,
+                    (markers[:3, ~holes] - markers[first_pusher_idx : first_pusher_idx + 3, ~holes]) ** 2,
                 )
 
                 buffer_array = xp.array([sum_u_diff_loc])
@@ -698,7 +709,7 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_accum_kernel_en_fB_mid,
                     first_free_idx + 3,
                 )
-                en_fB_mid = xp.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_mid = xp.sum(markers[first_free_idx + 3, ~holes].dot(markers[5, ~holes])) * self._ep_scale
 
                 en_fB_mid /= n_mks_tot
 
@@ -751,7 +762,7 @@ class CurrentCoupling5DGradB(Propagator):
                 )
 
                 sum_H_diff_loc = xp.sum(
-                    xp.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3]),
+                    xp.abs(markers[0:3, ~holes] - markers[first_free_idx : first_free_idx + 3, ~holes]),
                 )
 
                 if particles.mpi_comm is not None:
@@ -759,7 +770,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # update en_fB_new
                 particles.save_magnetic_energy(PB_b)
-                en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_new = xp.sum(markers[8, ~holes].dot(markers[5, ~holes])) * self._ep_scale
                 en_fB_new /= n_mks_tot
 
                 buffer_array = xp.array([en_fB_new])
@@ -849,7 +860,7 @@ class CurrentCoupling5DGradB(Propagator):
             diffs = self.update_feec_variables(u=u_new)
 
             # clear the buffer
-            markers[:, first_init_idx:-2] = 0.0
+            markers[first_pusher_idx:-2] = 0.0
 
             # update_weights
             if self.variables.energetic_ions.species.weights_params.control_variate:

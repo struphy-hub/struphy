@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 
 import cunumpy as xp
-from cunumpy import PyccelKernel
 from line_profiler import profile
 
 from struphy.feec import preconditioner
@@ -13,9 +12,11 @@ from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
-from struphy.pic.accumulation.particles_to_grid import Accumulator
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.accumulation.kernels.linear_vlasov_ampere import linear_vlasov_ampere
+from struphy.pic.accumulation.kernels.linear_vlasov_ampere_mf import linear_vlasov_ampere_mf
+from struphy.pic.accumulation.kernels.marker_operator_rank1_dot import marker_operator_rank1_dot
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
+from struphy.pic.pushing.kernels.push_weights_with_efield_lin_va import push_weights_with_efield_lin_va
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
@@ -141,6 +142,12 @@ class EfieldWeightsCoupling(Propagator):
         solver_params : SolverParameters, default=None
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
+
+        matrix_free : bool, default=False
+            Apply the particle matrix matrix-free, with its rank-one filling stored per marker
+            (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one
+            spline evaluation and one deposition per marker and solver iteration instead of the products of all pairs
+            of basis functions per marker. Needs 4 auxiliary marker columns. Ignored on the CuPy backend.
         """
 
         alpha: float = 1.0
@@ -148,11 +155,13 @@ class EfieldWeightsCoupling(Propagator):
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        matrix_free: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            assert isinstance(self.matrix_free, bool)
 
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
@@ -189,15 +198,39 @@ class EfieldWeightsCoupling(Propagator):
         e = self.variables.e.spline.vector
         particles = self.variables.ions.particles
 
-        self._accum = Accumulator(
-            particles,
-            "Hcurl",
-            PyccelKernel(accum_kernels.linear_vlasov_ampere),
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-        )
+        # the matrix-free kernels have no CUDA version
+        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        if self._matrix_free:
+            # the vector, and the filling of the matrix per marker (in the first free columns of the marker array)
+            self._column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 4, "matrix_free needs 4 free (auxiliary) marker columns."
+            self._accum = AccumulatorVector(
+                particles,
+                "Hcurl",
+                linear_vlasov_ampere_mf,
+                self.mass_ops,
+                self.domain.args_domain,
+            )
+            self._A_particles = MarkerOperator(
+                particles,
+                "Hcurl",
+                marker_operator_rank1_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (1, self._column),
+                symmetry="symm",
+            )
+        else:
+            self._accum = Accumulator(
+                particles,
+                "Hcurl",
+                linear_vlasov_ampere,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="symm",
+            )
+            self._A_particles = self._accum.operators[0]
 
         # Create buffers to store temporarily e and its sum with old e
         self._e_tmp = e.space.zeros()
@@ -205,8 +238,8 @@ class EfieldWeightsCoupling(Propagator):
         self._e_sum = e.space.zeros()
 
         # marker storage
-        self._f0_values = xp.zeros(particles.markers.shape[0], dtype=float)
-        self._old_weights = xp.empty(particles.markers.shape[0], dtype=float)
+        self._f0_values = xp.zeros(particles.n_markers_max, dtype=float)
+        self._old_weights = xp.empty(particles.n_markers_max, dtype=float)
 
         # ================================
         # ========= Schur Solver =========
@@ -221,7 +254,7 @@ class EfieldWeightsCoupling(Propagator):
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
-        _BC = self._alpha**2 * self._kappa**2 * self._accum.operators[0] / (4 * self._vth**2)
+        _BC = -(self._alpha**2) * self._kappa**2 / (4 * self._vth**2) * self._A_particles
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(
@@ -245,7 +278,7 @@ class EfieldWeightsCoupling(Propagator):
 
         self._pusher = Pusher(
             particles,
-            PyccelKernel(pusher_kernels.push_weights_with_efield_lin_va),
+            push_weights_with_efield_lin_va,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -258,19 +291,21 @@ class EfieldWeightsCoupling(Propagator):
 
         # evaluate f0 and accumulate
         self._f0_values[:] = self._f0(
-            particles.markers[:, 0],
-            particles.markers[:, 1],
-            particles.markers[:, 2],
-            particles.markers[:, 3],
-            particles.markers[:, 4],
-            particles.markers[:, 5],
+            particles.markers[0],
+            particles.markers[1],
+            particles.markers[2],
+            particles.markers[3],
+            particles.markers[4],
+            particles.markers[5],
         )
 
-        self._accum(self._f0_values)
-
-        # Update Schur solver
-        self._schur_solver.BC = self._accum.operators[0]
-        self._schur_solver.BC *= (-1) * self._alpha**2 * self._kappa**2 / (4 * self._vth**2)
+        # Update Schur solver (the matrix-free operator reads the new fillings from the markers)
+        if self._matrix_free:
+            self._accum(self._f0_values, self._column)
+        else:
+            self._accum(self._f0_values)
+            self._schur_solver.BC = self._accum.operators[0]
+            self._schur_solver.BC *= (-1) * self._alpha**2 * self._kappa**2 / (4 * self._vth**2)
 
         # Vector for schur solver
         self._e_scale *= 0.0
@@ -286,7 +321,7 @@ class EfieldWeightsCoupling(Propagator):
         )
 
         # Store old weights
-        self._old_weights[~particles.holes] = particles.markers_wo_holes[:, 6]
+        self._old_weights[~particles.holes] = particles.markers_wo_holes[6]
 
         # Compute (e^{n+1} + e^n) (no tmps created here)
         self._e_sum *= 0.0
@@ -307,7 +342,7 @@ class EfieldWeightsCoupling(Propagator):
             logger.info(f"Maxdiff    e1   for StepEfieldWeights: {max_de}")
             max_diff = xp.max(
                 xp.abs(
-                    self._old_weights[~particles.holes] - particles.markers[~particles.holes, 6],
+                    self._old_weights[~particles.holes] - particles.markers[6, ~particles.holes],
                 ),
             )
             logger.info(f"Maxdiff weights for StepEfieldWeights: {max_diff}")

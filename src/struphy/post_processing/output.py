@@ -17,14 +17,14 @@ import cunumpy as xp
 import h5py
 import numpy as np
 import xarray as xr
-from feectools.ddm.mpi import MockComm
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI, SerialComm
 from pyevtk.hl import gridToVTK
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.base import Particles
+from struphy.polar.basic import PolarVector
 from struphy.post_processing import store
 from struphy.post_processing.arrays import (
     BINNED_LABELS,
@@ -83,6 +83,13 @@ def load_plasma_plots() -> bool:
             return False
         _plots["loaded"] = True
     return True
+
+
+def _to_host(value):
+    """`value` (an array, or a list/tuple of arrays for vector-valued fields) as NumPy array(s)."""
+    if isinstance(value, (list, tuple)):
+        return type(value)(_to_host(v) for v in value)
+    return xp.to_numpy(value)
 
 
 class ProductMapping(Mapping[str, xr.DataArray]):
@@ -317,6 +324,8 @@ class Output:
         self._seconds = None
         self._spline_derham = None
         self._spline_snapshots = {}
+        # polar splines: operators recovering the polar coefficients from the saved ones, per (derham, space)
+        self._polar_restart_ops = {}
 
     def evaluate(
         self,
@@ -349,8 +358,9 @@ class Output:
 
         Common selections can be passed directly: ``t`` selects saved snapshots
         by index (an integer, list of integers, or slice); omit it for every
-        saved timestep. The returned array always retains its ``t`` dimension.
-        A float ``t`` selects a time coordinate. Other keyword arguments select
+        saved timestep. A float ``t`` selects a time coordinate. A single snapshot (an integer
+        or float ``t``) drops the ``t`` dimension and keeps the time as a scalar ``t``
+        coordinate; lists and slices keep the dimension. Other keyword arguments select
         named coordinates, for example ``component=2``. For products other than raw FEEC
         fields (post-processed fields such as ``"em_fields/phi_xyz"``, binned distributions,
         SPH densities, ...), ``eta1``, ``eta2`` and ``eta3`` select their saved logical
@@ -374,23 +384,37 @@ class Output:
         after spline evaluation: one of ``"0"``, ``"1"``, ``"2"``, ``"3"``, ``"v"``, or
         ``"norm"``. The input representation is inferred from the field's FEEC space.
         Scalars default to ``"0"`` and vectors to ``"norm"``.
+
+        Raises
+        ------
+        FileNotFoundError
+            If ``path_out`` holds no raw simulation data (``data/data_proc0.hdf5``).
         """
+        # --- Raw output must exist, whatever is requested ---
+        if not (self.path_out / "data" / "data_proc0.hdf5").exists():
+            raise FileNotFoundError(f"No simulation data to process in {self.path_out}")
+
+        # --- Validate arguments and normalize the product name ---
+        # Remaining keyword arguments are coordinate selectors, applied with .sel() at the end.
         selectors = dict(coordinates)
         if "physical" in selectors:
             raise TypeError("physical is no longer supported; use eta1, eta2, eta3 and representation")
         if "as_numpy" in selectors:
             raise TypeError("evaluate() always returns xarray; call .to_numpy() on its result when needed")
+
         if name.count("/") == 2:
             # the full key of a particle product: "species/dataset/variable"
             if dataset is not None:
                 raise ValueError("dataset= cannot be combined with a 'species/dataset/variable' name")
             species, group, variable = name.split("/")
             name, dataset = f"{species}/{variable}", f"{group}/{variable}"
+
         if name != "scalars" and name.count("/") != 1:
             raise ValueError(
                 "evaluate() names must use the 'species/variable' or 'species/dataset/variable' form, or be 'scalars'"
             )
 
+        # --- Decide whether eta1/eta2/eta3 mean spline evaluation or coordinate selection ---
         eta = (eta1, eta2, eta3)
         has_eta = any(value is not None for value in eta)
         if has_eta and name != "scalars" and (dataset is not None or not self._is_raw_spline_field(name)):
@@ -400,8 +424,11 @@ class Output:
                 if value is not None:
                     selectors[f"eta{direction}"] = value
             eta, has_eta = (None, None, None), False
+
         if has_eta and dataset is not None:
             raise ValueError("dataset= cannot be combined with direct FEEC eta evaluation")
+
+        # --- Scalars: read straight from the raw output ---
         if name == "scalars":
             if has_eta or representation is not None or dataset is not None:
                 raise ValueError("'scalars' accepts only time, variables, and coordinate selections")
@@ -415,22 +442,27 @@ class Output:
                 array = self.scalars[names]
         elif variables is not None:
             raise ValueError("variables= is only valid with evaluate('scalars')")
+
+        # A single snapshot drops the t dimension, as in xarray's own isel/sel.
+        single_t = isinstance(t, (int, np.integer, float, np.floating))
+
+        # --- Raw FEEC fields: evaluate the saved splines on a logical grid ---
+        # The time selection happens during evaluation, so t and method are consumed here.
         is_raw_spline_field = not has_eta and dataset is None and self._is_raw_spline_field(name)
         if name == "scalars":
             is_raw_spline_field = False
-        elif has_eta:
+        elif has_eta or is_raw_spline_field:
+            # omitted directions (all three without etas) on the cell centres of the simulation grid
             if any(value is None for value in eta):
                 defaults = self._default_logical_grid()
                 eta = tuple(default if value is None else value for value, default in zip(eta, defaults))
             array = self._evaluate_spline_field(name, *eta, t=t, method=method, representation=representation)
+            if single_t:
+                array = array.isel(t=0, drop=drop)
             t = None
             method = None
-        elif is_raw_spline_field:
-            array = self._evaluate_spline_field(
-                name, *self._default_logical_grid(), t=t, method=method, representation=representation
-            )
-            t = None
-            method = None
+
+        # --- Post-processed products: load from post_processing/ (processed on first use) ---
         if not has_eta:
             if representation is not None and not is_raw_spline_field:
                 raise ValueError("representation requires FEEC evaluation")
@@ -438,9 +470,11 @@ class Output:
                 if parallel is not None and not self.is_processed:
                     self.pproc(parallel=parallel)
                 array = self._product(name, dataset=dataset)
+
+        # --- Time selection ---
         if t is not None:
             if isinstance(t, (int, np.integer)):
-                array = array.isel(t=[int(t)], drop=drop)
+                array = array.isel(t=int(t), drop=drop)
             elif isinstance(t, slice):
                 array = array.isel(t=t, drop=drop)
             elif isinstance(t, (list, tuple, np.ndarray)):
@@ -448,9 +482,12 @@ class Output:
                     raise TypeError("t sequences must contain saved-snapshot indices")
                 array = array.isel(t=list(t), drop=drop)
             elif isinstance(t, (float, np.floating)):
-                selectors["t"] = [float(t)]
+                # a time value, matched with the other coordinate selectors below
+                selectors["t"] = float(t)
             else:
                 raise TypeError("t must be a saved-snapshot index, index sequence, slice, or float time coordinate")
+
+        # --- Coordinate selection (eta*, component, float t, ...) ---
         if selectors:
             options = {"drop": drop}
             if method is not None:
@@ -458,6 +495,7 @@ class Output:
             array = array.sel(selectors, **options)
         elif method is not None:
             raise ValueError("method requires a direct coordinate selector")
+
         return array
 
     def _is_raw_spline_field(self, name: str) -> bool:
@@ -537,13 +575,14 @@ class Output:
         self, array: xr.DataArray, etas: tuple[Any, Any, Any], dims: tuple[str, ...]
     ) -> xr.DataArray:
         """Map a raw FEEC evaluation grid and attach its Cartesian coordinates."""
-        grids = [np.atleast_1d(np.asarray(eta, dtype=float)) for eta in etas]
-        mapped = self.domain(*grids)
+        # the logical grids may be device arrays (CuPy backend): map them where they live, keep the coordinates on the host
+        grids = [np.atleast_1d(np.asarray(xp.to_numpy(eta), dtype=float)) for eta in etas]
+        mapped = self.domain(*(xp.asarray(grid) for grid in grids))
         shape = tuple(len(grid) for grid in grids)
         keep = tuple(slice(None) if dim in dims else 0 for dim in ("eta1", "eta2", "eta3"))
         coordinates = {}
         for name, values in zip(("X", "Y", "Z"), mapped):
-            values = np.asarray(values).reshape(shape)[keep]
+            values = np.asarray(xp.to_numpy(values)).reshape(shape)[keep]
             coordinates[name] = (dims, values) if dims else values.item()
         return array.assign_coords(coordinates)
 
@@ -959,6 +998,11 @@ class Output:
         """Number of ranks that wrote the raw output (not the current communicator)."""
         return int(self.metadata["mpi_ranks"])
 
+    @cached_property
+    def num_clones(self) -> int:
+        """Number of domain clones of the saved run."""
+        return int(self.metadata.get("env", {}).get("num_clones", 1))
+
     @property
     def is_processed(self) -> bool:
         """Whether complete post-processing of the current raw output exists."""
@@ -973,6 +1017,7 @@ class Output:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = False,
+        vtk_steps: Sequence[int] | None = None,
         parallel: bool | None = None,
         force: bool = False,
     ) -> "Output":
@@ -998,6 +1043,9 @@ class Output:
             Classify orbits (passing, trapped, lost); requires ``guiding_center``.
         create_vtk:
             Also write VTK files of the fields.
+        vtk_steps:
+            Positions of the post-processed time steps (as in ``t``, e.g. ``[0, -1]``) for which VTK files are
+            written; by default all. The other products cover every post-processed step regardless.
         parallel:
             Process on all ranks of this output's communicator, which must have as many ranks as
             the saved run. By default parallel exactly when it has, and more than one.
@@ -1016,6 +1064,7 @@ class Output:
             guiding_center=guiding_center,
             classify=classify,
             create_vtk=create_vtk,
+            vtk_steps=vtk_steps,
             force=force,
         )
         if parallel is None:
@@ -1043,7 +1092,7 @@ class Output:
     def _processes_in_parallel(self) -> bool:
         """Whether processing by default uses every rank: those of a job as large as the saved run."""
         size = self.comm.Get_size()
-        return size > 1 and size == self.mpi_ranks
+        return size > 1 and size == self.mpi_ranks and self.num_clones == 1
 
     def _process(self, *, parallel: bool, **options):
         """Run one processing pass on this rank (serial) or with every rank (parallel)."""
@@ -1070,10 +1119,14 @@ class Output:
     def _setup_processing(self, parallel: bool):
         """Prepare the communicator and FEEC reconstruction for this processing run."""
         self._pproc_parallel = parallel
-        self._pproc_comm = self.comm if parallel else MockComm()
+        self._pproc_comm = self.comm if parallel else SerialComm()
         self._pproc_rank = self._pproc_comm.Get_rank()
         if parallel and self._pproc_comm.Get_size() != self.mpi_ranks:
             raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")
+        if parallel and self.num_clones > 1:
+            raise ValueError(
+                "Parallel post-processing of a run with domain clones is not supported, use parallel=False."
+            )
         self._pproc_ranks = range(self._pproc_rank, self._pproc_rank + 1) if parallel else range(self.mpi_ranks)
         self._pproc_derham = None
         if self.grid is not None and self.derham_opts is not None:
@@ -1124,6 +1177,7 @@ class Output:
         guiding_center: bool = False,
         classify: bool = False,
         create_vtk: bool = True,
+        vtk_steps: Sequence[int] | None = None,
         force: bool = False,
     ):
         """Output post-processing for fields and particle data in ``self.path_out``.
@@ -1144,6 +1198,8 @@ class Output:
             If True, run orbit classification (passing, trapped, lost) after computing orbits.
         create_vtk : bool
             If True, create VTK files for visualisation.
+        vtk_steps : sequence of int, optional
+            Positions of the post-processed time steps for which VTK files are written (default: all).
         force : bool
             Reprocess even when output already exists. Set False to reuse a previous
             run's results, so a plotting script can be re-run cheaply.
@@ -1160,6 +1216,7 @@ class Output:
             guiding_center=guiding_center,
             classify=classify,
             create_vtk=create_vtk,
+            vtk_steps=vtk_steps,
         )
         if not force and is_processed(str(self.path_out), options):
             logger.warning(f"\nReusing existing post-processing in {self.path_pproc}")
@@ -1200,7 +1257,9 @@ class Output:
 
         # feec variables
         try:
-            self._process_fields(step=step, celldivide=celldivide, physical=physical, create_vtk=create_vtk)
+            self._process_fields(
+                step=step, celldivide=celldivide, physical=physical, create_vtk=create_vtk, vtk_steps=vtk_steps
+            )
             self._process_particles(step=step, guiding_center=guiding_center, classify=classify)
         except Exception as error:
             self._write_manifest("failed", options=options, error=error)
@@ -1216,6 +1275,7 @@ class Output:
         celldivide: int | Sequence[int] = (1, 1, 1),
         physical: bool = False,
         create_vtk: bool = True,
+        vtk_steps: Sequence[int] | None = None,
     ):
         """Evaluate the FEEC fields of all saved time steps and write them to disk.
 
@@ -1235,6 +1295,8 @@ class Output:
             If True, also compute push-forwarded physical (x,y,z) components of fields.
         create_vtk : bool
             If True, create VTK files for visualisation.
+        vtk_steps : sequence of int, optional
+            Positions of the time steps for which VTK files are written (default: all).
         """
         if not self._pproc_exist_fields:
             logger.warning("\nNo feec fields found in hdf5 file, skipping post-processing of fields.")
@@ -1250,7 +1312,9 @@ class Output:
 
         # the physical grid is only needed for output, hence it is only built on rank 0
         if self._pproc_rank == 0:
-            grids_phy = list(self.domain(*grids_log))
+            # output coordinates, on the host (the logical grids stay on the device for the field evaluation)
+            grids_phy = [xp.to_numpy(grid) for grid in self.domain(*grids_log)]
+            grids_log_host = [xp.to_numpy(grid) for grid in grids_log]
         else:
             grids_phy = None
 
@@ -1282,8 +1346,9 @@ class Output:
                 if self._pproc_rank == 0:
                     for species, vars in vals.items():
                         for name, val in vars.items():
-                            point_data[species][name][t] = val
-                            point_data_phy[species][name][t] = vals_phy[species][name]
+                            # evaluated on the device on the CuPy backend; written to files from the host
+                            point_data[species][name][t] = _to_host(val)
+                            point_data_phy[species][name][t] = _to_host(vals_phy[species][name])
 
         # directory for the vtk files
         path_fields = os.path.join(self.path_pproc, "fields_data")
@@ -1293,10 +1358,10 @@ class Output:
             for species, vars in point_data.items():
                 variables = {}
                 for name, val in vars.items():
-                    variables[name] = wrap_field_data(val, grids_log, grids_phy=grids_phy, name=name)
+                    variables[name] = wrap_field_data(val, grids_log_host, grids_phy=grids_phy, name=name)
                     if physical:
                         variables[name + "_xyz"] = wrap_field_data(
-                            point_data_phy[species][name], grids_log, grids_phy=grids_phy, name=name + "_xyz"
+                            point_data_phy[species][name], grids_log_host, grids_phy=grids_phy, name=name + "_xyz"
                         )
                 store.write_group(store.store_path(self.path_pproc), f"/{species}", xr.Dataset(variables))
 
@@ -1306,9 +1371,9 @@ class Output:
                 except FileExistsError:
                     shutil.rmtree(path_fields)
                     os.mkdir(path_fields)
-                self._create_vtk(path_fields, t_grid, grids_phy, point_data)
+                self._create_vtk(path_fields, t_grid, grids_phy, point_data, steps=vtk_steps)
                 if physical:
-                    self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
+                    self._create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True, steps=vtk_steps)
         self._pproc_comm.Barrier()
 
     def _process_particles(
@@ -1443,6 +1508,7 @@ class Output:
         step : int
             Time-step stride of the saved snapshots.
         """
+        polar_fields = {}
         for file in files:
             for species, dset in file["feec"].items():
                 for var, ddset in dset.items():
@@ -1455,7 +1521,11 @@ class Output:
                     assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
                     assert pads.shape == (3,) or pads.shape == (3, 3)
 
-                    vector = fields[species][var].vector
+                    # the saved data are the tensor-product coefficients (for polar splines: the
+                    # extracted coefficients E^T v, from which v is recovered below)
+                    field = fields[species][var]
+                    is_polar = isinstance(field.vector, PolarVector)
+                    vector = field.vector_stencil if is_polar else field.vector
 
                     # scalar field
                     if gl_s.shape == (3,):
@@ -1467,7 +1537,7 @@ class Output:
                             s1 : e1 + 1,
                             s2 : e2 + 1,
                             s3 : e3 + 1,
-                        ] = ddset[n * step, p1:-p1, p2:-p2, p3:-p3]
+                        ] = xp.asarray(ddset[n * step, p1:-p1, p2:-p2, p3:-p3])  # HDF5 data is on the host
 
                     # vector-valued field
                     else:
@@ -1480,9 +1550,19 @@ class Output:
                                 s1 : e1 + 1,
                                 s2 : e2 + 1,
                                 s3 : e3 + 1,
-                            ] = ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3]
+                            ] = xp.asarray(ddset[str(comp + 1)][n * step, p1:-p1, p2:-p2, p3:-p3])
 
                     vector.update_ghost_regions()
+                    if is_polar:
+                        polar_fields[(species, var)] = field
+
+        # polar splines: recover the polar coefficients once all files are loaded
+        for field in polar_fields.values():
+            key = (id(field.derham), field.space_id)
+            if key not in self._polar_restart_ops:
+                self._polar_restart_ops[key] = field._restart_extraction_op()
+            self._polar_restart_ops[key].dot(field.vector_stencil, out=field.vector)
+            field.vector.update_ghost_regions()
 
     def _create_eval_grids(self, celldivide: int | Sequence[int] = (1, 1, 1)):
         """Build the logical evaluation grids and distribute them over the MPI ranks.
@@ -1688,6 +1768,7 @@ class Output:
         point_data: dict,
         *,
         physical: bool = False,
+        steps: Sequence[int] | None = None,
     ):
         """Write evaluated field arrays to VTK (.vts) files for visualization.
 
@@ -1703,7 +1784,13 @@ class Output:
             Evaluated field values as returned by :meth:`_eval_femfields`.
         physical : bool, optional
             If True, writes files for push-forwarded physical components (folder suffix "_phy").
+        steps : sequence of int, optional
+            Positions in ``t_grid`` (negative ones count from the end) for which files are written; by default
+            all. The files keep the number of their position, ``step_<n>.vts``.
         """
+        if steps is not None and any(not -len(t_grid) <= int(n) < len(t_grid) for n in steps):
+            raise IndexError(f"vtk_steps {list(steps)} outside the {len(t_grid)} post-processed time steps.")
+        selected = None if steps is None else {int(n) % len(t_grid) for n in steps}
         for species, vars in point_data.items():
             species_path = os.path.join(path, species, "vtk" + physical * "_phy")
             if os.path.exists(species_path):
@@ -1716,6 +1803,8 @@ class Output:
 
         logger.warning(f"\nCreating vtk in {path} ...")
         for n, t in enumerate(tqdm(t_grid)):
+            if selected is not None and n not in selected:
+                continue
             point_data_n = {}
 
             for species, vars in point_data.items():
@@ -1765,8 +1854,9 @@ class Output:
 
         # open hdf5 files and get names and number of saved markers of kinetic species
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:
-            # get number of time steps and markers
-            nt, n_markers, n_cols = file_0["kinetic/" + species + "/markers"].shape
+            # get number of time steps and markers (the saved markers have the layout of the marker array, one
+            # column per marker)
+            nt, n_cols, n_markers = file_0["kinetic/" + species + "/markers"].shape
 
         # get the saved orbit quantities from the particle class of the species
         for _, var in species_obj.variables.items():
@@ -1814,9 +1904,9 @@ class Output:
             for rank in self._pproc_ranks:
                 with h5py.File(os.path.join(self.path_out, "data/", f"data_proc{rank}.hdf5"), "r") as file:
                     markers = file["kinetic/" + species + "/markers"]
-                    ids = markers[n * step, :, -1].astype("int")
+                    ids = markers[n * step, -1, :].astype("int")
                     ids = ids[ids != -1]  # exclude holes
-                    temp[ids] = markers[n * step, : ids.size, save_index]
+                    temp[ids] = markers[n * step, save_index, : ids.size].T
 
             if self._pproc_parallel:
                 if self._pproc_rank == 0:
@@ -1840,7 +1930,7 @@ class Output:
             assert xp.all(sorted(ids) == xp.arange(n_markers))
 
             # compute physical positions (x, y, z)
-            pos_phys = self.domain(xp.array(temp[~lost_particles_mask, :3]), change_out_order=True)
+            pos_phys = self.domain(xp.array(temp[~lost_particles_mask, :3].T), change_out_order=True)
             temp[~lost_particles_mask, :3] = pos_phys
 
             if self._pproc_rank == 0:
@@ -2193,6 +2283,44 @@ class Output:
             self._ensure_processed()
             self._time = np.load(self.path_pproc / "t_grid.npy", mmap_mode="r") * self.time_scale
         return self._time
+
+    def field_form(self, name: str) -> str:
+        """The FEEC form of the raw field ``name`` (``"species/variable"``): ``"0"``, ``"1"``, ``"2"``, ``"3"`` or
+        ``"v"`` for the spaces H1, Hcurl, Hdiv, L2 and H1vec."""
+        species, variable = name.split("/")
+        with h5py.File(self.path_out / "data" / "data_proc0.hdf5", "r") as file:
+            return PUSH_KINDS[file[f"feec/{species}/{variable}"].attrs["space_id"]]
+
+    def field_basis(self, name: str) -> str:
+        """The basis in which the components of the raw field ``name`` (``"species/variable"``) are shown: the
+        ``given_in_basis`` of the perturbations of its initial condition, ``"physical"`` (Cartesian components) for
+        perturbations given in physical components. Without perturbations, or when they are given in different
+        bases, its FEEC form (see :meth:`field_form`)."""
+        species, variable = name.split("/")
+        form = self.field_form(name)
+        try:
+            perturbations = self.initial_conditions.get(species, {}).get(variable, {}).get("perturbations")
+        except (KeyError, ValueError):
+            return form
+        if perturbations is None:
+            return form
+        if not isinstance(perturbations, (list, tuple)):
+            perturbations = [perturbations]
+        # None is the default of a perturbation, a vector field
+        bases = {"v" if p.given_in_basis is None else str(p.given_in_basis) for p in perturbations}
+        bases = {"physical" if basis.startswith("physical") else basis for basis in bases}
+        return bases.pop() if len(bases) == 1 else form
+
+    def standard_snapshots(self) -> list[int]:
+        """Positions of the first, middle and last saved time step, at which the examples make their standard plots.
+
+        Read from the raw output, so no post-processing is triggered. Fewer saved steps give fewer positions,
+        e.g. ``[0]`` for a single one. The positions select snapshots in ``evaluate(..., t=...)`` and
+        ``pproc(vtk_steps=...)`` (with the default ``step=1`` of :meth:`pproc`).
+        """
+        with h5py.File(self.path_out / "data" / "data_proc0.hdf5", "r") as file:
+            last = file["time/value"].shape[0] - 1
+        return sorted({0, last // 2, last})
 
     def _first_field(self) -> xr.Dataset | None:
         """The dataset of a field species, which carries the evaluation grids."""

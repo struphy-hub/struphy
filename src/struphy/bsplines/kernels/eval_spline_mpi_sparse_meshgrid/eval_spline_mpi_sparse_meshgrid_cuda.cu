@@ -1,0 +1,37 @@
+#include "struphy/bsplines/evaluation_kernels_3d.cuh"
+#include "struphy/kernel_arguments/spline_args.cuh"
+
+using namespace struphy_cuda;
+
+// Same arguments, in the same order, as the pyccel kernel in eval_spline_mpi_sparse_meshgrid_kernels.py. Array views
+// carry dimensions and strides, so no CUDA-only lengths are needed.
+
+/**
+ * Sparse meshgrid evaluation of a distributed spline, as in evaluation_kernels_3d.eval_spline_mpi_sparse_meshgrid.
+ *
+ * One thread per entry (i, j, k) of values; the point is (eta1[i, 0, 0], eta2[0, j, 0], eta3[0, 0, k]).
+ *
+ * @param eta1 First coordinates, shape (n1, 1, 1), any strides; -1 flags a point not on the process domain.
+ * @param eta2 Second coordinates, shape (1, n2, 1).
+ * @param eta3 Third coordinates, shape (1, 1, n3).
+ * @param _data Spline coefficients of the current process, any strides.
+ * @param args_spline Kind of 1d basis (0 = N-spline, 1 = D-spline), spline degrees (1 to 8) and knot vectors of V0
+ *        in each direction, and start indices of the splines on the current process.
+ * @param values Output values, shape (n1, n2, n3); entries of flagged points are left unchanged.
+ */
+extern "C" __global__ void eval_spline_mpi_sparse_meshgrid(Array3D<double> eta1, Array3D<double> eta2,
+                                                           Array3D<double> eta3, Array3D<double> _data,
+                                                           SplineArgs args_spline, Array3D<double> values) {
+    // CUDA-only: flat index of this thread, split into the pyccel loop variables i, j, k
+    long long ijk = (long long)blockDim.x * blockIdx.x + threadIdx.x;
+    if (ijk >= values.shape[0] * values.shape[1] * values.shape[2]) return;
+    long long k = ijk % values.shape[2];
+    long long j = (ijk / values.shape[2]) % values.shape[1];
+    long long i = ijk / (values.shape[1] * values.shape[2]);
+
+    // point not in process domain
+    if (eta1(i, 0, 0) == -1. || eta2(0, j, 0) == -1. || eta3(0, 0, k) == -1.) return;
+
+    values(i, j, k) = evaluation_kernels_3d::eval_spline_mpi(eta1(i, 0, 0), eta2(0, j, 0), eta3(0, 0, k), _data,
+                                                             args_spline);
+}

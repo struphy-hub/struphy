@@ -2,7 +2,7 @@ import itertools
 from types import SimpleNamespace
 
 import pytest
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy.pic.base import Particles
 
@@ -18,6 +18,7 @@ def make_stub(comm, periodic_axes=()):
     )
     domain_array, nprocs = Particles._get_domain_decomp(stub, mpi_dims_mask=None)
     stub.domain_array = domain_array
+    stub._domain_array_host = domain_array
     return stub, nprocs
 
 
@@ -121,7 +122,13 @@ def test_neighbouring_proc_boxes(mpi_size, mpi_dims_mask, bc_sph):
     domain_array, nprocs = Particles._get_domain_decomp(stub, mpi_dims_mask=mpi_dims_mask)
 
     for rank in range(mpi_size):
-        s = SimpleNamespace(domain_array=domain_array, mpi_rank=rank, mpi_size=mpi_size, bc_sph=list(bc_sph))
+        s = SimpleNamespace(
+            domain_array=domain_array,
+            _domain_array_host=domain_array,
+            mpi_rank=rank,
+            mpi_size=mpi_size,
+            bc_sph=list(bc_sph),
+        )
         Particles._get_neighbouring_proc(s)
         ijk = rank_ijk(rank, nprocs)
         for offs in itertools.product((-1, 0, 1), repeat=3):

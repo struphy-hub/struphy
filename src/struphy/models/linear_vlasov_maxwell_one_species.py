@@ -1,28 +1,15 @@
-import copy
-
-from cunumpy import PyccelKernel
-
 from struphy import BaseUnits
-from struphy.io.options import LiteralOptions
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarPIC, Scalars
-from struphy.models.species import (
-    FieldSpecies,
-    ParticleSpecies,
-)
-from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation import accum_kernels
-from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
-from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
+from struphy.models.scalars import BilinearEnergyFEEC
+from struphy.models.variables import FEECVariable
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
-from struphy.propagators.poisson_solve import PoissonSolve
-from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_v_in_force_field import PushVinForceField
-from struphy.propagators.push_vxb import PushVxB
 
 
 class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
     """Linearized Vlasov-Maxwell equations for one kinetic species around a Maxwellian background.
+
+    Extends :class:`~struphy.models.LinearVlasovAmpereOneSpecies` by the magnetic field perturbation (Faraday's law
+    and the curl of the magnetic field in Ampère's law).
 
     Parameters
     ----------
@@ -36,56 +23,39 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         Dimensionless parameter: plasma frequency / cyclotron frequency. If None, computed from units and charge/mass numbers.
     epsilon: float, optional
         Normalized cyclotron period: 1 / (cyclotron frequency × time unit). If None, computed from units and charge/mass numbers.
-    with_B0: bool
-        Whether to include the effect of a background magnetic field B0 (default: True)
-    with_E0: bool
-        Whether to include the effect of a background electric field E0 (default: True)
     """
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Kinetic"
+    ## additional species variables
 
-    ## species
-
-    class EMFields(FieldSpecies):
+    class EMFields(LinearVlasovAmpereOneSpecies.EMFields):
         def __init__(self):
-            self.e_field = FEECVariable(space="Hcurl")
+            # declared before the parent's variables, whose init_variables() then includes it
             self.b_field = FEECVariable(space="Hdiv")
-            self.phi = FEECVariable(space="H1")
-            self.init_variables()
+            super().__init__()
 
-    class KineticIons(ParticleSpecies):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            alpha: float = None,
-            epsilon: float = None,
-        ):
-            self.var = PICVariable(space="DeltaFParticles6D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                alpha=alpha,
-                epsilon=epsilon,
-            )
+    ## additional propagators
 
-    ## propagators
+    class Propagators(LinearVlasovAmpereOneSpecies.Propagators):
+        """Propagators of :class:`~struphy.models.LinearVlasovAmpereOneSpecies` plus ``maxwell`` (Faraday's law and
+        the curl of the magnetic field in Ampère's law).
 
-    class Propagators:
-        def __init__(
-            self,
-            with_B0: bool = True,
-            with_E0: bool = True,
-        ):
-            self.push_eta = PushEta()
-            if with_E0:
-                self.push_vinE = PushVinForceField()
-            self.coupling_Eweights = EfieldWeightsCoupling()
-            if with_B0:
-                self.push_vxb = PushVxB()
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`LinearVlasovAmpereOneSpecies.Propagators
+            <struphy.models.LinearVlasovAmpereOneSpecies.Propagators>` (and from there to
+            :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`).
+        """
+
+        splitting_order = ("push_eta", "push_vinE", "coupling_Eweights", "push_vxb", "maxwell")
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.maxwell = MaxwellWeakAmpere()
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -96,68 +66,26 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         mass_number: float = 1.0,
         alpha: float = None,
         epsilon: float = None,
-        with_B0: bool = True,
-        with_E0: bool = True,
     ):
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            alpha,
-            epsilon,
-        )
+        # 1.-5. and initial Poisson, see LinearVlasovAmpereOneSpecies
+        super().__init__(base_units, charge_number, mass_number, alpha, epsilon)
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(with_B0=with_B0, with_E0=with_E0)
-
-        # 4. assign variables to propagators
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
-        if with_E0:
-            self.propagators.push_vinE.variables.var = self.kinetic_ions.var
-        self.propagators.coupling_Eweights.variables.e = self.em_fields.e_field
-        self.propagators.coupling_Eweights.variables.ions = self.kinetic_ions.var
-        if with_B0:
-            self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        # 5. define scalars to be tracked during simulation
-        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
-        particle_energy = FunctionScalarPIC(
-            self._compute_en_w,
-            self.kinetic_ions.var,
-        )
-        self.scalars = Scalars(
-            en_E=electric_energy,
-            en_B=magnetic_energy,
-            en_w=particle_energy,
-            en_tot=electric_energy + magnetic_energy + particle_energy,
-        )
-
-        # initial Poisson (not a propagator used in time stepping);
-        # the source is the delta-f charge density, see LinearVlasovAmpereOneSpecies
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-        particles_to_grid = ParticlesToGrid(
-            self.kinetic_ions.var,
-            "H1",
-            PyccelKernel(accum_kernels.charge_density_0form),
-        )
-
-        self.initial_poisson = PoissonSolve(
-            rho=particles_to_grid,
-            rho_coeffs=alpha**2 / epsilon,
-        )
-        self.initial_poisson.variables.phi = self.em_fields.phi
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        scalars.pop("en_tot")
+        scalars["en_B"] = BilinearEnergyFEEC(self.em_fields.b_field)
+        scalars["en_tot"] = scalars["en_E"] + scalars["en_B"] + scalars["en_f"]
+        return scalars
 
     @classmethod
     def doc_pde(cls):
@@ -227,40 +155,8 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         - Electric field energy: ``en_E``
         - Magnetic field energy: ``en_B``
-        - Perturbation particle energy: ``en_w``
+        - Perturbation particle energy: ``en_f``
         - Total energy: ``en_tot``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_eta.PushEta`
-        2. :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField` (if :attr:`with_E0` is True)
-        3. :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling`
-        4. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
-        5. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
-        """
-        doc = rf"""**1. push_eta.PushEta:**
-
-    {PushEta.__doc__}
-
-    **2. push_v_in_force_field.PushVinForceField:**
-
-    {PushVinForceField.__doc__}
-
-**3. efield_weights_coupling.EfieldWeightsCoupling:**
-
-{EfieldWeightsCoupling.__doc__}
-
-**4. push_vxb.PushVxB:**
-
-{PushVxB.__doc__}
-
-**5. propagators.maxwell.Maxwell:**
-
-{MaxwellWeakAmpere.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

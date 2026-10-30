@@ -106,7 +106,7 @@ def test_output_is_the_run_of_the_current_output_folder(tmp_path):
 
 
 def test_from_output_restores_metadata_and_follows_a_moved_folder(tmp_path):
-    model = VlasovAmpereOneSpecies(base_units=BaseUnits(x=2.0, B=3.0, n=4.0), mass_number=4.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(base_units=BaseUnits(x=2.0, B=3.0, n=4.0), mass_number=4.0)
     sim = Simulation(model=model, env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"))
     os.makedirs(os.path.join(sim.env.path_out, "data"))
     sim._write_run_metadata()
@@ -163,6 +163,7 @@ def test_run_metadata_contains_variables_and_propagator_options(tmp_path):
         "class": "FEECVariable",
         "space": "Hcurl",
         "save_data": False,
+        "projection": "commuting",
     }
     assert metadata["model"]["species"]["em_fields"]["variables"]["b_field"]["space"] == "Hdiv"
     options = metadata["model"]["propagator_options"]["maxwell"]
@@ -359,8 +360,8 @@ def test_restart_restores_sph_markers(tmp_path, monkeypatch):
     sim.time_opts.Tend += sim.time_opts.dt
     sim.run()
 
-    valid = saved[:, 0] != -1.0
-    assert np.array_equal(restored["markers"][valid, :6], saved[valid, :6])
+    valid = saved[0] != -1.0
+    assert np.array_equal(restored["markers"][:6, valid], saved[:6, valid])
 
 
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
@@ -448,7 +449,7 @@ def test_processing_from_moved_output(tmp_path):
 
 @pytest.mark.parametrize("n_markers", [0, 1e-6])
 def test_kinetic_run_without_saved_markers_runs_and_processes(tmp_path, n_markers):
-    model = VlasovAmpereOneSpecies(with_B0=False)
+    model = VlasovAmpereOneSpecies()
     binplot = BinningPlot(slice="e1_v1", n_bins=(8, 8), ranges=((0.0, 1.0), (-5.0, 5.0)))
     model.kinetic_ions.set_markers(
         loading_params=LoadingParameters(ppc=5, seed=1234),

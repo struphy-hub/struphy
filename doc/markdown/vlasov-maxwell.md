@@ -337,7 +337,7 @@ $$
 \end{aligned}
 $$
 
-Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particle index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/pushing/pusher_kernels.py) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel (see our [Tl:dr](https://struphy-hub.github.io/struphy/sections/abstract.html)) to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/pushing/pusher.py) that provides some syntactic sugar for calling the kernels. 
+Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particle index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://github.com/struphy-hub/struphy/tree/devel/src/struphy/pic/pushing/kernels) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel (see our [Tl:dr](https://struphy-hub.github.io/struphy/sections/abstract.html)) to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/pushing/pusher.py) that provides some syntactic sugar for calling the kernels. 
 
 Now that we know how to discretize the kinetic equation by means of a Lagrangian particle method, it remains to tackle the right-hand sides of Ampère's law and of Poisson's equation in {eq}`eq:compact`. In the latter, there is the source term
 
@@ -376,7 +376,7 @@ $$
 B_p = -\frac{\alpha^2}{\varepsilon} \frac 1 N w_p\,.
 $$
 
-As an example, we can look at the kernel [charge_density_0form](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/accumulation/accum_kernels.py), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
+As an example, we can look at the kernel [charge_density_0form](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/accumulation/kernels/charge_density_0form/charge_density_0form_kernels.py), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
 
 1. Extract the marker position $\boldsymbol \eta_p$ and other relevant marker quantities.
 2. Compute the "filling function", denoted $A^{\mu,\nu}_p$ or $B^\mu_p$ in the [Accumulator docstring](https://struphy-hub.github.io/struphy/sections/subsections-old/pic_base.html#struphy.pic.accumulation.particles_to_grid.Accumulator).
@@ -384,7 +384,7 @@ As an example, we can look at the kernel [charge_density_0form](https://github.c
 
         import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
 
-which is imported at the top of [accum_kernels.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels.py?ref_type=heads) and [accum_kernels_gc.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels_gc.py?ref_type=heads), respectively. The coupling term in Ampère's law can be treated in analogous fashion:
+which is imported at the top of each accumulation kernel in [pic/accumulation/kernels](https://github.com/struphy-hub/struphy/tree/devel/src/struphy/pic/accumulation/kernels) (one folder per kernel). The coupling term in Ampère's law can be treated in analogous fashion:
 
 $$
 \begin{aligned}

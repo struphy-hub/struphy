@@ -55,6 +55,7 @@ class LiteralOptions:
     # derham
     OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
     OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
+    OptsInitProjection = Literal["commuting", "L2"]
     OptsNonTrivialBoundaryCondition = Literal["free", "dirichlet"]
 
     # fields backgrounds
@@ -73,17 +74,43 @@ class LiteralOptions:
     GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
 
     # solvers
-    OptsSymmSolver = Literal["pcg", "cg"]
+    OptsSymmSolver = Literal["pcg", "pcg_sr", "cg"]
     OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]
-    OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
-    OptsDiffusionPrecond = Literal["MultiGrid", "MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
+    OptsMassPrecond = Literal["MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None]
+    OptsShearAlfvenPrecond = Literal[
+        "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", None
+    ]
+    OptsMaxwellPrecond = Literal[
+        "StiffnessPreconditioner", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
+    ]
+    OptsShearAlfvenCurlCurlPrecond = Literal[
+        "auto", "HiptmairXu", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
+    ]
+    OptsPoloidalSolver = Literal["schur", "lu", "ilu"]
+    OptsDiffusionPrecond = Literal[
+        "MultiGrid",
+        "StiffnessPreconditioner",
+        "MassMatrixPreconditioner",
+        "PolarMassMatrixPreconditioner",
+        None,
+    ]
+    OptsCurlCurlPrecond = Literal[
+        "MultiGrid",
+        "HiptmairXu",
+        "StiffnessPreconditioner",
+        "MassMatrixPreconditioner",
+        "PolarMassMatrixPreconditioner",
+        None,
+    ]
     OptsSaddlePointSolver = Literal["uzawa"]
     OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
     OptsNonlinearSolver = Literal["Picard", "Newton"]
     OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
 
     # markers
-    OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles5Dvperp", "Particles3D"]
+    OptsPICSpace = Literal[
+        "Particles6D", "DeltaFParticles6D", "PauliParticles6D", "Particles5D", "Particles5Dvperp", "Particles3D"
+    ]
     OptsMarkerBC = Literal["periodic", "reflect", "remove", "refill"]
     OptsRecontructBC = Literal["periodic", "mirror", "fixed", "noslip"]
     OptsRefillBC = Literal["inner", "outer"]
@@ -234,6 +261,12 @@ class DerhamOptions(OptionsBase):
     local_projectors : bool
         Whether to build local commuting projectors based on
         quasi-inter-/histopolation.
+
+    polar_poloidal_solver : str
+        Solver for the poloidal (eta_1-eta_2) matrices in the 2D x 1D Kronecker
+        solves of the polar commuting projectors (only used with ``polar_splines=True``):
+        ``"schur"`` (exact, block elimination of the pole block), ``"lu"``
+        (exact, sparse LU) or ``"ilu"`` (incomplete LU as preconditioner).
     """
 
     degree: tuple[int, int, int] = (1, 1, 1)
@@ -246,8 +279,10 @@ class DerhamOptions(OptionsBase):
     nquads_proj: tuple[int, int, int] | None = None
     polar_splines: bool = False
     local_projectors: bool = False
+    polar_poloidal_solver: LiteralOptions.OptsPoloidalSolver = "schur"
 
     def __post_init__(self):
+        check_option(self.polar_poloidal_solver, LiteralOptions.OptsPoloidalSolver)
         for bc in self.bcs:
             if bc is not None:
                 assert isinstance(bc, tuple) and len(bc) == 2, (

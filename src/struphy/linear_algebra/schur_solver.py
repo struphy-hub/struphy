@@ -12,42 +12,38 @@ class SchurSolver:
 
     .. math::
 
-        \left( \matrix{
-            A & \Delta t B \cr
-            \Delta t C & \\text{Id}
-        } \\right)
-        \left( \matrix{
-            x^{n+1} \cr y^{n+1}
-        } \\right)
+        \begin{pmatrix} A & \Delta t\, B \\ \Delta t\, C & \mathbb I \end{pmatrix}
+        \begin{pmatrix} x^{n+1} \\ y^{n+1} \end{pmatrix}
         =
-        \left( \matrix{
-            A & - \Delta t B \cr
-            - \Delta t C & \\text{Id}
-        } \\right)
-        \left( \matrix{
-            x^n \cr y^n
-        } \\right)
+        \begin{pmatrix} A & - \Delta t\, B \\ - \Delta t\, C & \mathbb I \end{pmatrix}
+        \begin{pmatrix} x^n \\ y^n \end{pmatrix}
 
-    using the Schur complement :math:`S = A - \Delta t^2 BC`, where Id is the identity matrix
-    and :math:`(x^n, y^n)` is given. The solution is given by
+    using the Schur complement :math:`S = A - \Delta t^2 BC`, where :math:`\mathbb I` is the identity matrix
+    and :math:`(x^n, y^n)` is given. The solution is
 
     .. math::
 
-        x^{n+1} = S^{-1} \left[ (A + \Delta t^2 BC) \, x^n - 2 \Delta t B \, y^n \\right] \,.
+        x^{n+1} = S^{-1} \left[ (A + \Delta t^2 BC) \, x^n - 2 \Delta t\, B \, y^n \right] \,.
+
+    The caller passes :math:`B y^n` and computes :math:`y^{n+1} = y^n - \Delta t\, C (x^{n+1} + x^n)` itself.
 
     Parameters
     ----------
     A : LinearOperator
-        Upper left block from [[A B], [C Id]].
+        Upper left block :math:`A`.
 
     BC : LinearOperator
-        Product from [[A B], [C Id]].
+        Product :math:`BC` of the off-diagonal blocks (same domain and codomain as :math:`A`).
 
     solver_name : str
-        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        Name of the iterative solver, passed to ``feectools.linalg.solvers.inverse`` (e.g. ``"pcg"``, ``"cg"``,
+        ``"pbicgstab"``, ``"gmres"``).
 
-    **solver_params :
-        Must correspond to the chosen solver.
+    precond : LinearOperator, optional
+        Preconditioner of the Schur complement :math:`S` (can be replaced later with :attr:`precond`).
+
+    solver_params : SolverParameters, optional
+        Solver controls (``tol``, ``maxiter``, ...); defaults to ``SolverParameters()``.
     """
 
     def __init__(
@@ -82,6 +78,7 @@ class SchurSolver:
         kwargs.pop("info")
         if precond is not None:
             kwargs["pc"] = precond
+        self._solver_kwargs = kwargs
 
         self._solver = inverse(A, solver_name, **kwargs)
 
@@ -90,22 +87,35 @@ class SchurSolver:
 
     @property
     def A(self):
-        """Upper left block from [[A B], [C Id]]."""
+        """Upper left block :math:`A`."""
         return self._A
 
     @property
     def BC(self):
-        """Product from [[A B], [C Id]]."""
+        """Product :math:`BC` of the off-diagonal blocks."""
         return self._BC
+
+    @property
+    def precond(self):
+        """Preconditioner of the Schur system (None without preconditioner)."""
+        return self._solver_kwargs.get("pc")
+
+    @precond.setter
+    def precond(self, pc):
+        """Replace the preconditioner, e.g. by one of the Schur system for the current dt (built at the first solve)."""
+        self._solver_kwargs.pop("pc", None)
+        if pc is not None:
+            self._solver_kwargs["pc"] = pc
+        self._solver = inverse(self._A, self._solver_name, **self._solver_kwargs)
 
     @A.setter
     def A(self, a):
-        """Upper left block from [[A B], [C Id]]."""
+        """Upper left block :math:`A`."""
         self._A = a
 
     @BC.setter
     def BC(self, bc):
-        """Product from [[A B], [C Id]]."""
+        """Product :math:`BC` of the off-diagonal blocks."""
         self._BC = bc
 
     @profile
@@ -172,37 +182,33 @@ class SchurSolverFull:
 
     .. math::
 
-        \left( \matrix{
-            A & B \cr
-            C & \\text{Id}
-        } \\right)
-        \left( \matrix{
-            x \cr y
-        } \\right)
+        \begin{pmatrix} A & B \\ C & \mathbb I \end{pmatrix}
+        \begin{pmatrix} x \\ y \end{pmatrix}
         =
-        \left( \matrix{
-            b_x \cr b_y
-        } \\right)
+        \begin{pmatrix} b_x \\ b_y \end{pmatrix}
 
-    using the Schur complement :math:`S = A - BC`, where Id is the identity matrix
-    and :math:`(b_x, b_y)^T` is given. The solution is given by
+    using the Schur complement :math:`S = A - BC`, where :math:`\mathbb I` is the identity matrix
+    and :math:`(b_x, b_y)^\top` is given. The solution is
 
     .. math::
 
         x &= S^{-1} \, (b_x - B b_y ) \,,
-
+        \\
         y &= b_y - C x \,.
 
     Parameters
     ----------
     M : BlockLinearOperator
-        Matrix [[A B], [C Id]].
+        Block matrix :math:`[[A, B], [C, \mathbb I]]`.
 
     solver_name : str
-        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        Name of the iterative solver, passed to ``feectools.linalg.solvers.inverse`` (e.g. ``"pcg"``, ``"cg"``,
+        ``"pbicgstab"``, ``"gmres"``), or ``"rpbicgstab"``: BiCGStab (``"bicgstab"``) for :math:`S P` with the
+        preconditioner :math:`P` (right preconditioning), then :math:`x = P\, x'`. It needs two products with
+        :math:`P` per iteration (``"pbicgstab"`` three), with the same stopping criterion (residual of :math:`S x`).
 
     **solver_params :
-        Must correspond to the chosen solver.
+        Keyword arguments of the chosen solver; must contain ``pc`` (the preconditioner, None for none).
     """
 
     def __init__(self, M, solver_name, **solver_params):
@@ -224,10 +230,36 @@ class SchurSolverFull:
 
         self._S = self._A - self._B @ self._C
 
-        self._solver = inverse(self._S, solver_name, **solver_params)
+        self._solver_params = solver_params
+        self._build_solver()
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
+        self._tmp_x = self._A.domain.zeros()
+
+    def _build_solver(self):
+        """The solver of the Schur system, with right preconditioning for ``"rpbicgstab"``."""
+        if self._solver_name == "rpbicgstab":
+            params = {k: v for k, v in self._solver_params.items() if k != "pc"}
+            self._right_pc = self._solver_params.get("pc")
+            op = self._S if self._right_pc is None else self._S @ self._right_pc
+            self._solver = inverse(op, "bicgstab", **params)
+        else:
+            self._right_pc = None
+            self._solver = inverse(self._S, self._solver_name, **self._solver_params)
+
+    @property
+    def precond(self):
+        """Preconditioner of the Schur system (None without preconditioner)."""
+        return self._solver_params.get("pc")
+
+    @precond.setter
+    def precond(self, pc):
+        """Replace the preconditioner, e.g. by one of the Schur system for the current dt."""
+        self._solver_params.pop("pc", None)
+        if pc is not None:
+            self._solver_params["pc"] = pc
+        self._build_solver()
 
     @profile
     @ProfileManager.profile("solve: SchurSolverFull")
@@ -268,7 +300,11 @@ class SchurSolverFull:
         rhs += bx
 
         # solve linear system (in-place if out is not None)
-        x = self._solver.dot(rhs, out=out[0])
+        if self._right_pc is None:
+            x = self._solver.dot(rhs, out=out[0])
+        else:
+            xp = self._solver.dot(rhs, out=self._tmp_x)
+            x = self._right_pc.dot(xp, out=out[0])
         y = self._C.dot(x, out=out[1])
         y *= -1
         y += by
@@ -281,40 +317,33 @@ class SchurSolverFull3:
 
     .. math::
 
-        \left( \matrix{
-            A & B & D \cr
-            C & \\text{Id} & 0 \cr
-            E & 0 & \\text{Id} \cr
-        } \\right)
-        \left( \matrix{
-            x \cr y \cr z
-        } \\right)
+        \begin{pmatrix} A & B & D \\ C & \mathbb I & 0 \\ E & 0 & \mathbb I \end{pmatrix}
+        \begin{pmatrix} x \\ y \\ z \end{pmatrix}
         =
-        \left( \matrix{
-            b_x \cr b_y \cr b_z
-        } \\right)
+        \begin{pmatrix} b_x \\ b_y \\ b_z \end{pmatrix}
 
-    using the Schur complement :math:`S = A - BC - DE`, where Id is the identity matrix
-    and :math:`(b_x, b_y, b_z)^T` is given. The solution is given by
+    using the Schur complement :math:`S = A - BC - DE`, where :math:`\mathbb I` is the identity matrix
+    and :math:`(b_x, b_y, b_z)^\top` is given. The solution is
 
     .. math::
 
         x &= S^{-1} \, (b_x - B b_y - D b_z) \,,
-
+        \\
         y &= b_y - C x \,,
-
+        \\
         z &= b_z - E x \,.
 
     Parameters
     ----------
     M : BlockLinearOperator
-        Matrix [[A B D], [C Id 0], [E 0 Id]].
+        Block matrix :math:`[[A, B, D], [C, \mathbb I, 0], [E, 0, \mathbb I]]`.
 
     solver_name : str
-        See [feectools.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        Name of the iterative solver, passed to ``feectools.linalg.solvers.inverse`` (e.g. ``"pcg"``, ``"cg"``,
+        ``"pbicgstab"``, ``"gmres"``).
 
     **solver_params :
-        Must correspond to the chosen solver.
+        Keyword arguments of the chosen solver; must contain ``pc`` (the preconditioner, None for none).
     """
 
     def __init__(self, M, solver_name, **solver_params):
@@ -342,11 +371,25 @@ class SchurSolverFull3:
 
         self._S = self._A - self._B @ self._C - self._D @ self._E
 
+        self._solver_params = solver_params
         self._solver = inverse(self._S, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = self._A.codomain.zeros()
         self._rhs2 = self._A.codomain.zeros()
+
+    @property
+    def precond(self):
+        """Preconditioner of the Schur system (None without preconditioner)."""
+        return self._solver_params.get("pc")
+
+    @precond.setter
+    def precond(self, pc):
+        """Replace the preconditioner, e.g. by one of the Schur system for the current dt."""
+        self._solver_params.pop("pc", None)
+        if pc is not None:
+            self._solver_params["pc"] = pc
+        self._solver = inverse(self._S, self._solver_name, **self._solver_params)
 
     @profile
     @ProfileManager.profile("solve: SchurSolverFull3")

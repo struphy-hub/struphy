@@ -3,14 +3,13 @@
 import logging
 from dataclasses import dataclass
 
-from cunumpy import PyccelKernel
 from line_profiler import profile
 from numpy import array, random
 
 from struphy.io.options import OptionsBase
 from struphy.models.variables import PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.pushing import pusher_kernels
+from struphy.pic.pushing.kernels.push_random_diffusion_stage import push_random_diffusion_stage
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
 
@@ -111,7 +110,8 @@ class PushRandomDiffusion(Propagator):
 
         particles = self.variables.var.particles
 
-        self._noise = array(particles.markers[:, :3])
+        # one column per marker, like the markers
+        self._noise = array(particles.markers[:3])
 
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
@@ -127,7 +127,7 @@ class PushRandomDiffusion(Propagator):
 
         self._pusher = Pusher(
             particles,
-            PyccelKernel(pusher_kernels.push_random_diffusion_stage),
+            push_random_diffusion_stage,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -150,8 +150,8 @@ class PushRandomDiffusion(Propagator):
         self._noise[:] = random.multivariate_normal(
             self._mean,
             self._cov,
-            len(particles.markers),
-        )
+            particles.n_markers_max,
+        ).T
 
         # push markers
         self._pusher(dt)

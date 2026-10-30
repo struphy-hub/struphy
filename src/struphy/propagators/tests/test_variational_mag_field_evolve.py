@@ -1,5 +1,5 @@
 import cunumpy as xp
-from feectools.ddm.mpi import mpi as MPI
+from maybempi import MPI
 
 from struphy import domains
 from struphy.feec.mass import WeightedMassOperators
