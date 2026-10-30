@@ -148,3 +148,42 @@ def test_unmatched_propagator_options_warn(caplog):
     with caplog.at_level(logging.WARNING, logger="struphy"):
         StruphyModel.from_dict(dct)
     assert "push_unknown" in caplog.text
+
+
+@pytest.mark.mpi_skip
+def test_linear_euler_family_splitting_order():
+    from struphy.models import LinearEuler, LinearMHD
+
+    assert list(LinearEuler.propagators_in_splitting_order()) == ["sound", "bg_pressure"]
+    model = LinearMHD()
+    assert isinstance(model, LinearEuler)
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    assert model.propagators.bg_pressure.u_field is model.mhd.velocity
+    assert model.propagators.bg_current.b_field is model.em_fields.b_field
+
+    # the documentation lists both shear-Alfven flavours
+    doc = LinearMHD.doc_discretization()
+    assert "ShearAlfvenPropagator" in doc and "ShearAlfvenCurlCurlPropagator" in doc
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("split_sound", [True, False])
+def test_linear_mhd_split_sound_in_old_metadata(split_sound):
+    from struphy.models import LinearMHD
+    from struphy.models.base import StruphyModel
+
+    model = LinearMHD(b_space="Hcurl")
+    model.propagators.sound.options = model.propagators.sound.Options(solver="cg")
+    dct = model.to_dict()
+
+    # metadata written when LinearMHD had the flag split_sound (and the unsplit magnetosonic step mag_sonic)
+    dct["params"]["split_sound"] = split_sound
+    if not split_sound:
+        for name in ("bg_current", "sound", "bg_pressure"):
+            dct["propagator_options"].pop(name)
+        dct["propagator_options"]["mag_sonic"] = {}
+    restored = StruphyModel.from_dict(dct)
+    assert "split_sound" not in restored.params
+    assert list(vars(restored.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    assert restored.em_fields.b_field.space == "Hcurl"
+    assert restored.propagators.sound.options.solver == ("cg" if split_sound else "pcg")

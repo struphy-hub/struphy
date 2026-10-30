@@ -156,19 +156,18 @@ def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path):
 @pytest.mark.models
 @pytest.mark.fluid
 @pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
-def test_linear_mhd_split_sound(b_space: str, tmp_path):
-    """LinearMHD with the split magnetosonic step: the flag survives the generated parameter file, which has the
-    split propagators."""
+def test_linear_mhd_inherits_linear_euler(b_space: str, tmp_path):
+    """LinearMHD inherits the propagators of LinearEuler (sound wave and background pressure steps), in the
+    splitting order shear_alf, bg_current, sound, bg_pressure, also in the generated parameter file."""
     from struphy.io.setup import import_parameters_py
 
-    model = models_utils.get_model_by_name("LinearMHD")(b_space=b_space, split_sound=True)
+    model = models_utils.get_model_by_name("LinearMHD")(b_space=b_space)
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
     path = os.path.join(tmp_path, "params_LinearMHD.py")
     model.generate_default_parameter_file(path=path, prompt=False)
     params_model = import_parameters_py(path).model
-    assert params_model.params["split_sound"] and params_model.params["b_space"] == b_space
-    assert not hasattr(params_model.propagators, "mag_sonic")
-    for name in ("bg_current", "sound", "bg_pressure"):
-        assert hasattr(params_model.propagators, name)
+    assert params_model.params["b_space"] == b_space
+    assert list(vars(params_model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
     ut.call_test(model=model)
 
 

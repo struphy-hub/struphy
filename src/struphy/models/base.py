@@ -66,11 +66,13 @@ _REMOVED_MODEL_FLAGS = {
     "with_B0": "the Lorentz force of the equilibrium magnetic field is always included (none without equil)",
     "with_E0": "the background electric field force is always included (none without background field)",
     "with_poisson": "for VlasovPoissonAdiabaticPauli(with_poisson=False) use the model VlasovPauli",
+    "split_sound": "LinearMHD always splits the magnetosonic step into the sound wave and background steps "
+    "(the options of the unsplit Magnetosonic step 'mag_sonic' are not restored)",
 }
 
 
 def _drop_removed_model_flags(model_name: str, params: dict) -> None:
-    """Remove the obsolete flags ``with_B0``, ``with_E0`` and ``with_poisson`` from the model parameters of run
+    """Remove the obsolete flags ``with_B0``, ``with_E0``, ``with_poisson`` and ``split_sound`` from the model parameters of run
     metadata written before they were removed, with a warning. The propagators of ``with_B0`` and ``with_E0`` are
     now always included and do nothing without background field; ``with_poisson=False`` raises an error."""
     from struphy.models.utils import get_model_by_name
