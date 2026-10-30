@@ -69,13 +69,15 @@ _REMOVED_MODEL_FLAGS = {
     "split_sound": "LinearMHD always splits the magnetosonic step into the sound wave and background steps; a run "
     "with split_sound=False (the unsplit Magnetosonic step 'mag_sonic') continues with the split steps and their "
     "default options",
+    "turn_off": "the hybrid models of the LinearEuler family always contain all their propagators (terms)",
 }
 
 
 def _drop_removed_model_flags(model_name: str, params: dict) -> None:
-    """Remove the obsolete flags ``with_B0``, ``with_E0``, ``with_poisson`` and ``split_sound`` from the model parameters of run
-    metadata written before they were removed, with a warning. The propagators of ``with_B0`` and ``with_E0`` are
-    now always included and do nothing without background field; ``with_poisson=False`` raises an error."""
+    """Remove the obsolete flags ``with_B0``, ``with_E0``, ``with_poisson``, ``split_sound`` and ``turn_off`` from the
+    model parameters of run metadata written before they were removed, with a warning. The propagators of ``with_B0``
+    and ``with_E0`` are now always included and do nothing without background field; ``with_poisson=False`` and a
+    ``turn_off`` that switched propagators off raise an error."""
     from struphy.models.utils import get_model_by_name
 
     accepted = inspect.signature(get_model_by_name(model_name).__init__).parameters
@@ -84,6 +86,8 @@ def _drop_removed_model_flags(model_name: str, params: dict) -> None:
             continue
         value = params.pop(flag)
         if flag == "with_poisson" and not value:
+            raise ValueError(f"{model_name}({flag}={value}) has been removed: {hint}.")
+        if flag == "turn_off" and any(name is not None for name in (value or ())):
             raise ValueError(f"{model_name}({flag}={value}) has been removed: {hint}.")
         logger.warning(f"Ignoring the removed parameter {flag}={value} of {model_name}: {hint}.")
 

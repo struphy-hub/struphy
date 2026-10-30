@@ -37,7 +37,7 @@ FIELDS = [
 ]
 # (m, n) harmonics of the radial (eta1) components
 HARMONICS = [("u_r", "mhd/velocity"), ("b_r", "em_fields/b_field")]
-ENERGIES = ("en_U", "en_B", "en_p", "en_fv", "en_fB")  # energy scalars shown next to en_tot
+ENERGIES = ("en_U", "en_B", "en_thermal", "en_fv", "en_fB")  # energy scalars shown next to en_tot
 
 # the TAE: toroidal mode number n (the logical mode N_LOGICAL along eta3 times tor_period of the domain) in the gap
 # between the poloidal mode numbers M and M + 1, see the description of the params file

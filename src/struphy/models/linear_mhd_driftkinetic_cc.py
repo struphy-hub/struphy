@@ -1,31 +1,17 @@
-import copy
 import logging
 
 import cunumpy as xp
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
-from struphy.models.base import StruphyModel
-from struphy.models.scalars import (
-    BilinearEnergyFEEC,
-    FunctionScalarPIC,
-    KineticEnergyPIC,
-    LostMarkersPIC,
-    Scalars,
-    VolumeFormEnergyFEEC,
-)
-from struphy.models.species import (
-    FieldSpecies,
-    FluidSpecies,
-    ParticleSpecies,
-)
+from struphy.models.linear_mhd import LinearMHD
+from struphy.models.scalars import FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC
+from struphy.models.species import ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
 from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
 from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
-from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
@@ -39,8 +25,14 @@ PUSH_BXE_ALGO = "discrete_gradient_2nd_order"
 PUSH_PARALLEL_ALGO = "discrete_gradient_1st_order_newton"
 
 
-class LinearMHDDriftkineticCC(StruphyModel):
+class LinearMHDDriftkineticCC(LinearMHD):
     """Hybrid linear ideal MHD coupled with energetic ions (5D drift-kinetic) via the current-coupling scheme.
+
+    Extends :class:`~struphy.models.LinearMHD` (magnetic field in H(div)) by energetic ions in the guiding-center
+    approximation, whose current and magnetization enter the MHD momentum equation. The shear-Alfvén step
+    ``shear_alf`` of LinearMHD is replaced by
+    :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`, which includes the
+    coupling to the guiding-center density.
 
     Parameters
     ----------
@@ -54,15 +46,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
         Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
     hot_epsilon: float, optional
         Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
-    turn_off: tuple[str, ...]
-        Names of coupling terms to turn off (default: (None,))
     """
+
+    # propagators renamed when the model joined the LinearEuler family (options of old run metadata)
+    _renamed_propagators = {"shearalfen_cc5d": "shear_alf"}
 
     @classmethod
     def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Hybrid"
 
-    ## species
+    ## additional species
+
     class EnergeticIons(ParticleSpecies):
         def __init__(
             self,
@@ -77,41 +71,55 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 epsilon=epsilon,
             )
 
-    class EMFields(FieldSpecies):
-        def __init__(self):
-            self.b_field = FEECVariable(space="Hdiv")
-            self.init_variables()
+    ## additional propagators
 
-    class MHD(FluidSpecies):
-        def __init__(self, mass_number: float = 1.0):
-            self.density = FEECVariable(space="L2")
-            self.pressure = FEECVariable(space="L2")
-            self.velocity = FEECVariable(space="Hdiv")
-            self.init_variables(mass_number=mass_number)
+    class Propagators(LinearMHD.Propagators):
+        """Propagators of :class:`~struphy.models.LinearMHD`, with ``shear_alf`` replaced by the shear-Alfvén step
+        coupled to the guiding-center density, plus the guiding-center pushers (``push_bxe``, ``push_parallel``) and
+        the current coupling (``cc5d_density``, ``cc5d_gradb``, ``cc5d_curlb``).
 
-    ## propagators
+        Parameters
+        ----------
+        b_field : FEECVariable, optional
+            Magnetic field perturbation, added to the equilibrium field in the pushers and couplings (default: None).
+        energetic_ions_var : PICVariable, optional
+            Markers of the energetic ions, deposited by ``shear_alf`` and ``cc5d_density`` (default: None).
+        **kwargs
+            Passed to :class:`LinearMHD.Propagators <struphy.models.LinearMHD.Propagators>`.
+        """
 
-    class Propagators:
+        splitting_order = (
+            "push_bxe",
+            "push_parallel",
+            "shear_alf",
+            "bg_current",
+            "sound",
+            "bg_pressure",
+            "cc5d_density",
+            "cc5d_gradb",
+            "cc5d_curlb",
+        )
+
         def __init__(
             self,
-            turn_off: tuple[str, ...] = (None,),
             b_field: FEECVariable = None,
             energetic_ions_var: PICVariable = None,
+            **kwargs,
         ):
-            if "PushGuidingCenterBxEstar" not in turn_off:
-                self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
-            if "PushGuidingCenterParallel" not in turn_off:
-                self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
-            if "ShearAlfvenCurrentCoupling5D" not in turn_off:
-                self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D(energetic_ions=energetic_ions_var)
-            if "Magnetosonic" not in turn_off:
-                self.magnetosonic = Magnetosonic(b_field=b_field)
-            if "CurrentCoupling5DDensity" not in turn_off:
-                self.cc5d_density = CurrentCoupling5DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
-            if "CurrentCoupling5DGradB" not in turn_off:
-                self.cc5d_gradb = CurrentCoupling5DGradB(b_tilde=b_field)
-            if "CurrentCoupling5DCurlb" not in turn_off:
-                self.cc5d_curlb = CurrentCoupling5DCurlb(b_tilde=b_field)
+            super().__init__(b_field=b_field, **kwargs)
+            self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
+            self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
+            # replaces the shear-Alfven step of LinearMHD
+            self.shear_alf = ShearAlfvenCurrentCoupling5D(energetic_ions=energetic_ions_var)
+            self.cc5d_density = CurrentCoupling5DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
+            self.cc5d_gradb = CurrentCoupling5DGradB(b_tilde=b_field)
+            self.cc5d_curlb = CurrentCoupling5DCurlb(b_tilde=b_field)
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    energetic_ions: EnergeticIons
+    propagators: Propagators
+
+    ## abstract methods
 
     def __init__(
         self,
@@ -120,73 +128,51 @@ class LinearMHDDriftkineticCC(StruphyModel):
         hot_charge_number: int = 1,
         hot_mass_number: float = 1.0,
         hot_epsilon: float = None,
-        turn_off: tuple[str, ...] = (None,),
     ):
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.mhd = self.MHD(mhd_mass_number)
+        # 1.-5. see LinearMHD (magnetic field in H(div))
+        super().__init__(base_units, mass_number=mhd_mass_number)
+
+    def _create_species(self):
+        """:meta private:"""
+        super()._create_species()
         self.energetic_ions = self.EnergeticIons(
-            hot_charge_number,
-            hot_mass_number,
-            hot_epsilon,
+            self.params["hot_charge_number"],
+            self.params["hot_mass_number"],
+            self.params["hot_epsilon"],
         )
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
+    def _propagator_args(self):
+        """:meta private:"""
+        return {**super()._propagator_args(), "energetic_ions_var": self.energetic_ions.var}
 
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(
-            turn_off,
-            b_field=self.em_fields.b_field,
-            energetic_ions_var=self.energetic_ions.var,
-        )
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        # shear_alf (u, b) is linked by LinearMHD
+        super()._link_propagator_variables()
+        self.propagators.cc5d_density.variables.u = self.mhd.velocity
+        self.propagators.cc5d_gradb.variables.u = self.mhd.velocity
+        self.propagators.cc5d_gradb.variables.energetic_ions = self.energetic_ions.var
+        self.propagators.cc5d_curlb.variables.u = self.mhd.velocity
+        self.propagators.cc5d_curlb.variables.energetic_ions = self.energetic_ions.var
+        self.propagators.push_bxe.variables.ions = self.energetic_ions.var
+        self.propagators.push_parallel.variables.ions = self.energetic_ions.var
 
-        # 4. assign variables to propagators
-        if "ShearAlfvenCurrentCoupling5D" not in turn_off:
-            self.propagators.shearalfen_cc5d.variables.u = self.mhd.velocity
-            self.propagators.shearalfen_cc5d.variables.b = self.em_fields.b_field
-        if "Magnetosonic" not in turn_off:
-            self.propagators.magnetosonic.variables.n = self.mhd.density
-            self.propagators.magnetosonic.variables.u = self.mhd.velocity
-            self.propagators.magnetosonic.variables.p = self.mhd.pressure
-        if "CurrentCoupling5DDensity" not in turn_off:
-            self.propagators.cc5d_density.variables.u = self.mhd.velocity
-        if "CurrentCoupling5DGradB" not in turn_off:
-            self.propagators.cc5d_gradb.variables.u = self.mhd.velocity
-            self.propagators.cc5d_gradb.variables.energetic_ions = self.energetic_ions.var
-        if "CurrentCoupling5DCurlb" not in turn_off:
-            self.propagators.cc5d_curlb.variables.u = self.mhd.velocity
-            self.propagators.cc5d_curlb.variables.energetic_ions = self.energetic_ions.var
-        if "PushGuidingCenterBxEstar" not in turn_off:
-            self.propagators.push_bxe.variables.ions = self.energetic_ions.var
-        if "PushGuidingCenterParallel" not in turn_off:
-            self.propagators.push_parallel.variables.ions = self.energetic_ions.var
-
-        # 5. define scalars to be tracked during simulation
-        kinetic_energy = BilinearEnergyFEEC(self.mhd.velocity, bilinear_form_name="M2n")
-        pressure_energy = VolumeFormEnergyFEEC(self.mhd.pressure, normalization=1.0 / (5 / 3 - 1))
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        en_tot = scalars.pop("en_tot")
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
-        particle_parallel = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
-        particle_magnetic = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
-        self.scalars = Scalars(
-            en_U=kinetic_energy,
-            en_p=pressure_energy,
-            en_B=magnetic_energy,
-            en_fv=particle_parallel,
-            en_fB=particle_magnetic,
-            en_tot=kinetic_energy + pressure_energy + magnetic_energy + particle_parallel + particle_magnetic,
-            n_lost_particles=LostMarkersPIC(self.energetic_ions.var),
-        )
-
-    @property
-    def bulk_species(self):
-        return self.mhd
+        en_fv = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
+        en_fB = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
+        scalars["en_fv"] = en_fv
+        scalars["en_fB"] = en_fB
+        scalars["en_tot"] = en_tot + en_fv + en_fB
+        scalars["n_lost_particles"] = LostMarkersPIC(self.energetic_ions.var)
+        return scalars
 
     def generate_default_parameter_file(self, path=None, prompt=True):
         """The default parameter file, with the algorithms of the reference discretization for the guiding-center
@@ -205,16 +191,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
             f.writelines(lines)
         return params_path
 
-    @property
-    def velocity_scale(self):
-        return "alfvén"
-
     def post_allocate(self):
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
+        """:meta private:"""
+        super().post_allocate()
 
         self._en_fv = xp.empty(1, dtype=float)
         self._en_fB = xp.empty(1, dtype=float)
@@ -313,61 +292,22 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
-        - MHD kinetic energy: ``en_U``
-        - Thermal pressure energy: ``en_p``
-        - Magnetic energy: ``en_B``
+        - The scalars of :class:`~struphy.models.LinearMHD`: ``en_U``, ``en_p``, ``en_thermal``, ``en_p_eq``,
+          ``en_B``, ``en_B_eq``, ``en_B_tot``
         - Parallel energetic-particle energy: ``en_fv``
         - Magnetic-moment energetic-particle energy: ``en_fB``
-        - Total energy: ``en_tot``
+        - Total energy: ``en_tot = en_U + en_thermal + en_B + en_fv + en_fB``
         - Lost particles: ``n_lost_particles``"""
 
     @classmethod
     def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
-        2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
-        3. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
-        4. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
-        5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
-        6. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
-        7. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
-
-        The default parameter file of this model (``struphy params LinearMHDDriftkineticCC``) sets the energy-conserving
-        discrete gradient methods of the reference discretization for the guiding-center pushers:
-        ``algo="discrete_gradient_2nd_order"`` (implicit mid-point) for 1 and
-        ``algo="discrete_gradient_1st_order_newton"`` (Itoh-Abe with Newton iterations) for 2. The explicit
-        Runge-Kutta methods (``algo="explicit"``) are cheaper but not energy conserving.
-        """
-        doc = rf"""**1. push_guiding_center_bx_estar.PushGuidingCenterBxEstar:**
-
-{PushGuidingCenterBxEstar.__doc__}
-
-**2. push_guiding_center_parallel.PushGuidingCenterParallel:**
-
-{PushGuidingCenterParallel.__doc__}
-
-**3. shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D:**
-
-{ShearAlfvenCurrentCoupling5D.__doc__}
-
-**4. magnetosonic.Magnetosonic:**
-
-{Magnetosonic.__doc__}
-
-**5. current_coupling_5d_density.CurrentCoupling5DDensity:**
-
-{CurrentCoupling5DDensity.__doc__}
-
-**6. current_coupling_5d_gradb.CurrentCoupling5DGradB:**
-
-{CurrentCoupling5DGradB.__doc__}
-
-**7. current_coupling_5d_curlb.CurrentCoupling5DCurlb:**
-
-{CurrentCoupling5DCurlb.__doc__}
-"""
-        return doc
+        """Time integration is performed by the following propagators (in sequence). The default parameter file of this
+        model (``struphy params LinearMHDDriftkineticCC``) sets the energy-conserving discrete gradient methods of the
+        reference discretization for the guiding-center pushers: ``algo="discrete_gradient_2nd_order"`` (implicit
+        mid-point) for ``push_bxe`` and ``algo="discrete_gradient_1st_order_newton"`` (Itoh-Abe with Newton
+        iterations) for ``push_parallel``. The explicit Runge-Kutta methods (``algo="explicit"``) are cheaper but not
+        energy conserving."""
+        return cls.propagators_doc()
 
     @classmethod
     def doc_long_description(cls):
