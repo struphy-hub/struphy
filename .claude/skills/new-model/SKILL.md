@@ -23,7 +23,7 @@ description: Use when a user wants to implement, add or create a new Struphy mod
 3. **Implement** following the inheritance pattern of the family (e.g. `vlasov.py` → `vlasov_ampere_one_species.py`,
    `linear_euler.py` → `linear_mhd.py`): `_store_params(locals())` before `super().__init__()`, hooks
    `_create_species`, `_propagator_args`, `_link_propagator_variables`, `_create_scalars` extended with `super()`,
-   `class Propagators(Parent.Propagators)` with `splitting_order` if needed, type annotations of the redefined
+   `class Propagators(Parent.Propagators)` with `splitting_order` (and `strang_groups`, inherited) if needed, type annotations of the redefined
    attributes, no flags that switch terms on or off.
 
 4. **Tests**: the generic model tests pick up the model automatically. Parent models must be well tested

@@ -253,6 +253,28 @@ def test_invalid_strang_groups():
             self.push_a = PushEta()
             self.push_b = PushVxB()
 
-    for cls in (NotConsecutive, UnknownName):
+    class SingleMember:
+        strang_groups = (("push_a",),)
+
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+
+    class InInit:
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+            self.strang_groups = (("push_a", "push_b"),)
+
+    for cls in (NotConsecutive, UnknownName, SingleMember, InInit):
         with pytest.raises(ValueError, match="strang_groups"):
             apply_splitting_order(cls())
+
+
+@pytest.mark.mpi_skip
+def test_unknown_split_algo():
+    from struphy.models import LinearEuler
+
+    # LinearEuler is a single block, an unknown splitting algorithm must still raise
+    with pytest.raises(NotImplementedError):
+        LinearEuler().propagator_calls(1.0, "strang")

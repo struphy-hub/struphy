@@ -56,7 +56,8 @@ and the convergence order of the time stepping. When a new family is created, ad
   each, such as the background steps around `sound` in the LinearEuler family) can be listed in the class attribute
   `strang_groups` (tuple of tuples of names): each group is one block of the splitting, integrated symmetrically with
   its last member in the middle (`splitting_blocks` in `base.py`). With plain Lie-Trotter sequencing such steps can
-  give wrong frequencies at large time steps.
+  give wrong frequencies at large time steps. `strang_groups` is inherited by the `Propagators` of child models:
+  a child that inserts a propagator into a group (or reorders its members) must override it.
 - **`__init__`**, with the numbered steps:
   0. `self._store_params(locals())`. All constructor arguments need defaults, and only
      bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization;

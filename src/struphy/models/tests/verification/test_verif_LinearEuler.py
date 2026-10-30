@@ -209,7 +209,7 @@ def test_conservation_nonuniform_density():
     _cleanup()
 
 
-def test_time_convergence_order(split_algo: str = "LieTrotter"):
+def test_time_convergence_order():
     """Self-convergence in dt of the split time stepping, for a non-uniform equilibrium pressure such that the
     background pressure step does not commute with the sound wave step: the differences of the pressure between
     successive halvings of dt decrease with second order, with either splitting algorithm, since the two steps form one
@@ -231,8 +231,8 @@ def test_time_convergence_order(split_algo: str = "LieTrotter"):
         )
         sim = Simulation(
             model=model,
-            env=EnvironmentOptions(out_folders=_folder(f"order_{split_algo}"), sim_folder=f"steps_{n_steps}"),
-            time_opts=Time(dt=dt, Tend=Tend, split_algo=split_algo),
+            env=EnvironmentOptions(out_folders=_folder("order"), sim_folder=f"steps_{n_steps}"),
+            time_opts=Time(dt=dt, Tend=Tend),
             domain=domains.Colella(Lx=1.0, Ly=1.0, alpha=0.1, Lz=1.0),
             equil=equil,
             grid=grids.TensorProductGrid(num_elements=(8, 8, 1)),
@@ -240,12 +240,12 @@ def test_time_convergence_order(split_algo: str = "LieTrotter"):
         )
         sim.allocate()
         for _ in range(n_steps):
-            model.integrate(dt, split_algo)
+            model.integrate(dt)
         finals.append(model.mhd.pressure.spline.vector.toarray().copy())
 
     diffs = [_global_max(float(np.max(np.abs(a - b)))) for a, b in zip(finals[:-1], finals[1:])]
     rates = [np.log2(d0 / d1) for d0, d1 in zip(diffs[:-1], diffs[1:])]
-    logger.info(f"{split_algo}: {diffs = }, {rates = }")
+    logger.info(f"{diffs = }, {rates = }")
     assert all(abs(rate - 2) < 0.1 for rate in rates)
     _cleanup()
 

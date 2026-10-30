@@ -79,8 +79,16 @@ def splitting_blocks(propagators) -> list[tuple[str, ...]]:
     propagators : object
         Instance of the inner class ``Propagators`` of a model, in splitting order.
     """
+    qualname = type(propagators).__qualname__
+    if "strang_groups" in vars(propagators):
+        raise ValueError(f"strang_groups of {qualname} must be a class attribute of Propagators, not set in __init__.")
     names = [name for name, prop in vars(propagators).items() if isinstance(prop, Propagator)]
     groups = [tuple(group) for group in getattr(type(propagators), "strang_groups", ())]
+    for group in groups:
+        if len(group) < 2 or len(set(group)) != len(group) or not set(group) <= set(names):
+            raise ValueError(
+                f"strang_groups {group} of {qualname} must name at least two different propagators of {tuple(names)}."
+            )
     blocks, i = [], 0
     while i < len(names):
         group = next((g for g in groups if g[0] == names[i]), None)
@@ -90,14 +98,14 @@ def splitting_blocks(propagators) -> list[tuple[str, ...]]:
         else:
             if tuple(names[i : i + len(group)]) != group:
                 raise ValueError(
-                    f"strang_groups {group} of {type(propagators).__qualname__} must be consecutive propagators in the "
-                    f"splitting order {tuple(names)}."
+                    f"strang_groups {group} of {qualname} must be consecutive propagators in the splitting order "
+                    f"{tuple(names)}."
                 )
             blocks.append(group)
             i += len(group)
     grouped = [name for block in blocks if len(block) > 1 for name in block]
     if sorted(grouped) != sorted(name for group in groups for name in group):
-        raise ValueError(f"strang_groups {groups} of {type(propagators).__qualname__} must name propagators {names}.")
+        raise ValueError(f"strang_groups {groups} of {qualname} must not overlap.")
     return blocks
 
 
@@ -112,16 +120,16 @@ def time_steps_of_blocks(blocks: list, dt: float, split_algo: str) -> list[tuple
         inner = [(name, h / 2, b) for name in block[:-1]]
         return inner + [(block[-1], h, b)] + inner[::-1]
 
+    if split_algo not in ("LieTrotter", "Strang"):
+        raise NotImplementedError(f"Splitting scheme {split_algo} not available.")
     if split_algo == "LieTrotter" or len(blocks) == 1:
         return [call for b in range(len(blocks)) for call in block_calls(b, dt)]
-    if split_algo == "Strang":
-        first = [call for b in range(len(blocks) - 1) for call in block_calls(b, dt / 2)]
-        return (
-            first
-            + block_calls(len(blocks) - 1, dt)
-            + [call for b in reversed(range(len(blocks) - 1)) for call in block_calls(b, dt / 2)]
-        )
-    raise NotImplementedError(f"Splitting scheme {split_algo} not available.")
+    first = [call for b in range(len(blocks) - 1) for call in block_calls(b, dt / 2)]
+    return (
+        first
+        + block_calls(len(blocks) - 1, dt)
+        + [call for b in reversed(range(len(blocks) - 1)) for call in block_calls(b, dt / 2)]
+    )
 
 
 # model flags that switched propagators (terms of the equations) on or off, removed in favour of models defined by
@@ -767,8 +775,9 @@ class StruphyModel(metaclass=StruphyModelMeta):
         split_algo : str
             Splitting algorithm, "LieTrotter" or "Strang".
         """
-        blocks = splitting_blocks(self.propagators)
-        return [(name, h) for name, h, _ in time_steps_of_blocks(blocks, dt, split_algo)]
+        if not hasattr(self, "_splitting_blocks"):
+            self._splitting_blocks = splitting_blocks(self.propagators)
+        return [(name, h) for name, h, _ in time_steps_of_blocks(self._splitting_blocks, dt, split_algo)]
 
     @profile
     def update_markers_to_be_saved(self):
@@ -1383,8 +1392,9 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     def propagators(self, new):
         apply_splitting_order(new)
         self._propagators = new
-        if hasattr(self, "_prop_list"):
-            del self._prop_list
+        for cached in ("_prop_list", "_splitting_blocks"):
+            if hasattr(self, cached):
+                delattr(self, cached)
 
     @property
     def prop_list(self):
