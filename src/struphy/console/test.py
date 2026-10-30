@@ -95,7 +95,7 @@ def struphy_test(
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
         list_of_tests = [
-            f"{LIBPATH}/models/tests/default_params/",
+            f"{LIBPATH}/models/tests/regression/",
         ]
 
         if mpi > 1:

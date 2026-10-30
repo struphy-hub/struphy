@@ -139,7 +139,7 @@ jobs:
         if: matrix.test-type == 'model' && matrix.shard == 'shard-1'
         shell: bash
         run: |
-          mpirun -oversubscribe -n 2 pytest -x -m models --with-mpi $STRUPHY_PATH/models/tests/default_params/
+          mpirun -oversubscribe -n 2 pytest -x -m models --with-mpi $STRUPHY_PATH/models/tests/regression/
 
       - name: Run verification tests with MPI
         if: matrix.test-type == 'verification' && matrix.shard == 'shard-1'
