@@ -13,11 +13,20 @@ from struphy.post_processing import output as output_module
 logger = logging.getLogger("struphy")
 
 # the examples/ folder of the source checkout; set STRUPHY_EXAMPLES_DIR when struphy is not installed from it
-EXAMPLES_DIR = Path(os.environ.get("STRUPHY_EXAMPLES_DIR", Path(__file__).resolve().parents[4] / "examples"))
+EXAMPLES_DIR = Path(os.environ.get("STRUPHY_EXAMPLES_DIR") or Path(__file__).resolve().parents[4] / "examples")
 
 PARAMS_MODULES = sorted(
     p for p in EXAMPLES_DIR.rglob("*.py") if p.name != "__init__.py" and p.name.startswith("params_")
 )
+
+
+@pytest.mark.examples
+@pytest.mark.mpi_skip
+def test_examples_found():
+    """A wrong STRUPHY_EXAMPLES_DIR must fail; otherwise :func:`test_examples` would silently have no cases.
+    Without it (e.g. an installed struphy without the examples), no examples is fine."""
+    if os.environ.get("STRUPHY_EXAMPLES_DIR"):
+        assert PARAMS_MODULES, f"No params_*.py files in STRUPHY_EXAMPLES_DIR={EXAMPLES_DIR}"
 
 
 @pytest.mark.examples

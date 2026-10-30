@@ -150,7 +150,8 @@ jobs:
       # serial runs of the examples (the PR workflow runs them on 2 ranks); struphy is installed from the wheel,
       # so the examples are taken from the checkout
       - name: Run examples tests (serial)
-        if: matrix.test-type == 'model' && matrix.shard == 'shard-1'
+        # also after failed model tests
+        if: ${{ !cancelled() && matrix.test-type == 'model' && matrix.shard == 'shard-1' }}
         shell: bash
         env:
           STRUPHY_EXAMPLES_DIR: ${{ github.workspace }}/examples
