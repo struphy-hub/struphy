@@ -37,7 +37,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
     The computed damping rate is compared to the analytical rate.
     """
     # light-weight model instance
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
@@ -78,8 +78,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
 
     # propagator options
     model.propagators.push_eta.options = model.propagators.push_eta.Options()
-    if model.with_B0:
-        model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
     model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
     model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 
@@ -133,7 +132,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
         pa_data = os.path.join(env.path_out, "data")
         with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
             time = f["time"]["value"][()]
-            E = f["scalar"]["electric_energy"][()]
+            E = f["scalar"]["en_E"][()]
         logE = xp.log10(E)
 
         # find where time derivative of E is zero
@@ -172,7 +171,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
 @pytest.mark.clones
 @pytest.mark.parametrize("control_variate", [False, True])
 def test_energy_conservation(control_variate: bool, nclones: int, exit_before_run: bool = False):
-    """``total_energy`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
+    """``en_tot`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
 
     A time step is :class:`~struphy.propagators.push_eta.PushEta` followed by the Crank-Nicolson step
     :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling` (no B0). This checks two things that
@@ -180,7 +179,7 @@ def test_energy_conservation(control_variate: bool, nclones: int, exit_before_ru
 
     * the initial field ``e = -grad(phi)`` must have its ghost regions in sync, otherwise the first push evaluates a
       wrong field and the total energy jumps in the first step (by ~1e-6 relative here, ~2e-4 with 8 elements);
-    * with the control variate, ``kinetic_energy`` at :math:`t=0` must be computed with the delta-f weights, like
+    * with the control variate, ``en_f`` at :math:`t=0` must be computed with the delta-f weights, like
       at all later times (it was computed with the full-f weights, i.e. the energy of the background too).
 
     With full-f weights the scheme conserves the total energy to the solver tolerance. With the control variate
@@ -193,7 +192,7 @@ def test_energy_conservation(control_variate: bool, nclones: int, exit_before_ru
     amplitude = 0.1
     ppc = 400 if control_variate else 40
 
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
@@ -251,8 +250,8 @@ def test_energy_conservation(control_variate: bool, nclones: int, exit_before_ru
 
     if comm.Get_rank() == 0:
         with h5py.File(os.path.join(env.path_out, "data", "data_proc0.hdf5"), "r") as f:
-            en_E = f["scalar"]["electric_energy"][()]
-            en_tot = f["scalar"]["total_energy"][()]
+            en_E = f["scalar"]["en_E"][()]
+            en_tot = f["scalar"]["en_tot"][()]
 
         # energy is exchanged between field and particles ...
         assert abs(en_E[-1] - en_E[0]) > 1e-2 * en_E[0], f"{en_E =}"
@@ -276,7 +275,7 @@ def test_initial_poisson_full_f(nclones: int):
     :math:`-\Delta \phi = -\alpha^2 n_0 / \varepsilon`, i.e. :math:`\phi = -x(1 - x)/2` with root mean square 0.09.
     This runs zero time steps.
     """
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
@@ -327,7 +326,7 @@ def test_initial_poisson_full_f_noise():
     of :math:`f - f_0` (relative error of about 1% here), with the full-f weights minus the background :math:`n_0` it
     is that of :math:`f` (relative error of about 400%). This runs zero time steps.
     """
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")

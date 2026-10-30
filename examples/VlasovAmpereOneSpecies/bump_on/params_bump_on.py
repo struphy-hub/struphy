@@ -15,7 +15,7 @@ bulk distribution drives Langmuir (electron plasma) waves unstable; the waves gr
 and saturate.
 
 Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p) and
-no background magnetic field (with_B0=False) the model solves
+no background magnetic field (equil = None) the model solves
     df/dt + v . grad_x f - E . grad_v f = 0,
     dE/dt = int v f d^3v       (Ampere's law; the current density of the electrons is -int v f d^3v),
 where the initial field follows from Poisson's equation div E = n0 - n with n = int f d^3v and the ion density
@@ -32,8 +32,8 @@ flattens the bump (phase-space vortices, plateau) and the wave saturates and osc
 Setup. Periodic box of length L = 62.83 (about 20 pi, so k = 2 pi / L = 0.1), 32 cells and cubic splines in x.
 The electrons are the sum of two Maxwellians: a bulk with n = 0.9, drift u1 = 3 and vth = 1, and a bump with
 n = 0.1, drift u1 = -4.5 (7.5 bulk thermal speeds away from the bulk) and vth1 = 0.5. Only the bump density is
-perturbed, by 0.05 cos(k x). Control-variate (delta-f) weights with 1000 markers per cell, drawn from a Maxwellian
-with vth1 = 3 that covers both populations; time step dt = 0.1 up to t = 60 (Lie-Trotter splitting).
+perturbed, by 0.05 cos(k x). Control-variate (delta-f) weights with 1000 markers per cell (seed 1234), drawn from
+a Maxwellian with vth1 = 3 that covers both populations; time step dt = 0.1 up to t = 60 (Lie-Trotter splitting).
 
 Expected result. The numerical solution of the dispersion relation above for this distribution gives growth rates
 of about 0.20 for k = 0.1 and 0.22 for k = 0.2 (larger k are stable); the pproc does not compare with them. It
@@ -104,7 +104,7 @@ from struphy.models import VlasovAmpereOneSpecies
 base_units = BaseUnits()
 
 # Model instance
-model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -153,7 +153,7 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-loading_params = LoadingParameters(ppc=50 if args.test_run else 1000, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0))
+loading_params = LoadingParameters(ppc=50 if args.test_run else 1000, moments=(0.0, 0.0, 0.0, 3.0, 1.0, 1.0), seed=1234)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
 sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
@@ -180,8 +180,7 @@ model.kinetic_ions.set_markers(
 # ------------------
 
 model.propagators.push_eta.options = model.propagators.push_eta.Options()
-if model.with_B0:
-    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
 model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")
 

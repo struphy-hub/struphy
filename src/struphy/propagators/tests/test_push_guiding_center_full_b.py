@@ -67,7 +67,7 @@ def test_push_parallel_along_full_b(algo):
     """PushGuidingCenterParallel with b_tilde streams along B* = B0 + B~ (+ curvature term): with B~ = DB e_x on
     B0 = e_z the guiding centers move in x by DB times their displacement in z (before, B* had B0 only)."""
     model = _model()
-    prop = model.propagators.push_para
+    prop = model.propagators.push_parallel
     prop.options = prop.Options(algo=algo)
     # re-allocate with the new options: drop the kernels registered by the first allocation
     prop._init_kernels = ()

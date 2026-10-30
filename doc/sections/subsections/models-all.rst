@@ -1,17 +1,33 @@
 .. _all_models:
 
-Models
-------
+Vlasov Family
+-------------
 
-Full-orbit Vlasov
-^^^^^^^^^^^^^^^^^
+Models for the Vlasov equation of one kinetic species in 6D phase space (full orbits). Each model extends its parent by
+new terms of the equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
 
-.. autoclass:: struphy.models.VlasovAmpereOneSpecies
+* :class:`~struphy.models.Vlasov`
+
+  * :class:`~struphy.models.VlasovAmpereOneSpecies`
+
+    * :class:`~struphy.models.VlasovMaxwellOneSpecies`
+
+  * :class:`~struphy.models.VlasovMaxwellQuasiNeutral`
+  * :class:`~struphy.models.VlasovPoissonAdiabatic`
+
+    * :class:`~struphy.models.VlasovPoissonAdiabaticPauli`
+
+  * :class:`~struphy.models.VlasovPauli`
+  * :class:`~struphy.models.LinearVlasovAmpereOneSpecies`
+
+    * :class:`~struphy.models.LinearVlasovMaxwellOneSpecies`
+
+.. autoclass:: struphy.models.Vlasov
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: struphy.models.LinearVlasovAmpereOneSpecies
+.. autoclass:: struphy.models.VlasovAmpereOneSpecies
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
@@ -26,11 +42,6 @@ Full-orbit Vlasov
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: struphy.models.LinearVlasovMaxwellOneSpecies
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
 .. autoclass:: struphy.models.VlasovPoissonAdiabatic
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
@@ -41,8 +52,36 @@ Full-orbit Vlasov
     :undoc-members:
     :show-inheritance:
 
-Gyrokinetic
-^^^^^^^^^^^
+.. autoclass:: struphy.models.VlasovPauli
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearVlasovAmpereOneSpecies
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearVlasovMaxwellOneSpecies
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+Guiding-Center Family
+---------------------
+
+Models for the guiding-center (drift-kinetic) equation of one kinetic species in 5D phase space. Each model extends its
+parent by new terms of the equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
+
+* :class:`~struphy.models.GuidingCenter`
+
+  * :class:`~struphy.models.DriftKineticElectrostaticAdiabatic`
+  * :class:`~struphy.models.DriftKineticMaxwell`
+
+.. autoclass:: struphy.models.GuidingCenter
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
 
 .. autoclass:: struphy.models.DriftKineticElectrostaticAdiabatic
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
@@ -53,6 +92,14 @@ Gyrokinetic
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
+
+Other models
+------------
+
+Models that are not yet arranged in families of inherited models.
+
+Gyrokinetic
+^^^^^^^^^^^
 
 .. autoclass:: struphy.models.ToyDrift
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
@@ -210,19 +257,6 @@ Pure fields
     :show-inheritance:
 
 .. autoclass:: struphy.models.Maxwell
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-Particle tracing
-^^^^^^^^^^^^^^^^
-
-.. autoclass:: struphy.models.Vlasov
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.GuidingCenter
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:

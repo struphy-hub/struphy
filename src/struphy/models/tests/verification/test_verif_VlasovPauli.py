@@ -1,10 +1,10 @@
-"""Verification of VlasovPoissonAdiabaticPauli: classical Pauli particles on the slow manifold follow the
+"""Verification of VlasovPauli: classical Pauli particles on the slow manifold follow the
 guiding-center orbits of the GuidingCenter model in an ad hoc tokamak (banana and passing orbits), with
 time steps larger than the cyclotron period (Xiao and Qin, Comput. Phys. Commun. 265, 107981 (2021)).
 
 Run it on several processes with::
 
-    mpirun -n 4 pytest -p no:xdist --with-mpi src/struphy/models/tests/verification/test_verif_VlasovPoissonAdiabaticPauli.py
+    mpirun -n 4 pytest -p no:xdist --with-mpi src/struphy/models/tests/verification/test_verif_VlasovPauli.py
 """
 
 import numpy as np
@@ -128,12 +128,12 @@ def gc_orbits(tmp_folder, comm, t_end=T_END, dt_gc=DT_GC):
 
 
 def pauli_orbits(tmp_folder, comm, dt_pauli, t_end=T_END):
-    """Orbits (R, Z) of the test markers at all time steps of VlasovPoissonAdiabaticPauli (Boris scheme, no Poisson solve),
+    """Orbits (R, Z) of the test markers at all time steps of VlasovPauli (Boris scheme),
     the largest relative error of the energy v^2/2 + mu |B0| and the largest mu' / mu."""
     from struphy import maxwellians
-    from struphy.models import VlasovPoissonAdiabaticPauli
+    from struphy.models import VlasovPauli
 
-    pauli = VlasovPoissonAdiabaticPauli(epsilon=EPSILON, with_poisson=False)
+    pauli = VlasovPauli(epsilon=EPSILON)
     pauli.propagators.push_vxb.options = pauli.propagators.push_vxb.Options(algo="implicit")
     sim = _simulation(tmp_folder, f"pauli_{dt_pauli}", pauli, maxwellians.Maxwellian3D(), dt_pauli, comm)
     particles = pauli.kinetic_ions.var.particles
@@ -158,16 +158,16 @@ def pauli_orbits(tmp_folder, comm, dt_pauli, t_end=T_END):
         pairs = [pair for rank_pairs in comm.allgather(pairs) for pair in rank_pairs]
     en0 = dict(pairs)
 
-    # the Strang step of the model (without the Poisson solve)
+    # the Strang step of the model
     props = pauli.propagators
     orbits = [_gather_RZ(particles, sim.domain, comm)]
     max_en_err = 0.0
     max_mu_prime = 0.0
     for _ in range(int(round(t_end / dt_pauli))):
         props.push_eta(dt_pauli / 2)
-        props.push_v_E(dt_pauli / 2)
+        props.push_v_mu(dt_pauli / 2)
         props.push_vxb(dt_pauli)
-        props.push_v_E(dt_pauli / 2)
+        props.push_v_mu(dt_pauli / 2)
         props.push_eta(dt_pauli / 2)
         orbits += [_gather_RZ(particles, sim.domain, comm)]
 

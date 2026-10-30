@@ -49,7 +49,7 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
     amplitude = 1e-3
     r1 = 12.56  # a box of length 4*pi, i.e. k = 2*pi/r1 = 0.5
 
-    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False, with_E0=False)
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
@@ -137,19 +137,19 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
 
 @pytest.mark.clones
 def test_energy_conservation(nclones: int, exit_before_run: bool = False):
-    """The field-weights coupling must conserve the total energy ``en_E + en_w``.
+    """The field-weights coupling must conserve the total energy ``en_E + en_f``.
 
     With only :class:`~struphy.propagators.push_eta.PushEta` and
     :class:`~struphy.propagators.efield_weights_coupling.EfieldWeightsCoupling` (no B0, no E0),
     the Crank-Nicolson step conserves ``en_tot`` up to the solver tolerance, provided the weight
-    update, the accumulated matrix, the E-field source and ``en_w`` all use the same weight
+    update, the accumulated matrix, the E-field source and ``en_f`` all use the same weight
     convention :math:`w_p = \\delta f_p / (s_{0,p} N_p)`. At :math:`t=0` the perturbation energy is
     :math:`\\alpha^2 v_{th}^2 / 2 \\int \\delta f^2 / f_0 \\, \\textrm{d}x \\textrm{d}v = A^2 r_1 / 4`.
     """
     amplitude = 0.1
     r1 = 12.56
 
-    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False, with_E0=False)
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
@@ -199,13 +199,13 @@ def test_energy_conservation(nclones: int, exit_before_run: bool = False):
     if comm.Get_rank() == 0:
         with h5py.File(os.path.join(env.path_out, "data", "data_proc0.hdf5"), "r") as f:
             en_E = f["scalar"]["en_E"][()]
-            en_w = f["scalar"]["en_w"][()]
+            en_f = f["scalar"]["en_f"][()]
             en_tot = f["scalar"]["en_tot"][()]
 
         # 1. initial perturbation energy (was off by a factor Np^2)
-        en_w_exact = amplitude**2 * r1 / 4.0
-        rel_error = abs(en_w[0] - en_w_exact) / en_w_exact
-        assert rel_error < 0.05, f"Initial perturbation energy failed: {en_w[0] =} vs. {en_w_exact =}."
+        en_f_exact = amplitude**2 * r1 / 4.0
+        rel_error = abs(en_f[0] - en_f_exact) / en_f_exact
+        assert rel_error < 0.05, f"Initial perturbation energy failed: {en_f[0] =} vs. {en_f_exact =}."
 
         # 2. energy is exchanged between field and particles ...
         assert abs(en_E[-1] - en_E[0]) > 1e-3 * en_tot[0]
@@ -225,7 +225,7 @@ def test_initial_poisson_no_background():
     initial potential. Subtracting :math:`n_0` gives :math:`-\Delta \phi = -\alpha^2 n_0 / \varepsilon`, i.e.
     :math:`\phi = -x(1 - x)/2` with root mean square 0.09. This runs zero time steps.
     """
-    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0, with_B0=False, with_E0=False)
+    model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")

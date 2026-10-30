@@ -72,7 +72,7 @@ from struphy import (
 )
 from struphy.models import <ModelName>
 
-# 3. Model instance (constructor kwargs are model-specific, e.g. alpha/epsilon/with_B0)
+# 3. Model instance (constructor kwargs are model-specific, e.g. alpha/epsilon/measure_gauss_law)
 model = <ModelName>(...)
 model.<species>.<variable>.save_data = True   # opt in/out of saving each variable
 
