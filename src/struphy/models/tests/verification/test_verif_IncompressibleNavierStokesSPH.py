@@ -58,7 +58,7 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(nx, 1, 1))
     derham_opts = DerhamOptions(degree=(2, 1, 1))
 
-    model = IncompressibleNavierStokesSPH(with_B0=False, with_viscosity=False)
+    model = IncompressibleNavierStokesSPH()
 
     loading_params = LoadingParameters(ppb=16, loading="tesselation")
     weights_params = WeightsParameters()
@@ -82,13 +82,15 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
+    # inviscid (incompressible Euler): no viscous force
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.0)
 
     U0 = 0.0
     A = 0.5
     background = equils.ConstantVelocity(ux=U0)
-    model.fluid.density.add_background(background)
+    model.fluid.var.add_background(background)
     perturbation = perturbations.ModesSin(ls=(1,), amps=(A,))
-    model.fluid.density.add_perturbation(del_u1=perturbation)
+    model.fluid.var.add_perturbation(del_u1=perturbation)
 
     sim = Simulation(
         model=model,
@@ -163,7 +165,7 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(nx, 1, 1))
     derham_opts = DerhamOptions(degree=(2, 1, 1), bcs=(("free", "free"), None, None))
 
-    model = IncompressibleNavierStokesSPH(with_B0=False, with_viscosity=False)
+    model = IncompressibleNavierStokesSPH()
 
     loading_params = LoadingParameters(ppb=16, loading="tesselation")
     weights_params = WeightsParameters()
@@ -190,12 +192,14 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
+    # inviscid (incompressible Euler): no viscous force
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.0)
 
     A = 0.5
     background = equils.ConstantVelocity()
-    model.fluid.density.add_background(background)
+    model.fluid.var.add_background(background)
     perturbation = perturbations.ModesSin(ls=(1,), amps=(A,))
-    model.fluid.density.add_perturbation(del_u1=perturbation)
+    model.fluid.var.add_perturbation(del_u1=perturbation)
 
     sim = Simulation(
         model=model,
@@ -269,7 +273,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(nx, nx, 1))
     derham_opts = DerhamOptions(degree=(2, 2, 1), bcs=(None, ("free", "free"), None))
 
-    model = IncompressibleNavierStokesSPH(with_B0=False, with_viscosity=True)
+    model = IncompressibleNavierStokesSPH()
 
     loading_params = LoadingParameters(ppb=16, loading="tesselation")
     weights_params = WeightsParameters()
@@ -305,9 +309,9 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
 
     U = 0.5
     background = equils.ConstantVelocity()
-    model.fluid.density.add_background(background)
+    model.fluid.var.add_background(background)
     perturbation = GenericPerturbation(fun=lambda e1, e2, e3: U * xp.sin(xp.pi * e2))
-    model.fluid.density.add_perturbation(del_u1=perturbation)
+    model.fluid.var.add_perturbation(del_u1=perturbation)
 
     sim = Simulation(
         model=model,
@@ -362,7 +366,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
             plt.show()
 
         # --- DEBUG: Check marker velocities ---
-        markers = model.fluid.density.particles.markers
+        markers = model.fluid.var.particles.markers
         # markers rows: 0:eta1, 1:eta2, 2:eta3, 3:v1, 4:v2, 5:v3, 6:weight, ...
         logger.debug(
             f"Marker velocity v1: min = {markers[3].min()}, max = {markers[3].max()}, mean = {markers[3].mean()}",

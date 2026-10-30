@@ -1,3 +1,4 @@
+from struphy.models.cold_euler_sph import ColdEulerSPH
 from struphy.models.cold_plasma import ColdPlasma
 from struphy.models.cold_plasma_vlasov import ColdPlasmaVlasov
 from struphy.models.curl_curl import CurlCurl
@@ -8,6 +9,7 @@ from struphy.models.drift_kinetic_electrostatic_adiabatic import (
     DriftKineticElectrostaticAdiabatic,
 )
 from struphy.models.drift_kinetic_maxwell import DriftKineticMaxwell
+from struphy.models.euler_sph import EulerSPH
 from struphy.models.guiding_center import GuidingCenter
 from struphy.models.gyrokinetic_poisson import GyrokineticPoisson
 from struphy.models.hasegawa_wakatani import HasegawaWakatani
@@ -24,7 +26,6 @@ from struphy.models.linear_vlasov_maxwell_one_species import (
 )
 from struphy.models.maxwell import Maxwell
 from struphy.models.poisson import Poisson
-from struphy.models.pressure_less_sph import PressureLessSPH
 from struphy.models.random_particle_diffusion import RandomParticleDiffusion
 from struphy.models.shear_alfven import ShearAlfven
 from struphy.models.toy_drift import ToyDrift
@@ -50,6 +51,7 @@ from struphy.models.vlasov_poisson_adiabatic import VlasovPoissonAdiabatic
 from struphy.models.vlasov_poisson_adiabatic_pauli import VlasovPoissonAdiabaticPauli
 
 __all__ = [
+    "ColdEulerSPH",
     "ColdPlasma",
     "ColdPlasmaVlasov",
     "CurlCurl",
@@ -59,6 +61,7 @@ __all__ = [
     "GuidingCenter",
     "GyrokineticPoisson",
     "HasegawaWakatani",
+    "EulerSPH",
     "IncompressibleNavierStokesSPH",
     "LinearExtendedMHDuniform",
     "LinearEuler",
@@ -70,7 +73,6 @@ __all__ = [
     "LinearVlasovMaxwellOneSpecies",
     "Maxwell",
     "Poisson",
-    "PressureLessSPH",
     "RandomParticleDiffusion",
     "ShearAlfven",
     "ToyDrift",

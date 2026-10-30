@@ -1,20 +1,13 @@
-import copy
-
-from struphy.io.options import BaseUnits, LiteralOptions
-from struphy.models.base import StruphyModel
-from struphy.models.scalars import KineticEnergySPH, Scalars
-from struphy.models.species import (
-    ParticleSpecies,
-)
-from struphy.models.variables import SPHVariable
-from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_v_in_sph_pressure import PushVinSPHpressure
+from struphy.io.options import BaseUnits
+from struphy.models.euler_sph import EulerSPH
 from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
-from struphy.propagators.push_vxb import PushVxB
 
 
-class ViscousEulerSPH(StruphyModel):
+class ViscousEulerSPH(EulerSPH):
     """Euler equations with viscosity discretized with smoothed particle hydrodynamics (SPH).
+
+    Extends :class:`~struphy.models.EulerSPH` by the viscous force. Without pressure force (viscous diffusion of a
+    pressureless fluid), set ``kappa=0.0`` in the options of ``push_sph_p``.
 
     Parameters
     ----------
@@ -24,36 +17,25 @@ class ViscousEulerSPH(StruphyModel):
         Charge number (in units of the positive elementary charge) of the fluid species (default: 1)
     mass_number: float
         Mass number (in units of Proton mass) of the fluid species (default: 1.0)
-    with_B0: bool
-        Whether to include the effect of a background magnetic field B0 (default: True)
-    with_p: bool
-        Whether to include pressure forces (default: True)
-    with_viscosity: bool
-        Whether to include viscous dissipation (default: True)
     """
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Fluid"
+    ## additional propagators
 
-    ## species
+    class Propagators(EulerSPH.Propagators):
+        """Propagators of :class:`~struphy.models.EulerSPH` plus ``push_viscous`` (viscous force).
 
-    class EulerFluid(ParticleSpecies):
-        def __init__(self, charge_number: int = 1, mass_number: float = 1.0):
-            self.var = SPHVariable()
-            self.init_variables(charge_number=charge_number, mass_number=mass_number)
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`EulerSPH.Propagators <struphy.models.EulerSPH.Propagators>`.
+        """
 
-    ## propagators
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.push_viscous = PushVinViscousPotential()
 
-    class Propagators:
-        def __init__(self, with_B0: bool = True, with_p: bool = True, with_viscosity: bool = True):
-            self.push_eta = PushEta()
-            if with_B0:
-                self.push_vxb = PushVxB()
-            if with_p:
-                self.push_sph_p = PushVinSPHpressure()
-            if with_viscosity:
-                self.push_viscous = PushVinViscousPotential()
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    propagators: Propagators
 
     ## abstract methods
 
@@ -62,74 +44,17 @@ class ViscousEulerSPH(StruphyModel):
         base_units: BaseUnits = BaseUnits(kBT=1.0),
         charge_number: int = 1,
         mass_number: float = 1.0,
-        with_B0: bool = True,
-        with_p: bool = True,
-        with_viscosity: bool = True,
     ):
-
-        self.with_B0 = with_B0
-        self.with_p = with_p
-        self.with_viscosity = with_viscosity
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
 
-        # 1. instantiate all species
-        self.euler_fluid = self.EulerFluid(charge_number=charge_number, mass_number=mass_number)
+        # 1.-5. see ColdEulerSPH
+        super().__init__(base_units, charge_number, mass_number)
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(with_B0=with_B0, with_p=with_p, with_viscosity=with_viscosity)
-
-        # 4. assign variables to propagators
-        self.propagators.push_eta.variables.var = self.euler_fluid.var
-        if with_B0:
-            self.propagators.push_vxb.variables.ions = self.euler_fluid.var
-        if with_p:
-            self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
-        if with_viscosity:
-            self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
-
-        # 5. define scalars to be tracked during simulation
-        self.scalars = Scalars(
-            en_kin=KineticEnergySPH(self.euler_fluid.var),
-        )
-
-    @property
-    def bulk_species(self):
-        return self.euler_fluid
-
-    @property
-    def velocity_scale(self):
-        return "thermal"
-
-    def post_allocate(self):
-        pass
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "push_vxb.Options" in line:
-                    new_file += ["if model.with_B0:\n"]
-                    new_file += ["    " + line]
-                elif "saving_params = " in line:
-                    new_file += ["\nkd_plot = KernelDensityPlot()\n"]
-                    new_file += ["saving_params = SavingParameters(kernel_density_plots=(kd_plot,))\n\n"]
-                elif "sorting_params = " in line:
-                    new_file += ["sorting_params = SortingParameters(boxes_per_dim=(12, 12, 1))\n\n"]
-                elif "base_units = BaseUnits" in line:
-                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
+        self.propagators.push_viscous.variables.fluid = self.fluid.var
 
     @classmethod
     def doc_pde(cls):
@@ -146,6 +71,7 @@ class ViscousEulerSPH(StruphyModel):
         .. math::
 
             \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla \left( \rho^2 \frac{\partial \mathcal{U}(\rho, S)}{\partial \rho} \right) - \nabla \cdot \boldsymbol{\pi}
+            + \rho \mathbf g + \frac{\rho}{\varepsilon} \left( \mathbf{F} + \mathbf{u} \times \mathbf{B}_0 \right)
 
         Entropy:
 
@@ -153,13 +79,15 @@ class ViscousEulerSPH(StruphyModel):
 
             \partial_t S + \mathbf{u} \cdot \nabla S = 0
 
-        where :math:`S` denotes the entropy per unit mass and :math:`\boldsymbol{\pi}` is the viscous stress tensor.
+        where :math:`S` denotes the entropy per unit mass, :math:`\boldsymbol{\pi}` is the viscous stress tensor and
+        :math:`\mathbf g`, :math:`\mathbf F`, :math:`\mathbf B_0`, :math:`\varepsilon` are as in
+        :class:`~struphy.models.EulerSPH`.
 
         The viscous stress tensor for a Newtonian fluid is given by:
 
         .. math::
 
-            \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
+            \boldsymbol{\pi} = -\mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
 
         where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
 
@@ -172,6 +100,16 @@ class ViscousEulerSPH(StruphyModel):
         .. math::
 
             \mathrm{polytropic:} \qquad \mathcal{U}(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}
+
+        **Conserved quantities** (periodic boundaries or no outflow):
+
+        Mass:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \int \rho \, \textnormal d \mathbf x = 0
+
+        The energy of :class:`~struphy.models.EulerSPH` is dissipated by the viscosity.
         """
 
     @classmethod
@@ -187,40 +125,15 @@ class ViscousEulerSPH(StruphyModel):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
-        - SPH kinetic energy: ``en_kin``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.push_eta.PushEta`
-        2. :class:`~struphy.propagators.push_vxb.PushVxB` (if :attr:`with_B0` is True)
-        3. :class:`~struphy.propagators.push_v_in_sph_pressure.PushVinSPHpressure` (if :attr:`with_p` is True)
-        4. :class:`~struphy.propagators.push_v_in_viscous_potential.PushVinViscousPotential` (if :attr:`with_viscosity` is True)
-        """
-        doc = rf"""**1. PushEta:**
-
-    {PushEta.__doc__}
-
-    **2. PushVxB:**
-
-    {PushVxB.__doc__}
-
-    **3. PushVinSPHpressure:**
-
-    {PushVinSPHpressure.__doc__}
-
-    **4. PushVinViscousPotential:**
-
-    {PushVinViscousPotential.__doc__}
-"""
-        return doc
+        - SPH kinetic energy: :math:`\frac 12 \int \rho |\mathbf u|^2 \, dV` (``en_kin``)"""
 
     @classmethod
     def doc_long_description(cls):
-        r"""ViscousEulerSPH is the particle-based SPH fluid model with optional
-        pressure and viscosity contributions. It is intended for meshfree fluid
-        experiments rather than FEEC-based field simulations."""
+        r"""ViscousEulerSPH is the particle-based SPH fluid model with pressure and
+        viscosity. It is intended for meshfree fluid experiments rather than FEEC-based field simulations.
+
+        In the SPH family it extends :class:`~struphy.models.EulerSPH` by the viscous force and inherits its
+        species, propagators and scalars."""
 
     @classmethod
     def doc_examples(cls):
@@ -231,7 +144,7 @@ class ViscousEulerSPH(StruphyModel):
             from struphy.models import ViscousEulerSPH
 
             model = ViscousEulerSPH()
-            model.euler_fluid.var
+            model.fluid.var
         """
 
     @classmethod

@@ -143,13 +143,17 @@ _REMOVED_MODEL_FLAGS = {
     "with split_sound=False (the unsplit Magnetosonic step 'mag_sonic') continues with the split steps and their "
     "default options",
     "turn_off": "the hybrid models of the LinearEuler family always contain all their propagators (terms)",
+    "with_p": "ViscousEulerSPH always contains the pressure force; for with_p=False set kappa=0.0 in the options of "
+    "push_sph_p",
+    "with_viscosity": "the SPH models with viscosity always contain it; for with_viscosity=False use EulerSPH instead "
+    "of ViscousEulerSPH, or set mu=0.0 in the options of push_viscous of IncompressibleNavierStokesSPH",
 }
 
 
 def _drop_removed_model_flags(model_name: str, params: dict) -> None:
-    """Remove the obsolete flags ``with_B0``, ``with_E0``, ``with_poisson``, ``split_sound`` and ``turn_off`` from the
-    model parameters of run metadata written before they were removed, with a warning. The propagators of ``with_B0``
-    and ``with_E0`` are now always included and do nothing without background field; ``with_poisson=False`` and a
+    """Remove the obsolete flags of :data:`_REMOVED_MODEL_FLAGS` from the model parameters of run metadata written
+    before they were removed, with a warning. The propagators of ``with_B0`` and ``with_E0`` are now always included
+    and do nothing without background field; ``with_poisson=False``, ``with_p=False``, ``with_viscosity=False`` and a
     ``turn_off`` that switched propagators off raise an error."""
     from struphy.models.utils import get_model_by_name
 
@@ -158,7 +162,7 @@ def _drop_removed_model_flags(model_name: str, params: dict) -> None:
         if flag not in params or flag in accepted:
             continue
         value = params.pop(flag)
-        if flag == "with_poisson" and not value:
+        if flag in ("with_poisson", "with_p", "with_viscosity") and not value:
             raise ValueError(f"{model_name}({flag}={value}) has been removed: {hint}.")
         if flag == "turn_off" and any(name is not None for name in (value or ())):
             raise ValueError(f"{model_name}({flag}={value}) has been removed: {hint}.")
@@ -266,6 +270,9 @@ class StruphyModel(metaclass=StruphyModelMeta):
     # Propagators renamed by the model (old name -> new name): from_dict restores the options of old run metadata
     # with the new names. A model that renames a propagator adds the old name here (inherited by subclasses).
     _renamed_propagators: dict[str, str] = {}
+    # Constructor arguments and species renamed by the model (old name -> new name), restored by from_dict likewise.
+    _renamed_params: dict[str, str] = {}
+    _renamed_species: dict[str, str] = {}
 
     # ----------------
     # Abstract methods
@@ -1246,13 +1253,14 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             WeightsParameters,
         )
 
+        model_cls = get_model_by_name(dct["model"])
         params = {}
         for key, value in dct.get("params", {}).items():
             if isinstance(value, dict) and set(value) == {"BaseUnits"}:
                 value = BaseUnits.from_dict(value["BaseUnits"])
-            params[key] = value
+            params[model_cls._renamed_params.get(key, key)] = value
         _drop_removed_model_flags(dct["model"], params)
-        model = get_model_by_name(dct["model"])(**params)
+        model = model_cls(**params)
 
         parameter_types = {
             "loading_params": LoadingParameters,
@@ -1262,7 +1270,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             "saving_params": SavingParameters,
         }
         for species_name, species_data in dct.get("species", {}).items():
-            species = model.species.get(species_name)
+            species = model.species.get(model._renamed_species.get(species_name, species_name))
             if species is None:
                 continue
             for variable_name, variable_data in species_data.get("variables", {}).items():
@@ -1302,7 +1310,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
                 return [restore_option(item, template_item) for item in value]
             if isinstance(value, str) and "." in value:
                 species_name, variable_name = value.split(".", 1)
-                species = model.species.get(species_name)
+                species = model.species.get(model._renamed_species.get(species_name, species_name))
                 if species is not None and variable_name in species.variables:
                     return species.variables[variable_name]
             return value

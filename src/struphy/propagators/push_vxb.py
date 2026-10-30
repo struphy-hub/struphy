@@ -8,6 +8,7 @@ from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
 
+from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
@@ -108,13 +109,24 @@ class PushVxB(Propagator):
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
-        assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."
+
+        # without FEEC grid (e.g. pure SPH runs) there is no magnetic field: the propagator does nothing
+        if self.derham is None:
+            assert self.b2_var is None, (
+                f"{self.__class__.__name__} with a magnetic field variable needs a Derham object."
+            )
+            self._no_field = True
+            logger.info(
+                f"{self.__class__.__name__}: no Derham object (no magnetic field), the propagator does nothing."
+            )
+            return
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T: LinearOperator = self.derham.extraction_ops["2"].transpose()
 
-        # the projected equilibrium is already extracted to the tensor-product space
-        if self.projected_equil is not None:
+        # the projected equilibrium is already extracted to the tensor-product space; a fluid equilibrium without
+        # magnetic field (e.g. of the SPH models) has no b2
+        if isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB):
             self.b2_0 = self.projected_equil.b2
             assert self.b2_0.space == self.derham.V2
         else:

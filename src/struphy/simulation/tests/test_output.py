@@ -27,7 +27,7 @@ from struphy import (
 )
 from struphy.initial.base import Perturbation
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.models import ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, PressureLessSPH, VlasovAmpereOneSpecies
+from struphy.models import ColdEulerSPH, ColdPlasmaVlasov, LinearMHD, Maxwell, Poisson, VlasovAmpereOneSpecies
 from struphy.ode.utils import ButcherTableau
 from struphy.particles.parameters import LoadingParameters, SortingParameters
 from struphy.pic.accumulation.filter import FilterParameters
@@ -331,29 +331,29 @@ def test_versioned_initial_conditions_round_trip_allocates_and_runs_one_step(tmp
 
 def test_restart_restores_sph_markers(tmp_path, monkeypatch):
     sim = Simulation(
-        model=PressureLessSPH(),
+        model=ColdEulerSPH(),
         env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"),
         time_opts=Time(dt=0.02, Tend=0.02),
         domain=domains.Cuboid(),
         equil=equils.HomogenSlab(),
         grid=grids.TensorProductGrid(num_elements=(4, 4, 1)),
     )
-    sim.model.cold_fluid.set_markers(loading_params=LoadingParameters(Np=100), sorting_params=SortingParameters())
+    sim.model.fluid.set_markers(loading_params=LoadingParameters(Np=100), sorting_params=SortingParameters())
     sim.model.propagators.push_eta.options = sim.model.propagators.push_eta.Options()
-    sim.model.propagators.push_v.phi = sim.equil.p0
+    sim.model.propagators.push_v.potential = sim.equil.p0
     sim.model.propagators.push_v.options = sim.model.propagators.push_v.Options()
-    sim.model.cold_fluid.var.add_background(equils.ConstantVelocity(ux=1.0, uy=0.5))
+    sim.model.fluid.var.add_background(equils.ConstantVelocity(ux=1.0, uy=0.5))
     sim.run()
 
     with h5py.File(sim.data.file_path, "r") as file:
-        saved = file["restart/cold_fluid"][-1]
+        saved = file["restart/fluid"][-1]
 
     restored = {}
     initialize_from_restart = Simulation._initialize_from_restart
 
     def spy(self, data):
         initialize_from_restart(self, data)
-        restored["markers"] = self.model.cold_fluid.var.particles.markers.copy()
+        restored["markers"] = self.model.fluid.var.particles.markers.copy()
 
     monkeypatch.setattr(Simulation, "_initialize_from_restart", spy)
     sim.env.restart = True
@@ -362,6 +362,22 @@ def test_restart_restores_sph_markers(tmp_path, monkeypatch):
 
     valid = saved[0] != -1.0
     assert np.array_equal(restored["markers"][:6, valid], saved[:6, valid])
+
+
+def test_sph_with_fluid_equilibrium_without_magnetic_field(tmp_path):
+    # push_vxb of the SPH models does nothing for a fluid equilibrium without magnetic field (no b2)
+    sim = Simulation(
+        model=ColdEulerSPH(),
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"),
+        time_opts=Time(dt=0.02, Tend=0.02),
+        domain=domains.Cuboid(),
+        equil=equils.ConstantVelocity(ux=1.0),
+        grid=grids.TensorProductGrid(num_elements=(4, 4, 1)),
+    )
+    sim.model.fluid.set_markers(loading_params=LoadingParameters(Np=100), sorting_params=SortingParameters())
+    sim.model.fluid.var.add_background(equils.ConstantVelocity(ux=1.0, uy=0.5))
+    sim.run()
+    assert sim.model.propagators.push_vxb._no_field
 
 
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
@@ -380,32 +396,32 @@ def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
 
 def test_cold_plasma_vlasov_species_and_variables_own_their_metadata(tmp_path):
     model = ColdPlasmaVlasov(
-        thermal_charge_number=-2,
-        thermal_mass_number=0.25,
-        thermal_alpha=3.0,
-        thermal_epsilon=0.5,
+        charge_number=-2,
+        mass_number=0.25,
+        alpha=3.0,
+        epsilon=0.5,
         hot_mass_number=0.125,
         hot_epsilon=0.75,
     )
-    model.hot_elec.set_markers(loading_params=LoadingParameters(Np=1234))
-    model.hot_elec.var.save_data = False
+    model.hot_electrons.set_markers(loading_params=LoadingParameters(Np=1234))
+    model.hot_electrons.var.save_data = False
     sim = Simulation(model=model, env=EnvironmentOptions(out_folders=str(tmp_path)))
 
     species = json.loads(sim.to_run_metadata())["model"]["species"]
 
     assert species == model.to_dict(initial_condition_serializer=sim._serialize_initial_condition)["species"]
-    assert species["thermal_elec"]["class"] == "ThermalElectrons"
-    assert species["thermal_elec"]["charge_number"] == -2
-    assert species["thermal_elec"]["mass_number"] == 0.25
-    assert species["thermal_elec"]["alpha"] == 3.0
-    assert species["thermal_elec"]["epsilon"] == 0.5
-    assert species["thermal_elec"]["variables"]["current"]["initial_conditions"] == {
+    assert species["electrons"]["class"] == "Electrons"
+    assert species["electrons"]["charge_number"] == -2
+    assert species["electrons"]["mass_number"] == 0.25
+    assert species["electrons"]["alpha"] == 3.0
+    assert species["electrons"]["epsilon"] == 0.5
+    assert species["electrons"]["variables"]["current"]["initial_conditions"] == {
         "backgrounds": None,
         "perturbations": None,
     }
-    assert species["hot_elec"]["loading_params"]["Np"] == 1234
-    assert species["hot_elec"]["variables"]["var"]["initial_conditions"]["initial_condition"] is None
-    assert species["hot_elec"]["variables"]["var"]["save_data"] is False
+    assert species["hot_electrons"]["loading_params"]["Np"] == 1234
+    assert species["hot_electrons"]["variables"]["var"]["initial_conditions"]["initial_condition"] is None
+    assert species["hot_electrons"]["variables"]["var"]["save_data"] is False
 
 
 def test_from_output_never_executes_the_parameter_file(tmp_path):
