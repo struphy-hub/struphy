@@ -235,6 +235,9 @@ def test_linear_mhd_hybrids_in_old_metadata():
     dct["propagator_options"]["shearalfen_cc5d"] = dct["propagator_options"].pop("shear_alf")
     restored = StruphyModel.from_dict(dct)
     assert not restored.propagators.shear_alf.options.nonlinear
+
+
+@pytest.mark.mpi_skip
 def test_strang_groups_calls():
     """A group of propagators is integrated symmetrically (last member in the middle) as one block of the splitting."""
     from struphy.models import LinearEuler, LinearMHD
