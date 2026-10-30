@@ -12,6 +12,7 @@ from struphy.models.guiding_center import GuidingCenter
 from struphy.models.gyrokinetic_poisson import GyrokineticPoisson
 from struphy.models.hasegawa_wakatani import HasegawaWakatani
 from struphy.models.incompressible_navier_stokes_sph import IncompressibleNavierStokesSPH
+from struphy.models.linear_euler import LinearEuler
 from struphy.models.linear_extended_mh_duniform import LinearExtendedMHDuniform
 from struphy.models.linear_mhd import LinearMHD
 from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
@@ -60,6 +61,7 @@ __all__ = [
     "HasegawaWakatani",
     "IncompressibleNavierStokesSPH",
     "LinearExtendedMHDuniform",
+    "LinearEuler",
     "LinearMHD",
     "LinearMHDDriftkineticCC",
     "LinearMHDVlasovCC",

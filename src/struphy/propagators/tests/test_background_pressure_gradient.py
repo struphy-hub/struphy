@@ -22,7 +22,7 @@ def _projection_error(tmp_path, num_elements):
     """Max error of the step dp/dt = - U . grad p0 for one smooth velocity in a sheared slab (p0 depends on x), against
     U_h . grad p0 evaluated at points (the gradient by central differences of p0)."""
     equil = equils.ShearedSlab(beta=1.0)
-    model = LinearMHD(split_sound=True)
+    model = LinearMHD()
     model.mhd.velocity.add_perturbation(
         perturbations.ModesSin(ls=(1,), ms=(1,), given_in_basis="2", comp=0, amps=(1.0,))
     )
@@ -67,7 +67,7 @@ def test_convergence(tmp_path):
 
 def test_homogeneous_vanishes(tmp_path):
     """No pressure change in a homogeneous slab (grad p0 = 0), to round-off."""
-    model = LinearMHD(split_sound=True)
+    model = LinearMHD()
     for comp in range(3):
         model.mhd.velocity.add_perturbation(
             perturbations.Noise(direction="e1e2e3", amp=1e-2, seed=1234 + comp, comp=comp, given_in_basis="2")
