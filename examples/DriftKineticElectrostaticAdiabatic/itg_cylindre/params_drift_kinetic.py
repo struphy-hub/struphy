@@ -209,8 +209,10 @@ model.kinetic_ions.set_markers(
 # ------------------
 
 model.propagators.gc_poisson.options.solver_params = implicit_diffusion.SolverParameters(maxiter=3000, tol=1e-14)
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True)
-model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", evaluate_e_field=True)
+model.propagators.push_bxe.options = model.propagators.push_bxe.Options(algo="explicit", evaluate_e_field=True)
+model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
+    algo="explicit", evaluate_e_field=True
+)
 
 # ------------------
 # Initial conditions

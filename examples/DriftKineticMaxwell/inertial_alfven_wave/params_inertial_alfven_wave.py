@@ -169,7 +169,7 @@ if args.exb_current:
 else:
     # without the E x B current the Schur system is symmetric
     prop.options = prop.Options(lam=args.lam, exb_current=False, solver="pcg")
-model.propagators.push_para.options = model.propagators.push_para.Options()
+model.propagators.push_parallel.options = model.propagators.push_parallel.Options()
 # with the electric field (not a potential) only the explicit E* x b0 push is consistent
 model.propagators.push_bxe.options = model.propagators.push_bxe.Options(algo="explicit")
 

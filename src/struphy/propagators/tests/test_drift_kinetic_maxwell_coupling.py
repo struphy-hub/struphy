@@ -233,7 +233,7 @@ def test_control_variate_needs_lam():
 
 def _cold_model(push_para_e_field=False):
     """DriftKineticMaxwell with cold guiding centers (mu ~ 0), uniform B0 and no B perturbation (no mirror force), and
-    a large electric field with a parallel component. Optionally pushes with the electric field also in push_para
+    a large electric field with a parallel component. Optionally pushes with the electric field also in push_parallel
     (forbidden in the model)."""
     from struphy import DerhamOptions, LoadingParameters, Simulation, domains, equils, grids, maxwellians, models
     from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
@@ -247,10 +247,10 @@ def _cold_model(push_para_e_field=False):
         maxwellians.GyroMaxwellian2D(n=(1.0, None), vth_para=(1.0, None), vth_perp=(vth, None), B0=1.0)
     )
     if push_para_e_field:
-        model.propagators.push_para = PushGuidingCenterParallel(
+        model.propagators.push_parallel = PushGuidingCenterParallel(
             b_tilde=model.em_fields.b_field, e_field=model.em_fields.e_field
         )
-        model.propagators.push_para.variables.ions = model.kinetic_ions.var
+        model.propagators.push_parallel.variables.ions = model.kinetic_ions.var
     Simulation(
         model=model,
         domain=domains.Cuboid(r1=2.0, r2=2.0, r3=2.0),
@@ -280,11 +280,11 @@ def _all_vpar(particles):
 @pytest.mark.parametrize("evaluate_e_field", [False, True])
 @pytest.mark.parametrize("algo", ["discrete_gradient_1st_order", "explicit"])
 def test_parallel_force_applied_once(algo, evaluate_e_field):
-    """The parallel electric force b* . E / epsilon is applied only by the coupling step: push_para of the model
+    """The parallel electric force b* . E / epsilon is applied only by the coupling step: push_parallel of the model
     leaves v_par unchanged when E != 0 (cold markers, no mirror force), for every algorithm. An electric field passed
-    to push_para in the model is rejected."""
+    to push_parallel in the model is rejected."""
     model = _cold_model()
-    prop = model.propagators.push_para
+    prop = model.propagators.push_parallel
     prop.options = prop.Options(algo=algo, evaluate_e_field=evaluate_e_field)
     # re-allocate with the new options: drop the kernels registered by the first allocation
     prop._init_kernels = ()
@@ -296,7 +296,7 @@ def test_parallel_force_applied_once(algo, evaluate_e_field):
     assert xp.max(xp.abs(_all_vpar(particles) - v_0)) == 0.0
 
     # the same push with the electric field changes v_par (by about dt / epsilon * b* . E)
-    model.propagators.push_para.e_field = model.em_fields.e_field
+    model.propagators.push_parallel.e_field = model.em_fields.e_field
     prop.options = prop.Options(algo="explicit")
     # re-allocate with the new options: drop the kernels registered by the first allocation
     prop._init_kernels = ()

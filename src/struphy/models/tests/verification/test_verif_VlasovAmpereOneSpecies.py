@@ -171,7 +171,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
 @pytest.mark.clones
 @pytest.mark.parametrize("control_variate", [False, True])
 def test_energy_conservation(control_variate: bool, nclones: int, exit_before_run: bool = False):
-    """``total_energy`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
+    """``en_tot`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
 
     A time step is :class:`~struphy.propagators.push_eta.PushEta` followed by the Crank-Nicolson step
     :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling` (no B0). This checks two things that

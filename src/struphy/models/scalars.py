@@ -341,7 +341,7 @@ class KineticEnergyPIC(PICScalar):
 
     For :class:`~struphy.pic.particles.Particles5D` the velocity coordinates are :math:`(v_\parallel, \mu)`,
     so only the parallel kinetic energy :math:`v_i^2 = v_{\parallel,i}^2` is summed; the magnetic-moment
-    part :math:`\mu_i |B_0|` is tracked by a separate scalar in the models (e.g. ``en_fB``).
+    part :math:`\mu_i |B_0|` is tracked by a separate scalar in the models (e.g. ``en_mu``).
     """
 
     def _local_update(self):
