@@ -98,7 +98,7 @@ fraction of omega_TAE, roughly proportional to the energetic-ion density.
 Setup. Tokamak with circular flux surfaces and the MHD equilibrium of the ShearAlfven low-mode example (AdhocTorus,
 R0 = 5, a = 1, B0 = 1, q(r) = 1.25 + r^2, flat bulk density, beta 0.0018) on the full torus (HollowTorus with a
 hole of radius 0.1), grid {args.num_elements} with cubic splines, time step {args.dt} up to t = {args.tend}. The
-compressional MHD (Magnetosonic) is included. Energetic deuterons (mass number 2, so A_h/A_b = 2) with the
+compressional MHD (sound wave, background current and pressure steps of LinearMHD) is included. Energetic deuterons (mass number 2, so A_h/A_b = 2) with the
 normalized cyclotron period epsilon = {args.epsilon} (gyro-radius at the Alfven speed in units of the minor radius;
 set explicitly, since the default units give 0.046, i.e. drift-orbit widths of a large fraction of the minor radius
 and large marker losses), represented by {args.Np} markers with delta-f weights (control variate): the
@@ -270,7 +270,7 @@ filter_params = FilterParameters(use_filter=None if args.filter == "none" else a
 props = model.propagators
 props.push_bxe.options = props.push_bxe.Options(algo="discrete_gradient_2nd_order")
 props.push_parallel.options = props.push_parallel.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
-props.shearalfen_cc5d.options = props.shearalfen_cc5d.Options(filter_params=filter_params)
+props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params)
 props.cc5d_gradb.options = props.cc5d_gradb.Options(filter_params=filter_params)
 # (CurrentCoupling5DDensity accumulates no vector: nothing to filter)
 props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)

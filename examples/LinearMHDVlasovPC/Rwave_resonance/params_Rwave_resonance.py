@@ -170,7 +170,10 @@ filter_params = FilterParameters(use_filter="fourier_in_tor")
 model.propagators.push_eta_pc.options = model.propagators.push_eta_pc.Options(use_perp_model=True)
 model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 model.propagators.pc6d.options = model.propagators.pc6d.Options(use_perp_model=True, filter_params=filter_params)
-model.propagators.shearalfven.options = model.propagators.shearalfven.Options()
+model.propagators.shear_alf.options = model.propagators.shear_alf.Options()
+model.propagators.bg_current.options = model.propagators.bg_current.Options()
+model.propagators.sound.options = model.propagators.sound.Options()
+model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 
 # ------------------
 # Initial conditions
