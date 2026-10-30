@@ -82,7 +82,8 @@ def splitting_blocks(propagators) -> list[tuple[str, ...]]:
     qualname = type(propagators).__qualname__
     if "strang_groups" in vars(propagators):
         raise ValueError(f"strang_groups of {qualname} must be a class attribute of Propagators, not set in __init__.")
-    names = [name for name, prop in vars(propagators).items() if isinstance(prop, Propagator)]
+    # all attributes, as StruphyModel.prop_list
+    names = list(vars(propagators))
     groups = [tuple(group) for group in getattr(type(propagators), "strang_groups", ())]
     for group in groups:
         if len(group) < 2 or len(set(group)) != len(group) or not set(group) <= set(names):
@@ -476,13 +477,13 @@ class StruphyModel(metaclass=StruphyModelMeta):
         intro = inspect.cleandoc(cls.doc_discretization.__doc__ or "")
         doc = intro + "\n\n"
         for group in getattr(cls.Propagators, "strang_groups", ()):
+            # the calls of the group for a block step h = 1, from the same rule as the time stepping
+            calls = time_steps_of_blocks([tuple(group)], 1.0, "LieTrotter")
+            sequence = " ".join(f"``{name}({'h' if h == 1.0 else 'h/2'})``" for name, h, _ in calls)
             names = ", ".join(f"``{name}``" for name in group)
-            half = "".join(f"``{name}(h/2)`` " for name in group[:-1])
             doc += (
                 f"The propagators {names} form one block of the splitting, integrated with symmetric Strang "
-                f"splitting (second order in time): {half}``{group[-1]}(h)`` "
-                + "".join(f"``{name}(h/2)`` " for name in group[-2::-1])
-                + "for the block step ``h``.\n\n"
+                f"splitting (second order in time): {sequence} for the block step ``h``.\n\n"
             )
         for n, (name, prop) in enumerate(cls.propagators_in_splitting_order().items(), start=1):
             prop_cls = type(prop)

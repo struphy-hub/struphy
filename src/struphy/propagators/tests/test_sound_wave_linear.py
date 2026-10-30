@@ -1,5 +1,6 @@
 import cunumpy as xp
 import pytest
+from maybempi import MPI
 
 from struphy import EnvironmentOptions, Simulation, Time, equils, perturbations
 from struphy.io.options import DerhamOptions
@@ -243,7 +244,10 @@ def test_group_second_order_inhomogeneous(tmp_path):
         return xp.concatenate((u.toarray(), p.toarray()))
 
     finals = [final(steps) for steps in (2, 4, 8, 16)]
-    diffs = [xp.max(xp.abs(a - b)) for a, b in zip(finals[:-1], finals[1:])]
+    comm = MPI.COMM_WORLD
+    diffs = [float(xp.max(xp.abs(a - b))) for a, b in zip(finals[:-1], finals[1:])]
+    if comm.Get_size() > 1:
+        diffs = [comm.allreduce(d, op=MPI.MAX) for d in diffs]
     rates = [float(xp.log2(d0 / d1)) for d0, d1 in zip(diffs[:-1], diffs[1:])]
     print(f"{diffs = }, {rates = }")
     assert all(abs(rate - 2) < 0.15 for rate in rates)
