@@ -108,7 +108,7 @@ class EulerSPH(ColdEulerSPH):
             \partial_t S + \mathbf{u} \cdot \nabla S = 0
 
         where :math:`S` denotes the entropy per unit mass, :math:`\mathbf g` a constant gravity,
-        :math:`\mathbf{F}` an external force field, :math:`\mathbf{B}_0` the magnetic field of the equilibrium (if
+        :math:`\mathbf{F}` an external force field per unit charge, :math:`\mathbf{B}_0` the magnetic field of the equilibrium (if
         any) and :math:`\varepsilon` the species parameter ``epsilon`` (see :class:`~struphy.models.ColdEulerSPH`).
         The internal energy per unit mass can be defined in two ways:
 

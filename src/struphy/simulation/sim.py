@@ -1947,7 +1947,8 @@ class Simulation(SimulationBase):
             for species_name, species in model_species.items()
         }
         for species_name, variables in definitions.items():
-            species = self.model.species.get(species_name)
+            # runs written before a species was renamed keep the old name in their metadata
+            species = self.model.species.get(self.model._renamed_species.get(species_name, species_name))
             if species is None:
                 continue
             for variable_name, entry in variables.items():

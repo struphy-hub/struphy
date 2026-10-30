@@ -215,6 +215,7 @@ class ColdPlasmaVlasov(ColdPlasma):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+        return params_path
 
     @classmethod
     def doc_pde(cls):

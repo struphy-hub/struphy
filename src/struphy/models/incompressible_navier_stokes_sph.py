@@ -68,7 +68,8 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
     lagrange_multiplier: LagrangeMultiplier
     propagators: Propagators
 
-    # no renamed species (the name was already fluid), only its variable density -> var
+    # the species was already named fluid (its variable density was renamed var: the save_data flag of old run
+    # metadata is not restored)
     _renamed_species = {}
 
     ## abstract methods
@@ -182,7 +183,7 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
         .. math::
 
             \frac{\textnormal d}{\textnormal d t} \frac 12 \int \rho |\mathbf u|^2 \, \textnormal d \mathbf x
-            = -\int \boldsymbol \sigma : \nabla \mathbf u \, \textnormal d \mathbf x \leq 0
+            = \int \boldsymbol \sigma : \nabla \mathbf u \, \textnormal d \mathbf x \leq 0
         """
 
     @classmethod

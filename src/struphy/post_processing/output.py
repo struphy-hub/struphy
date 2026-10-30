@@ -900,7 +900,8 @@ class Output:
 
         model = self._restore("model", StruphyModel)
         for species_name, variables in self.initial_conditions.items():
-            species = model.species.get(species_name)
+            # runs written before a species was renamed keep the old name in their metadata
+            species = model.species.get(model._renamed_species.get(species_name, species_name))
             if species is None:
                 continue
             for variable_name, definition in variables.items():
@@ -1248,7 +1249,9 @@ class Output:
                 self._pproc_kinetic_kinds = []
                 for name in file["kinetic"].keys():
                     self._pproc_kinetic_species += [name]
-                    self._pproc_kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
+                    # runs written before a species was renamed keep the old name in their data file
+                    species = self.model.species[self.model._renamed_species.get(name, name)]
+                    self._pproc_kinetic_kinds += [next(iter(species.variables.values())).space]
                     self._pproc_exist_particles[name] = {
                         key: key in file["kinetic"][name] for key in ("markers", "f", "n_sph")
                     }
@@ -1850,7 +1853,7 @@ class Output:
         """
 
         species = path_kinetic_species.split("/")[-1]
-        species_obj: ParticleSpecies = self.model.particle_species[species]
+        species_obj: ParticleSpecies = self.model.particle_species[self.model._renamed_species.get(species, species)]
 
         # open hdf5 files and get names and number of saved markers of kinetic species
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:

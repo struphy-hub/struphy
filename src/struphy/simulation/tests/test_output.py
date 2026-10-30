@@ -380,6 +380,35 @@ def test_sph_with_fluid_equilibrium_without_magnetic_field(tmp_path):
     assert sim.model.propagators.push_vxb._no_field
 
 
+def test_output_of_run_with_renamed_model_and_species(tmp_path):
+    # an output written before PressureLessSPH was renamed ColdEulerSPH (and its species cold_fluid to fluid)
+    sim = Simulation(
+        model=ColdEulerSPH(),
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim_1"),
+        time_opts=Time(dt=0.02, Tend=0.04),
+        domain=domains.Cuboid(),
+        grid=grids.TensorProductGrid(num_elements=(4, 4, 1)),
+    )
+    sim.model.fluid.set_markers(loading_params=LoadingParameters(Np=100), sorting_params=SortingParameters())
+    sim.model.fluid.var.add_background(equils.ConstantVelocity(ux=1.0, uy=0.5))
+    sim.run()
+
+    path_metadata = os.path.join(sim.env.path_out, "run_metadata.json")
+    with open(path_metadata) as stream:
+        metadata = json.load(stream)
+    metadata["model"]["model"] = "PressureLessSPH"
+    metadata["model"]["species"]["cold_fluid"] = metadata["model"]["species"].pop("fluid")
+    with open(path_metadata, "w") as stream:
+        json.dump(metadata, stream)
+    with h5py.File(sim.data.file_path, "a") as file:
+        file.move("kinetic/fluid", "kinetic/cold_fluid")
+
+    output = Output(sim.env.path_out)
+    assert type(output.model) is ColdEulerSPH
+    assert output.model.fluid.var.backgrounds.params["ux"] == 1.0
+    output.pproc()
+
+
 def test_run_metadata_names_variable_keys_in_propagator_options(tmp_path):
     sim = Simulation(model=Poisson(), env=EnvironmentOptions(out_folders=str(tmp_path)))
     variable = sim.model.em_fields.source

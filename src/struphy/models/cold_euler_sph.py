@@ -145,9 +145,9 @@ class ColdEulerSPH(StruphyModel):
             \partial_t \mathbf{u} + (\mathbf{u} \cdot \nabla) \mathbf{u}
             = \frac{1}{\varepsilon} \left( \mathbf{F} + \mathbf{u} \times \mathbf{B}_0 \right)
 
-        where :math:`\mathbf{F}` is an external force per unit mass (e.g. :math:`\mathbf F = -\nabla \phi` with a
-        given potential :math:`\phi`), :math:`\mathbf{B}_0` the magnetic field of the equilibrium (if any) and
-        :math:`\varepsilon` the species parameter ``epsilon``.
+        where :math:`\mathbf{F}` is an external force field per unit charge, normalized like an electric field (e.g.
+        :math:`\mathbf F = -\nabla \phi` with a given potential :math:`\phi`), :math:`\mathbf{B}_0` the magnetic
+        field of the equilibrium (if any) and :math:`\varepsilon` the species parameter ``epsilon``.
 
         **Conserved quantities** (periodic boundaries or no outflow):
 
