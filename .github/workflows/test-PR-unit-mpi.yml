@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - devel
+  # keeps the testmon data of devel (restored by new PRs) up to date
+  push:
+    branches:
+      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -31,19 +35,20 @@ jobs:
     secrets:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}
 
+  # one job for all rank counts: the setup (container, install) dominated four separate jobs
   pic-mpi-tests:
-    name: Marked PIC MPI tests (${{ matrix.n-procs }} ranks)
+    name: Marked PIC MPI tests (1 to 4 ranks)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        n-procs: [1, 2, 3, 4]
 
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
       credentials:
         username: spossann
         password: ${{ secrets.GHCR_TOKEN }}
+
+    env:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
 
     steps:
       - name: Checkout repo
@@ -75,24 +80,35 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
-          mpirun --oversubscribe -n ${{ matrix.n-procs }} pytest -v --with-mpi -m mpi_pic pic/tests
+          for n in 1 2 3 4; do
+            echo "=== $n ranks"
+            mpirun --oversubscribe -n $n pytest -v --with-mpi -m mpi_pic pic/tests
+          done
 
       - name: Run the marker exchange on the fake CuPy
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
-          mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi pic/tests/test_sorting_device.py
+          for n in 1 2 3 4; do
+            echo "=== $n ranks"
+            mpirun --oversubscribe -n $n env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi pic/tests/test_sorting_device.py
+          done
 
       - name: Run polar GPU MPI paths on the fake CuPy
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
-          mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi polar/tests/test_polar_cupy.py -k mpi_fake
+          for n in 1 2 3 4; do
+            echo "=== $n ranks"
+            mpirun --oversubscribe -n $n env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi polar/tests/test_polar_cupy.py -k mpi_fake
+          done
 
       - name: Run the end-to-end GPU model tests on the fake CuPy
         # 8 elements of degree 3: at most 2 ranks
-        if: matrix.n-procs <= 2
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
-          mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py
+          for n in 1 2; do
+            echo "=== $n ranks"
+            mpirun --oversubscribe -n $n env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py
+          done
