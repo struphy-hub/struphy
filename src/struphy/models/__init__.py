@@ -20,11 +20,13 @@ _LAZY_IMPORTS = {
     "HasegawaWakatani": "struphy.models.hasegawa_wakatani",
     "IncompressibleNavierStokesSPH": "struphy.models.incompressible_navier_stokes_sph",
     "LinearEuler": "struphy.models.linear_euler",
+    "LinearEulerWithQ": "struphy.models.linear_euler_with_q",
     "LinearExtendedMHDuniform": "struphy.models.linear_extended_mh_duniform",
     "LinearMHD": "struphy.models.linear_mhd",
     "LinearMHDDriftkineticCC": "struphy.models.linear_mhd_driftkinetic_cc",
     "LinearMHDVlasovCC": "struphy.models.linear_mhd_vlasov_cc",
     "LinearMHDVlasovPC": "struphy.models.linear_mhd_vlasov_pc",
+    "LinearMHDWithQ": "struphy.models.linear_mhd_with_q",
     "LinearVlasovAmpereOneSpecies": "struphy.models.linear_vlasov_ampere_one_species",
     "LinearVlasovMaxwellOneSpecies": "struphy.models.linear_vlasov_maxwell_one_species",
     "Maxwell": "struphy.models.maxwell",
@@ -65,11 +67,13 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.hasegawa_wakatani import HasegawaWakatani
     from struphy.models.incompressible_navier_stokes_sph import IncompressibleNavierStokesSPH
     from struphy.models.linear_euler import LinearEuler
+    from struphy.models.linear_euler_with_q import LinearEulerWithQ
     from struphy.models.linear_extended_mh_duniform import LinearExtendedMHDuniform
     from struphy.models.linear_mhd import LinearMHD
     from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
     from struphy.models.linear_mhd_vlasov_cc import LinearMHDVlasovCC
     from struphy.models.linear_mhd_vlasov_pc import LinearMHDVlasovPC
+    from struphy.models.linear_mhd_with_q import LinearMHDWithQ
     from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
     from struphy.models.linear_vlasov_maxwell_one_species import LinearVlasovMaxwellOneSpecies
     from struphy.models.maxwell import Maxwell
@@ -109,11 +113,13 @@ __all__ = [
     "HasegawaWakatani",
     "IncompressibleNavierStokesSPH",
     "LinearEuler",
+    "LinearEulerWithQ",
     "LinearExtendedMHDuniform",
     "LinearMHD",
     "LinearMHDDriftkineticCC",
     "LinearMHDVlasovCC",
     "LinearMHDVlasovPC",
+    "LinearMHDWithQ",
     "LinearVlasovAmpereOneSpecies",
     "LinearVlasovMaxwellOneSpecies",
     "Maxwell",

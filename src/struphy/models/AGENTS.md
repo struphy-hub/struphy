@@ -38,6 +38,9 @@ and **ask whether to add it to that family** as a child, before writing code. Th
   `DriftKineticMaxwell`.
 - **LinearEuler family** (zero-flow equilibrium): `LinearEuler` → `LinearMHD` → `LinearMHDVlasovCC`,
   `LinearMHDVlasovPC`, `LinearMHDDriftkineticCC` (hybrid models with energetic ions).
+- **LinearEulerWithQ family** (zero-flow equilibrium, variable q = sqrt(p)): `LinearEulerWithQ` →
+  `LinearMHDWithQ`. Shares the equilibrium scalars and the magnetic field with the LinearEuler family through the
+  mixins in `linear_euler_mixins.py`.
 
 A parent model is the base of everything below it, so it must be well tested: verification tests against analytic
 results (dispersion relations, exact solutions in a curvilinear geometry such as `Colella`), conservation properties

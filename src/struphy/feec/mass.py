@@ -337,6 +337,36 @@ class WeightedMassOperators:
         return self._M3p_inv
 
     @property
+    def M3q0(self):
+        r"""
+        Mass matrix for 3-forms weighted with the square root of the equilibrium pressure,
+        :math:`q_0 = \sqrt{p_0}`:
+
+        .. math::
+
+            \mathbb M^3_{q_0, ijk,mno} =
+            \int \Lambda^3_{ijk}\,\Lambda^3_{mno}
+            \frac{q_0}{\sqrt{g}}\,\mathrm d\boldsymbol\eta.
+
+        This operator couples the perturbation of :math:`q` to the velocity in the linear models with the variable
+        :math:`q` (pressure perturbation :math:`\tilde p = 2 q_0 \tilde q`).
+        """
+        if not hasattr(self, "_M3q0"):
+            assert self.eq_mhd is not None, "M3q0 requires an MHD equilibrium."
+
+            def q0(e1, e2, e3):
+                return self.eq_mhd.q0(e1, e2, e3)
+
+            self._M3q0 = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=(q0, "1/sqrt_g"),
+                name="M3q0",
+                assemble=True,
+            )
+        return self._M3q0
+
+    @property
     def Mv(self):
         r"""
         Standard mass matrix for vector 0-forms (H1vec space) as 3x3 block matrix indexed by :math:`(\mu, \nu)`:

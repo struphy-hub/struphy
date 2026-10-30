@@ -167,6 +167,38 @@ def test_linear_euler_family_splitting_order():
 
 
 @pytest.mark.mpi_skip
+def test_linear_euler_with_q_family_splitting_order():
+    from struphy.models import LinearEulerWithQ, LinearMHD, LinearMHDWithQ
+
+    assert list(LinearEulerWithQ.propagators_in_splitting_order()) == ["bg_q", "sound"]
+    model = LinearMHDWithQ()
+    assert isinstance(model, LinearEulerWithQ) and not isinstance(model, LinearMHD)
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_q", "sound"]
+    assert model.propagators.bg_q.u_field is model.mhd.velocity
+    assert model.propagators.bg_current.b_field is model.em_fields.b_field
+    assert [name for name, _ in model.propagator_calls(1.0)][1:] == [
+        "bg_current",
+        "bg_q",
+        "sound",
+        "bg_q",
+        "bg_current",
+    ]
+    assert list(model.scalars._dct) == list(LinearMHD().scalars._dct)[:1] + [
+        "en_thermal",
+        "en_p_eq",
+        "en_B",
+        "en_B_eq",
+        "en_B_tot",
+        "en_tot",
+    ]
+
+    # the documentation lists both shear-Alfven flavours
+    doc = LinearMHDWithQ.doc_discretization()
+    assert "ShearAlfvenPropagator" in doc and "ShearAlfvenCurlCurlPropagator" in doc
+    assert "SoundWaveLinearWithQ" in doc and "BackgroundQGradient" in doc
+
+
+@pytest.mark.mpi_skip
 @pytest.mark.parametrize("split_sound", [True, False])
 def test_linear_mhd_split_sound_in_old_metadata(split_sound):
     from struphy.models import LinearMHD
