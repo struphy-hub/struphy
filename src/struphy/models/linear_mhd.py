@@ -98,13 +98,16 @@ class LinearMHD(LinearEuler):
 
         # 0. store input parameters
         self._store_params(locals())
+        # for the hooks (see LinearEuler)
+        self._b_space = b_space
+        self._projected = projected
 
         # 1.-5. see LinearEuler
         super().__init__(base_units, mass_number)
 
     def _create_species(self):
         """:meta private:"""
-        self.em_fields = self.EMFields(b_space=self.params["b_space"])
+        self.em_fields = self.EMFields(b_space=self._b_space)
         super()._create_species()
 
     def _propagator_args(self):
@@ -112,8 +115,8 @@ class LinearMHD(LinearEuler):
         return {
             **super()._propagator_args(),
             "b_field": self.em_fields.b_field,
-            "b_space": self.params["b_space"],
-            "projected": self.params["projected"],
+            "b_space": self._b_space,
+            "projected": self._projected,
         }
 
     def _link_propagator_variables(self):
@@ -127,19 +130,14 @@ class LinearMHD(LinearEuler):
     def _create_scalars(self):
         """:meta private:"""
         scalars = super()._create_scalars()
+        # en_tot of LinearEuler is replaced by the one including the magnetic energy (and kept last)
+        en_tot = scalars.pop("en_tot")
         en_B = BilinearEnergyFEEC(self.em_fields.b_field)
-        en_B_eq = FunctionScalarFEEC(self._compute_en_B_eq)
-        en_B_tot = FunctionScalarFEEC(self._compute_en_B_tot)
-        return {
-            "en_U": scalars["en_U"],
-            "en_p": scalars["en_p"],
-            "en_thermal": scalars["en_thermal"],
-            "en_B": en_B,
-            "en_p_eq": scalars["en_p_eq"],
-            "en_B_eq": en_B_eq,
-            "en_B_tot": en_B_tot,
-            "en_tot": scalars["en_U"] + scalars["en_thermal"] + en_B,
-        }
+        scalars["en_B"] = en_B
+        scalars["en_B_eq"] = FunctionScalarFEEC(self._compute_en_B_eq)
+        scalars["en_B_tot"] = FunctionScalarFEEC(self._compute_en_B_tot)
+        scalars["en_tot"] = en_tot + en_B
+        return scalars
 
     @property
     def velocity_scale(self):

@@ -68,13 +68,16 @@ class LinearEuler(StruphyModel):
     ):
         # 0. store input parameters (a model inheriting from LinearEuler stores its own before calling super().__init__)
         self._store_params(locals())
+        # for the hooks: the arguments of this constructor (self.params holds those of the most derived model, whose
+        # names can differ, e.g. mhd_mass_number of the hybrid models)
+        self._mass_number = mass_number
 
         # 1.-5. species, units, propagators, variable links and scalars, see StruphyModel._setup
         self._setup(base_units)
 
     def _create_species(self):
         """:meta private:"""
-        self.mhd = self.MHD(mass_number=self.params["mass_number"])
+        self.mhd = self.MHD(mass_number=self._mass_number)
 
     def _propagator_args(self):
         """:meta private:"""
@@ -108,6 +111,11 @@ class LinearEuler(StruphyModel):
 
     def post_allocate(self):
         """:meta private:"""
+        if Propagator.projected_equil is None:
+            raise ValueError(
+                f"{type(self).__name__} needs an equilibrium (Simulation(equil=...)) providing n0 and p0, e.g. "
+                "equils.HomogenSlab."
+            )
         self._ones = Propagator.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
@@ -116,25 +124,6 @@ class LinearEuler(StruphyModel):
 
     def _compute_en_p_eq(self):
         return Propagator.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        if self.velocity_scale != "thermal":
-            return params_path
-        # the thermal velocity scale needs the unit of the temperature
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "base_units = BaseUnits(" in line:
-                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
-        return params_path
 
     ## abstract methods for documentation
 

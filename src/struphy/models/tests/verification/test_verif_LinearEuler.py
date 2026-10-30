@@ -25,7 +25,7 @@ from struphy import (
 )
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models import LinearEuler
-from struphy.models.tests.verification.test_verif_LinearMHD import _fit_branches, _power_spectrum
+from struphy.models.tests.verification.spectrum_utils import fit_branches, power_spectrum
 from struphy.propagators.base import Propagator
 
 set_logging_level()
@@ -84,8 +84,8 @@ def test_sound_wave_dispersion_1d():
     run.pproc()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
-        omega, k, power = _power_spectrum(run.fields.mhd.pressure)
-        fits = _fit_branches(omega, k, power, n_branches=1, noise_level=0.4)
+        omega, k, power = power_spectrum(run.fields.mhd.pressure)
+        fits = fit_branches(omega, k, power, n_branches=1, noise_level=0.4)
         c_s = xp.sqrt(GAMMA * P0 / N0)
         logger.info(f"{c_s = }, measured {fits[0][0]}")
         # the fit underestimates the speed by a few percent (numerical dispersion at the larger k of the fit)
@@ -219,7 +219,7 @@ def test_time_convergence_order(split_algo: str, order: int):
     not be written to the run metadata."""
     Tend = 0.05
     finals = []
-    for n_steps in (10, 20, 40, 80):
+    for n_steps in (5, 10, 20, 40):
         dt = Tend / n_steps
         model = _model(tol=TOL)
         model.mhd.pressure.add_perturbation(

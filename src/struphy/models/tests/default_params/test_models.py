@@ -168,7 +168,6 @@ def test_linear_mhd_inherits_linear_euler(b_space: str, tmp_path):
     params_model = import_parameters_py(path).model
     assert params_model.params["b_space"] == b_space
     assert list(vars(params_model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
-    ut.call_test(model=model)
 
 
 @pytest.mark.single

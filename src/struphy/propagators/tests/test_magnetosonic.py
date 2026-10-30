@@ -44,9 +44,18 @@ def test_magnetosonic_uses_shared_b_field(tmp_path, algo, with_equil_background)
         derham_opts=DerhamOptions(degree=(2, 1, 1)),
     )
     sim.allocate()
-    mag_sonic = _magnetosonic(model)
 
-    b = model.em_fields.b_field.spline.vector
+    # the shared b_field (with its initial condition) before Magnetosonic is allocated: it must neither be
+    # re-allocated nor re-initialized by the allocation
+    spline = model.em_fields.b_field.spline
+    b = spline.vector
+    b_init = b.toarray().copy()
+    assert xp.max(xp.abs(b_init)) > 0.0
+    mag_sonic = _magnetosonic(model)
+    assert model.em_fields.b_field.spline is spline
+    assert model.em_fields.b_field.spline.vector is b
+    assert xp.array_equal(b.toarray(), b_init)
+
     shear_alf = model.propagators.shear_alf
     assert mag_sonic._b is b
     assert shear_alf.variables.b.spline.vector is b

@@ -66,8 +66,9 @@ _REMOVED_MODEL_FLAGS = {
     "with_B0": "the Lorentz force of the equilibrium magnetic field is always included (none without equil)",
     "with_E0": "the background electric field force is always included (none without background field)",
     "with_poisson": "for VlasovPoissonAdiabaticPauli(with_poisson=False) use the model VlasovPauli",
-    "split_sound": "LinearMHD always splits the magnetosonic step into the sound wave and background steps "
-    "(the options of the unsplit Magnetosonic step 'mag_sonic' are not restored)",
+    "split_sound": "LinearMHD always splits the magnetosonic step into the sound wave and background steps; a run "
+    "with split_sound=False (the unsplit Magnetosonic step 'mag_sonic') continues with the split steps and their "
+    "default options",
 }
 
 
@@ -990,7 +991,10 @@ set_logging_level(logging.WARNING)\n""")
         file.write(f"\nfrom struphy.models import {self.__class__.__name__}\n")
 
         file.write("\n# Units\n")
-        file.write("base_units = BaseUnits()\n")
+        # the thermal velocity scale needs the unit of the temperature
+        file.write(
+            "base_units = BaseUnits(kBT=1.0)\n" if self.velocity_scale == "thermal" else "base_units = BaseUnits()\n"
+        )
 
         # constructor arguments (other than base_units) that differ from their defaults, e.g. discretization flags
         signature = inspect.signature(self.__class__.__init__).parameters

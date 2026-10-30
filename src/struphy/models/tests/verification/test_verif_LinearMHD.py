@@ -6,8 +6,6 @@ import cunumpy as xp
 import numpy as np
 import pytest
 from maybempi import MPI
-from scipy.fft import fft2, fftfreq
-from scipy.signal import argrelextrema
 
 from struphy import (
     BaseUnits,
@@ -22,62 +20,28 @@ from struphy import (
     set_logging_level,
 )
 from struphy.models import LinearMHD
+from struphy.models.tests.verification.spectrum_utils import fit_branches, power_spectrum
 
 set_logging_level()
 logger = logging.getLogger("struphy")
 
 
-def _power_spectrum(field, component=0):
-    """Space-time power spectrum |F(omega, k)| of a field along z, at the first x and y grid point."""
-    if "component" in field.dims:
-        field = field.isel(component=component)
-    data = field.isel(eta1=0, eta2=0).transpose("t", "eta3")
-    time, z = data.t.values, data.Z.values
-    nt, nz = data.shape
-    power = (2.0 / nt) * (2.0 / nz) * np.abs(fft2(data.values))[: nt // 2, : nz // 2]
-    omega = 2 * np.pi * fftfreq(nt, time[1] - time[0])[: nt // 2]
-    k = 2 * np.pi * fftfreq(nz, z[1] - z[0])[: nz // 2]
-    return omega, k, power
-
-
-def _fit_branches(omega, k, power, n_branches, noise_level, order=10):
-    """Fit omega = v * k + b to each of the n_branches spectral peaks; returns [(v, b), ...]."""
-    k_fit, omega_fit = [], [[] for _ in range(n_branches)]
-    for i in range(k.size // 8, k.size // 2):
-        column = power[:, i]
-        maxima = argrelextrema(column, np.greater, order=order)[0]
-        peaks = sorted(j for j in maxima if column[j] > noise_level * column.max())
-        if not peaks:
-            continue
-        assert len(peaks) == n_branches, (
-            f"Found {len(peaks)} branches at k={k[i]:.3f}, expected {n_branches}. Try another noise_level or order."
-        )
-        k_fit.append(k[i])
-        for branch, j in zip(omega_fit, peaks):
-            branch.append(omega[j])
-    return [np.polyfit(k_fit, branch, deg=1) for branch in omega_fit]
-
-
 @pytest.mark.parametrize(
-    "b_space, projected, algo, split_sound",
+    "b_space, projected, algo",
     [
-        ("Hdiv", False, "implicit", False),
-        ("Hdiv", False, "explicit", False),
-        ("Hcurl", False, "implicit", False),
-        ("Hcurl", True, "implicit", False),
-        ("Hdiv", False, "implicit", True),
-        ("Hcurl", False, "implicit", True),
+        ("Hdiv", False, "implicit"),
+        ("Hdiv", False, "explicit"),
+        ("Hcurl", False, "implicit"),
+        ("Hcurl", True, "implicit"),
     ],
 )
-def test_slab_waves_1d(b_space: str, projected: bool, algo: str, split_sound: bool, do_plot: bool = False):
+def test_slab_waves_1d(b_space: str, projected: bool, algo: str, do_plot: bool = False):
     # light-weight model instance
-    model = LinearMHD(b_space=b_space, projected=projected, split_sound=split_sound)
+    model = LinearMHD(b_space=b_space, projected=projected)
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "verification_tests")
-    out_folders = os.path.join(
-        test_folder, f"LinearMHD_{b_space}{'_projected' if projected else ''}{'_split' if split_sound else ''}"
-    )
+    out_folders = os.path.join(test_folder, f"LinearMHD_{b_space}{'_projected' if projected else ''}")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
     # time stepping
@@ -131,8 +95,8 @@ def test_slab_waves_1d(b_space: str, projected: bool, algo: str, split_sound: bo
         Bsquare = B0x**2 + B0y**2 + B0z**2
         p0 = beta * Bsquare / 2
 
-        omega, k, power = _power_spectrum(run.fields.mhd.velocity, component=0)
-        fits = _fit_branches(omega, k, power, n_branches=1, noise_level=0.5)
+        omega, k, power = power_spectrum(run.fields.mhd.velocity, component=0)
+        fits = fit_branches(omega, k, power, n_branches=1, noise_level=0.5)
 
         # assert
         vA = xp.sqrt(Bsquare / n0)
@@ -141,8 +105,8 @@ def test_slab_waves_1d(b_space: str, projected: bool, algo: str, split_sound: bo
         assert xp.abs(fits[0][0] - v_alfven) < 0.07
 
         # second fft
-        omega, k, power = _power_spectrum(run.fields.mhd.pressure)
-        fits = _fit_branches(omega, k, power, n_branches=2, noise_level=0.4)
+        omega, k, power = power_spectrum(run.fields.mhd.pressure)
+        fits = fit_branches(omega, k, power, n_branches=2, noise_level=0.4)
 
         # assert
         gamma = 5 / 3
@@ -162,4 +126,4 @@ def test_slab_waves_1d(b_space: str, projected: bool, algo: str, split_sound: bo
 
 
 if __name__ == "__main__":
-    test_slab_waves_1d("Hdiv", False, algo="implicit", split_sound=False, do_plot=True)
+    test_slab_waves_1d("Hdiv", False, algo="implicit", do_plot=True)

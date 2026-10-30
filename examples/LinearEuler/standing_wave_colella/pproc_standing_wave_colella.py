@@ -55,7 +55,7 @@ def exact_pressure(run, x, y, t):
 
 def plot_snapshots(run, results_dir, save_figs):
     steps = run.standard_snapshots()
-    fig, axes = plt.subplots(2, len(steps), figsize=(4 * len(steps), 7), constrained_layout=True)
+    fig, axes = plt.subplots(2, len(steps), figsize=(4 * len(steps), 7), constrained_layout=True, squeeze=False)
     amp = omega_and_amplitude(run)[1]
     for col, n in enumerate(steps):
         t = float(run.time[n])
