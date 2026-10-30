@@ -145,7 +145,7 @@ def test_variational_perturbative_linear(
 
 @pytest.mark.models
 @pytest.mark.fluid
-@pytest.mark.parametrize("model_cls_name", ["ShearAlfven", "LinearMHD"])
+@pytest.mark.parametrize("model_cls_name", ["ShearAlfven", "LinearMHD", "LinearMHDWithQ"])
 @pytest.mark.parametrize("projected", [False, True])
 def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, update_baselines: bool):
     """The H(curl) discretizations of the shear-Alfven models: the flags survive the generated parameter file."""
@@ -179,6 +179,23 @@ def test_linear_mhd_inherits_linear_euler(b_space: str, tmp_path):
     params_model = import_parameters_py(path).model
     assert params_model.params["b_space"] == b_space
     assert list(vars(params_model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
+
+
+@pytest.mark.models
+@pytest.mark.fluid
+@pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
+def test_linear_mhd_with_q_inherits_linear_euler_with_q(b_space: str, tmp_path):
+    """LinearMHDWithQ inherits the propagators of LinearEulerWithQ (sound wave and background q steps), in the
+    splitting order shear_alf, bg_current, bg_q, sound, also in the generated parameter file."""
+    from struphy.io.setup import import_parameters_py
+
+    model = models_utils.get_model_by_name("LinearMHDWithQ")(b_space=b_space)
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_q", "sound"]
+    path = os.path.join(tmp_path, "params_LinearMHDWithQ.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params_model = import_parameters_py(path).model
+    assert params_model.params["b_space"] == b_space
+    assert list(vars(params_model.propagators)) == ["shear_alf", "bg_current", "bg_q", "sound"]
 
 
 @pytest.mark.single

@@ -165,6 +165,27 @@ class BasisProjectionOperators:
         return self._K3
 
     @property
+    def K3q(self):
+        r"""Basis projection operator
+
+        .. math::
+
+            \mathcal{K}^{3,q}_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{q}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,,
+
+        with the square root of the equilibrium pressure, :math:`q_\text{eq} = \sqrt{p_\text{eq}}`.
+        """
+        if not hasattr(self, "_K3q"):
+            fun = [[lambda e1, e2, e3: self.weights["eq_mhd"].q3(e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
+            self._K3q = self.create_basis_op(
+                fun,
+                "L2",
+                "L2",
+                name="K3q",
+            )
+
+        return self._K3q
+
+    @property
     def Qv(self):
         r"""Basis projection operator
 
@@ -495,6 +516,36 @@ class BasisProjectionOperators:
             )
 
         return self._S2
+
+    @property
+    def S2q(self):
+        r"""Basis projection operator
+
+        .. math::
+
+            \mathcal{S}^{2,q}_{(\mu, ijk), (\nu, mno)} := \hat{\Pi}^2_{(\mu, ijk)} \left[\frac{\hat{q}^3_{\text{eq}}}{\sqrt{g}}\Lambda^2_{(\nu, mno)} \right] \,,
+
+        with the square root of the equilibrium pressure, :math:`q_\text{eq} = \sqrt{p_\text{eq}}`.
+        """
+        if not hasattr(self, "_S2q"):
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].q3(e1, e2, e3) / self.sqrt_g(e1, e2, e3) if m == n else 0 * e1
+                        ),
+                    ]
+
+            self._S2q = self.create_basis_op(
+                fun,
+                "Hdiv",
+                "Hdiv",
+                name="S2q",
+            )
+
+        return self._S2q
 
     @property
     def S11(self):

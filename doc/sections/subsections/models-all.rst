@@ -132,6 +132,27 @@ new terms of the equations and inherits its species, propagators and scalars (se
     :undoc-members:
     :show-inheritance:
 
+LinearEulerWithQ Family
+-----------------------
+
+The equations of the LinearEuler family written with the square root of the pressure, :math:`q = \sqrt p`, as
+thermodynamic variable (pressure perturbation :math:`\tilde p = 2 q_0 \tilde q`). The magnetic field of
+:class:`~struphy.models.LinearMHDWithQ` is the one of :class:`~struphy.models.LinearMHD`.
+
+* :class:`~struphy.models.LinearEulerWithQ`
+
+  * :class:`~struphy.models.LinearMHDWithQ`
+
+.. autoclass:: struphy.models.LinearEulerWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHDWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
 Other models
 ------------
 
