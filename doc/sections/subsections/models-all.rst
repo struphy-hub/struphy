@@ -93,6 +93,45 @@ parent by new terms of the equations and inherits its species, propagators and s
     :undoc-members:
     :show-inheritance:
 
+LinearEuler Family
+------------------
+
+Models for small perturbations of a static (zero-flow) fluid or plasma equilibrium. Each model extends its parent by
+new terms of the equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
+
+* :class:`~struphy.models.LinearEuler`
+
+  * :class:`~struphy.models.LinearMHD`
+
+    * :class:`~struphy.models.LinearMHDVlasovCC`
+    * :class:`~struphy.models.LinearMHDVlasovPC`
+    * :class:`~struphy.models.LinearMHDDriftkineticCC`
+
+.. autoclass:: struphy.models.LinearEuler
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHD
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHDVlasovCC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHDVlasovPC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHDDriftkineticCC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
 Other models
 ------------
 
@@ -108,11 +147,6 @@ Gyrokinetic
 
 MHD
 ^^^
-
-.. autoclass:: struphy.models.LinearMHD
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
 
 .. autoclass:: struphy.models.LinearExtendedMHDuniform
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
@@ -206,21 +240,6 @@ Fluid-kinetic hybrids
 ^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: struphy.models.ColdPlasmaVlasov
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.LinearMHDVlasovCC
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.LinearMHDVlasovPC
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.LinearMHDDriftkineticCC
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:

@@ -319,7 +319,7 @@ def test_versioned_initial_conditions_round_trip_allocates_and_runs_one_step(tmp
     )
     sim.model.mhd.velocity.add_background(FieldsBackground(type="FluidEquilibrium", variable="uv"))
     sim.model.propagators.shear_alf.options = sim.model.propagators.shear_alf.Options()
-    sim.model.propagators.mag_sonic.options = sim.model.propagators.mag_sonic.Options()
+    sim.model.propagators.sound.options = sim.model.propagators.sound.Options()
     os.makedirs(sim.env.path_out)
     sim.to_run_metadata(os.path.join(sim.env.path_out, "run_metadata.json"))
 
