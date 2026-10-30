@@ -181,14 +181,7 @@ def call_test(
     regression_data = ur.collect(sim)
     mismatch = None
     if rank == 0:
-        lines = ur.check_finite(case, regression_data)
-        if not lines:
-            if update_baselines:
-                ur.update(case, size, regression_data)
-            else:
-                lines = ur.compare(case, size, regression_data)
-        if lines:
-            mismatch = ur.mismatch_message(case, size, lines)
+        mismatch = ur.check(case, size, regression_data, update_baselines=update_baselines)
     if comm is not None:
         mismatch = comm.bcast(mismatch, root=0)
 

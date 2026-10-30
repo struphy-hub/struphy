@@ -47,6 +47,11 @@ def _call_tests(models: list, update_baselines: bool, test_profiling: bool):
             ut.call_test(model=model(), test_profiling=test_profiling, update_baselines=update_baselines)
         except ur.RegressionMismatch as e:
             mismatches.append(str(e))
+        except Exception as e:
+            # don't lose the mismatches of the models before
+            if mismatches:
+                raise ur.RegressionMismatch("\n\n".join(mismatches + [f"{model.__name__} raised {e!r}"])) from e
+            raise
     if mismatches:
         raise ur.RegressionMismatch("\n\n".join(mismatches))
 

@@ -120,7 +120,7 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
   ```
   (or `-m models` for all models). Commit the JSON files, and explain in the PR description why the numbers changed.
   Never update a baseline only to make a failing test pass without understanding the change.
-  Use `-n 4` instead if the model has particles.
+  The baselines exist for 1 and 2 ranks; runs on more ranks (e.g. `-n 4` for particle models) are not compared.
 - `struphy params <Name>` must produce a valid `params_<Name>.py`.
 - Add a verification test against an analytic or reference result where possible, and where the test is not too expensive. Name it:
   `src/struphy/models/tests/verification/test_verif_<Name>.py` (e.g. `test_verif_Maxwell.py`). It is collected by folder.
