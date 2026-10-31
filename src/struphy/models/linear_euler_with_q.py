@@ -50,13 +50,16 @@ class LinearEulerWithQ(EquilibriumPressureMixin, StruphyModel):
         ----------
         u_field : FEECVariable, optional
             Velocity perturbation, which ``bg_q`` advects the background :math:`q_0` with (default: None).
+        rho_field : FEECVariable, optional
+            Density perturbation, for the inertia of the total density in ``sound`` (perturbative models; default:
+            None, the inertia of the equilibrium density).
         """
 
         strang_groups = (("bg_q", "sound"),)
 
-        def __init__(self, u_field: FEECVariable = None):
+        def __init__(self, u_field: FEECVariable = None, rho_field: FEECVariable = None):
             self.bg_q = BackgroundQGradient(u_field=u_field)
-            self.sound = SoundWaveLinearWithQ()
+            self.sound = SoundWaveLinearWithQ(rho_field=rho_field)
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     mhd: MHD

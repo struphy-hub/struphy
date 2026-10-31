@@ -7,6 +7,7 @@ from typing import Literal
 
 from feectools.linalg.block import BlockVector
 
+from struphy.feec.density_weighted import VelocityMass
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
 from struphy.models.species import FieldSpecies
 from struphy.models.variables import FEECVariable
@@ -45,6 +46,7 @@ def add_magnetic_propagators(
     b_field: FEECVariable = None,
     b_space: str = "Hdiv",
     projected: bool = False,
+    rho_field: FEECVariable = None,
 ):
     """Add the propagators of the magnetic field of the linear MHD models to ``propagators``: ``shear_alf``
     (shear-Alfvén waves) and ``bg_current`` (force of the background current).
@@ -59,12 +61,16 @@ def add_magnetic_propagators(
         Space of the magnetic field, ``"Hdiv"`` or ``"Hcurl"`` (default: ``"Hdiv"``).
     projected : bool
         Projected curl-curl shear-Alfvén step, only with ``b_space="Hcurl"`` (default: False).
+    rho_field : FEECVariable, optional
+        Density perturbation, for the inertia of the total density (perturbative models, only with ``b_space="Hdiv"``;
+        default: None).
     """
     if b_space == "Hdiv":
-        propagators.shear_alf = ShearAlfvenPropagator()
+        propagators.shear_alf = ShearAlfvenPropagator(rho_field=rho_field)
     else:
+        assert rho_field is None, 'rho_field (perturbative models) needs b_space="Hdiv".'
         propagators.shear_alf = ShearAlfvenCurlCurlPropagator(projected=projected)
-    propagators.bg_current = BackgroundCurrent(b_field=b_field)
+    propagators.bg_current = BackgroundCurrent(b_field=b_field, rho_field=rho_field)
 
 
 class MagneticFieldMixin:
@@ -168,3 +174,69 @@ class MagneticFieldMixin:
         doc += "(:class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`):\n\n"
         doc += f"{ShearAlfvenCurlCurlPropagator.__doc__}\n"
         return doc
+
+
+class PerturbativeQMixin:
+    """Nonlinear (perturbative) terms of the models with the variable :math:`q = \\sqrt p`
+    (:class:`~struphy.models.PerturbativeEulerWithQ`, :class:`~struphy.models.PerturbativeMHDWithQ`): the inertia of
+    the total density in all steps (the density perturbation passed as ``rho_field`` to ``Propagators``), the variable
+    links of ``nonlin_sound`` and ``mom_adv`` (created in the ``Propagators`` of the model) and the scalars of the
+    nonlinear energy. Must come before the linear model in the bases."""
+
+    GAMMA = 5 / 3
+
+    def _propagator_args(self):
+        """:meta private:"""
+        return {**super()._propagator_args(), "rho_field": self.mhd.density}
+
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
+        self.propagators.nonlin_sound.variables.u = self.mhd.velocity
+        self.propagators.nonlin_sound.variables.q = self.mhd.sqrt_p
+
+        self.propagators.mom_adv.variables.n = self.mhd.density
+        self.propagators.mom_adv.variables.u = self.mhd.velocity
+
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        # the energy of the linear model is replaced by the energy of the perturbation of the full system
+        scalars.pop("en_tot")
+        scalars["en_U"] = FunctionScalarFEEC(self._compute_en_U)
+        scalars["en_q2"] = BilinearEnergyFEEC(
+            self.mhd.sqrt_p, bilinear_form_name="M3", normalization=2 / (self.GAMMA - 1)
+        )
+        scalars["en_internal"] = FunctionScalarFEEC(self._compute_en_internal)
+        scalars["en_tot"] = FunctionScalarFEEC(self._compute_en_tot)
+        return scalars
+
+    def post_allocate(self):
+        """:meta private:"""
+        super().post_allocate()
+        self._kinetic_mass = VelocityMass(
+            Propagator.derham,
+            Propagator.domain,
+            Propagator.mass_ops,
+            Propagator.projected_equil,
+            rho_field=self.mhd.density,
+        )
+        self._tmp_u: BlockVector = self.mhd.velocity.spline.vector.space.zeros()
+        # linear form of q0 in V3, for int 2 q0 q
+        self._M3_q0 = Propagator.mass_ops.M3.dot(Propagator.projected_equil.q3)
+
+    def _compute_en_U(self):
+        self._kinetic_mass.update()
+        u = self.mhd.velocity.spline.vector
+        return u.inner(self._kinetic_mass.M.dot(u, out=self._tmp_u)) / 2
+
+    def _compute_en_internal(self):
+        q = self.mhd.sqrt_p.spline.vector
+        q2 = q.inner(Propagator.mass_ops.M3.dot(q))
+        return (2 * q.inner(self._M3_q0) + q2) / (self.GAMMA - 1)
+
+    def _compute_en_tot(self):
+        en_tot = self._compute_en_U() + self._compute_en_internal()
+        if hasattr(self, "em_fields"):
+            en_tot += self._compute_en_B_tot() - self._compute_en_B_eq()
+        return en_tot

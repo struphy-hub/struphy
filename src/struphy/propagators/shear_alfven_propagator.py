@@ -8,6 +8,7 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
+from struphy.feec.density_weighted import VelocityMass
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.schur_solver import SchurSolver
@@ -76,6 +77,12 @@ class ShearAlfvenPropagator(Propagator):
     - ``algo="explicit"``: explicit Runge-Kutta method of the semi-discrete system, with the tableau
       ``Options.butcher`` (:class:`~struphy.ode.utils.ButcherTableau`); each stage inverts
       :math:`\mathbb M^\alpha_{\rho_0}` with ``Options.solver``.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``u_space="Hdiv"``): the inertia is that of the total density, :math:`\mathbb M^2_{\rho_0} \to \mathbb
+    M^2_\rho`, :math:`\rho = \rho_0 + \tilde \rho^n` (:class:`~struphy.feec.density_weighted.VelocityMass`, assembled
+    at :math:`t^n`; the density does not change in this step, so the energy is still conserved exactly). The
+    preconditioners are still built from :math:`\mathbb M^2_{\rho_0}`.
     """
 
     class Variables:
@@ -114,8 +121,18 @@ class ShearAlfvenPropagator(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self):
+    def __init__(self, rho_field: FEECVariable = None):
+        r"""
+        Parameters
+        ----------
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, only with ``Options.u_space="Hdiv"``). If ``None``, the
+            inertia is that of :math:`\rho_0`.
+        """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
         self.variables = self.Variables()
+        self.rho_field = rho_field
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -217,8 +234,20 @@ class ShearAlfvenPropagator(Propagator):
         id_M = "M" + self.derham.space_to_form[u_space] + "n"
         id_T = "T" + self.derham.space_to_form[u_space]
 
-        # call operators
-        _A = getattr(self.mass_ops, id_M)
+        # call operators (with rho_field: the mass matrix of the total density, assembled in __call__)
+        assert self.rho_field is None or u_space == "Hdiv", 'rho_field needs Options(u_space="Hdiv").'
+        self._velocity_mass = (
+            VelocityMass(
+                self.derham,
+                self.domain,
+                self.mass_ops,
+                self.projected_equil if self.rho_field is not None else None,
+                rho_field=self.rho_field,
+            )
+            if u_space == "Hdiv"
+            else None
+        )
+        _A = getattr(self.mass_ops, id_M) if self._velocity_mass is None else self._velocity_mass.M
         _T = getattr(self.basis_ops, id_T)
         _M2 = self.mass_ops.M2
         curl = self.derham.curl
@@ -328,6 +357,10 @@ class ShearAlfvenPropagator(Propagator):
         # current FE coeffs
         un = self.variables.u.spline.vector
         bn = self.variables.b.spline.vector
+
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
 
         if self.options.algo == "implicit":
             # preconditioner for the current time step (no-op unless dt changed since the setup)
