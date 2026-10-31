@@ -161,3 +161,41 @@ def test_vlasov_kernel_coverage():
         vlasov_maxwell,
     ):
         assert kernel.has_cuda, kernel.name
+
+
+# the kernels of the propagators of LinearMHDVlasovCC and LinearMHDVlasovPC (both matrix_free settings, every u space)
+HYBRID_6D_KERNELS = {
+    "struphy.pic.pushing.kernels": (
+        "push_eta_stage",
+        "push_vxb_analytic",
+        "push_vxb_implicit",
+        "push_bxu_Hcurl",
+        "push_bxu_Hdiv",
+        "push_bxu_H1vec",
+        "push_pc_eta_stage_Hcurl",
+        "push_pc_eta_stage_Hdiv",
+        "push_pc_eta_stage_H1vec",
+        "push_pc_GXu",
+        "push_pc_GXu_full",
+    ),
+    "struphy.pic.accumulation.kernels": (
+        "cc_lin_mhd_6d_1",
+        "cc_lin_mhd_6d_1_mf",
+        "marker_operator_asym_dot",
+        "cc_lin_mhd_6d_2",
+        "cc_lin_mhd_6d_2_mf",
+        "marker_operator_symm_dot",
+        "pc_lin_mhd_6d",
+        "pc_lin_mhd_6d_full",
+        "pc_lin_mhd_6d_mf",
+        "marker_operator_pressure_dot",
+    ),
+}
+
+
+@pytest.mark.mpi_skip
+def test_hybrid_6d_kernel_coverage():
+    """Every particle kernel of LinearMHDVlasovCC and LinearMHDVlasovPC has a device kernel."""
+    for package, names in HYBRID_6D_KERNELS.items():
+        for name in names:
+            assert DECLARED[package][name].has_cuda, name

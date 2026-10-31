@@ -21,6 +21,8 @@ from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.tests.kernel_test_args import (
     BOUNDARY_CONDITIONS,
+    DERHAM_CELLS,
+    DERHAM_DEGREE,
     N_ANALYTIC_DOMAINS,
     N_GEOMETRY_DOMAINS,
     N_MARKERS,
@@ -394,6 +396,220 @@ def eval_magnetic_energy_PBb_args(domain):
     )
 
 
+# ---------------------------------------------------------------- hybrid MHD-kinetic 6D kernels (current and pressure coupling)
+
+# the three spaces of u, by the basis_u argument of the accumulation kernels
+U_SPACES = ("H1vec", "Hcurl", "Hdiv")
+
+
+def hybrid_6d_markers(domain):
+    """Markers of :func:`marker_arguments` (marker 0 a hole, marker 1 a boundary particle) in domain `domain` of
+    geometry_domain()."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    return args_markers, geometry_domain(domain).args_domain
+
+
+def accumulation_blocks(n):
+    """`n` zeroed blocks of stencil matrix data for :func:`derham_arguments`, large enough for every space: N-splines
+    (``8 + p`` functions) plus padding ``p`` on both sides per axis, and ``2 p + 1`` diagonals."""
+    degree = np.array(DERHAM_DEGREE)
+    shape = tuple(DERHAM_CELLS + 3 * degree) + tuple(2 * degree + 1)
+    return tuple(xp.zeros(shape) for _ in range(n))
+
+
+def accumulation_vectors(n):
+    """`n` zeroed stencil vector data arrays, large enough for every span of :func:`derham_arguments`."""
+    return tuple(xp.zeros((18, 20, 16)) for _ in range(n))
+
+
+# (index into geometry_domain(), boundary_cut): the GC_DOMAINS, with and without markers in the boundary cut
+BXU_CASES = tuple((domain, 0.1 if n % 2 == 0 else 0.0) for n, domain in enumerate(GC_DOMAINS))
+
+
+def push_bxu_args(case):
+    domain, boundary_cut = case
+    return (0.2, 0, *hybrid_6d_markers(domain), derham_arguments(), *spline_coefficients(n=6, seed=60), boundary_cut)
+
+
+def push_pc_GXu_args(domain):
+    return (0.2, 0, *hybrid_6d_markers(domain), derham_arguments(), *spline_coefficients(n=9, seed=61))
+
+
+# Unlike push_eta_stage, push_pc_eta_stage (pyccel, and the CUDA version alike) does not skip markers reflected in an
+# earlier stage (first_pusher_idx == -1): their later stages start from eta = (-1, ...) and leave the domain. On the
+# analytic mappings both versions still agree there; the spline mapping, evaluated far outside its knots, amplifies
+# round-off to 1e-6. Reflecting boundaries are therefore tested on the analytic mappings only.
+REFLECT_DOMAINS = tuple(domain for domain in GC_DOMAINS if domain < N_ANALYTIC_DOMAINS)
+
+
+def pc_eta_stage_domain(n, bc):
+    """Domain of case `n`: cycling through GC_DOMAINS, or through REFLECT_DOMAINS for reflecting boundaries."""
+    domains = REFLECT_DOMAINS if 1 in bc else GC_DOMAINS
+    return domains[n % len(domains)]
+
+
+# (boundary conditions, Butcher method, stage, index into geometry_domain(), use_perp_model)
+PC_ETA_STAGE_CASES = tuple(
+    (bc, method, stage, pc_eta_stage_domain(n, bc), n % 2 == 0)
+    for n, (bc, method, stage) in enumerate(
+        (bc, method, stage)
+        for bc in BOUNDARY_CONDITIONS
+        for method in ("forward_euler", "rk4")
+        for stage in range(ButcherTableau(method).n_stages)
+    )
+)
+
+# time step of push_pc_eta_stage: the random U and the velocities give logical velocities of order 10
+PC_ETA_DT = 0.01
+
+
+def push_pc_eta_stage_args(space):
+    """The cases of push_pc_eta_stage_<space>: each stage is reached independently on each backend."""
+
+    def build(case):
+        import importlib
+
+        name = f"push_pc_eta_stage_{space}"
+        kernel = getattr(importlib.import_module(f"struphy.pic.pushing.kernels.{name}"), name)
+        bc, method, stage, domain, use_perp_model = case
+        args_markers, _ = marker_arguments(bc)
+        args = (
+            args_markers,
+            geometry_domain(domain).args_domain,
+            derham_arguments(),
+            *spline_coefficients(n=3, seed=62),
+            use_perp_model,
+            *butcher_arguments(method)[:3],
+        )
+        # one thread per marker, as Pusher launches it
+        for previous in range(stage):
+            kernel(PC_ETA_DT, previous, *args, n_threads=args[0].n_markers)
+        return (PC_ETA_DT, stage, *args)
+
+    return build
+
+
+# (basis_u, index into geometry_domain(), boundary_cut)
+CC_6D_CASES = tuple(
+    (basis_u, domain, 0.1 if n % 2 == 0 else 0.0)
+    for n, (basis_u, domain) in enumerate((basis_u, domain) for basis_u in range(3) for domain in GC_DOMAINS)
+)
+
+
+def cc_lin_mhd_6d_1_args(case):
+    basis_u, domain, boundary_cut = case
+    return (
+        *hybrid_6d_markers(domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *accumulation_blocks(3),
+        *spline_coefficients(n=3, seed=63),
+        basis_u,
+        0.37,
+        boundary_cut,
+    )
+
+
+def cc_lin_mhd_6d_2_args(case):
+    basis_u, domain, boundary_cut = case
+    return (
+        *hybrid_6d_markers(domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *accumulation_blocks(6),
+        *accumulation_vectors(3),
+        *spline_coefficients(n=3, seed=64),
+        basis_u,
+        0.37,
+        0.8,
+        boundary_cut,
+    )
+
+
+def cc_lin_mhd_6d_1_mf_args(case):
+    """The fillings go to the free marker columns 18 to 20 (as first_free_idx) or 20 to 22."""
+    basis_u, domain, boundary_cut = case
+    return (
+        *hybrid_6d_markers(domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *spline_coefficients(n=3, seed=63),
+        basis_u,
+        0.37,
+        boundary_cut,
+        18 if domain % 2 == 0 else 20,
+    )
+
+
+def cc_lin_mhd_6d_2_mf_args(case):
+    """The fillings go to the free marker columns 18 to 23."""
+    basis_u, domain, boundary_cut = case
+    return (
+        *hybrid_6d_markers(domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *accumulation_vectors(3),
+        *spline_coefficients(n=3, seed=64),
+        basis_u,
+        0.37,
+        0.8,
+        boundary_cut,
+        18,
+    )
+
+
+# the pressure-coupling accumulation has 36 matrix blocks; three domains (diagonal, non-diagonal, spline Jacobian)
+PC_DOMAINS = (0, 9, 12)
+
+
+def pc_lin_mhd_6d_args(domain):
+    return (
+        *hybrid_6d_markers(domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *accumulation_blocks(36),
+        *accumulation_vectors(9),
+        0.37,
+    )
+
+
+# (n_v, index into geometry_domain())
+PC_MF_CASES = tuple((n_v, domain) for n_v in (2, 3) for domain in GC_DOMAINS)
+
+
+def pc_lin_mhd_6d_mf_args(case):
+    """The fillings go to the free marker columns 18 to 23."""
+    n_v, domain = case
+    return (
+        *hybrid_6d_markers(domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *accumulation_vectors(9),
+        0.37,
+        n_v,
+        18,
+    )
+
+
+# (basis_u, first of the six marker columns of the filling); column 19 reads the last marker column
+MARKER_OPERATOR_SYMM_CASES = ((0, 18), (1, 18), (2, 18), (1, 19))
+
+
+def marker_operator_pressure_dot_args(n_v):
+    """The filling data of the pressure-coupling MarkerOperator in the (random) marker columns 18 to 23, applied to
+    random 1-form coefficients s_1, s_2, s_3."""
+    args_markers, args_domain = marker_arguments((0, 0, 0))
+    return (
+        args_markers,
+        derham_arguments(),
+        args_domain,
+        *accumulation_vectors(9),
+        *spline_coefficients(n=9, seed=65),
+        n_v,
+        18,
+    )
+
+
 # ---------------------------------------------------------------- accumulation
 
 
@@ -708,6 +924,40 @@ PARITY_CASES = {
     # one thread per marker (column of the markers)
     "eval_magnetic_energy_PBb": ParityCases(
         (0, 5, 12), eval_magnetic_energy_PBb_args, n_threads=columns_of(0), **PUSHER_TOLERANCES
+    ),
+    # hybrid MHD-kinetic 6D (LinearMHDVlasovCC and LinearMHDVlasovPC), one thread per marker
+    **{
+        f"push_bxu_{space}": ParityCases(BXU_CASES, push_bxu_args, n_threads=markers_of(2), **GEOMETRY_TOLERANCES)
+        for space in U_SPACES
+    },
+    "push_pc_GXu": ParityCases(GC_DOMAINS, push_pc_GXu_args, n_threads=markers_of(2), **GEOMETRY_TOLERANCES),
+    "push_pc_GXu_full": ParityCases(GC_DOMAINS, push_pc_GXu_args, n_threads=markers_of(2), **GEOMETRY_TOLERANCES),
+    **{
+        f"push_pc_eta_stage_{space}": ParityCases(
+            PC_ETA_STAGE_CASES, push_pc_eta_stage_args(space), n_threads=markers_of(2), **GEOMETRY_TOLERANCES
+        )
+        for space in U_SPACES
+    },
+    # atomics add in another order than the serial loop (entries reach 1e3 on the spline mapping)
+    "cc_lin_mhd_6d_1": ParityCases(CC_6D_CASES, cc_lin_mhd_6d_1_args, n_threads=markers_of(0), rtol=1e-10, atol=1e-10),
+    "cc_lin_mhd_6d_2": ParityCases(CC_6D_CASES, cc_lin_mhd_6d_2_args, n_threads=markers_of(0), rtol=1e-10, atol=1e-10),
+    "pc_lin_mhd_6d": ParityCases(PC_DOMAINS, pc_lin_mhd_6d_args, n_threads=markers_of(0), rtol=1e-10, atol=1e-10),
+    "pc_lin_mhd_6d_full": ParityCases(PC_DOMAINS, pc_lin_mhd_6d_args, n_threads=markers_of(0), rtol=1e-10, atol=1e-10),
+    # matrix-free: the fillings go to marker columns (no atomics), the vectors are accumulated atomically
+    "cc_lin_mhd_6d_1_mf": ParityCases(
+        CC_6D_CASES, cc_lin_mhd_6d_1_mf_args, n_threads=markers_of(0), **GEOMETRY_TOLERANCES
+    ),
+    "cc_lin_mhd_6d_2_mf": ParityCases(
+        CC_6D_CASES, cc_lin_mhd_6d_2_mf_args, n_threads=markers_of(0), rtol=1e-10, atol=1e-10
+    ),
+    "pc_lin_mhd_6d_mf": ParityCases(
+        PC_MF_CASES, pc_lin_mhd_6d_mf_args, n_threads=markers_of(0), rtol=1e-10, atol=1e-10
+    ),
+    "marker_operator_symm_dot": ParityCases(
+        MARKER_OPERATOR_SYMM_CASES, marker_operator_dot_args, n_threads=markers_of(0), rtol=1e-12, atol=1e-12
+    ),
+    "marker_operator_pressure_dot": ParityCases(
+        (2, 3), marker_operator_pressure_dot_args, n_threads=markers_of(0), rtol=1e-12, atol=1e-12
     ),
     # atomics add in another order than the serial loop
     "charge_density_0form": ParityCases(
