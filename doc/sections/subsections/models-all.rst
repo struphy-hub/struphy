@@ -132,6 +132,67 @@ new terms of the equations and inherits its species, propagators and scalars (se
     :undoc-members:
     :show-inheritance:
 
+Maxwell Family
+--------------
+
+Maxwell's equations and their extensions by plasma currents. Each model extends its parent by new terms of the
+equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
+
+* :class:`~struphy.models.Maxwell`
+
+  * :class:`~struphy.models.ColdPlasma`
+
+    * :class:`~struphy.models.ColdPlasmaVlasov`
+
+.. autoclass:: struphy.models.Maxwell
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.ColdPlasma
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.ColdPlasmaVlasov
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+SPH Family
+----------
+
+Fluid models discretized with smoothed particle hydrodynamics (SPH). Each model extends its parent by new terms of
+the equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
+
+* :class:`~struphy.models.ColdEulerSPH`
+
+  * :class:`~struphy.models.EulerSPH`
+
+    * :class:`~struphy.models.ViscousEulerSPH`
+
+  * :class:`~struphy.models.IncompressibleNavierStokesSPH`
+
+.. autoclass:: struphy.models.ColdEulerSPH
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.EulerSPH
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.ViscousEulerSPH
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.IncompressibleNavierStokesSPH
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
 Other models
 ------------
 
@@ -186,27 +247,7 @@ MHD
 Multi-fluid
 ^^^^^^^^^^^
 
-.. autoclass:: struphy.models.ColdPlasma
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
 .. autoclass:: struphy.models.TwoFluidQuasiNeutralToy
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.PressureLessSPH
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.ViscousEulerSPH
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.IncompressibleNavierStokesSPH
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
@@ -232,14 +273,6 @@ Multi-fluid
     :show-inheritance:
 
 .. autoclass:: struphy.models.VariationalPressurelessFluid
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-Fluid-kinetic hybrids
-^^^^^^^^^^^^^^^^^^^^^
-
-.. autoclass:: struphy.models.ColdPlasmaVlasov
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
@@ -271,11 +304,6 @@ Pure fields
     :show-inheritance:
 
 .. autoclass:: struphy.models.GyrokineticPoisson
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.Maxwell
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
