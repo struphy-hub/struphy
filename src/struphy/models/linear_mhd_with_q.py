@@ -43,6 +43,8 @@ class LinearMHDWithQ(MagneticFieldMixin, LinearEulerWithQ):
             Space of the magnetic field, ``"Hdiv"`` or ``"Hcurl"`` (default: ``"Hdiv"``).
         projected : bool
             Projected curl-curl shear-Alfvén step, only with ``b_space="Hcurl"`` (default: False).
+        rho_field : FEECVariable, optional
+            Density perturbation, for the inertia of the total density (perturbative models; default: None).
         **kwargs
             Passed to :class:`LinearEulerWithQ.Propagators <struphy.models.LinearEulerWithQ.Propagators>`.
         """
@@ -57,10 +59,11 @@ class LinearMHDWithQ(MagneticFieldMixin, LinearEulerWithQ):
             b_field: FEECVariable = None,
             b_space: str = "Hdiv",
             projected: bool = False,
+            rho_field: FEECVariable = None,
             **kwargs,
         ):
-            super().__init__(**kwargs)
-            add_magnetic_propagators(self, b_field=b_field, b_space=b_space, projected=projected)
+            super().__init__(rho_field=rho_field, **kwargs)
+            add_magnetic_propagators(self, b_field=b_field, b_space=b_space, projected=projected, rho_field=rho_field)
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     em_fields: MagneticFieldMixin.EMFields

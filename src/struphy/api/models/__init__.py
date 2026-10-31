@@ -25,6 +25,8 @@ from struphy.models.linear_vlasov_maxwell_one_species import (
     LinearVlasovMaxwellOneSpecies,
 )
 from struphy.models.maxwell import Maxwell
+from struphy.models.perturbative_euler_with_q import PerturbativeEulerWithQ
+from struphy.models.perturbative_mhd_with_q import PerturbativeMHDWithQ
 from struphy.models.poisson import Poisson
 from struphy.models.pressure_less_sph import PressureLessSPH
 from struphy.models.random_particle_diffusion import RandomParticleDiffusion
@@ -70,6 +72,8 @@ __all__ = [
     "LinearMHDVlasovCC",
     "LinearMHDVlasovPC",
     "LinearMHDWithQ",
+    "PerturbativeEulerWithQ",
+    "PerturbativeMHDWithQ",
     "LinearVlasovAmpereOneSpecies",
     "LinearVlasovMaxwellOneSpecies",
     "Maxwell",

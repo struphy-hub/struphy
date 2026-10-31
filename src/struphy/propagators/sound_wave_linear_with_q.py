@@ -6,6 +6,7 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
+from struphy.feec.density_weighted import VelocityMass
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
@@ -87,6 +88,14 @@ class SoundWaveLinearWithQ(Propagator):
         \mathbf q^{n+1} = \mathbf q^n - \frac{\gamma \Delta t}{4} (\mathbb M^3)^{-1} \mathbb M^3_{q_0} \mathbb D (\mathbf u^{n+1} + \mathbf u^n)\,,
         \qquad
         \mathbf n^{n+1} = \mathbf n^n - \frac{\Delta t}{2} \mathbb D \mathbb Q^2 (\mathbf u^{n+1} + \mathbf u^n)\,.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`): the
+    inertia is that of the total density, :math:`\rho_0 \to \rho = \rho_0 + \tilde\rho^n` in the momentum equation,
+    i.e. :math:`\mathbb M^2_{\rho_0} \to \mathbb M^2_{\rho}` (:class:`~struphy.feec.density_weighted.VelocityMass`,
+    assembled at :math:`t^n`, with the coefficients ``projected_equil.n3`` of :math:`\rho_0`), and the density is not
+    advanced (the continuity equation is in :class:`~struphy.propagators.momentum_advection.MomentumAdvection`). The
+    step then conserves :math:`\frac 12 \mathbf u^\top \mathbb M^2_\rho \mathbf u + \frac{2}{\gamma} \mathbf q^\top
+    \mathbb M^3 \mathbf q` exactly. The preconditioner is still built from :math:`\mathbb M^2_{\rho_0}`.
     """
 
     class Variables:
@@ -137,8 +146,18 @@ class SoundWaveLinearWithQ(Propagator):
             assert new.space == "L2"
             self._q = new
 
-    def __init__(self):
+    def __init__(self, rho_field: FEECVariable = None):
+        r"""
+        Parameters
+        ----------
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` and the density is not advanced (perturbative models). If ``None``, the inertia
+            is that of :math:`\rho_0` and the density perturbation (variable ``n``) is advanced (linear models).
+        """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
         self.variables = self.Variables()
+        self.rho_field = rho_field
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -202,7 +221,10 @@ class SoundWaveLinearWithQ(Propagator):
     def allocate(self):
         self._info = self.options.solver_params.info
 
-        _A = self.mass_ops.M2n
+        self._velocity_mass = VelocityMass(
+            self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=self.rho_field
+        )
+        _A = self._velocity_mass.M
         _M3 = self.mass_ops.M3
         _M3q0 = self.mass_ops.M3q0
         div = self.derham.div
@@ -230,7 +252,7 @@ class SoundWaveLinearWithQ(Propagator):
         if self.options.precond is None:
             pc = None
         else:
-            pc = getattr(preconditioner, self.options.precond)(_A)
+            pc = getattr(preconditioner, self.options.precond)(self.mass_ops.M2n)
 
         self._schur_solver = SchurSolver(
             _A,
@@ -254,6 +276,9 @@ class SoundWaveLinearWithQ(Propagator):
         un = self.variables.u.spline.vector
         qn = self.variables.q.spline.vector
 
+        # inertia of the total density at t^n (perturbative models)
+        self._velocity_mass.update()
+
         # solve for new u coeffs
         byn = self._B.dot(qn, out=self._byn)
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
@@ -265,11 +290,14 @@ class SoundWaveLinearWithQ(Propagator):
         qn1 *= -dt
         qn1 += qn
 
-        nn1 = self._DQ.dot(_u, out=self._n_tmp1)
-        nn1 *= -dt / 2
-        nn1 += nn
-
-        diffs = self.update_feec_variables(n=nn1, u=un1, q=qn1)
+        if self._velocity_mass.weighted:
+            diffs = self.update_feec_variables(u=un1, q=qn1)
+            diffs["n"] = 0.0
+        else:
+            nn1 = self._DQ.dot(_u, out=self._n_tmp1)
+            nn1 *= -dt / 2
+            nn1 += nn
+            diffs = self.update_feec_variables(n=nn1, u=un1, q=qn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             info_M3 = self._M3_inv.get_info()

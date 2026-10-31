@@ -30,6 +30,8 @@ _LAZY_IMPORTS = {
     "LinearVlasovAmpereOneSpecies": "struphy.models.linear_vlasov_ampere_one_species",
     "LinearVlasovMaxwellOneSpecies": "struphy.models.linear_vlasov_maxwell_one_species",
     "Maxwell": "struphy.models.maxwell",
+    "PerturbativeEulerWithQ": "struphy.models.perturbative_euler_with_q",
+    "PerturbativeMHDWithQ": "struphy.models.perturbative_mhd_with_q",
     "Poisson": "struphy.models.poisson",
     "PressureLessSPH": "struphy.models.pressure_less_sph",
     "RandomParticleDiffusion": "struphy.models.random_particle_diffusion",
@@ -77,6 +79,8 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
     from struphy.models.linear_vlasov_maxwell_one_species import LinearVlasovMaxwellOneSpecies
     from struphy.models.maxwell import Maxwell
+    from struphy.models.perturbative_euler_with_q import PerturbativeEulerWithQ
+    from struphy.models.perturbative_mhd_with_q import PerturbativeMHDWithQ
     from struphy.models.poisson import Poisson
     from struphy.models.pressure_less_sph import PressureLessSPH
     from struphy.models.random_particle_diffusion import RandomParticleDiffusion
@@ -123,6 +127,8 @@ __all__ = [
     "LinearVlasovAmpereOneSpecies",
     "LinearVlasovMaxwellOneSpecies",
     "Maxwell",
+    "PerturbativeEulerWithQ",
+    "PerturbativeMHDWithQ",
     "Poisson",
     "PressureLessSPH",
     "RandomParticleDiffusion",

@@ -6,6 +6,7 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
+from struphy.feec.density_weighted import VelocityMass
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
@@ -56,6 +57,11 @@ class BackgroundCurrent(Propagator):
         \mathbf u^{n+1} = \mathbf u^n + \Delta t \, (\mathbb M^2_{\rho_0})^{-1} \mathbb M_{J_0} \mathbf b\,,
 
     where :math:`(\mathbb M^2_{\rho_0})^{-1}` is applied with ``Options.solver`` and ``Options.precond``.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`): the
+    inertia is that of the total density, :math:`\mathbb M^2_{\rho_0} \to \mathbb M^2_\rho`, :math:`\rho = \rho_0 +
+    \tilde \rho^n` (:class:`~struphy.feec.density_weighted.VelocityMass`, assembled at :math:`t^n`; the step is still
+    exact in time, since the density does not change in it).
     """
 
     class Variables:
@@ -80,10 +86,13 @@ class BackgroundCurrent(Propagator):
             assert new.space == "Hdiv"
             self._u = new
 
-    def __init__(self, b_field: FEECVariable = None):
+    def __init__(self, b_field: FEECVariable = None, rho_field: FEECVariable = None):
         r"""
         Parameters
         ----------
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models). If ``None``, the inertia is that of :math:`\rho_0`.
         b_field : FEECVariable, default=None
             Magnetic field perturbation (not updated), as a 2-form (``"Hdiv"`` space) or a 1-form (``"Hcurl"`` space).
             If ``None``, an empty ``FEECVariable(space="Hdiv")`` is created and allocated internally.
@@ -91,7 +100,9 @@ class BackgroundCurrent(Propagator):
             and must already be allocated when :meth:`allocate` is called; it is not re-allocated.
         """
         assert b_field is None or b_field.space in ("Hcurl", "Hdiv"), "b_field must be in Hcurl or Hdiv."
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
         self.variables = self.Variables()
+        self.rho_field = rho_field
         self.b_field = b_field if b_field is not None else FEECVariable(space="Hdiv")
         self._allocate_b_field = b_field is None
 
@@ -147,8 +158,11 @@ class BackgroundCurrent(Propagator):
             pc = None
         else:
             pc = getattr(preconditioner, self.options.precond)(self.mass_ops.M2n)
+        self._velocity_mass = VelocityMass(
+            self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=self.rho_field
+        )
         self._M2n_inv = inverse(
-            self.mass_ops.M2n,
+            self._velocity_mass.M,
             self.options.solver,
             pc=pc,
             tol=self.options.solver_params.tol,
@@ -167,6 +181,9 @@ class BackgroundCurrent(Propagator):
     @profile
     def __call__(self, dt):
         un = self.variables.u.spline.vector
+
+        # inertia of the total density at t^n (perturbative models)
+        self._velocity_mass.update()
 
         force = self._MJ.dot(self._b, out=self._u_tmp1)
         un1 = self._M2n_inv.dot(force, out=self._u_tmp2)
