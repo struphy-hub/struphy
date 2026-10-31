@@ -8,8 +8,17 @@ from struphy.models.base import StruphyModel
 logger = logging.getLogger("struphy")
 
 
+# renamed models (old name -> new name), so that old run metadata and parameter files still find their model
+RENAMED_MODELS = {
+    "PressureLessSPH": "ColdEulerSPH",
+}
+
+
 # TODO: These utils should be classmethod of the model baseclass!
 def get_model_by_name(model_name: str) -> type[StruphyModel]:
+    if model_name in RENAMED_MODELS:
+        logger.warning(f"The model {model_name} has been renamed to {RENAMED_MODELS[model_name]}.")
+        model_name = RENAMED_MODELS[model_name]
     try:
         model_class: StruphyModel = getattr(models, model_name)
         if not issubclass(model_class, StruphyModel):
