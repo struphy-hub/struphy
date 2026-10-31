@@ -69,7 +69,10 @@ class EulerSPH(ColdEulerSPH):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "saving_params = " in line:
+                if "time_opts = Time()" in line:
+                    # the explicit SPH pressure step is unstable for the default dt=0.01 (blow-up in 3 steps)
+                    new_file += ["time_opts = Time(dt=0.001, Tend=0.003)\n"]
+                elif "saving_params = " in line:
                     new_file += ["\nkd_plot = KernelDensityPlot()\n"]
                     new_file += ["saving_params = SavingParameters(kernel_density_plots=(kd_plot,))\n\n"]
                 elif "sorting_params = " in line:
