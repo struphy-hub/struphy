@@ -51,7 +51,7 @@ python params_two_stream.py
 python pproc_two_stream.py
 ```
 
-![Two-stream instability: phase space of the electrons at t = 0, 25 and 50](doc/pics/readme_two_stream.png)
+![Two-stream instability: phase space of the electrons at t = 0, 25 and 50](https://raw.githubusercontent.com/struphy-hub/struphy/main/doc/pics/readme_two_stream.png)
 
 *Two-stream instability: the electron distribution function f(x, v) at t = 0, 25 and 50, computed with the model [VlasovAmpereOneSpecies](https://struphy-hub.github.io/models/vlasov-ampere-one-species/) in a FEEC-PIC discretization (particle-in-cell markers for the electrons, finite element exterior calculus splines for the electric field). Two counter-streaming beams roll up into a phase-space vortex.*
 
@@ -87,7 +87,7 @@ The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), 
 - [Available models](https://struphy-hub.github.io/struphy/sections/models.html)
 - [Numerical methods](https://struphy-hub.github.io/struphy/sections/numerics.html)
 
-The same doc is also on [Read the Docs](https://struphy.readthedocs.io/en/latest/), which also has the doc pages of older Struphy versions, starting from 3.1.0 (version menu of Read the Docs). The Read the Docs build does not compile Struphy and therefore does not execute all the notebooks in the doc (e.g. the tutorials): since the notebooks are stored without outputs, most of them appear there without any outputs. The GitHub pages build executes them.
+The same doc is also on [Read the Docs](https://struphy.readthedocs.io/en/latest/), which also has the doc pages of older Struphy versions, starting from 3.1.0 (version menu of Read the Docs). The Read the Docs build does not execute the notebooks in the doc (e.g. the tutorials): they appear there without any outputs. The GitHub pages build executes them.
 
 ## Example: solve Maxwell’s equations
 
@@ -136,7 +136,7 @@ sim = Simulation(
 sim.show_domain(scalars="absB0", window_size = (850, 250), zoom_factor=2.0)
 ```
 
-![](README_files/figure-commonmark/cell-2-output-1.png)
+![](https://raw.githubusercontent.com/struphy-hub/struphy/main/README_files/figure-commonmark/cell-2-output-1.png)
 
 This will show the domain and equilibrium magnetic field of the linear MHD model. You can find more examples in the [documentation](https://struphy-hub.github.io/struphy/index.html).
 
