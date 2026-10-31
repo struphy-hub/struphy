@@ -1,5 +1,6 @@
 import cunumpy as xp
 import pytest
+from maybempi import MPI
 
 from struphy import EnvironmentOptions, Simulation, Time, equils, perturbations
 from struphy.io.options import DerhamOptions
@@ -15,10 +16,10 @@ from struphy.topology import grids
 TOL = 1e-13
 
 
-def allocate_model(tmp_path, name, equil, split_sound=True, b_space="Hdiv", bcs=None, noise=True):
+def allocate_model(tmp_path, name, equil, b_space="Hdiv", bcs=None, noise=True):
     """A LinearMHD model with a velocity and pressure perturbation (noise, or smooth modes), allocated in the unit cube,
     with tight solver tolerances."""
-    model = LinearMHD(b_space=b_space, split_sound=split_sound)
+    model = LinearMHD(b_space=b_space)
     if noise:
         for comp in range(3):
             model.mhd.velocity.add_perturbation(
@@ -37,11 +38,8 @@ def allocate_model(tmp_path, name, equil, split_sound=True, b_space="Hdiv", bcs=
         model.mhd.pressure.add_perturbation(perturbations.ModesCos(ms=(1,), ns=(1,), given_in_basis="3", amps=(1e-2,)))
 
     props = model.propagators
-    if split_sound:
-        props.sound.options = SoundWaveLinear.Options(solver_params=SolverParameters(tol=TOL))
-        props.bg_current.options = BackgroundCurrent.Options(solver_params=SolverParameters(tol=TOL))
-    else:
-        props.mag_sonic.options = Magnetosonic.Options(solver_params=SolverParameters(tol=TOL))
+    props.sound.options = SoundWaveLinear.Options(solver_params=SolverParameters(tol=TOL))
+    props.bg_current.options = BackgroundCurrent.Options(solver_params=SolverParameters(tol=TOL))
     props.shear_alf.options = props.shear_alf.Options(solver_params=SolverParameters(tol=TOL))
 
     sim = Simulation(
@@ -54,6 +52,18 @@ def allocate_model(tmp_path, name, equil, split_sound=True, b_space="Hdiv", bcs=
     )
     sim.allocate()
     return model
+
+
+def magnetosonic(model):
+    """The (unsplit) magnetosonic step of the variables of an allocated LinearMHD model, which no longer contains it,
+    with tight solver tolerances."""
+    mag_sonic = Magnetosonic(b_field=model.em_fields.b_field)
+    mag_sonic.variables.n = model.mhd.density
+    mag_sonic.variables.u = model.mhd.velocity
+    mag_sonic.variables.p = model.mhd.pressure
+    mag_sonic.options = Magnetosonic.Options(solver_params=SolverParameters(tol=TOL))
+    mag_sonic.allocate()
+    return mag_sonic
 
 
 def sound_energy(model):
@@ -74,9 +84,8 @@ def test_options():
         SoundWaveLinear.Options(precond="NoSuchPreconditioner")
     with pytest.raises(AssertionError):
         SoundWaveLinear().variables.u = LinearMHD().mhd.pressure
-    model = LinearMHD(split_sound=True)
-    assert not hasattr(model.propagators, "mag_sonic")
-    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "sound", "bg_pressure"]
+    model = LinearMHD()
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
     assert model.propagators.bg_pressure.u_field is model.mhd.velocity
     assert model.propagators.bg_current.b_field is model.em_fields.b_field
 
@@ -114,7 +123,7 @@ def test_agrees_with_magnetosonic(tmp_path):
     equil = equils.HomogenSlab(B0x=0.3, B0z=1.0, beta=2.0, n0=0.7)
     dt = 0.3
 
-    model = allocate_model(tmp_path, "split", equil, split_sound=True, noise=False)
+    model = allocate_model(tmp_path, "split", equil, noise=False)
     # a non-zero magnetic field perturbation, on which J0 = 0 exerts no force
     b = model.mhd.velocity.spline.vector.copy(out=model.em_fields.b_field.spline.vector)
     b.update_ghost_regions()
@@ -127,8 +136,8 @@ def test_agrees_with_magnetosonic(tmp_path):
     model.propagators.sound(dt)
     split = [var.spline.vector.toarray().copy() for var in (model.mhd.density, model.mhd.velocity, model.mhd.pressure)]
 
-    model = allocate_model(tmp_path, "combined", equil, split_sound=False, noise=False)
-    model.propagators.mag_sonic(dt)
+    model = allocate_model(tmp_path, "combined", equil, noise=False)
+    magnetosonic(model)(dt)
     combined = [var.spline.vector.toarray() for var in (model.mhd.density, model.mhd.velocity, model.mhd.pressure)]
 
     for name, a, b in zip(("n", "u", "p"), split, combined):
@@ -157,25 +166,43 @@ def _set_b_from_u(model):
     b.update_ghost_regions()
 
 
+class _Scaled:
+    """A propagator called with a fraction of the time step."""
+
+    def __init__(self, prop, fraction):
+        self.prop = prop
+        self.fraction = fraction
+
+    def __call__(self, dt):
+        self.prop(self.fraction * dt)
+
+
+def _group(model):
+    """The symmetric (Strang) block of the compressional steps of LinearMHD: bg_current(dt/2) bg_pressure(dt/2)
+    sound(dt) bg_pressure(dt/2) bg_current(dt/2)."""
+    props = model.propagators
+    half = (_Scaled(props.bg_current, 0.5), _Scaled(props.bg_pressure, 0.5))
+    return half + (props.sound,) + half[::-1]
+
+
 def test_split_agrees_with_magnetosonic_inhomogeneous(tmp_path):
-    """In a sheared slab (grad p0 != 0, J0 != 0, rho0 non-uniform), one small step of the split propagators
-    (background current, sound wave, background pressure gradient) changes u and p like the magnetosonic step, up to
-    the difference of the spatial discretizations (weak vs. projected pressure equation) and O(dt^2). The background
-    steps contribute much more than this difference, so a wrong sign or operator in them fails the test."""
+    """In a sheared slab (grad p0 != 0, J0 != 0, rho0 non-uniform), one small step of the symmetric block of the split
+    propagators (background current, background pressure gradient, sound wave) changes u and p like the magnetosonic
+    step, up to the difference of the spatial discretizations (weak vs. projected pressure equation) and O(dt^3). The
+    background steps contribute much more than this difference, so a wrong sign or operator in them fails the test."""
     equil = equils.ShearedSlab(beta=1.0, n1=2.0, n2=1.0, na=0.5, R0=1.0)
     bcs = (("free", "free"), None, None)
     dt = 1e-3
 
-    model = allocate_model(tmp_path, "split_inhom", equil, split_sound=True, bcs=bcs, noise=False)
+    model = allocate_model(tmp_path, "split_inhom", equil, bcs=bcs, noise=False)
     _set_b_from_u(model)
-    props = model.propagators
-    du_s, dp_s, single = _changes(model, (props.bg_current, props.sound, props.bg_pressure), dt)
-    du_current = single[0][0]
-    dp_gradient = single[2][1]
+    du_s, dp_s, single = _changes(model, _group(model), dt)
+    du_current = single[0][0] + single[4][0]
+    dp_gradient = single[1][1] + single[3][1]
 
-    model = allocate_model(tmp_path, "combined_inhom", equil, split_sound=False, bcs=bcs, noise=False)
+    model = allocate_model(tmp_path, "combined_inhom", equil, bcs=bcs, noise=False)
     _set_b_from_u(model)
-    du_c, dp_c, _ = _changes(model, (model.propagators.mag_sonic,), dt)
+    du_c, dp_c, _ = _changes(model, (magnetosonic(model),), dt)
 
     def rel(a, b):
         return xp.max(xp.abs(a)) / xp.max(xp.abs(b))
@@ -187,9 +214,48 @@ def test_split_agrees_with_magnetosonic_inhomogeneous(tmp_path):
     assert contrib_u > 4 * diff_u and contrib_p > 4 * diff_p
 
 
+def test_group_second_order_inhomogeneous(tmp_path):
+    """Self-convergence in dt of the symmetric block of the compressional steps of LinearMHD (strang_groups) in a
+    sheared slab (grad p0 != 0, J0 != 0, the steps do not commute): second order in time. (The first order of the
+    Lie-Trotter sequence of the three steps shows at larger time steps, e.g. in the frequency of the TAE of the
+    LinearMHD example lowmode_tae at dt = 1.)"""
+    equil = equils.ShearedSlab(beta=1.0, n1=2.0, n2=1.0, na=0.5, R0=1.0)
+    model = allocate_model(tmp_path, "order", equil, bcs=(("free", "free"), None, None), noise=False)
+    _set_b_from_u(model)
+    assert [name for name, _ in model.propagator_calls(1.0)][1:] == [
+        "bg_current",
+        "bg_pressure",
+        "sound",
+        "bg_pressure",
+        "bg_current",
+    ]
+    u, p = model.mhd.velocity.spline.vector, model.mhd.pressure.spline.vector
+    u0, p0 = u.copy(), p.copy()
+    T = 0.01
+
+    def final(steps):
+        u0.copy(out=u)
+        p0.copy(out=p)
+        u.update_ghost_regions()
+        p.update_ghost_regions()
+        for _ in range(steps):
+            for prop in _group(model):
+                prop(T / steps)
+        return xp.concatenate((u.toarray(), p.toarray()))
+
+    finals = [final(steps) for steps in (2, 4, 8, 16)]
+    comm = MPI.COMM_WORLD
+    diffs = [float(xp.max(xp.abs(a - b))) for a, b in zip(finals[:-1], finals[1:])]
+    if comm.Get_size() > 1:
+        diffs = [comm.allreduce(d, op=MPI.MAX) for d in diffs]
+    rates = [float(xp.log2(d0 / d1)) for d0, d1 in zip(diffs[:-1], diffs[1:])]
+    print(f"{diffs = }, {rates = }")
+    assert all(abs(rate - 2) < 0.15 for rate in rates)
+
+
 @pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
 def test_split_model_energy_homogeneous(tmp_path, b_space):
-    """LinearMHD(split_sound=True) conserves the total perturbed energy in a homogeneous slab (the background steps
+    """LinearMHD conserves the total perturbed energy in a homogeneous slab (the background steps
     vanish, the shear-Alfven and sound wave steps are energy conserving; with b_space="Hcurl" the default unprojected
     shear-Alfven step damps, so only the energy change of the other steps is checked there)."""
     equil = equils.HomogenSlab(B0x=0.3, B0z=1.0, beta=2.0, n0=0.7)

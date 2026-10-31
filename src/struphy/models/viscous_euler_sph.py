@@ -114,7 +114,10 @@ class ViscousEulerSPH(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "push_vxb.Options" in line:
+                if "time_opts = Time()" in line:
+                    # the explicit SPH pressure step is unstable for the default dt=0.01 (blow-up in 3 steps)
+                    new_file += ["time_opts = Time(dt=0.001, Tend=0.003)\n"]
+                elif "push_vxb.Options" in line:
                     new_file += ["if model.with_B0:\n"]
                     new_file += ["    " + line]
                 elif "saving_params = " in line:

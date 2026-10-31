@@ -6,6 +6,7 @@ import pytest
 import struphy.models.utils as models_utils
 from struphy.models.base import StruphyModel
 from struphy.models.tests import utils_testing as ut
+from struphy.models.tests.regression import utils_regression as ur
 
 logger = logging.getLogger("struphy")
 
@@ -38,47 +39,48 @@ def test_all_models_expose_new_doc_api():
             )
 
 
+def _call_tests(models: list, update_baselines: bool, test_profiling: bool):
+    """Test all models with default arguments; report the regression mismatches of all models at the end."""
+    mismatches = []
+    for model in models:
+        try:
+            ut.call_test(model=model(), test_profiling=test_profiling, update_baselines=update_baselines)
+        except ur.RegressionMismatch as e:
+            mismatches.append(str(e))
+        except Exception as e:
+            # don't lose the mismatches of the models before
+            if mismatches:
+                raise ur.RegressionMismatch("\n\n".join(mismatches + [f"{model.__name__} raised {e!r}"])) from e
+            raise
+    if mismatches:
+        raise ur.RegressionMismatch("\n\n".join(mismatches))
+
+
 # specific tests
 
 
 @pytest.mark.models
 @pytest.mark.toy
-def test_toy(test_profiling: bool = True):
-    for model in models_utils.get_models(model_type="Toy"):
-        ut.call_test(
-            model=model(),
-            test_profiling=test_profiling,
-        )
+def test_toy(update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Toy"), update_baselines, test_profiling)
 
 
 @pytest.mark.models
 @pytest.mark.fluid
-def test_fluid(test_profiling: bool = True):
-    for model in models_utils.get_models(model_type="Fluid"):
-        ut.call_test(
-            model=model(),
-            test_profiling=test_profiling,
-        )
+def test_fluid(update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Fluid"), update_baselines, test_profiling)
 
 
 @pytest.mark.models
 @pytest.mark.kinetic
-def test_kinetic(test_profiling: bool = True):
-    for model in models_utils.get_models(model_type="Kinetic"):
-        ut.call_test(
-            model=model(),
-            test_profiling=test_profiling,
-        )
+def test_kinetic(update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Kinetic"), update_baselines, test_profiling)
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
-def test_hybrid(test_profiling: bool = True):
-    for model in models_utils.get_models(model_type="Hybrid"):
-        ut.call_test(
-            model=model(),
-            test_profiling=test_profiling,
-        )
+def test_hybrid(update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Hybrid"), update_baselines, test_profiling)
 
 
 @pytest.mark.models
@@ -101,7 +103,7 @@ def test_variational_mhd_with_p_default_options(tmp_path):
 @pytest.mark.parametrize("perturbative_model", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
 @pytest.mark.parametrize("crank_nicolson", [False, True])
 def test_variational_perturbative_linear(
-    perturbative_model: str, crank_nicolson: bool, tmp_path, test_profiling: bool = True
+    perturbative_model: str, crank_nicolson: bool, tmp_path, update_baselines: bool, test_profiling: bool = True
 ):
     """The linear version (linear=True) of the perturbative models, with the Picard propagators or with one linear
     solve per substep (crank_nicolson=True): the default parameter file keeps the flags and sets the linear variants
@@ -133,14 +135,19 @@ def test_variational_perturbative_linear(
         assert not unsplit_model.params["split_sound"] and unsplit_model.params["linear"]
         assert unsplit_model.propagators.variat_qb.options.model == "linear_q"
 
-    ut.call_test(model=model, test_profiling=test_profiling)
+    ut.call_test(
+        model=model,
+        test_profiling=test_profiling,
+        case=f"{perturbative_model}-linear-crank_nicolson={crank_nicolson}",
+        update_baselines=update_baselines,
+    )
 
 
 @pytest.mark.models
 @pytest.mark.fluid
 @pytest.mark.parametrize("model_cls_name", ["ShearAlfven", "LinearMHD"])
 @pytest.mark.parametrize("projected", [False, True])
-def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path):
+def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, update_baselines: bool):
     """The H(curl) discretizations of the shear-Alfven models: the flags survive the generated parameter file."""
     from struphy.io.setup import import_parameters_py
 
@@ -150,31 +157,34 @@ def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path):
     params_model = import_parameters_py(path).model
     assert params_model.params["b_space"] == "Hcurl" and params_model.params["projected"] == projected
     assert params_model.em_fields.b_field.space == "Hcurl"
-    ut.call_test(model=model)
+    ut.call_test(
+        model=model,
+        case=f"{model_cls_name}-b_space=Hcurl-projected={projected}",
+        update_baselines=update_baselines,
+    )
 
 
 @pytest.mark.models
 @pytest.mark.fluid
 @pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
-def test_linear_mhd_split_sound(b_space: str, tmp_path):
-    """LinearMHD with the split magnetosonic step: the flag survives the generated parameter file, which has the
-    split propagators."""
+def test_linear_mhd_inherits_linear_euler(b_space: str, tmp_path):
+    """LinearMHD inherits the propagators of LinearEuler (sound wave and background pressure steps), in the
+    splitting order shear_alf, bg_current, bg_pressure, sound, also in the generated parameter file."""
     from struphy.io.setup import import_parameters_py
 
-    model = models_utils.get_model_by_name("LinearMHD")(b_space=b_space, split_sound=True)
+    model = models_utils.get_model_by_name("LinearMHD")(b_space=b_space)
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
     path = os.path.join(tmp_path, "params_LinearMHD.py")
     model.generate_default_parameter_file(path=path, prompt=False)
     params_model = import_parameters_py(path).model
-    assert params_model.params["split_sound"] and params_model.params["b_space"] == b_space
-    assert not hasattr(params_model.propagators, "mag_sonic")
-    for name in ("bg_current", "sound", "bg_pressure"):
-        assert hasattr(params_model.propagators, name)
-    ut.call_test(model=model)
+    assert params_model.params["b_space"] == b_space
+    assert list(vars(params_model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
 
 
 @pytest.mark.single
 def test_single_model(
     model_name: str,
+    update_baselines: bool,
     test_profiling: bool = True,
 ):
     logger.info(f"{model_name = }")
@@ -182,10 +192,11 @@ def test_single_model(
     ut.call_test(
         model=model(),
         test_profiling=test_profiling,
+        update_baselines=update_baselines,
     )
 
 
 if __name__ == "__main__":
-    test_toy()
-    test_fluid()
-    test_single_model("Maxwell")
+    test_toy(update_baselines=False)
+    test_fluid(update_baselines=False)
+    test_single_model("Maxwell", update_baselines=False)

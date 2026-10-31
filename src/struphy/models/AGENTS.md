@@ -23,6 +23,27 @@ Before adding a model, search the `doc_pde` of the existing models for the same 
   switched off is a different model; express it by inheritance as above.
 See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
 
+## Model families (check these first)
+
+Models whose equations extend those of another model are organized in families: a parent model and children that
+inherit from it and add terms (propagators). **Whenever a user wants to implement a new model, first check whether
+its equations are those of a family member plus new terms.** If so, tell the user which family (and parent) it fits
+and **ask whether to add it to that family** as a child, before writing code. The families (sections of
+`doc/sections/subsections/models-all.rst`):
+
+- **Vlasov family**: `Vlasov` → `VlasovAmpereOneSpecies` → `VlasovMaxwellOneSpecies`; `Vlasov` →
+  `VlasovPoissonAdiabatic` → `VlasovPoissonAdiabaticPauli`; `Vlasov` → `VlasovPauli`; `Vlasov` →
+  `VlasovMaxwellQuasiNeutral`; `Vlasov` → `LinearVlasovAmpereOneSpecies` → `LinearVlasovMaxwellOneSpecies`.
+- **Guiding-center family**: `GuidingCenter` → `DriftKineticElectrostaticAdiabatic`; `GuidingCenter` →
+  `DriftKineticMaxwell`.
+- **LinearEuler family** (zero-flow equilibrium): `LinearEuler` → `LinearMHD` → `LinearMHDVlasovCC`,
+  `LinearMHDVlasovPC`, `LinearMHDDriftkineticCC` (hybrid models with energetic ions).
+
+A parent model is the base of everything below it, so it must be well tested: verification tests against analytic
+results (dispersion relations, exact solutions in a curvilinear geometry such as `Colella`), conservation properties
+and the convergence order of the time stepping. When a new family is created, add it to this list and to
+`models-all.rst`.
+
 ## Required structure (`StruphyModel` in `base.py`)
 
 - **Species** as inner classes subclassing `FieldSpecies`, `FluidSpecies`, `ParticleSpecies` or `DiagnosticSpecies`
@@ -32,6 +53,12 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
 - **`Propagators`** inner class. Its `__init__` creates propagator instances as attributes. **The attribute order is
   the splitting order** used by Lie-Trotter/Strang, unless `Propagators` defines a tuple `splitting_order` with the
   names of all propagators (class attribute, or set in `__init__`); `apply_splitting_order` in `base.py` reorders them.
+  Consecutive propagators that do not commute but must stay second order in time (e.g. steps that are exact in time
+  each, such as the background steps around `sound` in the LinearEuler family) can be listed in the class attribute
+  `strang_groups` (tuple of tuples of names): each group is one block of the splitting, integrated symmetrically with
+  its last member in the middle (`splitting_blocks` in `base.py`). With plain Lie-Trotter sequencing such steps can
+  give wrong frequencies at large time steps. `strang_groups` is inherited by the `Propagators` of child models:
+  a child that inserts a propagator into a group (or reorders its members) must override it.
 - **`__init__`**, with the numbered steps:
   0. `self._store_params(locals())`. All constructor arguments need defaults, and only
      bool/int/float/str/tuple/list/None/`BaseUnits` values survive serialization;
@@ -100,16 +127,27 @@ See "Models are defined by their equations" in `doc/sections/dev_guide.rst`.
 
 ## Tests and examples
 
-- The generic model tests (`src/struphy/models/tests/default_params/test_models.py`, marker `models` plus
+- The generic model tests (`src/struphy/models/tests/regression/test_models.py`, marker `models` plus
   `toy`/`fluid`/`kinetic`/`hybrid`) pick up every model automatically. They build `model()` with default
   arguments, generate the default params file (Cuboid domain, default `Options()` of every propagator),
   check serialization round-trips, run a simulation and a restart. So **the model must run with every propagator's
   default options**. Run one model with:
   ```bash
-  pytest -m single --model-name <Name> src/struphy/models/tests/default_params/
-  mpirun -n 2 python -m pytest -p no:xdist --with-mpi -m single --model-name <Name> src/struphy/models/tests/default_params/
+  pytest -m single --model-name <Name> src/struphy/models/tests/regression/
+  mpirun -n 2 python -m pytest -p no:xdist --with-mpi -m single --model-name <Name> src/struphy/models/tests/regression/
   ```
-  Use `-n 4` instead if the model has particles.
+- These are regression tests: the run (before the restart) is compared with `rtol=1e-6` against the baseline
+  `src/struphy/models/tests/regression/baselines/<case>.json` (scalar time series, norms of the FE coefficients,
+  marker sums), with one entry for 1 and one for 2 MPI ranks. Random marker loading and noise are seeded in the test.
+  A new model, or a new model variant tested with its own `case`, needs a baseline; a change of the numbers
+  (bug fix, new default) needs an update of the baselines. Create or update them with `--update-baselines`:
+  ```bash
+  pytest -m single --model-name <Name> --update-baselines src/struphy/models/tests/regression/
+  mpirun -n 2 python -m pytest -p no:xdist --with-mpi -m single --model-name <Name> --update-baselines src/struphy/models/tests/regression/
+  ```
+  (or `-m models` for all models). Commit the JSON files, and explain in the PR description why the numbers changed.
+  Never update a baseline only to make a failing test pass without understanding the change.
+  The baselines exist for 1 and 2 ranks; runs on more ranks (e.g. `-n 4` for particle models) are not compared.
 - `struphy params <Name>` must produce a valid `params_<Name>.py`.
 - Add a verification test against an analytic or reference result where possible, and where the test is not too expensive. Name it:
   `src/struphy/models/tests/verification/test_verif_<Name>.py` (e.g. `test_verif_Maxwell.py`). It is collected by folder.
