@@ -270,7 +270,7 @@ filter_params = FilterParameters(use_filter=None if args.filter == "none" else a
 props = model.propagators
 props.push_bxe.options = props.push_bxe.Options(algo="discrete_gradient_2nd_order")
 props.push_parallel.options = props.push_parallel.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
-props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params)
+props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params, precond="MassMatrixPreconditioner")
 props.cc5d_gradb.options = props.cc5d_gradb.Options(filter_params=filter_params)
 # (CurrentCoupling5DDensity accumulates no vector: nothing to filter)
 props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)
