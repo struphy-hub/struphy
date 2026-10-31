@@ -90,9 +90,9 @@ def push_eta_stage_args(case):
 
     bc, method, stage = case
     args = (*marker_arguments(bc), *butcher_arguments(method))
-    # reach this stage independently on each backend
+    # reach this stage independently on each backend (one thread per marker, as Pusher launches it)
     for previous in range(stage):
-        push_eta_stage(0.2, previous, *args)
+        push_eta_stage(0.2, previous, *args, n_threads=args[0].n_markers)
     return (0.2, stage, *args)
 
 
@@ -131,6 +131,266 @@ def bstar_parallel_3form_args(case):
         derham_arguments(),
         0.37,
         *spline_coefficients(n=2, seed=23),
+    )
+
+
+# ---------------------------------------------------------------- guiding-centre (5D) kernels
+
+# Cuboid, Colella, HollowTorus, ShafranovDshapedCylinder (non-diagonal DF) and a 3d spline mapping, by index into
+# geometry_domain()
+GC_DOMAINS = (0, 2, 5, 9, 12)
+# IGAPolarCylinder: a mapping with a pole at eta1 = 0, for the regular position update (args_markers.pole)
+POLE_DOMAIN = 10
+
+
+def offset_coefficients(n, seed, offset):
+    """`n` random coefficient arrays (as :func:`spline_coefficients`) plus `offset`: fields such as B, b_0 and
+    B . b keep away from zero, so that B*_parallel, by which the guiding-centre kernels divide, is well conditioned."""
+    return tuple(c + offset for c in spline_coefficients(n=n, seed=seed))
+
+
+# time step of the guiding-centre pushers: the random test fields give logical velocities of order 10, so markers
+# move by about 0.05 per step; with larger steps the later Runge-Kutta stages are evaluated far from the marker, where
+# round-off differences of the earlier stages are amplified beyond the tolerances
+GC_DT = 0.005
+
+
+def gc_marker_arguments(bc, domain, pole=False):
+    """Markers of :func:`marker_arguments` in domain `domain` of geometry_domain(): marker 0 is a hole, marker 1 a
+    boundary particle, marker 3 is refilled (first_pusher_idx == -1, skipped by kernels that check it) and
+    marker 4 has no shift (eta^{n+1,k} = eta^n, the zero-distance branch of the discrete gradient). With a pole, the
+    markers keep eta1 >= 0.1, away from the singular Jacobian at the pole."""
+    args_markers, _ = marker_arguments(bc, pole=pole)
+    markers = args_markers.markers
+    if pole:
+        markers[0, 1:] = 0.1 + 0.8 * markers[0, 1:]
+        markers[8, 1:] = markers[0, 1:]
+    markers[8, 3] = -1.0
+    markers[14:17, 4] = 0.0
+    # Hamiltonians at n and (n+1, k) of the discrete-gradient pushers
+    markers[18:20, 2:] = xp.asarray(np.random.default_rng(15).normal(size=(2, N_MARKERS - 2)))
+    return args_markers, geometry_domain(domain).args_domain
+
+
+# guiding-centre evaluation: the evaluation point at the new position, the old one and in between (alpha), with and
+# without the electric potential, two output columns. (index into BSTAR_PARALLEL_ALPHAS, output column, evaluate_e_field)
+DRIFTKINETIC_HAMILTONIAN_CASES = tuple((n % 3, 19 if n % 2 == 0 else 24, n < 3) for n in range(6))
+
+
+def driftkinetic_hamiltonian_args(case):
+    alpha, output_column, evaluate_e_field = case
+    args_markers, _ = marker_arguments((0, 0, 0))
+    args_markers.markers[8, 0] = -0.75  # eta_n[0] = mod(-0.75, 1.0) = 0.25
+    args_markers.markers[0, 2] = -1.0  # a hole: pyccel tests markers[0, ip] == -1, not valid_mks
+    return (
+        xp.asarray(BSTAR_PARALLEL_ALPHAS[alpha]),
+        xp.asarray([output_column], dtype=np.int64),
+        args_markers,
+        geometry_domain(0).args_domain,
+        derham_arguments(),
+        0.37,
+        *spline_coefficients(n=2, seed=24),
+        evaluate_e_field,
+    )
+
+
+# (boundary conditions, index into geometry_domain(), evaluate_e_field)
+PUSH_GC_BXESTAR_DG_2ND_CASES = tuple(
+    (bc, domain, n % 2 == 0) for n, (bc, domain) in enumerate((bc, d) for bc in BOUNDARY_CONDITIONS for d in GC_DOMAINS)
+)
+
+
+def push_gc_bxEstar_discrete_gradient_2nd_order_args(case):
+    bc, domain, evaluate_e_field = case
+    return (
+        GC_DT,
+        0,
+        *gc_marker_arguments(bc, domain),
+        derham_arguments(),
+        0.37,
+        *spline_coefficients(n=6, seed=25),  # unit_b1, grad_b_full
+        *offset_coefficients(1, 26, 5.0),  # B_dot_b
+        *spline_coefficients(n=4, seed=27),  # curl_unit_b_dot_b0, e_field
+        evaluate_e_field,
+    )
+
+
+# (boundary conditions, Butcher method, stage, index into geometry_domain(), pole, evaluate_e_field)
+GC_STAGE_CASES = tuple(
+    (bc, method, stage, GC_DOMAINS[n % len(GC_DOMAINS)], False, n % 2 == 0)
+    for n, (bc, method, stage) in enumerate(
+        (bc, method, stage)
+        for bc in BOUNDARY_CONDITIONS
+        for method in ("forward_euler", "rk4")
+        for stage in range(ButcherTableau(method).n_stages)
+    )
+) + tuple(((0, 0, 0), "rk4", stage, POLE_DOMAIN, True, stage % 2 == 0) for stage in range(4))
+
+
+def push_gc_Bstar_explicit_multistage_args(case):
+    from struphy.pic.pushing.kernels.push_gc_Bstar_explicit_multistage import push_gc_Bstar_explicit_multistage
+
+    bc, method, stage, domain, pole, evaluate_e_field = case
+    args = (
+        *gc_marker_arguments(bc, domain, pole=pole),
+        derham_arguments(),
+        0.37,
+        *spline_coefficients(n=3, seed=28),  # grad_b_full
+        *offset_coefficients(3, 29, 3.0),  # b2
+        *spline_coefficients(n=3, seed=30),  # curl_unit_b2
+        *offset_coefficients(1, 31, 5.0),  # B_dot_b
+        *spline_coefficients(n=4, seed=32),  # curl_unit_b_dot_b0, e_field
+        evaluate_e_field,
+        *butcher_arguments(method)[:3],
+    )
+    # reach this stage independently on each backend (one thread per marker, as Pusher launches it)
+    for previous in range(stage):
+        push_gc_Bstar_explicit_multistage(GC_DT, previous, *args, n_threads=args[0].n_markers)
+    return (GC_DT, stage, *args)
+
+
+def gc_coupling_fields(seed):
+    """B (2-form), b_0 (1-form), both offset so that B*_parallel = b_0 . (B + epsilon v curl b_0) stays away from zero,
+    and curl b_0 (2-form): the nine coefficient arrays of the current-coupling kernels."""
+    return (
+        *offset_coefficients(3, seed, 3.0),
+        *offset_coefficients(3, seed + 1, 1.0),
+        *spline_coefficients(3, seed + 2),
+    )
+
+
+def push_gc_cc_J1_Hdiv_args(domain):
+    return (
+        GC_DT,
+        0,
+        *gc_marker_arguments((0, 0, 0), domain),
+        derham_arguments(),
+        0.37,
+        *gc_coupling_fields(33),
+        *spline_coefficients(n=3, seed=36),  # u
+    )
+
+
+def push_gc_cc_J2_stage_Hdiv_args(case):
+    from struphy.pic.pushing.kernels.push_gc_cc_J2_stage_Hdiv import push_gc_cc_J2_stage_Hdiv
+
+    bc, method, stage, domain, pole, _ = case
+    args = (
+        *gc_marker_arguments(bc, domain, pole=pole),
+        derham_arguments(),
+        0.37,
+        *gc_coupling_fields(37),
+        *spline_coefficients(n=3, seed=40),  # u
+        *butcher_arguments(method)[:3],
+    )
+    # reach this stage independently on each backend (one thread per marker, as Pusher launches it)
+    for previous in range(stage):
+        push_gc_cc_J2_stage_Hdiv(GC_DT, previous, *args, n_threads=args[0].n_markers)
+    return (GC_DT, stage, *args)
+
+
+def gc_mag_density_0form_args(scale):
+    args_markers, args_domain = marker_arguments((0, 0, 0))
+    return (args_markers, derham_arguments(), args_domain, xp.zeros((18, 20, 16)), scale)
+
+
+# (basis_u, index into geometry_domain(), first marker column of the filling)
+CC_LIN_MHD_5D_D_MF_CASES = tuple(
+    (basis_u, domain, 19 if n % 2 == 0 else 21)
+    for n, (basis_u, domain) in enumerate((basis_u, domain) for basis_u in (0, 1, 2) for domain in GC_DOMAINS)
+)
+
+
+def cc_lin_mhd_5d_D_mf_args(case):
+    basis_u, domain, column = case
+    return (
+        *gc_marker_arguments((0, 0, 0), domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        0.37,
+        0.8,
+        *gc_coupling_fields(41),
+        basis_u,
+        column,
+    )
+
+
+# (basis_u, index into geometry_domain(), first marker column of the filling)
+CC_LIN_MHD_5D_CURLB_MF_CASES = tuple(
+    (basis_u, domain, 19 if n % 2 == 0 else 20)
+    for n, (basis_u, domain) in enumerate((basis_u, domain) for basis_u in (0, 2) for domain in GC_DOMAINS)
+)
+
+
+def cc_lin_mhd_5d_curlb_mf_args(case):
+    basis_u, domain, column = case
+    return (
+        *gc_marker_arguments((0, 0, 0), domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *(xp.zeros((18, 20, 16)) for _ in range(3)),
+        0.37,
+        0.8,
+        *gc_coupling_fields(44),
+        basis_u,
+        column,
+    )
+
+
+# (basis_u, index into geometry_domain())
+CC_LIN_MHD_5D_GRADB_CASES = tuple((basis_u, domain) for basis_u in (0, 2) for domain in GC_DOMAINS)
+
+
+def cc_lin_mhd_5d_gradB_args(case):
+    basis_u, domain = case
+    return (
+        *gc_marker_arguments((0, 0, 0), domain)[:1],
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        *(xp.zeros((18, 20, 16)) for _ in range(3)),
+        0.37,
+        0.8,
+        *gc_coupling_fields(47),
+        *spline_coefficients(n=6, seed=50),  # grad_PB, grad_PBeq
+        basis_u,
+    )
+
+
+# (basis_u, first marker column of the filling)
+MARKER_OPERATOR_CASES = ((0, 19), (1, 20), (2, 19), (1, 19))
+
+
+def marker_operator_dot_args(case):
+    """The filling data of :class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator` in the (random) marker
+    columns from `column`, applied to random coefficients s of the space `basis_u`."""
+    basis_u, column = case
+    args_markers, args_domain = marker_arguments((0, 0, 0))
+    return (
+        args_markers,
+        derham_arguments(),
+        args_domain,
+        *(xp.zeros((18, 20, 16)) for _ in range(3)),
+        *spline_coefficients(n=3, seed=53),
+        basis_u,
+        column,
+    )
+
+
+def eval_magnetic_energy_PBb_args(domain):
+    """129 markers in domain `domain` of geometry_domain(): marker 0 is a hole, markers 1 and 2 have positions outside
+    [0, 1) (evaluated at mod(eta, 1)); the result goes to the diagnostics column."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    markers = args_markers.markers
+    markers[0, 1] = 1.3
+    markers[1, 2] = -0.4
+    return (
+        markers,
+        derham_arguments(),
+        geometry_domain(domain).args_domain,
+        args_markers.first_diagnostics_idx,
+        args_markers.mu_idx,
+        *offset_coefficients(1, 56, 2.0),  # abs_B0
+        *spline_coefficients(n=1, seed=57),  # PBb
     )
 
 
@@ -403,6 +663,51 @@ PARITY_CASES = {
         bstar_parallel_3form_args,
         n_threads=markers_of(2),
         **GEOMETRY_TOLERANCES,
+    ),
+    # guiding-centre (5D) pushers and evaluation, one thread per marker
+    "driftkinetic_hamiltonian": ParityCases(
+        DRIFTKINETIC_HAMILTONIAN_CASES, driftkinetic_hamiltonian_args, n_threads=markers_of(2), **PUSHER_TOLERANCES
+    ),
+    "push_gc_bxEstar_discrete_gradient_2nd_order": ParityCases(
+        PUSH_GC_BXESTAR_DG_2ND_CASES,
+        push_gc_bxEstar_discrete_gradient_2nd_order_args,
+        n_threads=markers_of(2),
+        **GEOMETRY_TOLERANCES,
+    ),
+    # B*_parallel nearly vanishes for a marker of the spline mapping, whose v_parallel grows to 1e4 in the last RK4
+    # stage; reflecting its (vdim = 3) velocity then cancels terms of 1e4 (atol for cancelling sums)
+    "push_gc_Bstar_explicit_multistage": ParityCases(
+        GC_STAGE_CASES, push_gc_Bstar_explicit_multistage_args, n_threads=markers_of(2), rtol=1e-10, atol=1e-8
+    ),
+    "push_gc_cc_J1_Hdiv": ParityCases(
+        GC_DOMAINS, push_gc_cc_J1_Hdiv_args, n_threads=markers_of(2), **GEOMETRY_TOLERANCES
+    ),
+    "push_gc_cc_J2_stage_Hdiv": ParityCases(
+        GC_STAGE_CASES, push_gc_cc_J2_stage_Hdiv_args, n_threads=markers_of(2), **GEOMETRY_TOLERANCES
+    ),
+    # guiding-centre (5D) accumulation: atomics add in another order than the serial loop
+    "gc_mag_density_0form": ParityCases(
+        (1.0, 0.37), gc_mag_density_0form_args, n_threads=markers_of(0), rtol=1e-12, atol=1e-13
+    ),
+    # writes marker columns only (no atomics)
+    "cc_lin_mhd_5d_D_mf": ParityCases(
+        CC_LIN_MHD_5D_D_MF_CASES, cc_lin_mhd_5d_D_mf_args, n_threads=markers_of(0), **GEOMETRY_TOLERANCES
+    ),
+    "cc_lin_mhd_5d_curlb_mf": ParityCases(
+        CC_LIN_MHD_5D_CURLB_MF_CASES, cc_lin_mhd_5d_curlb_mf_args, n_threads=markers_of(0), rtol=1e-10, atol=1e-10
+    ),
+    "cc_lin_mhd_5d_gradB": ParityCases(
+        CC_LIN_MHD_5D_GRADB_CASES, cc_lin_mhd_5d_gradB_args, n_threads=markers_of(0), rtol=1e-10, atol=1e-10
+    ),
+    "marker_operator_asym_dot": ParityCases(
+        MARKER_OPERATOR_CASES, marker_operator_dot_args, n_threads=markers_of(0), rtol=1e-12, atol=1e-12
+    ),
+    "marker_operator_rank1_dot": ParityCases(
+        MARKER_OPERATOR_CASES, marker_operator_dot_args, n_threads=markers_of(0), rtol=1e-12, atol=1e-12
+    ),
+    # one thread per marker (column of the markers)
+    "eval_magnetic_energy_PBb": ParityCases(
+        (0, 5, 12), eval_magnetic_energy_PBb_args, n_threads=columns_of(0), **PUSHER_TOLERANCES
     ),
     # atomics add in another order than the serial loop
     "charge_density_0form": ParityCases(
