@@ -150,6 +150,25 @@ def test_energy_conservation_linear_steps_with_density(tmp_path):
     assert xp.max(xp.abs(model.mhd.density.spline.vector.toarray() - n0)) == 0.0
 
 
+def test_density_sign_check(tmp_path, caplog):
+    """HdivDensityOperators.update_density reports the minimum of the total density at the quadrature points and warns
+    (once) when it is non-positive."""
+    import logging
+
+    allocate_model(tmp_path, "sign")
+    ops = HdivDensityOperators(Propagator.derham, Propagator.domain, Propagator.mass_ops)
+    rho = Propagator.projected_equil.n3.copy()
+    ops.update_density(rho)
+    assert ops.min_density > 0.0
+    rho *= -1.0
+    with caplog.at_level(logging.WARNING, logger="struphy"):
+        ops.update_density(rho)
+        ops.update_density(rho)
+    assert ops.min_density < 0.0
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        assert caplog.text.count("non-positive") == 1
+
+
 def test_density_weighted_operators(tmp_path):
     """HdivDensityOperators: the kinetic linear form gives rho^T k(u) = u^T M_rho u exactly, the vorticity matrix is
     antisymmetric, and for a uniform density on the Cuboid M_rho equals M2n."""

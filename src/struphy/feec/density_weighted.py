@@ -1,12 +1,17 @@
 """Operators for a velocity 2-form weighted with the total density :math:`\\rho = \\rho_0 + \\tilde \\rho` of the
 perturbative models (density 3-form evolving in time), on the quadrature grid of the mass matrices."""
 
+import logging
+
 import cunumpy as xp
 from feectools.linalg.basic import Vector
+from maybempi import MPI
 
 from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+
+logger = logging.getLogger("struphy")
 
 
 class HdivDensityOperators:
@@ -29,6 +34,11 @@ class HdivDensityOperators:
     * the antisymmetric matrix :attr:`W` of the vorticity force (:meth:`update_vorticity`),
       :math:`\mathbf v^\top \mathbb W \mathbf u = \int \rho\, \mathbf v \cdot (\boldsymbol \omega \times \mathbf u)
       \,\textnormal d \mathbf x` for a vorticity 1-form :math:`\boldsymbol \omega`.
+
+    :meth:`update_density` also checks the sign of the density: the discrete transport of the density is not
+    positivity preserving, and where :math:`\rho \leq 0` at a quadrature point, :math:`\mathbb M^2_\rho` is no longer
+    positive definite (its solves can fail, and the kinetic energy is no longer a norm). The minimum of the (physical)
+    density at the quadrature points is :attr:`min_density`; a warning is logged when it becomes non-positive.
 
     Parameters
     ----------
@@ -73,6 +83,9 @@ class HdivDensityOperators:
         self._W = mass_ops.create_weighted_mass("Hdiv", "Hdiv")
         self._get_dofs_V3 = L2Projector("L2", mass_ops).get_dofs
 
+        self._min_density = None
+        self._warned_non_positive = False
+
     @property
     def M(self):
         r"""Density-weighted mass matrix :math:`\mathbb M^2_\rho` (assembled by :meth:`update_density`)."""
@@ -87,9 +100,37 @@ class HdivDensityOperators:
         self._rho_spline.vector = rho
         return self._rho_spline.eval_tp_fixed_loc(self._spans, self._bases3, out=self._rho)
 
+    @property
+    def min_density(self) -> float:
+        """Minimum of the physical density at the quadrature points (all MPI ranks) at the last :meth:`update_density`."""
+        return self._min_density
+
+    def _check_density(self, rho_values):
+        """Global minimum of the physical density rho^3 / sqrt(g) at the quadrature points, with a warning when it becomes
+        non-positive (once, until it is positive again). Collective: call on all ranks."""
+        self._tmp[:] = rho_values
+        self._tmp *= self._inv_sqrt_g
+        min_density = float(xp.min(self._tmp)) if self._tmp.size > 0 else float("inf")
+        comm = MPI.COMM_WORLD
+        if comm.Get_size() > 1:
+            min_density = comm.allreduce(min_density, op=MPI.MIN)
+        self._min_density = min_density
+        if min_density <= 0.0:
+            if not self._warned_non_positive and comm.Get_rank() == 0:
+                logger.warning(
+                    f"Total density rho0 + rho~ non-positive at quadrature points (minimum {min_density:.3e}): the "
+                    "density-weighted mass matrix is not positive definite. The density transport is not positivity "
+                    "preserving; reduce the time step or the amplitude, or refine the grid."
+                )
+            self._warned_non_positive = True
+        else:
+            self._warned_non_positive = False
+
     def update_density(self, rho: Vector):
-        r"""Assemble :attr:`M` for the density 3-form with the coefficients ``rho`` (total density)."""
+        r"""Assemble :attr:`M` for the density 3-form with the coefficients ``rho`` (total density), and check its sign
+        (:attr:`min_density`)."""
         rho_values = self._eval_rho(rho)
+        self._check_density(rho_values)
         for i in range(3):
             for j in range(3):
                 self._weights_M[i][j][:] = rho_values
