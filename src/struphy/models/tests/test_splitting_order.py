@@ -238,6 +238,99 @@ def test_linear_mhd_hybrids_in_old_metadata():
 
 
 @pytest.mark.mpi_skip
+def test_maxwell_family():
+    from struphy.models import ColdPlasma, ColdPlasmaVlasov, Maxwell
+
+    assert list(Maxwell().propagators.__dict__) == ["maxwell"]
+    model = ColdPlasmaVlasov(charge_number=-2, mass_number=0.25, alpha=3.0, epsilon=0.5, hot_epsilon=0.75)
+    assert isinstance(model, ColdPlasma) and isinstance(model, Maxwell)
+    assert list(vars(model.propagators)) == ["maxwell", "ohm", "jxb", "push_eta", "push_vxb", "coupling_va"]
+    assert list(model.species) == ["em_fields", "electrons", "hot_electrons"]
+    assert set(model.em_fields.variables) == {"e_field", "b_field", "phi"}
+    assert model.bulk_species is model.electrons
+    assert model.electrons.equation_params.alpha == 3.0 and model.electrons.equation_params.epsilon == 0.5
+    assert model.hot_electrons.equation_params.epsilon == 0.75
+    assert list(model.scalars._dct) == ["en_E", "en_B", "en_J", "en_f", "en_tot"]
+    assert list(ColdPlasma().scalars._dct) == ["en_E", "en_B", "en_J", "en_tot"]
+
+
+@pytest.mark.mpi_skip
+def test_cold_plasma_vlasov_in_old_metadata():
+    from struphy.models import ColdPlasmaVlasov
+    from struphy.models.base import StruphyModel
+
+    model = ColdPlasmaVlasov(charge_number=-2, alpha=3.0)
+    model.electrons.current.save_data = False
+    dct = model.to_dict()
+
+    # metadata written before the Maxwell family: thermal_* arguments, species thermal_elec and hot_elec
+    for name in ("charge_number", "mass_number", "alpha", "epsilon"):
+        dct["params"][f"thermal_{name}"] = dct["params"].pop(name)
+    dct["species"]["thermal_elec"] = dct["species"].pop("electrons")
+    dct["species"]["hot_elec"] = dct["species"].pop("hot_electrons")
+    restored = StruphyModel.from_dict(dct)
+    assert restored.params["charge_number"] == -2 and restored.params["alpha"] == 3.0
+    assert restored.electrons.current.save_data is False
+
+
+@pytest.mark.mpi_skip
+def test_sph_family():
+    from struphy.models import ColdEulerSPH, EulerSPH, IncompressibleNavierStokesSPH, ViscousEulerSPH
+
+    assert list(ColdEulerSPH().propagators.__dict__) == ["push_eta", "push_vxb", "push_v"]
+    model = ViscousEulerSPH()
+    assert isinstance(model, EulerSPH) and isinstance(model, ColdEulerSPH)
+    assert list(vars(model.propagators)) == ["push_eta", "push_vxb", "push_v", "push_sph_p", "push_viscous"]
+    assert list(model.species) == ["fluid"]
+    model = IncompressibleNavierStokesSPH()
+    assert not isinstance(model, EulerSPH)
+    assert list(vars(model.propagators)) == [
+        "push_eta",
+        "push_vxb",
+        "push_v",
+        "push_viscous",
+        "pressure_poisson",
+        "chorin_projection",
+    ]
+    assert model.fluid.equation_params.epsilon == 1.0
+    assert model.propagators.chorin_projection.potential is model.lagrange_multiplier.pressure
+
+
+@pytest.mark.mpi_skip
+def test_sph_models_in_old_metadata():
+    from struphy.models import ColdEulerSPH, EulerSPH, ViscousEulerSPH
+    from struphy.models.base import StruphyModel
+
+    # PressureLessSPH was renamed to ColdEulerSPH, its species cold_fluid to fluid
+    model = ColdEulerSPH(epsilon=0.5)
+    model.fluid.var.save_data = False
+    dct = model.to_dict()
+    dct["model"] = "PressureLessSPH"
+    dct["species"]["cold_fluid"] = dct["species"].pop("fluid")
+    restored = StruphyModel.from_dict(dct)
+    assert type(restored) is ColdEulerSPH
+    assert restored.params["epsilon"] == 0.5 and restored.fluid.var.save_data is False
+
+    # ViscousEulerSPH: flags with_B0, with_p and with_viscosity, species euler_fluid
+    model = ViscousEulerSPH()
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=0.5)
+    dct = model.to_dict()
+    dct["params"].update(with_B0=False, with_p=True, with_viscosity=True)
+    dct["species"]["euler_fluid"] = dct["species"].pop("fluid")
+    restored = StruphyModel.from_dict(dct)
+    assert not {"with_B0", "with_p", "with_viscosity"} & set(restored.params)
+    assert restored.propagators.push_viscous.options.mu == 0.5
+    assert isinstance(EulerSPH(), ColdEulerSPH)
+
+    # terms that were switched off can not be restored
+    for flag in ("with_p", "with_viscosity"):
+        dct["params"][flag] = False
+        with pytest.raises(ValueError, match=flag):
+            StruphyModel.from_dict(dct)
+        dct["params"][flag] = True
+
+
+@pytest.mark.mpi_skip
 def test_strang_groups_calls():
     """A group of propagators is integrated symmetrically (last member in the middle) as one block of the splitting."""
     from struphy.models import LinearEuler, LinearMHD

@@ -2,8 +2,8 @@
  "case": "ColdPlasmaVlasov",
  "ranks": {
   "1": {
-   "commit": "e6f39429",
-   "date": "2026-10-30",
+   "commit": "9d2174f5",
+   "date": "2026-10-31",
    "values": {
     "time": [
      0.0,
@@ -41,18 +41,18 @@
      6.893214628507615e+17,
      1.5186612623370244e+26
     ],
+    "feec/em_fields/phi": 3.67567577392217,
     "feec/em_fields/e_field": 264406937.646741,
     "feec/em_fields/b_field": 8.996242814112252,
-    "feec/em_fields/phi": 3.67567577392217,
-    "feec/thermal_elec/current": 4324768640103.44,
-    "markers/hot_elec/var/n": 5000,
-    "markers/hot_elec/var/sum_w": 1.100780672619598,
-    "markers/hot_elec/var/sum_w_v2": 255816289376566.28
+    "feec/electrons/current": 4324768640103.44,
+    "markers/hot_electrons/var/n": 5000,
+    "markers/hot_electrons/var/sum_w": 1.100780672619598,
+    "markers/hot_electrons/var/sum_w_v2": 255816289376566.28
    }
   },
   "2": {
-   "commit": "e6f39429",
-   "date": "2026-10-30",
+   "commit": "9d2174f5",
+   "date": "2026-10-31",
    "values": {
     "time": [
      0.0,
@@ -90,13 +90,13 @@
      6.893214628507584e+17,
      1.5186612623370214e+26
     ],
+    "feec/em_fields/phi": 3.6756757739221673,
     "feec/em_fields/e_field": 264406937.64674026,
     "feec/em_fields/b_field": 8.996242814111797,
-    "feec/em_fields/phi": 3.6756757739221673,
-    "feec/thermal_elec/current": 4324768640103.437,
-    "markers/hot_elec/var/n": 5000,
-    "markers/hot_elec/var/sum_w": 1.100780672619598,
-    "markers/hot_elec/var/sum_w_v2": 255816289376566.2
+    "feec/electrons/current": 4324768640103.437,
+    "markers/hot_electrons/var/n": 5000,
+    "markers/hot_electrons/var/sum_w": 1.100780672619598,
+    "markers/hot_electrons/var/sum_w_v2": 255816289376566.2
    }
   }
  }
