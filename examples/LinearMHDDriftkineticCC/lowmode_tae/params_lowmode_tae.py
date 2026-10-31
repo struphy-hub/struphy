@@ -14,6 +14,7 @@ from pathlib import Path
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
+# `--setup profiling` selects the setup of the profiling runs of submit_lowmode_tae_cpu_vs_gpu.py.
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
 parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
@@ -66,12 +67,25 @@ parser.add_argument(
     help="Amplitude of the initial m = 1, 2 velocity perturbation (seed of the TAE).",
 )
 parser.add_argument(
+    "--setup",
+    default="example",
+    choices=["example", "profiling"],
+    help="example: the TAE run; profiling: setup of the profiling runs profiled with scope-profiler (the grid and "
+    "markers of the flags, PROFILING_STEPS steps, no filter, no restart data, NumPy or CuPy backend).",
+)
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (num_elements = [8, 8, 4], 2000 markers) and a short run with three saved time steps, for "
     "the tests (test_examples.py).",
 )
 args, _ = parser.parse_known_args()
+profiling = args.setup == "profiling"
+# steps of the profiling setup: the first one includes one-time work (CUDA module loads, allocations)
+PROFILING_STEPS = 20
+if profiling:
+    # the accumulation filters run on the host only (pic/accumulation/filter.py), so they would stop a CuPy run
+    args.filter = "none"
 if args.test_run:
     args.num_elements = [8, 8, 4]
     args.Np = 2000
@@ -187,11 +201,20 @@ model.mhd.pressure.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=args.out_folder, save_step=4, sim_folder=args.sim_folder, max_runtime=24 * 60)
+env = EnvironmentOptions(
+    out_folders=args.out_folder,
+    save_step=4,
+    sim_folder=args.sim_folder,
+    max_runtime=24 * 60,
+    save_restart=not profiling,
+)
 
 # Time stepping
 # --test-run: the initial, a middle and a final saved time step
-time_opts = Time(dt=args.dt, Tend=2 * env.save_step * args.dt if args.test_run else args.tend)
+if profiling:
+    time_opts = Time(dt=args.dt, Tend=round(PROFILING_STEPS * args.dt, 14))
+else:
+    time_opts = Time(dt=args.dt, Tend=2 * env.save_step * args.dt if args.test_run else args.tend)
 
 # Geometry
 a, R0 = 1.0, 5.0
@@ -210,7 +233,24 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_m
 derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
 # Profiling options
-profiling_opts = ProfilingOptions(use_line_profiler=False)
+if profiling:
+    # CUDA-event device times per region on the CuPy backend
+    from maybempi import MPI, SerialMPI
+
+    gpu_timing = xp.get_backend() == "cupy"
+    # scope-profiler run label, the name of the run in the comparison plots of the profiling-data page
+    num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+    profiling_label = f"{xp.get_backend()}, {num_ranks} rank" + ("s" if num_ranks != 1 else "")
+    profiling_opts = ProfilingOptions(
+        label=profiling_label,
+        use_line_profiler=False,
+        use_gpu_timing=gpu_timing,
+        gpu_timing_backend="cupy",
+        # synchronize the device at region ends (GPU timing only)
+        **({"gpu_sync_on_exit": True} if gpu_timing else {}),
+    )
+else:
+    profiling_opts = ProfilingOptions(use_line_profiler=False)
 
 # Simulation object
 sim = Simulation(
