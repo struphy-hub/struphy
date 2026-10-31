@@ -140,6 +140,32 @@ __device__ inline void eval_2form_spline_mpi(int span1, int span2, int span3, co
                                     scratch.bd2, scratch.bn3, span1, span2, span3, form_coeffs_3, args_derham.starts);
 }
 
+/**
+ * Evaluate the three components of a vector-field spline in (H^1)^3, as in
+ * evaluation_kernels_3d.eval_vectorfield_spline_mpi.
+ *
+ * @param span1 Knot span index along the first axis (from get_spans).
+ * @param span2 Knot span index along the second axis.
+ * @param span3 Knot span index along the third axis.
+ * @param args_derham Spline degrees and start indices.
+ * @param scratch N-spline values from get_spans; pyccel reads them from args_derham.bn1, bn2, bn3.
+ * @param form_coeffs_1 Coefficients of the first component (N N N).
+ * @param form_coeffs_2 Coefficients of the second component (N N N).
+ * @param form_coeffs_3 Coefficients of the third component (N N N).
+ * @param out Output buffer for the three components.
+ */
+__device__ inline void eval_vectorfield_spline_mpi(int span1, int span2, int span3, const DerhamArgs& args_derham,
+                                                   const SplineScratch& scratch, Array3D<double> form_coeffs_1,
+                                                   Array3D<double> form_coeffs_2, Array3D<double> form_coeffs_3,
+                                                   double* out) {
+    out[0] = eval_spline_mpi_kernel(args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], scratch.bn1,
+                                    scratch.bn2, scratch.bn3, span1, span2, span3, form_coeffs_1, args_derham.starts);
+    out[1] = eval_spline_mpi_kernel(args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], scratch.bn1,
+                                    scratch.bn2, scratch.bn3, span1, span2, span3, form_coeffs_2, args_derham.starts);
+    out[2] = eval_spline_mpi_kernel(args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], scratch.bn1,
+                                    scratch.bn2, scratch.bn3, span1, span2, span3, form_coeffs_3, args_derham.starts);
+}
+
 // Point-wise evaluation shared by the eval_spline_mpi_* kernels (bsplines/kernels/<name>/<name>_cuda.cu).
 /**
  * Point-wise evaluation of a distributed tensor-product spline, as in evaluation_kernels_3d.eval_spline_mpi.

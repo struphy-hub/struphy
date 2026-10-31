@@ -123,4 +123,62 @@ __device__ inline void apply_kinetic_bc_marker(int ip, const MarkerArgs& args_ma
         if (reflected[axis]) reflect_velocity(ip, args_markers.markers, args_domain, axis);
     }
 }
+
+/**
+ * Position update of one stage of an explicit Runge-Kutta pusher, as in pusher_utilities_kernels.update_position_stage.
+ *
+ * @param ip Row index of the marker; call after k has been evaluated at markers(0:3, ip).
+ * @param k Logical velocity d eta / dt at the current position (three entries).
+ * @param dt Time step.
+ * @param a_stage Butcher coefficient of the position update of this stage.
+ * @param b_stage Butcher weight of this stage.
+ * @param last 1.0 for the last stage (adds the accumulated stages), 0.0 otherwise.
+ * @param args_markers Marker buffer; the stages are accumulated at first_free_idx, eta^n is at first_pusher_idx.
+ *
+ * Without a pole, eta = eta^n + dt a_stage k + last * (sum of dt b k), with dt b_stage k accumulated at first_free_idx.
+ * With a pole at eta1 = 0 (args_markers.pole) the update is done in the regular coordinates
+ * (xi1, xi2) = eta1 (cos 2 pi eta2, sin 2 pi eta2) and transformed back with eta1 = |xi| (at least 1e-10) and
+ * eta2 = mod(atan2(xi2, xi1) / 2 pi, 1).
+ */
+__device__ inline void update_position_stage(int ip, const double* k, double dt, double a_stage, double b_stage,
+                                             double last, const MarkerArgs& args_markers) {
+    int first_pusher_idx = args_markers.first_pusher_idx;
+    int first_free_idx = args_markers.first_free_idx;
+
+    if (!args_markers.pole) {
+        for (int j = 0; j < 3; ++j) {
+            // accumulation for last stage
+            args_markers.markers(first_free_idx + j, ip) += dt * b_stage * k[j];
+            // update positions for intermediate stages or last stage
+            args_markers.markers(j, ip) = args_markers.markers(first_pusher_idx + j, ip) + dt * a_stage * k[j] +
+                                          last * args_markers.markers(first_free_idx + j, ip);
+        }
+        return;
+    }
+
+    // velocity in the regular coordinates (xi1, xi2), at the current position
+    double theta = 2.0 * pi * args_markers.markers(1, ip);
+    double k_xi1 = cos(theta) * k[0] - 2.0 * pi * args_markers.markers(0, ip) * sin(theta) * k[1];
+    double k_xi2 = sin(theta) * k[0] + 2.0 * pi * args_markers.markers(0, ip) * cos(theta) * k[1];
+
+    // accumulation for last stage
+    args_markers.markers(first_free_idx, ip) += dt * b_stage * k_xi1;
+    args_markers.markers(first_free_idx + 1, ip) += dt * b_stage * k_xi2;
+    args_markers.markers(first_free_idx + 2, ip) += dt * b_stage * k[2];
+
+    // update positions for intermediate stages or last stage
+    theta = 2.0 * pi * args_markers.markers(first_pusher_idx + 1, ip);
+    double xi1 = args_markers.markers(first_pusher_idx, ip) * cos(theta) + dt * a_stage * k_xi1 +
+                 last * args_markers.markers(first_free_idx, ip);
+    double xi2 = args_markers.markers(first_pusher_idx, ip) * sin(theta) + dt * a_stage * k_xi2 +
+                 last * args_markers.markers(first_free_idx + 1, ip);
+
+    args_markers.markers(0, ip) = sqrt(xi1 * xi1 + xi2 * xi2);
+    if (args_markers.markers(0, ip) < 1e-10) args_markers.markers(0, ip) = 1e-10;
+    // numpy.mod(x, 1.0) (Fortran MODULO): the result has the sign of the divisor
+    double e2 = atan2(xi2, xi1) / (2.0 * pi);
+    args_markers.markers(1, ip) = e2 - floor(e2);
+    args_markers.markers(2, ip) = args_markers.markers(first_pusher_idx + 2, ip) + dt * a_stage * k[2] +
+                                  last * args_markers.markers(first_free_idx + 2, ip);
+}
 }  // namespace struphy_cuda::pusher_utilities_kernels
