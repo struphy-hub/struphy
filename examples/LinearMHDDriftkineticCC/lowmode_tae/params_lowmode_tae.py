@@ -141,7 +141,7 @@ set_logging_level(logging.INFO)
 # Import Struphy API
 # ------------------
 
-import numpy as np
+import cunumpy as xp
 
 from struphy import (
     BaseUnits,
@@ -232,21 +232,21 @@ sim = Simulation(
 # -------------------
 
 # the minor radius of the flux surface psi (monotonic psi(r) of the AdhocTorus)
-R_TAB = np.linspace(0.0, a, 2001)
+R_TAB = xp.linspace(0.0, a, 2001)
 PSI_TAB = equil.psi_r(R_TAB)
 R_C, D = 0.5, 0.2
 
 
 def minor_radius(psi):
     """Minor radius of the flux surface psi (constant beyond the axis and the plasma boundary)."""
-    return np.interp(psi, PSI_TAB, R_TAB)
+    return xp.interp(psi, PSI_TAB, R_TAB)
 
 
 def n_hot(psi_c):
     """Energetic-ion density as a function of the canonical toroidal momentum: decreasing through r_c with the
     inverse gradient length kappa."""
     r = minor_radius(psi_c)
-    return args.nh * np.exp(-args.kappa * D * np.tanh((r - R_C) / D))
+    return args.nh * xp.exp(-args.kappa * D * xp.tanh((r - R_C) / D))
 
 
 B_min = equil.params["B0"] * R0 / (R0 + a)
@@ -310,7 +310,7 @@ model.mhd.velocity.add_perturbation(
     perturbations.TorusModesCos(
         ms=ms,
         ns=(-1, -1),
-        amps=tuple(amp / (2 * np.pi * m) for m in ms),
+        amps=tuple(amp / (2 * xp.pi * m) for m in ms),
         pfuns=("d_exp", "d_exp"),
         pfun_params=([eta1_c, sigma], [eta1_c, sigma]),
         comp=1,
