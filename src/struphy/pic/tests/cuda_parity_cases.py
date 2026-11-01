@@ -396,6 +396,25 @@ def eval_magnetic_energy_PBb_args(domain):
     )
 
 
+def eval_gradB_ediff_args(domain):
+    """129 markers in domain `domain` of geometry_domain(): marker 0 is a hole, the old positions (first_pusher_idx)
+    are shifted by up to 0.05 and the midpoint of marker 2 lies outside [0, 1) (evaluated at mod(eta_mid, 1)); the
+    result goes to column 19."""
+    args_markers, _ = marker_arguments((0, 0, 0))
+    markers = args_markers.markers
+    first = args_markers.first_pusher_idx
+    markers[first : first + 3, 1:] += xp.asarray(np.random.default_rng(58).uniform(-0.05, 0.05, (3, N_MARKERS - 1)))
+    markers[0, 2] = 1.3
+    markers[first, 2] = 1.2
+    return (
+        args_markers,
+        geometry_domain(domain).args_domain,
+        derham_arguments(),
+        *spline_coefficients(n=6, seed=59),  # gradB, grad_PB_b
+        19,
+    )
+
+
 # ---------------------------------------------------------------- hybrid MHD-kinetic 6D kernels (current and pressure coupling)
 
 # the three spaces of u, by the basis_u argument of the accumulation kernels
@@ -925,6 +944,8 @@ PARITY_CASES = {
     "eval_magnetic_energy_PBb": ParityCases(
         (0, 5, 12), eval_magnetic_energy_PBb_args, n_threads=columns_of(0), **PUSHER_TOLERANCES
     ),
+    # one thread per marker
+    "eval_gradB_ediff": ParityCases((0, 5, 12), eval_gradB_ediff_args, n_threads=markers_of(0), **GEOMETRY_TOLERANCES),
     # hybrid MHD-kinetic 6D (LinearMHDVlasovCC and LinearMHDVlasovPC), one thread per marker
     **{
         f"push_bxu_{space}": ParityCases(BXU_CASES, push_bxu_args, n_threads=markers_of(2), **GEOMETRY_TOLERANCES)
