@@ -58,12 +58,14 @@ class JxBCold(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`JxBCold`.
+        r"""Configuration options for :class:`JxBCold`.
 
         Parameters
         ----------
-        solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Symmetric iterative solver used for the linear current update.
+        solver : LiteralOptions.OptsGenSolver, default="pbicgstab"
+            Iterative solver used for the linear current update. The system matrix
+            :math:`\mathbb M_{1/n_0} - \frac{\Delta t}{2 \varepsilon} \mathbb M_{B_0/n_0}` is not symmetric
+            (:math:`\mathbb M_{B_0/n_0}` is skew-symmetric), so a solver for general matrices is needed.
 
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner applied to the weighted mass matrix ``M1ninv``.
@@ -74,13 +76,13 @@ class JxBCold(Propagator):
         """
 
         # propagator options
-        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # checks
-            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults

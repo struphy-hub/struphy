@@ -190,6 +190,56 @@ def test_gyrokinetic_poisson_average(which_geometry, cls):
     assert err < 1e-3
 
 
+@pytest.mark.parametrize("cls", [GyrokineticPoissonSolve, AdiabaticPoissonSolve])
+def test_gyrokinetic_poisson_singular(cls):
+    """With the average over eta3 and periodic boundary conditions in all directions, the whole system
+    (1/(Z eps^2)) n0/T0 (phi - <phi>) - div_perp(n0/|B0|^2 grad_perp phi) = rho / eps is singular (the constants
+    are in its kernel). A uniform net charge in rho is removed and the mean of phi is fixed to zero, so the
+    solution is that of the neutral rho; without the fix, phi was amplified roundoff (issue #856)."""
+    domain, phi = _setup([16, 16, 2], [3, 3, 1])
+    epsilon, Z = 0.5, 1
+    kx, ky = 2 * xp.pi / Lx, 2 * xp.pi / Ly
+    n0_over_B2 = N0
+    net_charge = 0.3
+
+    def sol_xyz(x, y, z):
+        return xp.sin(kx * x) * xp.cos(ky * y)
+
+    def rho_xyz(x, y, z):
+        return epsilon * n0_over_B2 * (kx**2 + ky**2) * sol_xyz(x, y, z) + net_charge
+
+    solver = cls(rho=_pulled(domain, rho_xyz), epsilon=epsilon, Z=Z)
+    solver.variables.phi = phi
+    if cls is AdiabaticPoissonSolve:
+        solver.options = solver.Options(polarization=True, which_geometry="cylindrical", solver_params=SOLVER_PARAMS)
+    else:
+        solver.options = solver.Options(which_geometry="cylindrical", solver_params=SOLVER_PARAMS)
+    solver.allocate()
+    assert solver.lhs_is_singular
+    solver(1.0)
+
+    e1 = xp.linspace(0.0, 1.0, 21)
+    e2 = xp.linspace(0.0, 1.0, 21)
+    num = domain.push(phi.spline, e1, e2, 0.5, kind="0")
+    x, y, z = domain(e1, e2, 0.5)
+    exact = sol_xyz(x, y, z)
+    err = xp.max(xp.abs(num - exact)) / xp.max(xp.abs(exact))
+    logger.info(f"{cls.__name__}: {err =}")
+    assert err < 1e-3
+
+    # zero mean, and the quadratic form is phi^T lhs phi = phi^T rhs at the solution
+    vec = phi.spline.vector
+    mean = Propagator.mass_ops.M0.dot(solver._ones).inner(vec)
+    assert abs(mean) < 1e-10
+    assert xp.isclose(solver.quadratic_form(vec), vec.inner(solver._rhs), rtol=1e-8)
+
+    # without the average the system is regular: the net charge is not removed
+    if cls is GyrokineticPoissonSolve:
+        solver.options = solver.Options(which_geometry=None, solver_params=SOLVER_PARAMS)
+        solver.allocate()
+        assert not solver.lhs_is_singular and solver._ones is None
+
+
 def test_invalid_options():
     # no diffusion term: the stiffness-based preconditioners are not available
     with pytest.raises(AssertionError):

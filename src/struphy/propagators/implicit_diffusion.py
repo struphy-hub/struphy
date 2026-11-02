@@ -262,6 +262,13 @@ class ImplicitDiffusion(Propagator):
             ``(net charge) / sigma_1``, which would destroy the accuracy of ``grad phi``.
             For ``stab_mat="M0"`` and ``sigma_2 = 0`` it changes ``phi`` only by a constant, for any ``sigma_1``.
 
+            If the diffusion operator is singular and ``stab_average`` is set (e.g. the quasi-neutrality equation
+            with adiabatic electrons in a fully periodic domain), the stabilization ``stab_mat (I - A)`` vanishes
+            on the constants too, so the whole system is singular (see :attr:`lhs_is_singular`). Then the
+            right-hand side is always made compatible, whatever ``enforce_compatibility`` says (the constant
+            component of the averaged equation is the net charge, which must vanish), and the undetermined
+            constant of ``phi`` is fixed by :math:`\int \phi \, \textrm d \mathbf x = 0` after the solve.
+
         filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
             If not None, specifies a filter to the accumulation of a specific variable.
             Keyed by the ``pic_variable`` of the corresponding
@@ -514,13 +521,20 @@ class ImplicitDiffusion(Propagator):
 
         # allocate memory for solution
         self._tmp = phi.space.zeros()
+        self._tmp_energy = phi.space.zeros()
         self._rhs = phi.space.zeros()
         self._rhs2 = phi.space.zeros()
         self._tmp_src = phi.space.zeros()
 
         # constant function and its weak form M0 @ 1, for removing the kernel component of the rhs
         self._ones = None
-        if self.options.enforce_compatibility and self.operator_is_singular:
+        self._fix_gauge = self.lhs_is_singular
+        if self._fix_gauge:
+            logger.info(
+                "Singular system (no Dirichlet boundary, stabilization without the average): "
+                "removing the net charge of the rhs and fixing the mean of phi to zero"
+            )
+        if (self.options.enforce_compatibility or self._fix_gauge) and self.operator_is_singular:
             self._ones = phi.space.zeros()
             owned = tuple(slice(s, e + 1) for s, e in zip(self._ones.starts, self._ones.ends))
             self._ones[owned] = 1.0
@@ -537,6 +551,25 @@ class ImplicitDiffusion(Propagator):
         """True if the particle source deposits f - f0 (so that no neutralizing background is needed)."""
         return not self._is_full_f(particles) or self.delta_f_source
 
+    def quadratic_form(self, phi: StencilVector) -> float:
+        r"""The quadratic form of the system matrix (without ``dt``),
+
+        .. math::
+
+            \boldsymbol \phi^\top \left( \sigma_1\, \mathbb S (\mathbb I - \mathbb A)
+            + \mathbb G^\top \mathbb D\, \mathbb G \right) \boldsymbol \phi\,,
+
+        with ``stab_mat`` :math:`\mathbb S`, the average :math:`\mathbb A` (``stab_average``) and
+        ``diffusion_mat`` :math:`\mathbb D`, e.g. twice the field energy of the quasi-neutrality equation.
+        A collective operation: call it on all ranks.
+        """
+        out = self._stab_mat.dot(phi, out=self._tmp_energy)
+        value = self._sigma_1 * phi.inner(out)
+        if self._diffusion_op is not None:
+            out = self._diffusion_op.dot(phi, out=self._tmp_energy)
+            value += phi.inner(out)
+        return value
+
     @property
     def operator_is_singular(self) -> bool:
         """True if the diffusion operator ``grad.T @ diffusion_mat @ grad`` is known to be singular
@@ -549,6 +582,18 @@ class ImplicitDiffusion(Propagator):
             no_dirichlet
             and not self.derham.polar_splines
             and isinstance(self.variables.phi.spline.vector, StencilVector)
+        )
+
+    @property
+    def lhs_is_singular(self) -> bool:
+        """True if the whole system matrix ``sigma_1 * stab_mat (I - A) + grad.T @ diffusion_mat @ grad`` is
+        singular, with the constants in its kernel: the diffusion operator is singular (see
+        :attr:`operator_is_singular`) and the stabilization removes the average ``A`` (``stab_average``), which
+        reproduces the constants. Then the right-hand side is made compatible and the mean of ``phi`` is fixed."""
+        return (
+            self.operator_is_singular
+            and self._stabilize_lhs
+            and bool(preconditioner._parse_directions(self.options.stab_average))
         )
 
     def _build_stiffness_pc(self, sig_1: float) -> preconditioner.StiffnessPreconditioner:
@@ -684,6 +729,10 @@ class ImplicitDiffusion(Propagator):
         with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):
             out = self._solver.solve(rhs, out=self._tmp)
         info = self._solver._info
+
+        # singular system: fix the undetermined constant by a zero mean, 1^T M0 phi = 0
+        if self._fix_gauge:
+            out.mul_iadd(-self._m0_ones.inner(out) / self._ones_m0_ones, self._ones)
 
         if self._info:
             logger.warning(f"\nSolver info: {info}")
