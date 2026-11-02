@@ -2057,7 +2057,8 @@ class BasisProjectionOperator(LinearOperator):
                 # Evaluate weight function at quadrature points
                 # evaluate weight at quadrature points
                 if callable(loc_weight):
-                    PTS = xp.meshgrid(*_ptsG, indexing="ij")
+                    # point sets are numpy (host); the weight callables work on xp arrays
+                    PTS = xp.meshgrid(*[xp.asarray(pts) for pts in _ptsG], indexing="ij")
                     mat_w = loc_weight(*PTS).copy()
                 elif isinstance(loc_weight, xp.ndarray):
                     assert loc_weight.shape == (len(_ptsG[0]), len(_ptsG[1]), len(_ptsG[2]))

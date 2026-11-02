@@ -103,4 +103,110 @@ __device__ inline void m_v_fill_b_v1_symm(const DerhamArgs& args_derham, double 
                              scratch.bn2, scratch.bd3, span1, span2, span3, args_derham.starts, args_derham.pn, mat23,
                              fill23);
 }
+
+/**
+ * Add one marker's contribution to a V1 vector at known spans, as in particle_to_mat_kernels.vec_fill_v1.
+ *
+ * @param args_derham Spline degrees (1 to 8) and start indices.
+ * @param scratch N- and D-spline values from get_spans; pyccel reads them from args_derham.bn1, ..., bd3.
+ * @param span1 Knot span index along the first axis (from get_spans).
+ * @param span2 Knot span index along the second axis.
+ * @param span3 Knot span index along the third axis.
+ * @param vec1 mu=1 component of the V1 vector data (D N N); written atomically.
+ * @param vec2 mu=2 component of the V1 vector data (N D N); written atomically.
+ * @param vec3 mu=3 component of the V1 vector data (N N D); written atomically.
+ * @param fill1 Number multiplied by the basis functions and added to vec1.
+ * @param fill2 Number multiplied by the basis functions and added to vec2.
+ * @param fill3 Number multiplied by the basis functions and added to vec3.
+ */
+__device__ inline void vec_fill_v1(const DerhamArgs& args_derham, const evaluation_kernels_3d::SplineScratch& scratch,
+                                   int span1, int span2, int span3, Array3D<double> vec1, Array3D<double> vec2,
+                                   Array3D<double> vec3, double fill1, double fill2, double fill3) {
+    // degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    int pn1 = args_derham.pn[0];
+    int pn2 = args_derham.pn[1];
+    int pn3 = args_derham.pn[2];
+
+    int pd1 = pn1 - 1;
+    int pd2 = pn2 - 1;
+    int pd3 = pn3 - 1;
+
+    // fill vector entries
+    filler_kernels::fill_vec(pd1, pn2, pn3, scratch.bd1, scratch.bn2, scratch.bn3, span1, span2, span3,
+                             args_derham.starts, vec1, fill1);
+    filler_kernels::fill_vec(pn1, pd2, pn3, scratch.bn1, scratch.bd2, scratch.bn3, span1, span2, span3,
+                             args_derham.starts, vec2, fill2);
+    filler_kernels::fill_vec(pn1, pn2, pd3, scratch.bn1, scratch.bn2, scratch.bd3, span1, span2, span3,
+                             args_derham.starts, vec3, fill3);
+}
+
+/**
+ * Add one marker's contribution to a V2 vector at known spans, as in particle_to_mat_kernels.vec_fill_v2.
+ *
+ * @param args_derham Spline degrees (1 to 8) and start indices.
+ * @param scratch N- and D-spline values from get_spans; pyccel reads them from args_derham.bn1, ..., bd3.
+ * @param span1 Knot span index along the first axis (from get_spans).
+ * @param span2 Knot span index along the second axis.
+ * @param span3 Knot span index along the third axis.
+ * @param vec1 mu=1 component of the V2 vector data (N D D); written atomically.
+ * @param vec2 mu=2 component of the V2 vector data (D N D); written atomically.
+ * @param vec3 mu=3 component of the V2 vector data (D D N); written atomically.
+ * @param fill1 Number multiplied by the basis functions and added to vec1.
+ * @param fill2 Number multiplied by the basis functions and added to vec2.
+ * @param fill3 Number multiplied by the basis functions and added to vec3.
+ */
+__device__ inline void vec_fill_v2(const DerhamArgs& args_derham, const evaluation_kernels_3d::SplineScratch& scratch,
+                                   int span1, int span2, int span3, Array3D<double> vec1, Array3D<double> vec2,
+                                   Array3D<double> vec3, double fill1, double fill2, double fill3) {
+    // degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    int pn1 = args_derham.pn[0];
+    int pn2 = args_derham.pn[1];
+    int pn3 = args_derham.pn[2];
+
+    int pd1 = pn1 - 1;
+    int pd2 = pn2 - 1;
+    int pd3 = pn3 - 1;
+
+    // fill vector entries
+    filler_kernels::fill_vec(pn1, pd2, pd3, scratch.bn1, scratch.bd2, scratch.bd3, span1, span2, span3,
+                             args_derham.starts, vec1, fill1);
+    filler_kernels::fill_vec(pd1, pn2, pd3, scratch.bd1, scratch.bn2, scratch.bd3, span1, span2, span3,
+                             args_derham.starts, vec2, fill2);
+    filler_kernels::fill_vec(pd1, pd2, pn3, scratch.bd1, scratch.bd2, scratch.bn3, span1, span2, span3,
+                             args_derham.starts, vec3, fill3);
+}
+
+/**
+ * Add one marker's contribution to a vector-valued V0 vector ((H^1)^3) at known spans, as in
+ * particle_to_mat_kernels.vec_fill_v0vec.
+ *
+ * @param args_derham Spline degrees (1 to 8) and start indices.
+ * @param scratch N-spline values from get_spans; pyccel reads them from args_derham.bn1, bn2, bn3.
+ * @param span1 Knot span index along the first axis (from get_spans).
+ * @param span2 Knot span index along the second axis.
+ * @param span3 Knot span index along the third axis.
+ * @param vec1 First component of the vector data (N N N); written atomically.
+ * @param vec2 Second component of the vector data (N N N); written atomically.
+ * @param vec3 Third component of the vector data (N N N); written atomically.
+ * @param fill1 Number multiplied by the basis functions and added to vec1.
+ * @param fill2 Number multiplied by the basis functions and added to vec2.
+ * @param fill3 Number multiplied by the basis functions and added to vec3.
+ */
+__device__ inline void vec_fill_v0vec(const DerhamArgs& args_derham,
+                                      const evaluation_kernels_3d::SplineScratch& scratch, int span1, int span2,
+                                      int span3, Array3D<double> vec1, Array3D<double> vec2, Array3D<double> vec3,
+                                      double fill1, double fill2, double fill3) {
+    // degrees of the basis functions : B-splines (pn)
+    int pn1 = args_derham.pn[0];
+    int pn2 = args_derham.pn[1];
+    int pn3 = args_derham.pn[2];
+
+    // fill vector entries
+    filler_kernels::fill_vec(pn1, pn2, pn3, scratch.bn1, scratch.bn2, scratch.bn3, span1, span2, span3,
+                             args_derham.starts, vec1, fill1);
+    filler_kernels::fill_vec(pn1, pn2, pn3, scratch.bn1, scratch.bn2, scratch.bn3, span1, span2, span3,
+                             args_derham.starts, vec2, fill2);
+    filler_kernels::fill_vec(pn1, pn2, pn3, scratch.bn1, scratch.bn2, scratch.bn3, span1, span2, span3,
+                             args_derham.starts, vec3, fill3);
+}
 }  // namespace struphy_cuda::particle_to_mat_kernels
