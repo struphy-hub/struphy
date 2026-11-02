@@ -42,6 +42,8 @@ and **ask whether to add it to that family** as a child, before writing code. Th
   `LinearMHDWithQ` → `PerturbativeMHDWithQ`; `LinearEulerWithQ` → `PerturbativeEulerWithQ` (the nonlinear terms,
   shared by the two through utilities in `utils.py`). Shares the equilibrium scalars and the magnetic field with the
   LinearEuler family through utilities in `utils.py`.
+- **Maxwell family**: `Maxwell` → `ColdPlasma` → `ColdPlasmaVlasov`.
+- **SPH family**: `ColdEulerSPH` → `EulerSPH` → `ViscousEulerSPH`; `ColdEulerSPH` → `IncompressibleNavierStokesSPH`.
 
 A parent model is the base of everything below it, so it must be well tested: verification tests against analytic
 results (dispersion relations, exact solutions in a curvilinear geometry such as `Colella`), conservation properties

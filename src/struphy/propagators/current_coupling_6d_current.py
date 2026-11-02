@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 
-import cunumpy as xp
 from line_profiler import profile
 from maybempi import MPI
 
@@ -178,14 +177,15 @@ class CurrentCoupling6DCurrent(Propagator):
         Ab = self.variables.u.species.mass_number
         epsilon = self.variables.ions.species.equation_params.epsilon
 
-        self._coupling_mat = Ah / Ab / epsilon**2
-        self._coupling_vec = Ah / Ab / epsilon
-        self._scale_push = 1.0 / epsilon
+        # Python floats (epsilon is a 0-d array on CuPy; CUDA kernels take scalars)
+        self._coupling_mat = float(Ah / Ab / epsilon**2)
+        self._coupling_vec = float(Ah / Ab / epsilon)
+        self._scale_push = float(1.0 / epsilon)
 
         self._boundary_cut_e1 = self.options.boundary_cut[0]
 
-        # load accumulator (the matrix-free kernels have no CUDA version)
-        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        # load accumulator
+        self._matrix_free = self.options.matrix_free
         if self._matrix_free:
             # the vector, and the filling of the matrix per marker (in the first free columns of the marker array)
             column = particles.args_markers.first_free_idx

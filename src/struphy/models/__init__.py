@@ -9,12 +9,14 @@ from typing import TYPE_CHECKING
 
 # class name -> module defining it, resolved on first access by __getattr__ below
 _LAZY_IMPORTS = {
+    "ColdEulerSPH": "struphy.models.cold_euler_sph",
     "ColdPlasma": "struphy.models.cold_plasma",
     "ColdPlasmaVlasov": "struphy.models.cold_plasma_vlasov",
     "CurlCurl": "struphy.models.curl_curl",
     "DeterministicParticleDiffusion": "struphy.models.deterministic_particle_diffusion",
     "DriftKineticElectrostaticAdiabatic": "struphy.models.drift_kinetic_electrostatic_adiabatic",
     "DriftKineticMaxwell": "struphy.models.drift_kinetic_maxwell",
+    "EulerSPH": "struphy.models.euler_sph",
     "GuidingCenter": "struphy.models.guiding_center",
     "GyrokineticPoisson": "struphy.models.gyrokinetic_poisson",
     "HasegawaWakatani": "struphy.models.hasegawa_wakatani",
@@ -33,7 +35,6 @@ _LAZY_IMPORTS = {
     "PerturbativeEulerWithQ": "struphy.models.perturbative_euler_with_q",
     "PerturbativeMHDWithQ": "struphy.models.perturbative_mhd_with_q",
     "Poisson": "struphy.models.poisson",
-    "PressureLessSPH": "struphy.models.pressure_less_sph",
     "RandomParticleDiffusion": "struphy.models.random_particle_diffusion",
     "ShearAlfven": "struphy.models.shear_alfven",
     "ToyDrift": "struphy.models.toy_drift",
@@ -58,12 +59,14 @@ _LAZY_IMPORTS = {
 }
 
 if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
+    from struphy.models.cold_euler_sph import ColdEulerSPH
     from struphy.models.cold_plasma import ColdPlasma
     from struphy.models.cold_plasma_vlasov import ColdPlasmaVlasov
     from struphy.models.curl_curl import CurlCurl
     from struphy.models.deterministic_particle_diffusion import DeterministicParticleDiffusion
     from struphy.models.drift_kinetic_electrostatic_adiabatic import DriftKineticElectrostaticAdiabatic
     from struphy.models.drift_kinetic_maxwell import DriftKineticMaxwell
+    from struphy.models.euler_sph import EulerSPH
     from struphy.models.guiding_center import GuidingCenter
     from struphy.models.gyrokinetic_poisson import GyrokineticPoisson
     from struphy.models.hasegawa_wakatani import HasegawaWakatani
@@ -82,7 +85,6 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.perturbative_euler_with_q import PerturbativeEulerWithQ
     from struphy.models.perturbative_mhd_with_q import PerturbativeMHDWithQ
     from struphy.models.poisson import Poisson
-    from struphy.models.pressure_less_sph import PressureLessSPH
     from struphy.models.random_particle_diffusion import RandomParticleDiffusion
     from struphy.models.shear_alfven import ShearAlfven
     from struphy.models.toy_drift import ToyDrift
@@ -106,12 +108,14 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.vlasov_poisson_adiabatic_pauli import VlasovPoissonAdiabaticPauli
 
 __all__ = [
+    "ColdEulerSPH",
     "ColdPlasma",
     "ColdPlasmaVlasov",
     "CurlCurl",
     "DeterministicParticleDiffusion",
     "DriftKineticElectrostaticAdiabatic",
     "DriftKineticMaxwell",
+    "EulerSPH",
     "GuidingCenter",
     "GyrokineticPoisson",
     "HasegawaWakatani",
@@ -130,7 +134,6 @@ __all__ = [
     "PerturbativeEulerWithQ",
     "PerturbativeMHDWithQ",
     "Poisson",
-    "PressureLessSPH",
     "RandomParticleDiffusion",
     "ShearAlfven",
     "ToyDrift",
