@@ -35,6 +35,10 @@ def run_command(*args):
 
 @pytest.fixture(scope="module")
 def raw_run(tmp_path_factory):
+    from importlib.util import find_spec
+
+    if find_spec("plasma_plots") is None:
+        pytest.skip("requires struphy[pproc]")
     root = tmp_path_factory.mktemp("maxwell")
     model = Maxwell()
     model.em_fields.e_field.save_data = True
