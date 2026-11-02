@@ -87,3 +87,75 @@ def test_particle_boundary_reflection(backend):
             xp.to_numpy(particles.markers[3:6, selected]).T, [[-1.0, 2.0, 3.0], [1.0, -2.0, 3.0], [-1.0, -2.0, -3.0]]
         )
         assert bool(xp.all(particles.markers[particles.first_pusher_idx, selected] == -1.0))
+
+
+def assert_reflected_markers_not_pushed_again(markers, start, first_pusher_idx):
+    """Checks after one Runge-Kutta step with reflecting boundaries (issue #866) on the markers of
+    :func:`~struphy.pic.tests.kernel_test_args.marker_arguments`: some markers were reflected, all stay in the unit
+    cube and near their start position (a reflected marker pushed again from eta1 = -1 ends far away), and the
+    boundary particle (marker 1) is unchanged."""
+    reflected = markers[first_pusher_idx, 2:] == -1.0
+    assert reflected.any(), "no marker was reflected; increase the time step"
+    positions = markers[:3, 2:]
+    assert np.all((positions >= 0.0) & (positions <= 1.0))
+    # one step moves a marker by less than 0.5 here; a reflection only shortens the distance
+    assert np.all(np.abs(positions - start[:3, 2:]) < 0.5)
+    np.testing.assert_array_equal(markers[:, 1], start[:, 1])
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("backend", BACKENDS)
+# time steps that reflect markers but keep each stage displacement below the domain size (one reflection must bring
+# the marker back): the random U gives logical velocities of up to 20 (Hcurl), 400 (Hdiv) and 3 (H1vec)
+@pytest.mark.parametrize("space, dt", [("Hcurl", 0.01), ("Hdiv", 0.001), ("H1vec", 0.05)])
+def test_pc_eta_stage_skips_reflected_markers(backend, space, dt):
+    """A marker reflected in an RK stage of push_pc_eta_stage is not pushed again in the later stages (issue #866).
+
+    Reflection overwrites its start position (row first_pusher_idx is set to -1); pushing it again from there sent
+    it far outside the domain."""
+    import importlib
+
+    from struphy.pic.tests.kernel_test_args import (
+        butcher_arguments,
+        derham_arguments,
+        marker_arguments,
+        spline_coefficients,
+    )
+
+    name = f"push_pc_eta_stage_{space}"
+    kernel = getattr(importlib.import_module(f"struphy.pic.pushing.kernels.{name}"), name)
+    with xp.use_backend(backend):
+        args_markers, args_domain = marker_arguments((1, 1, 1))
+        start = xp.to_numpy(args_markers.markers).copy()
+        args = (args_markers, args_domain, derham_arguments(), *spline_coefficients(n=3, seed=62), False)
+        a, b, c, n_stages = butcher_arguments("rk4")
+        for stage in range(n_stages):
+            kernel(dt, stage, *args, a, b, c, n_threads=args_markers.n_markers)
+        markers = xp.to_numpy(args_markers.markers)
+
+    assert_reflected_markers_not_pushed_again(markers, start, args_markers.first_pusher_idx)
+
+
+@pytest.mark.mpi_skip
+def test_deterministic_diffusion_stage_skips_reflected_markers():
+    """Like test_pc_eta_stage_skips_reflected_markers, for push_deterministic_diffusion_stage (pyccel only)."""
+    from struphy.pic.pushing.kernels.push_deterministic_diffusion_stage import push_deterministic_diffusion_stage
+    from struphy.pic.tests.kernel_test_args import (
+        butcher_arguments,
+        derham_arguments,
+        marker_arguments,
+        spline_coefficients,
+    )
+
+    args_markers, args_domain = marker_arguments((1, 1, 1))
+    start = args_markers.markers.copy()
+    pi_u, *pi_grad_u = spline_coefficients(n=4, seed=64)
+    # a positive density; diffusion coefficient 0.1 with dt = 0.1 moves markers by up to 0.1 per stage
+    pi_u = 1.0 + 0.5 * np.abs(pi_u)
+    a, b, c, n_stages = butcher_arguments("rk4")
+    for stage in range(n_stages):
+        push_deterministic_diffusion_stage(
+            0.1, stage, args_markers, args_domain, derham_arguments(), pi_u, *pi_grad_u, 0.1, a, b, c
+        )
+
+    assert_reflected_markers_not_pushed_again(args_markers.markers, start, args_markers.first_pusher_idx)
