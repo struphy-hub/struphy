@@ -143,6 +143,9 @@ def bstar_parallel_3form_args(case):
 GC_DOMAINS = (0, 2, 5, 9, 12)
 # IGAPolarCylinder: a mapping with a pole at eta1 = 0, for the regular position update (args_markers.pole)
 POLE_DOMAIN = 10
+# domains whose Jacobian determinant vanishes at eta1 = 0 (ShafranovDshapedCylinder, IGAPolarCylinder): near the axis,
+# B*_parallel ~ det DF is small and the guiding-centre drifts amplify round-off beyond the tolerances
+AXIS_DOMAINS = (9, POLE_DOMAIN)
 
 
 def offset_coefficients(n, seed, offset):
@@ -160,11 +163,11 @@ GC_DT = 0.005
 def gc_marker_arguments(bc, domain, pole=False):
     """Markers of :func:`marker_arguments` in domain `domain` of geometry_domain(): marker 0 is a hole, marker 1 a
     boundary particle, marker 3 is refilled (first_pusher_idx == -1, skipped by kernels that check it) and
-    marker 4 has no shift (eta^{n+1,k} = eta^n, the zero-distance branch of the discrete gradient). With a pole, the
-    markers keep eta1 >= 0.1, away from the singular Jacobian at the pole."""
+    marker 4 has no shift (eta^{n+1,k} = eta^n, the zero-distance branch of the discrete gradient). In the AXIS_DOMAINS
+    (and with a pole), the markers keep eta1 >= 0.1, away from the singular Jacobian at the axis."""
     args_markers, _ = marker_arguments(bc, pole=pole)
     markers = args_markers.markers
-    if pole:
+    if pole or domain in AXIS_DOMAINS:
         markers[0, 1:] = 0.1 + 0.8 * markers[0, 1:]
         markers[8, 1:] = markers[0, 1:]
     markers[8, 3] = -1.0
@@ -233,6 +236,10 @@ def push_gc_Bstar_explicit_multistage_args(case):
     from struphy.pic.pushing.kernels.push_gc_Bstar_explicit_multistage import push_gc_Bstar_explicit_multistage
 
     bc, method, stage, domain, pole, evaluate_e_field = case
+    # B*_parallel = (B . b_0 + epsilon v_parallel (curl b_0) . b_0) det DF: a small (curl b_0) . b_0, as in a tokamak,
+    # keeps it well away from zero. With order-one values it nearly cancelled for a marker of the spline mapping in the
+    # last RK4 stage, which amplified round-off by 1e6 (compiler-dependent failures).
+    curl_unit_b_dot_b0, *e_field = spline_coefficients(n=4, seed=32)
     args = (
         *gc_marker_arguments(bc, domain, pole=pole),
         derham_arguments(),
@@ -241,7 +248,8 @@ def push_gc_Bstar_explicit_multistage_args(case):
         *offset_coefficients(3, 29, 3.0),  # b2
         *spline_coefficients(n=3, seed=30),  # curl_unit_b2
         *offset_coefficients(1, 31, 5.0),  # B_dot_b
-        *spline_coefficients(n=4, seed=32),  # curl_unit_b_dot_b0, e_field
+        0.1 * curl_unit_b_dot_b0,
+        *e_field,
         evaluate_e_field,
         *butcher_arguments(method)[:3],
     )
@@ -909,10 +917,8 @@ PARITY_CASES = {
         n_threads=markers_of(2),
         **GEOMETRY_TOLERANCES,
     ),
-    # B*_parallel nearly vanishes for a marker of the spline mapping, whose v_parallel grows to 1e4 in the last RK4
-    # stage; reflecting its (vdim = 3) velocity then cancels terms of 1e4 (atol for cancelling sums)
     "push_gc_Bstar_explicit_multistage": ParityCases(
-        GC_STAGE_CASES, push_gc_Bstar_explicit_multistage_args, n_threads=markers_of(2), rtol=1e-10, atol=1e-8
+        GC_STAGE_CASES, push_gc_Bstar_explicit_multistage_args, n_threads=markers_of(2), **GEOMETRY_TOLERANCES
     ),
     "push_gc_cc_J1_Hdiv": ParityCases(
         GC_DOMAINS, push_gc_cc_J1_Hdiv_args, n_threads=markers_of(2), **GEOMETRY_TOLERANCES
