@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 
-import cunumpy as xp
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockVector
 from line_profiler import profile
@@ -208,9 +207,9 @@ class PressureCoupling6D(Propagator):
             accum_ker = pc_lin_mhd_6d_full
             pusher_ker = push_pc_GXu_full
 
-        # define Accumulator and arguments (the matrix-free kernels have no CUDA version)
+        # define Accumulator and arguments
         particles = self.variables.energetic_ions.particles
-        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        self._matrix_free = self.options.matrix_free
         if self._matrix_free:
             # the three vectors, and the filling of the matrices per marker (in the first free columns of the marker array)
             column = particles.args_markers.first_free_idx

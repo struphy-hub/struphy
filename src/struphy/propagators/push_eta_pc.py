@@ -3,6 +3,7 @@
 import logging
 from dataclasses import dataclass
 
+import cunumpy as xp
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
@@ -146,9 +147,9 @@ class PushEtaPC(Propagator):
             self._u_tilde[1]._data,
             self._u_tilde[2]._data,
             self.options.use_perp_model,
-            butcher.a_stage,
-            butcher.b,
-            butcher.c,
+            xp.asarray(butcher.a_stage),
+            xp.asarray(butcher.b),
+            xp.asarray(butcher.c),
         )
 
         self._pusher = Pusher(
