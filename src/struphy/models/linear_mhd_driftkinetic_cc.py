@@ -251,21 +251,17 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
         .. math::
 
-            n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu
-
-        .. math::
-
-            \mathbf{J}_\textnormal{gc} = \int f_\textnormal{h} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
-
-        .. math::
-
-            \mathbf{M}_\textnormal{gc} = -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            n_\textnormal{gc} &= \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            \\[2mm]
+            \mathbf{J}_\textnormal{gc} &= \int f_\textnormal{h} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            \\[2mm]
+            \mathbf{M}_\textnormal{gc} &= -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
 
         where
 
         .. math::
 
-            B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*
+            B^*_\parallel &= \mathbf{b}_0 \cdot \mathbf{B}^*
             \\[2mm]
             \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0
             \\[2mm]
