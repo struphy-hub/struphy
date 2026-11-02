@@ -988,8 +988,18 @@ class BasisProjectionOperators:
 
     @staticmethod
     def _matrix_fun(mat):
-        """3x3 nested list of the entries of the matrix-valued callable ``mat`` (last two axes), for create_basis_op."""
-        return [[lambda e1, e2, e3, m=m, n=n: mat(e1, e2, e3)[:, :, :, m, n] for n in range(3)] for m in range(3)]
+        """3x3 nested list of the entries of the matrix-valued callable ``mat`` (last two axes), for create_basis_op.
+        ``mat`` is evaluated once per set of evaluation points, not once per entry."""
+        cache = {}
+
+        def entry(e1, e2, e3, m, n):
+            pts = cache.get("pts")
+            if pts is None or not all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(pts, (e1, e2, e3))):
+                cache["pts"] = (e1.copy(), e2.copy(), e3.copy())
+                cache["mat"] = mat(e1, e2, e3)
+            return cache["mat"][:, :, :, m, n]
+
+        return [[lambda e1, e2, e3, m=m, n=n: entry(e1, e2, e3, m, n) for n in range(3)] for m in range(3)]
 
     ##########################################
     # Wrapper around BasisProjectionOperator #

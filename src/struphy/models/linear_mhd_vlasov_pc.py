@@ -132,7 +132,7 @@ class LinearMHDVlasovPC(LinearMHD):
         if perp_eta != perp_pc:
             logger.warning(
                 f"LinearMHDVlasovPC: use_perp_model differs between push_eta_pc ({perp_eta}) and pc6d ({perp_pc}); "
-                "the pressure coupling then does not conserve the energy.",
+                "transport and pressure coupling then use different U_perp and the total energy is not conserved.",
             )
 
     def _create_scalars(self):

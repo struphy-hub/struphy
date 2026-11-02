@@ -64,8 +64,10 @@ def test_pperp_slab(space_id: str):
 
 @pytest.mark.parametrize("space_id", ["Hcurl", "Hdiv", "H1vec"])
 def test_pperp_curved_tilted(space_id: str):
-    """In a curved domain with B0 tilted against the coordinate lines, Pperp u is the projection of u perpendicular to
-    b0, up to the projection error into the space, which converges with the resolution."""
+    """In a curved domain with B0 tilted against the coordinate lines, Pperp u (transport in PushEtaPC) and Xperp u
+    (force in PressureCoupling6D) are the projection of u perpendicular to b0, up to the projection error, which
+    converges with the resolution. This is the consistency the energy conservation of the model needs; the energy test
+    below checks PressureCoupling6D alone."""
     from struphy import domains, equils, perturbations
 
     form = {"Hcurl": "1", "Hdiv": "2", "H1vec": "v"}[space_id]
@@ -80,13 +82,19 @@ def test_pperp_curved_tilted(space_id: str):
         pert = [perturbations.ModesCos(ls=(1,), ms=(1,), amps=(1.0,), given_in_basis=form, comp=c) for c in range(3)]
         u = derham.create_spline_function("u", space_id, perturbations=pert, domain=domain)
         u_perp = derham.create_spline_function("u_perp", space_id, coeffs=basis_ops.Pperp(space_id).dot(u.vector))
+        # Cartesian components of U_perp as used by PressureCoupling6D (0-forms)
+        x_perp = derham.create_spline_function("x_perp", "H1vec", coeffs=basis_ops.Xperp(space_id).dot(u.vector))
 
         cart = lambda f: xp.array(domain.push(f(e, e, e), e, e, e, kind=form))
         U, U_perp = cart(u), cart(u_perp)
         b = equil.unit_b_cart(ee1, ee2, ee3)[0]
         exact = U - xp.sum(b * U, axis=0) * b
         scale = xp.max(xp.abs(U))
-        return xp.max(xp.abs(U_perp - exact)) / scale, xp.max(xp.abs(xp.sum(b * U_perp, axis=0))) / scale
+        # the transport (PushEtaPC, Pperp) and the force (PressureCoupling6D, Xperp) must use the same U_perp,
+        # up to the projection error
+        X_perp = xp.array(x_perp(e, e, e))
+        err = max(xp.max(xp.abs(U_perp - exact)), xp.max(xp.abs(X_perp - exact)))
+        return err / scale, xp.max(xp.abs(xp.sum(b * U_perp, axis=0))) / scale
 
     err_coarse, par_coarse = errors((12, 12, 4))
     err_fine, par_fine = errors((24, 24, 4))
