@@ -1,14 +1,11 @@
 from typing import Literal
 
-from feectools.linalg.block import BlockVector
-
 from struphy.io.options import BaseUnits
 from struphy.models.linear_euler import LinearEuler
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
 from struphy.models.species import FieldSpecies
+from struphy.models.utils import MagneticEnergies, add_magnetic_scalars, magnetic_discretization_doc
 from struphy.models.variables import FEECVariable
 from struphy.propagators.background_current import BackgroundCurrent
-from struphy.propagators.base import Propagator
 from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
 from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
 from struphy.utils.utils import check_option
@@ -133,13 +130,8 @@ class LinearMHD(LinearEuler):
     def _create_scalars(self):
         """:meta private:"""
         scalars = super()._create_scalars()
-        # en_tot of LinearEuler is replaced by the one including the magnetic energy (and kept last)
-        en_tot = scalars.pop("en_tot")
-        en_B = BilinearEnergyFEEC(self.em_fields.b_field)
-        scalars["en_B"] = en_B
-        scalars["en_B_eq"] = FunctionScalarFEEC(self._compute_en_B_eq)
-        scalars["en_B_tot"] = FunctionScalarFEEC(self._compute_en_B_tot)
-        scalars["en_tot"] = en_tot + en_B
+        self._magnetic_energies = MagneticEnergies(self.em_fields.b_field)
+        add_magnetic_scalars(scalars, self.em_fields.b_field, self._magnetic_energies)
         return scalars
 
     @property
@@ -149,29 +141,7 @@ class LinearMHD(LinearEuler):
     def post_allocate(self):
         """:meta private:"""
         super().post_allocate()
-
-        # background magnetic field and mass matrix in the space of the perturbation (2-form, or 1-form with
-        # b_space="Hcurl")
-        if self.em_fields.b_field.space == "Hcurl":
-            self._b_eq = Propagator.projected_equil.b1
-            self._M_b = Propagator.mass_ops.M1
-        else:
-            self._b_eq = Propagator.projected_equil.b2
-            self._M_b = Propagator.mass_ops.M2
-
-        self._tmp_b1: BlockVector = self._b_eq.space.zeros()
-        self._tmp_b2: BlockVector = self._b_eq.space.zeros()
-
-    def _compute_en_B_eq(self):
-        self._M_b.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-        return self._b_eq.inner(self._tmp_b1) / 2
-
-    def _compute_en_B_tot(self):
-        self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.em_fields.b_field.spline.vector
-
-        self._M_b.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-        return self._tmp_b1.inner(self._tmp_b2) / 2
+        self._magnetic_energies.allocate()
 
     ## abstract methods for documentation
 
@@ -267,11 +237,7 @@ class LinearMHD(LinearEuler):
         ``b_space="Hdiv"`` (listed below) and
         :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator` for
         ``b_space="Hcurl"`` (at the end):"""
-        doc = cls.propagators_doc()
-        doc += '**1. shear_alf** with ``b_space="Hcurl"`` '
-        doc += "(:class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`):\n\n"
-        doc += f"{ShearAlfvenCurlCurlPropagator.__doc__}\n"
-        return doc
+        return magnetic_discretization_doc(cls)
 
     @classmethod
     def doc_long_description(cls):
