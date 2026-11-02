@@ -47,10 +47,10 @@ class LocalProjectionMatrix:
         self._funs = vec_fun
 
     def __call__(self, e1, e2, e3):
+        # each component evaluated once (the equilibrium callables can be expensive)
+        a = [fun(e1, e2, e3) for fun in self._funs]
         # array from 2d list gives 3x3 array is in the first two indices
-        tmp = xp.array(
-            [[self._funs[m](e1, e2, e3) * self._funs[n](e1, e2, e3) for n in range(3)] for m in range(3)],
-        )
+        tmp = xp.array([[a[m] * a[n] for n in range(3)] for m in range(3)])
 
         # numpy operates on the last two indices with @
         return xp.transpose(tmp, axes=(2, 3, 4, 0, 1))
@@ -76,24 +76,18 @@ class LocalRotationMatrix:
         assert len(vec_fun) == 3
         assert all([callable(fun) for fun in vec_fun])
 
-        self._cross_mask = [
-            [0, -1, 1],
-            [1, 0, -1],
-            [-1, 1, 0],
-        ]
-
-        self._funs = [
-            [lambda e1, e2, e3: 0 * e1, vec_fun[2], vec_fun[1]],
-            [vec_fun[2], lambda e1, e2, e3: 0 * e2, vec_fun[0]],
-            [vec_fun[1], vec_fun[0], lambda e1, e2, e3: 0 * e3],
-        ]
+        self._funs = vec_fun
 
     def __call__(self, e1, e2, e3):
+        # each component evaluated once (the equilibrium callables can be expensive)
+        a1, a2, a3 = (fun(e1, e2, e3) for fun in self._funs)
+        zero = 0.0 * a1
         # array from 2d list gives 3x3 array is in the first two indices
         tmp = xp.array(
             [
-                [self._cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)]
-                for m, row in enumerate(self._funs)
+                [zero, -a3, a2],
+                [a3, zero, -a1],
+                [-a2, a1, zero],
             ],
         )
 

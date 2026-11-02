@@ -109,7 +109,7 @@ def post_process_orbit_guiding_center(domain, equil, path_kinetics_species, spec
         )
 
         # eval cartesian magnetic filed at marker positions
-        B_cart[~lost_particles_mask, :] = equil.b_cart(etas[~lost_particles_mask])[0].T
+        B_cart[~lost_particles_mask, :] = equil.b_cart(etas[~lost_particles_mask].T)[0].T
 
         # calculate guiding center positions
         calculate_guiding_center_from_6d(temp, B_cart)

@@ -42,23 +42,23 @@ def eval_gradB_ediff(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
+        eta_mid[:] = (markers[0:3, ip] + markers[first_pusher_idx : first_pusher_idx + 3, ip]) / 2.0
         eta_mid[:] = mod(eta_mid[:], 1.0)
 
-        eta_diff = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
+        eta_diff = markers[0:3, ip] - markers[first_pusher_idx : first_pusher_idx + 3, ip]
 
         # marker weight and velocity
-        weight = markers[ip, 5]
-        mu = markers[ip, mu_idx]
+        weight = markers[5, ip]
+        mu = markers[mu_idx, ip]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
@@ -103,5 +103,5 @@ def eval_gradB_ediff(
 
         tmp = gradB + grad_PB_b
 
-        markers[ip, idx] = linalg_kernels.scalar_dot(eta_diff, tmp)
-        markers[ip, idx] *= mu
+        markers[idx, ip] = linalg_kernels.scalar_dot(eta_diff, tmp)
+        markers[idx, ip] *= mu

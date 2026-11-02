@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - devel
+  # keeps the testmon data of devel (restored by new PRs) up to date
+  push:
+    branches:
+      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -83,6 +87,14 @@ jobs:
         with:
           env-name: env
 
+      # fingerprint only the core packages in testmon: struphy is installed with the latest dependencies in each
+      # run, and any of their updates made testmon re-run all tests
+      - name: Packages ignored by testmon
+        shell: bash
+        run: |
+          source env/bin/activate
+          echo "TESTMON_IGNORE=testmon_ignore_dependencies=$(python .github/scripts/testmon_ignored_packages.py)" >> $GITHUB_ENV
+
       - name: Uncompile Struphy
         shell: bash
         run: |
@@ -158,7 +170,8 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
         run: |
           source env/bin/activate
-          pytest -m single -xvs --model-name ViscousEulerSPH $STRUPHY_PATH 
+          # uncompiled, this model takes 7-9 min: only when testmon selects it
+          pytest -m single --testmon-forceselect -o "$TESTMON_IGNORE" -xvs --model-name ViscousEulerSPH $STRUPHY_PATH
 
       - name: Vlasov test MPI
         shell: bash
@@ -167,8 +180,8 @@ jobs:
         # init .testmondata with non-MPI call
         run: |
           source env/bin/activate
-          mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell $STRUPHY_PATH
-          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Vlasov $STRUPHY_PATH
+          mpirun -n 1 pytest -m single --testmon-forceselect -o "$TESTMON_IGNORE" -xs --with-mpi --model-name Maxwell $STRUPHY_PATH
+          mpirun -n 2 pytest -m single --testmon-forceselect -o "$TESTMON_IGNORE" -xs --with-mpi --model-name Vlasov $STRUPHY_PATH
 
       - name: GuidingCenter test MPI
         shell: bash
@@ -176,7 +189,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name GuidingCenter $STRUPHY_PATH
+          mpirun -n 2 pytest -m single --testmon-forceselect -o "$TESTMON_IGNORE" -xs --with-mpi --model-name GuidingCenter $STRUPHY_PATH
 
       - name: VlasovAmpere test MPI
         shell: bash
@@ -184,7 +197,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name VlasovAmpereOneSpecies $STRUPHY_PATH 
+          mpirun -n 2 pytest -m single --testmon-forceselect -o "$TESTMON_IGNORE" -xs --with-mpi --model-name VlasovAmpereOneSpecies $STRUPHY_PATH 
 
       - name: ViscousEulerSPH test MPI
         shell: bash
@@ -192,4 +205,4 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          mpirun -n 2 pytest -m single --testmon-forceselect -xs --with-mpi --model-name ViscousEulerSPH  $STRUPHY_PATH 
+          mpirun -n 2 pytest -m single --testmon-forceselect -o "$TESTMON_IGNORE" -xs --with-mpi --model-name ViscousEulerSPH  $STRUPHY_PATH 

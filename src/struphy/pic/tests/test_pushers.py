@@ -578,7 +578,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
         flattened=True,
     )
 
-    mu0 = xp.zeros(particles.markers.copy().T.shape[1], dtype=float)
+    mu0 = xp.zeros(particles.n_markers_max, dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -708,7 +708,7 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
 
     n_mks_load = xp.zeros(size, dtype=int)
 
-    comm.Allgather(xp.array(xp.shape(particles.markers)[0]), n_mks_load)
+    comm.Allgather(xp.array(particles.n_markers_max), n_mks_load)
 
     sendcounts = xp.zeros(size, dtype=int)
     displacements = xp.zeros(size, dtype=int)
@@ -722,7 +722,7 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     all_particles_psy = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
 
     comm.Barrier()
-    comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
+    comm.Allgatherv(xp.array(particles.markers[:3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
     comm.Barrier()
 
 
@@ -758,8 +758,8 @@ def test_kinetic_bc_in_kernel(bc, mapping):
     bc_type_kernel = bc_type.copy()
 
     # large time step such that many markers leave the unit cube
-    markers[:, first_pusher_idx:first_shift_idx] = markers[:, :6]
-    markers[:, first_shift_idx:-2] = 0.0
+    markers[first_pusher_idx:first_shift_idx] = markers[:6]
+    markers[first_shift_idx:-2] = 0.0
     markers_init = markers.copy()
     n_holes_init = xp.count_nonzero(particles.holes)
 
@@ -769,7 +769,7 @@ def test_kinetic_bc_in_kernel(bc, mapping):
         0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c, butcher.n_stages
     )
     n_outside = xp.count_nonzero(
-        xp.logical_or(markers[~particles.holes, :3] > 1.0, markers[~particles.holes, :3] < 0.0)
+        xp.logical_or(markers[:3, ~particles.holes] > 1.0, markers[:3, ~particles.holes] < 0.0)
     )
     assert n_outside > 0
     particles.apply_kinetic_bc()
@@ -785,12 +785,12 @@ def test_kinetic_bc_in_kernel(bc, mapping):
     )
     particles.finish_kernel_bc()
 
-    assert xp.array_equal(markers[:, :first_shift_idx], markers_ref[:, :first_shift_idx])
-    assert xp.all(markers[~particles.holes, :3] >= 0.0)
-    assert xp.all(markers[~particles.holes, :3] <= 1.0)
+    assert xp.array_equal(markers[:first_shift_idx], markers_ref[:first_shift_idx])
+    assert xp.all(markers[:3, ~particles.holes] >= 0.0)
+    assert xp.all(markers[:3, ~particles.holes] <= 1.0)
     if bc == "periodic":
         shift_slice = slice(first_shift_idx, first_shift_idx + 3)
-        assert xp.array_equal(markers[:, shift_slice], markers_ref[:, shift_slice])
+        assert xp.array_equal(markers[shift_slice], markers_ref[shift_slice])
     if bc == "remove":
         n_new_holes = xp.count_nonzero(particles.holes) - n_holes_init
         assert n_new_holes > 0
@@ -816,9 +816,9 @@ def test_kinetic_bc_remove_counts_each_marker_once():
 
     valid = xp.nonzero(particles.valid_mks)[0]
     n_valid = valid.size
-    particles.markers[valid[0], :3] = [1.5, -0.5, 0.5]  # outside on two axes
-    particles.markers[valid[1], :3] = [1.5, 1.5, 1.5]  # outside on all three axes
-    particles.markers[valid[2], :3] = [0.5, 0.5, -0.1]  # outside on one axis
+    particles.markers[:3, valid[0]] = [1.5, -0.5, 0.5]  # outside on two axes
+    particles.markers[:3, valid[1]] = [1.5, 1.5, 1.5]  # outside on all three axes
+    particles.markers[:3, valid[2]] = [0.5, 0.5, -0.1]  # outside on one axis
 
     n_lost_before = particles.n_lost_markers
     particles.apply_kinetic_bc()

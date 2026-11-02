@@ -266,6 +266,50 @@ See Fig. 5 for an example with :math:`p=4`.
 Polar splines
 ^^^^^^^^^^^^^
 
-Coming soon !
+For domains with a polar singularity at :math:`\eta_1 = 0` (e.g. ``IGAPolarCylinder``, ``IGAPolarTorus``),
+``DerhamOptions(polar_splines=True)`` builds the C1 polar spline spaces of
+`Holderied and Possanner (JCP 2022) <https://doi.org/10.1016/j.jcp.2022.111329>`_.
+The first two rings of tensor-product splines around the pole are replaced by a few polar basis functions,
+via extraction operators :math:`\mathbb E` (basis) and :math:`\mathbb P` (degrees of freedom) that act in the
+poloidal plane :math:`(\eta_1, \eta_2)` only.
+
+Hence, the inter-/histopolation matrices of the commuting projectors, :math:`\mathbb P \mathcal I \mathbb E^T`,
+and the mass matrices with weights independent of :math:`\eta_3` have a 2D x 1D Kronecker structure
+:math:`\mathbb A_\textnormal{pol} \otimes \mathbb A_3` (:mod:`struphy.polar.kron_2dx1d`).
+They are solved with a 1d direct solver in :math:`\eta_3` and one of the following solvers for the
+sparse poloidal matrix :math:`\mathbb A_\textnormal{pol}`:
+
+* ``"schur"`` (default): block elimination of the pole block (polar coefficients and first tensor-product ring),
+  with an exact (Kronecker or sparse LU) solve of the outer block and a dense LU of the small Schur complement,
+* ``"lu"``: sparse LU factorization,
+* ``"ilu"``: incomplete LU factorization, used as preconditioner of an iterative solver.
+
+The solver of the projectors is set with ``DerhamOptions(polar_poloidal_solver=...)``.
+For weighted mass matrices, use :class:`~struphy.feec.preconditioner.PolarMassMatrixPreconditioner`
+(``precond="PolarMassMatrixPreconditioner"`` in the propagator options);
+it is exact for axisymmetric weights and mappings.
+
+Stiffness operators :math:`\mathbb d^T \mathbb M_{k+1} \mathbb d + \sigma \mathbb M_k` (gradient and curl) are a sum of
+two Kronecker products, :math:`(\mathbb K_\textnormal{pol} + \sigma \mathbb M_\textnormal{pol}) \otimes \mathbb M_3 + \mathbb W_\textnormal{pol} \otimes \mathbb S_3`,
+where :math:`\mathbb W_\textnormal{pol}` is the poloidal mass matrix of the :math:`\eta_3`-derivative terms
+and :math:`\mathbb S_3` the 1d stiffness matrix in :math:`\eta_3`.
+:class:`~struphy.feec.preconditioner.PolarStiffnessPreconditioner` inverts this sum by fast diagonalization in :math:`\eta_3`,
+with one poloidal solve per :math:`\eta_3` mode.
+It is used automatically for ``precond="StiffnessPreconditioner"`` with polar splines.
+For the gradient it is exact on axisymmetric domains (without straight field line coordinates).
+For the curl, the components :math:`(E_1, E_2)` and :math:`E_3` are decoupled (block Jacobi) and a correction on the gradients is added.
+Weighted averages over :math:`\eta_2` and/or :math:`\eta_3` (e.g. the flux-surface average of the gyrokinetic Poisson equation,
+``stab_average``) are available on polar 0-forms through :class:`~struphy.feec.mass.PolarWeightedAverageProjection`,
+and are included in the polar stiffness preconditioner (the average over :math:`\eta_2` by a low-rank correction).
+
+On the CuPy backend, extraction, derivatives, Kronecker operators and these solves keep their
+coefficients on the device. Factorization and mass-preconditioner assembly run once on the host;
+cached device factors apply subsequent solves. Identical factors are shared across polar spaces
+and projector/preconditioner instances of the same Derham. Matrix contents and solver settings
+are matched exactly; updated weights use new factors, and unused entries are released. Polar MPI collectives support CUDA-aware device
+buffers or host staging through ``cunumpy.mpi.mpi_buffer``. The feectools halo exchanges require
+CUDA-aware MPI on real GPUs. ``SplineFunction.__call__`` dispatches CUDA kernels for marker
+and dense/sparse grid evaluation. The fixed local-grid helper ``eval_tp_fixed_loc`` remains
+host-only; distributed field-evaluation MPI handling and coverage are separate follow-ups.
 
 .. image:: ../../pics/polar_derham.png

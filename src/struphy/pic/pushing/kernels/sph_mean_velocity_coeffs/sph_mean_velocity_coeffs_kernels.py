@@ -28,7 +28,7 @@ def sph_mean_velocity_coeffs(
     r"""For each particle, evaluate the smoothed SPH density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store the
     coefficient
 
-    * :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[:, output_indices[k]]`` for :math:`k = 0, 1, 2`
+    * :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[output_indices[k], :]`` for :math:`k = 0, 1, 2`
 
     where the smoothed SPH density is given by
 
@@ -49,7 +49,7 @@ def sph_mean_velocity_coeffs(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    n_cols = shape(markers)[1]
+    n_cols = shape(markers)[0]
     weight_idx = args_markers.weight_idx
     valid_mks = args_markers.valid_mks
 
@@ -62,10 +62,10 @@ def sph_mean_velocity_coeffs(
         # if holes[ip]:
         #     continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        loc_box = int(markers[ip, n_cols - 2])
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        loc_box = int(markers[n_cols - 2, ip])
         n_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
@@ -84,12 +84,12 @@ def sph_mean_velocity_coeffs(
             h2,
             h3,
         )
-        weight = markers[ip, weight_idx]
-        velocities = markers[ip, 3:6]
+        weight = markers[weight_idx, ip]
+        velocities = markers[3:6, ip]
         # save
         if output_indices[0] >= 0:
-            markers[ip, output_indices[0]] = weight / n_at_eta * velocities[0]
+            markers[output_indices[0], ip] = weight / n_at_eta * velocities[0]
         if output_indices[1] >= 0:
-            markers[ip, output_indices[1]] = weight / n_at_eta * velocities[1]
+            markers[output_indices[1], ip] = weight / n_at_eta * velocities[1]
         if output_indices[2] >= 0:
-            markers[ip, output_indices[2]] = weight / n_at_eta * velocities[2]
+            markers[output_indices[2], ip] = weight / n_at_eta * velocities[2]

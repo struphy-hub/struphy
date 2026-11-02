@@ -11,10 +11,13 @@ from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
-from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
+    NewtonConvergence,
     Pressure_transport_operator,
+    dot_normalized,
+    inv_norm2,
 )
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -27,17 +30,66 @@ logger = logging.getLogger("struphy")
 
 class VariationalQBEvolve(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
-    find :math:`\mathbf u \in (H^1)^3`, :math:`p \in L^2` and :math:`\mathbf B \in H(\textnormal{div})` such that
+    find :math:`\mathbf u \in (H^1)^3`, :math:`q \in L^2` and :math:`\mathbf B \in H(\textnormal{div})` such that,
+    with the transport operators
 
     .. math::
 
-        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times (\tilde{\mathbf B} \times \mathbf v) - \int_\Omega \frac{2 q}{\gamma -1} (\nabla \cdot (\tilde{q} \mathbf v))\,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
-        \\[4mm]
-        &\partial_t \mathbf B + \nabla \cdot ( \tilde{\mathbf B} \times \mathbf u ) = 0 \,,
-        \\[4mm]
-        &\partial_t q + \nabla \cdot(\tilde{q} \mathbf u) + (\gamma/2 - 1) \tilde{q} \nabla \cdot u = 0 \,.
+        \mathcal T_{\bar{\mathbf B}}(\mathbf v) = \nabla \times (\bar{\mathbf B} \times \mathbf v)\,,
+        \qquad
+        \mathcal S_{\bar q}(\mathbf v) = \nabla \cdot (\bar q \mathbf v) + \left(\frac \gamma 2 - 1\right) \bar q\, \nabla \cdot \mathbf v\,,
 
-    Where :math:`\tilde{\mathbf B}` (resp. :math:`\tilde{q}`) is either :math:`\mathbf B` (resp. :math:`q`) for full-f models, :math:`\mathbf B_0` (resp. :math:`q_0`) for linear models or :math:`\mathbf B_0+\mathbf B` (resp. :math:`q_0+q`) for :math:`\delta f` models.
+    the following holds, depending on the option ``model``:
+
+    * ``"full_q"`` (full MHD in :math:`q = \sqrt p`):
+
+      .. math::
+
+          &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x
+          - \int_\Omega \mathbf B \cdot \mathcal T_{\mathbf B}(\mathbf v)\,\textrm d \mathbf x
+          - \int_\Omega \frac{2 q}{\gamma -1} \mathcal S_q(\mathbf v)\,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
+          \\[2mm]
+          &\partial_t \mathbf B + \mathcal T_{\mathbf B}(\mathbf u) = 0 \,,
+          \qquad
+          \partial_t q + \mathcal S_q(\mathbf u) = 0 \,.
+
+    * ``"linear_q"`` (:math:`\mathbf B` and :math:`q` are the perturbations of the equilibrium :math:`\mathbf B_0`, :math:`q_0`):
+
+      .. math::
+
+          &\int_\Omega \partial_t (\rho_0 \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x
+          - \int_\Omega \left(\mathbf B \cdot \mathcal T_{\mathbf B_0}(\mathbf v) + \mathbf B_0 \cdot \mathcal T_{\mathbf B}(\mathbf v)\right)\textrm d \mathbf x
+          - \int_\Omega \frac{2}{\gamma -1} \left(q\, \mathcal S_{q_0}(\mathbf v) + q_0\, \mathcal S_q(\mathbf v)\right)\textrm d \mathbf x = 0\,,
+          \\[2mm]
+          &\partial_t \mathbf B + \mathcal T_{\mathbf B_0}(\mathbf u) = 0 \,,
+          \qquad
+          \partial_t q + \mathcal S_{q_0}(\mathbf u) = 0 \,.
+
+    * ``"perturbative_q"`` (:math:`\mathbf B` and :math:`q` are the perturbations, all nonlinear terms are kept):
+
+      .. math::
+
+          &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x
+          - \int_\Omega \left(\mathbf B \cdot \mathcal T_{\mathbf B_0 + \mathbf B}(\mathbf v) + \mathbf B_0 \cdot \mathcal T_{\mathbf B}(\mathbf v)\right)\textrm d \mathbf x
+          - \int_\Omega \frac{2}{\gamma -1} \left(q\, \mathcal S_{q_0 + q}(\mathbf v) + q_0\, \mathcal S_q(\mathbf v)\right)\textrm d \mathbf x = 0\,,
+          \\[2mm]
+          &\partial_t \mathbf B + \mathcal T_{\mathbf B_0 + \mathbf B}(\mathbf u) = 0 \,,
+          \qquad
+          \partial_t q + \mathcal S_{q_0 + q}(\mathbf u) = 0 \,.
+
+    The second-order terms come from the auxiliary variables :math:`\hat{\mathbf B}` (``bt2``) and :math:`\hat q` (``qt3``),
+    which, if given, are advanced with :math:`\partial_t \hat{\mathbf B} + \mathcal T_{\mathbf B}(\mathbf u) = 0` and
+    :math:`\partial_t \hat q + \mathcal S_q(\mathbf u) = 0`. They enter the conserved energy of the linear and perturbative
+    models as :math:`\int \mathbf B_0 \cdot \hat{\mathbf B} + 2 q_0 \hat q / (\gamma - 1)`.
+    For ``"full_q"`` the mass density :math:`\rho` is the variable of :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`,
+    for ``"perturbative_q"`` it is :math:`\rho_0` plus that variable.
+
+    The scheme below is written for ``"full_q"``; for the other models the operators and linear forms are
+    replaced by the sums above. Below, hats denote pullbacks to the logical domain (not the auxiliary variables).
+    The weights of the transport operators are taken at the same time in the momentum, induction and pressure
+    equations, which makes the step energy conserving: at :math:`t^n` as written below (first order in time), or at
+    the midpoint :math:`t^{n+1/2}` with the option ``implicit_weights`` (second order in time, the default for
+    ``"linear_q"`` and ``"perturbative_q"``).
 
     On the logical domain:
 
@@ -46,11 +98,11 @@ class VariationalQBEvolve(Propagator):
         \begin{align}
         &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
         - \int_{\hat{\Omega}} \hat{\mathbf{B}}^2 \cdot G \,\nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\,
-        - \frac{q}{\gamma -1} \nabla \cdot (\hat{q} \hat{v})  \textrm d \boldsymbol \eta = 0 ~ ,
+        - \frac{2 \hat{q}}{\gamma -1} \left(\nabla \cdot (\hat{q} \hat{\mathbf{v}}) + (\gamma/2 - 1) \hat{q} \nabla \cdot \hat{\mathbf{v}}\right) \textrm d \boldsymbol \eta = 0 ~ ,
         \\[2mm]
         &\partial_t \hat{\mathbf{B}}^2 + \nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{u}}) = 0 ~ ,
         \\[2mm]
-        &\partial_t \hat{q} + \nabla \cdot (\hat{q} \hat{u}) + (\gamma/2 - 1 ) \hat{p} \nabla \cdot G \hat{u} = 0 \,
+        &\partial_t \hat{q} + \nabla \cdot (\hat{q} \hat{u}) + (\gamma/2 - 1 ) \hat{q} \nabla \cdot G \hat{u} = 0 \,
         \end{align}
 
     It is discretized as
@@ -63,7 +115,7 @@ class VariationalQBEvolve(Propagator):
         \Big(\big(\mathbb D \hat{\Pi}^{2}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^v]]
         + (\gamma/2 - 1)\hat{\Pi}^{3}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf v \Big)^\top \hat{l}^3(\frac{2q^{n+\frac{1}{2}}}{\gamma-1}) = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
         \\[2mm]
         &\frac{\mathbf q^{n+1}- \mathbf q^n}{\Delta t} + \big(\mathbb D \hat{\Pi}^{2}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^v]]
         + (\gamma/2 - 1)\hat{\Pi}^{3}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf u^{n+1/2}= 0 ~ ,
@@ -80,9 +132,9 @@ class VariationalQBEvolve(Propagator):
 
     .. math::
 
-        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+\frac{1}{2}})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
+        \hat{\mathbf{B}}_h^{n} = (\mathbf{b}^{n})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
         \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,
-        \qquad \hat{q}_h^{n+1/2} = (\boldsymbol q^{n+1/2})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
+        \qquad \hat{q}_h^{n} = (\boldsymbol q^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
     and :math:`\mathcal{U}^v` is :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`.
     """
@@ -142,7 +194,7 @@ class VariationalQBEvolve(Propagator):
         qt3: FEECVariable = None,
         bt2: FEECVariable = None,
     ):
-        """
+        r"""
         Parameters
         ----------
         div_u : FEECVariable, default=None
@@ -150,9 +202,13 @@ class VariationalQBEvolve(Propagator):
         u2 : FEECVariable, default=None
             Velocity 2-form diagnostic (``"Hdiv"`` space).
         qt3 : FEECVariable, default=None
-            Heat-flux pressure 3-form (``"L2"`` space) used in the momentum source term.
+            Auxiliary second-order variable :math:`\hat q` (``"L2"`` space) of the linear and perturbative models,
+            advanced with :math:`\partial_t \hat q + \mathcal S_q(\mathbf u) = 0`. It enters only the energy, not the
+            momentum equation.
         bt2 : FEECVariable, default=None
-            Magnetic 2-form (``"Hdiv"`` space) providing the Lorentz force.
+            Auxiliary second-order variable :math:`\hat{\mathbf B}` (``"Hdiv"`` space) of the linear and perturbative
+            models, advanced with :math:`\partial_t \hat{\mathbf B} + \mathcal T_{\mathbf B}(\mathbf u) = 0`. It enters
+            only the energy, not the momentum equation.
         """
         self.variables = self.Variables()
         self.div_u = div_u
@@ -162,11 +218,11 @@ class VariationalQBEvolve(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VariationalQBEvolve`.
+        r"""Configuration options for :class:`VariationalQBEvolve`.
 
         Parameters
         ----------
-        model : {"full_q", "linear_q", "deltaf_q"}, default="full_q"
+        model : {"full_q", "linear_q", "perturbative_q"}, default="full_q"
             Coupled q-B evolution model variant.
         gamma : float, default=5/3
             Adiabatic index.
@@ -175,13 +231,25 @@ class VariationalQBEvolve(Propagator):
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The Newton systems are solved for a normalized right-hand side, so ``tol`` is
+            relative to the norm of the residual.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear/Picard iteration controls.
+            Nonlinear/Picard iteration controls. The iteration stops when the norm of the residual is below ``tol`` times the
+            norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or when it
+            stagnates (with a warning).
+        implicit_weights : bool, default=None
+            If ``True``, the weights of the transport operators (:math:`\mathbf B` and :math:`q`) are taken at the
+            midpoint :math:`t^{n+1/2}` and updated in every Picard iteration, which makes the step second-order
+            accurate in time. If ``False``, they are taken at :math:`t^n`; the step is then only first-order accurate
+            (e.g. for sound waves). Both conserve the energy. ``None`` means ``True`` for ``"linear_q"`` and
+            ``"perturbative_q"``, and ``False`` for ``"full_q"``. With ``True``, the Jacobian of the Picard iteration
+            does not contain the dependence of the operators on their weights, so a step needs several iterations
+            (typically 2 to 10, more for large time steps or amplitudes) instead of one, each with a Schur solve;
+            ``False`` is the cheaper first-order choice.
         """
 
         # specific literals
-        OptsModel = Literal["full_q", "linear_q", "deltaf_q"]
+        OptsModel = Literal["full_q", "linear_q", "perturbative_q"]
         # propagator options
         model: OptsModel = "full_q"
         gamma: float = 5.0 / 3.0
@@ -189,6 +257,7 @@ class VariationalQBEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
+        implicit_weights: bool | None = None
 
         def __post_init__(self):
             # checks
@@ -202,6 +271,9 @@ class VariationalQBEvolve(Propagator):
 
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters()
+
+            if self.implicit_weights is None:
+                self.implicit_weights = self.model in ("linear_q", "perturbative_q")
 
     @property
     def options(self) -> Options:
@@ -222,6 +294,7 @@ class VariationalQBEvolve(Propagator):
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
         self._gamma = self.options.gamma
+        self._implicit_weights = self.options.implicit_weights
 
         if self.div_u is None:
             self._divu = None
@@ -248,15 +321,7 @@ class VariationalQBEvolve(Propagator):
 
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixDiagonalPreconditioner(self._Mrho)
-        self._Mrho_inv = inverse(
-            self._Mrho,
-            "pcg",
-            pc=pc,
-            tol=1e-16,
-            maxiter=500,
-            recycle=True,
-        )
+        self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -297,6 +362,9 @@ class VariationalQBEvolve(Propagator):
             self._extracted_q3 = self.derham.extraction_ops["3"].dot(self.projected_equil.q3)
 
     def __call__(self, dt):
+        # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+        self._Mrho_pc.refresh()
+
         if self._nonlin_solver.type == "Picard":
             self.__call_picard(dt)
         else:
@@ -304,7 +372,8 @@ class VariationalQBEvolve(Propagator):
 
     def __call_picard(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
-        # In fact it is linear due to the explicit update, only one iteration will be done at each time step
+        # With the operator weights at t^n (implicit_weights=False) the system is linear and one iteration suffices;
+        # with the weights at the midpoint the Picard iteration converges in a few iterations
         if self._info:
             logger.info("")
             logger.info("Newton iteration in VariationalQBEvolve")
@@ -313,8 +382,10 @@ class VariationalQBEvolve(Propagator):
         qn = self.variables.q.spline.vector
         bn = self.variables.b.spline.vector
 
-        self._update_Pib(bn)
-        self._update_Projq(qn)
+        # with implicit weights the operators are updated at the midpoint inside the iteration
+        if not self._implicit_weights:
+            self._update_Pib(bn)
+            self._update_Projq(qn)
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
@@ -325,7 +396,8 @@ class VariationalQBEvolve(Propagator):
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalQBEvolve", tol, self._get_error(mn, bn, qn))
 
         for it in range(self._nonlin_solver.maxiter):
             # Picard iteration
@@ -338,6 +410,11 @@ class VariationalQBEvolve(Propagator):
             # Update the linear form
             self._update_linear_form_dl_db(bn, bn1)
             self._update_linear_form_dl_dq(qn, qn1)
+
+            # weights of the transport operators at the midpoint (computed in the linear forms above)
+            if self._implicit_weights:
+                self._update_Pib(self._tmp_bn12)
+                self._update_Projq(self._tmp_qn12)
 
             # Compute the advection terms
             if self._model == "linear_q":
@@ -364,7 +441,7 @@ class VariationalQBEvolve(Propagator):
                     out=self._tmp_q_advection,
                 )
 
-            elif self._model == "deltaf_q":
+            elif self._model == "perturbative_q":
                 advection = self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
@@ -440,12 +517,12 @@ class VariationalQBEvolve(Propagator):
             mn_diff += advection
 
             # Get error
-            err = self._get_error(mn_diff, bn_diff, qn_diff)
+            stop = conv.stop(self._get_error(mn_diff, bn_diff, qn_diff), it)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if err < tol**2 or xp.isnan(err):
+            if stop:
                 break
 
             # Derivative for Newton
@@ -456,7 +533,8 @@ class VariationalQBEvolve(Propagator):
             self._tmp_f[1] = bn_diff
             self._tmp_f[2] = qn_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
             un1 -= incr[0]
@@ -466,10 +544,19 @@ class VariationalQBEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
+
+        if not conv.converged:
+            # the last iteration applied an update after the residual: evaluate the midpoint velocity (and the
+            # operators) at the final iterate, such that the updates below are consistent with it
+            un12 = un.copy(out=self._tmp_un12)
+            un12 += un1
+            un12 *= 0.5
+            if self._implicit_weights:
+                self._update_linear_form_dl_db(bn, bn1)
+                self._update_linear_form_dl_dq(qn, qn1)
+                self._update_Pib(self._tmp_bn12)
+                self._update_Projq(self._tmp_qn12)
 
         self._tmp_un_diff = un1 - un
         self._tmp_bn_diff = bn1 - bn
@@ -518,14 +605,15 @@ class VariationalQBEvolve(Propagator):
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
+        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
             self.mass_ops.Mv,
+            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,
             "pcg",
             pc=self.pc_Mv,
-            tol=1e-16,
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
         )
@@ -558,7 +646,7 @@ class VariationalQBEvolve(Propagator):
             self._mdt2_pc_transopT_M = 2 * (self._transop_q0T @ self.mass_ops.M3)
             self._dt2_transop = 2 * self._transop_q0
 
-        elif self._model == "deltaf_q":
+        elif self._model == "perturbative_q":
             # initialize the jacobian differently if linear model
             self._create_Pib0()
             self._create_transop0()
@@ -607,7 +695,8 @@ class VariationalQBEvolve(Propagator):
         self._inv_Jacobian = SchurSolverFull3(
             self._Jacobian,
             self.options.solver,
-            pc=self._Mrho_inv,
+            # fixed (linear) preconditioner: an inner iterative solve is expensive and not a linear operator
+            pc=self._Mrho_pc,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -630,7 +719,7 @@ class VariationalQBEvolve(Propagator):
 
     def _create_Pib0(self):
         self.curlPib0 = Hdiv0_transport_operator(self.derham)
-        self.curlPibT0 = self.curlPib.T
+        self.curlPibT0 = self.curlPib0.T
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
 
@@ -673,10 +762,8 @@ class VariationalQBEvolve(Propagator):
         wq *= -2 / (self._gamma - 1)
 
     def _get_error(self, mn_diff, bn_diff, qn_diff):
-        err_u = self._inv_Mv.dot_inner(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            self.derham.boundary_ops["v"].dot(mn_diff),
-        )
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
         err_b = self.mass_ops.M2.dot_inner(
             bn_diff,
             bn_diff,

@@ -913,8 +913,8 @@ class Maxwellian(KineticBackground):
             if self.gauss_types[i] == "mu":
                 B0_param = self.params.get("B0", 2.0)
                 if callable(B0_param):
-                    # callable expects flat (N, 3) positions; reshape back for meshgrid input
-                    etas = xp.concatenate([xp.ravel(a)[:, None] for a in args[:3]], axis=1)
+                    # callable expects flat (3, N) positions (one column per point); reshape back for meshgrid input
+                    etas = xp.stack([xp.ravel(a) for a in args[:3]], axis=0)
                     B0 = xp.reshape(B0_param(etas), shape0)
                 else:
                     B0 = B0_param
@@ -954,14 +954,9 @@ class Maxwellian(KineticBackground):
         assert isinstance(params, tuple)
         assert len(params) == 2
 
-        # flat evaluation for markers
+        # flat evaluation for markers (one column per marker)
         if eta1.ndim == 1:
-            etas = [
-                xp.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None]),
-                    axis=1,
-                ),
-            ]
+            etas = [xp.stack((eta1, eta2, eta3), axis=0)]
         # assuming that input comes from meshgrid.
         elif eta1.ndim == 4:
             etas = (

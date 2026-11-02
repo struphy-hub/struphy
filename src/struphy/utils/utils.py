@@ -203,7 +203,7 @@ def __class_with_params_repr_no_defaults__(cls_instance):
     out = f"{cls_instance.__class__.__name__}("
     for k, v in cls_instance.params.items():
         if k in defaults and v != defaults[k]:
-            out += f"{k}={v}, "
+            out += f"{k}={v!r}, "
     out += ")"
     return out
 

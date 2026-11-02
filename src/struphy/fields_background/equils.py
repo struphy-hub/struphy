@@ -39,6 +39,53 @@ if TYPE_CHECKING:
 logger = logging.getLogger("struphy")
 
 
+# Splines of the numerical profiles are fitted on the active backend (SciPy or cupyx.scipy, through xp.scipy, looked up
+# at the point of use), so that they are evaluated on the device on the CuPy backend. Only the scalar setup steps
+# (quad, odeint, fsolve, minimize, file reading) run on the host.
+
+
+def _univariate_spline(x, y, k: int):
+    """Interpolating spline through the host data ``(x, y)`` on the active backend, constant outside ``[x[0], x[-1]]``.
+
+    The same as ``scipy.interpolate.UnivariateSpline(x, y, k=k, s=0.0, ext=3)``.
+    """
+    return xp.scipy.interpolate.UnivariateSpline(xp.to_cunumpy(x), xp.to_cunumpy(y), k=k, s=0.0, ext=3)
+
+
+def _evaluate_1d(spline, x, nu: int = 0):
+    """Evaluate a 1d spline of :func:`_univariate_spline` at ``x``; a Python float for a scalar ``x``."""
+    out = spline(xp.asarray(x), nu=nu)
+    # remove all "dimensions" for point-wise evaluation
+    if isinstance(x, (int, float)):
+        assert out.ndim == 0
+        out = out.item()
+    return out
+
+
+def _rect_spline(x, y, z, kx: int, ky: int):
+    """Interpolating tensor-product spline through the host data ``z[i, j]`` at ``(x[i], y[j])`` on the active backend.
+
+    The same spline as ``scipy.interpolate.RectBivariateSpline(x, y, z, kx=kx, ky=ky, s=0.0)`` (same knots, values and
+    derivatives equal to round-off), which cupyx.scipy does not have. Unlike it, the returned ``NdBSpline`` extrapolates:
+    evaluate it with :func:`_evaluate_rect`, which clamps the points like ``RectBivariateSpline``.
+    """
+    interpolate = xp.scipy.interpolate
+    bx = interpolate.make_interp_spline(xp.to_cunumpy(x), xp.to_cunumpy(z), k=kx)
+    by = interpolate.make_interp_spline(xp.to_cunumpy(y), bx.c.T, k=ky)
+    return interpolate.NdBSpline((bx.t, by.t), by.c.T, (kx, ky))
+
+
+def _evaluate_rect(spline, bounds, x, y, dx: int = 0, dy: int = 0):
+    """Evaluate a spline of :func:`_rect_spline` (or its derivative) at the points ``(x, y)``, clamped to ``bounds``.
+
+    ``bounds`` is ``((x_min, x_max), (y_min, y_max))``, the domain of the spline.
+    """
+    x, y = xp.broadcast_arrays(xp.asarray(x, dtype=float), xp.asarray(y, dtype=float))
+    x = xp.clip(x, *bounds[0])
+    y = xp.clip(y, *bounds[1])
+    return spline(xp.stack([x, y], axis=-1), nu=(dx, dy))
+
+
 class HomogenSlab(CartesianMHDequilibrium):
     r"""
     Homogeneous MHD equilibrium.
@@ -798,11 +845,11 @@ class AdhocTorus(AxisymmMHDequilibrium):
     l : float
         Linear term factor for q profile if q_kind=2 (default: 0.).
     n1 : float
-        1st shape factor for ion number density profile (default: 0.).
+        1st shape factor for ion number density profile (default: 2.).
     n2 : float
-        2nd shape factor for ion number density profile (default: 0.).
+        2nd shape factor for ion number density profile (default: 1.).
     na : float
-        Ion number density at r=a (default: 1.).
+        Ion number density at r=a (default: 0.2).
     p_kind : int
         Kind of pressure profile, see :meth:`doc_formula` (0 or 1, default: 1).
     p0 : float
@@ -898,7 +945,6 @@ class AdhocTorus(AxisymmMHDequilibrium):
         self.params = copy.deepcopy(locals())
 
         from scipy.integrate import quad
-        from scipy.interpolate import UnivariateSpline
 
         # plasma boundary contour
         ths = xp.linspace(0.0, 2 * xp.pi, 201)
@@ -915,26 +961,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
             self._p_i = None
 
         elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
-            r_i = xp.linspace(0.0, self.params["a"], self.params["psi_nel"] + 1)
 
             def dpsi_dr(r):
                 return self.params["B0"] * r / (self.q_r(r) * xp.sqrt(1 - r**2 / self.params["R0"] ** 2))
-
-            psis = xp.zeros_like(r_i)
-
-            for i, rr in enumerate(r_i):
-                psis[i] = quad(dpsi_dr, 0.0, rr)[0]
-
-            self._psi_i = UnivariateSpline(
-                r_i,
-                psis,
-                k=self.params["psi_k"],
-                s=0.0,
-                ext=3,
-            )
-
-            self._psi0 = 0.0
-            self._psi1 = self.psi(self.params["R0"] + self.params["a"], 0.0)
 
             def dp_dr(r):
                 return (
@@ -943,18 +972,17 @@ class AdhocTorus(AxisymmMHDequilibrium):
                     * (2 * self.q_r(r) - r * self.q_r(r, der=1))
                 )
 
-            ps = xp.zeros_like(r_i)
+            # integrate the profiles on the host (scalar quad)
+            with xp.use_backend("numpy"):
+                r_i = xp.linspace(0.0, self.params["a"], self.params["psi_nel"] + 1)
+                psis = xp.array([quad(dpsi_dr, 0.0, rr)[0] for rr in r_i])
+                ps = xp.array([quad(dp_dr, 0.0, rr)[0] for rr in r_i])
 
-            for i, rr in enumerate(r_i):
-                ps[i] = quad(dp_dr, 0.0, rr)[0]
+            self._psi_i = _univariate_spline(r_i, psis, self.params["psi_k"])
+            self._p_i = _univariate_spline(r_i, ps - ps[-1], self.params["psi_k"])
 
-            self._p_i = UnivariateSpline(
-                r_i,
-                ps - ps[-1],
-                k=self.params["psi_k"],
-                s=0.0,
-                ext=3,
-            )
+            self._psi0 = 0.0
+            self._psi1 = self.psi(self.params["R0"] + self.params["a"], 0.0)
 
     @property
     def boundary_pts_R(self):
@@ -1010,7 +1038,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
             if der == 0:
                 out = -self.params["B0"] * self.params["a"] ** 2 / xp.sqrt(dq * q0 * eps**2 + dq**2)
-                out *= xp.arctanh(
+                # not in place: on CuPy, the prefactor is a 0-d device array
+                out = out * xp.arctanh(
                     xp.sqrt((dq - dq * (r / self.params["R0"]) ** 2) / (q0 * eps**2 + dq)),
                 )
             elif der == 1:
@@ -1020,12 +1049,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         # alternative profile (interpolated)
         elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
-            out = self._psi_i(r, nu=der)
-
-            # remove all "dimensions" for point-wise evaluation
-            if isinstance(r, (int, float)):
-                assert out.ndim == 0
-                out = out.item()
+            out = _evaluate_1d(self._psi_i, r, nu=der)
 
         return out
 
@@ -1149,12 +1173,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
             # alternative profiles (interpolated)
             elif self.params["q_kind"] == 1 or self.params["q_kind"] == 2:
-                pout = self._p_i(r)
-
-                # remove all "dimensions" for point-wise evaluation
-                if isinstance(r, (int, float)):
-                    assert pout.ndim == 0
-                    pout = pout.item()
+                pout = _evaluate_1d(self._p_i, r)
 
         # ad-hoc profile
         elif self.params["p_kind"] == 1:
@@ -1223,24 +1242,26 @@ class AdhocTorus(AxisymmMHDequilibrium):
         if dR == 0 and dZ == 0:
             out = self.psi_r(r, der=0)
         else:
-            dr_dR = (R - self.params["R0"]) / r
-            dr_dZ = Z / r
-
-            d2r_dR2 = (r - (R - self.params["R0"]) * dr_dR) / r**2
-            d2r_dZ2 = (r - Z * dr_dZ) / r**2
-
-            d2r_dRdZ = -Z * (R - self.params["R0"]) / r**3
+            # regular on the magnetic axis r=0: with g = psi'(r)/r -> psi''(0) and the direction cosines
+            # c_R = (R - R0)/r, c_Z = Z/r (set to 0 on the axis), the derivatives below have the correct limits
+            on_axis = r == 0.0
+            r_safe = xp.where(on_axis, 1.0, r)
+            dpsi = self.psi_r(r, der=1)
+            d2psi = self.psi_r(r, der=2)
+            g = xp.where(on_axis, d2psi, dpsi / r_safe)
+            c_R = (R - self.params["R0"]) / r_safe
+            c_Z = Z / r_safe
 
             if dR == 1 and dZ == 0:
-                out = self.psi_r(r, der=1) * dr_dR
+                out = g * (R - self.params["R0"])
             elif dR == 0 and dZ == 1:
-                out = self.psi_r(r, der=1) * dr_dZ
+                out = g * Z
             elif dR == 2 and dZ == 0:
-                out = self.psi_r(r, der=2) * dr_dR**2 + self.psi_r(r, der=1) * d2r_dR2
+                out = d2psi * c_R**2 + g * (1.0 - c_R**2)
             elif dR == 0 and dZ == 2:
-                out = self.psi_r(r, der=2) * dr_dZ**2 + self.psi_r(r, der=1) * d2r_dZ2
+                out = d2psi * c_Z**2 + g * (1.0 - c_Z**2)
             elif dR == 1 and dZ == 1:
-                out = self.psi_r(r, der=2) * dr_dR * dr_dZ + self.psi_r(r, der=1) * d2r_dRdZ
+                out = (d2psi - g) * c_R * c_Z
             else:
                 raise NotImplementedError(
                     "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
@@ -1302,11 +1323,11 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
     q1p : float
         Derivative of safety factor at r=a (w.r.t. poloidal flux function, default: 5.00).
     n1 : float
-        1st shape factor for ion number density profile (default: 0.).
+        1st shape factor for ion number density profile (default: 2.).
     n2 : float
-        2nd shape factor for ion number density profile (default: 0.).
+        2nd shape factor for ion number density profile (default: 1.).
     na : float
-        Ion number density at r=a (default: 1.).
+        Ion number density at r=a (default: 0.2).
     beta : float
         On-axis (r=0) plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
     p1 : float
@@ -1386,7 +1407,6 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         self.params = copy.deepcopy(locals())
 
         from scipy.integrate import odeint
-        from scipy.interpolate import UnivariateSpline
         from scipy.optimize import fsolve
 
         # plasma boundary contour
@@ -1418,24 +1438,20 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
             return out
 
-        # solve differential equation and fix boundary flux
-        r_i = xp.linspace(0.0, self.params["a"], self.params["psi_nel"] + 1)
+        # solve differential equation and fix boundary flux (on the host)
+        with xp.use_backend("numpy"):
+            r_i = xp.linspace(0.0, self.params["a"], self.params["psi_nel"] + 1)
 
-        def fun(psi1):
-            out = odeint(dpsi_dr, self._psi0, r_i, args=(psi1,)).flatten()
+            def fun(psi1):
+                out = odeint(dpsi_dr, self._psi0, r_i, args=(psi1,)).flatten()
 
-            return out[-1] - psi1
+                return out[-1] - psi1
 
-        self._psi1 = fsolve(fun, -9.5)[0]
+            self._psi1 = float(fsolve(fun, -9.5)[0])
+            psis = odeint(dpsi_dr, self._psi0, r_i, args=(self._psi1,)).flatten()
 
         # interpolate flux function
-        self._psi_i = UnivariateSpline(
-            r_i,
-            odeint(dpsi_dr, self._psi0, r_i, args=(self._psi1,)).flatten(),
-            k=self.params["psi_k"],
-            s=0.0,
-            ext=3,
-        )
+        self._psi_i = _univariate_spline(r_i, psis, self.params["psi_k"])
 
     @property
     def boundary_pts_R(self):
@@ -1470,14 +1486,7 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
         assert der >= 0 and der <= 2, "Only first and second derivatives available!"
 
-        out = self._psi_i(r, nu=der)
-
-        # remove all "dimensions" for point-wise evaluation
-        if isinstance(r, (int, float)):
-            assert out.ndim == 0
-            out = out.item()
-
-        return out
+        return _evaluate_1d(self._psi_i, r, nu=der)
 
     def q_psi(self, psi):
         """Safety factor profile q = q(psi)."""
@@ -1581,24 +1590,26 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         if dR == 0 and dZ == 0:
             out = self.psi_r(r, der=0)
         else:
-            dr_dR = (R - self.params["R0"]) / r
-            dr_dZ = Z / r
-
-            d2r_dR2 = (r - (R - self.params["R0"]) * dr_dR) / r**2
-            d2r_dZ2 = (r - Z * dr_dZ) / r**2
-
-            d2r_dRdZ = -Z * (R - self.params["R0"]) / r**3
+            # regular on the magnetic axis r=0: with g = psi'(r)/r -> psi''(0) and the direction cosines
+            # c_R = (R - R0)/r, c_Z = Z/r (set to 0 on the axis), the derivatives below have the correct limits
+            on_axis = r == 0.0
+            r_safe = xp.where(on_axis, 1.0, r)
+            dpsi = self.psi_r(r, der=1)
+            d2psi = self.psi_r(r, der=2)
+            g = xp.where(on_axis, d2psi, dpsi / r_safe)
+            c_R = (R - self.params["R0"]) / r_safe
+            c_Z = Z / r_safe
 
             if dR == 1 and dZ == 0:
-                out = self.psi_r(r, der=1) * dr_dR
+                out = g * (R - self.params["R0"])
             elif dR == 0 and dZ == 1:
-                out = self.psi_r(r, der=1) * dr_dZ
+                out = g * Z
             elif dR == 2 and dZ == 0:
-                out = self.psi_r(r, der=2) * dr_dR**2 + self.psi_r(r, der=1) * d2r_dR2
+                out = d2psi * c_R**2 + g * (1.0 - c_R**2)
             elif dR == 0 and dZ == 2:
-                out = self.psi_r(r, der=2) * dr_dZ**2 + self.psi_r(r, der=1) * d2r_dZ2
+                out = d2psi * c_Z**2 + g * (1.0 - c_Z**2)
             elif dR == 1 and dZ == 1:
-                out = self.psi_r(r, der=2) * dr_dR * dr_dZ + self.psi_r(r, der=1) * d2r_dRdZ
+                out = (d2psi - g) * c_R * c_Z
             else:
                 raise NotImplementedError(
                     "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
@@ -1656,11 +1667,11 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     flux_resolution : float
         Resolution of 1d f=f(psi) data in %, e.g. 25. uses every forth data point (default: 50.).
     n1 : float
-        1st shape factor for ion number density profile n = n(psi) (default: 0.).
+        1st shape factor for ion number density profile n = n(psi) (default: 2.).
     n2 : float
-        2nd shape factor for ion number density profile n = n(psi) (default: 0.).
+        2nd shape factor for ion number density profile n = n(psi) (default: 1.).
     na : float
-        Ion number density at plasma boundary (default: 1.).
+        Ion number density at plasma boundary (default: 0.2).
     base_units : BaseUnits
         Struphy base units. If None, no rescaling of output is performed.
     """
@@ -1682,7 +1693,6 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         # use params setter
         self.params = copy.deepcopy(locals())
 
-        from scipy.interpolate import RectBivariateSpline, UnivariateSpline
         from scipy.optimize import minimize
 
         # default input file
@@ -1751,31 +1761,32 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         self._r_range = [rleft, rleft + rdim]
         self._z_range = [zmid - zdim / 2, zmid + zdim / 2]
 
-        R = xp.linspace(self._r_range[0], self._r_range[1], nR)
-        Z = xp.linspace(self._z_range[0], self._z_range[1], nZ)
-
         smooth_steps = [
             int(1 / (self.params["psi_resolution"][0] * 0.01)),
             int(1 / (self.params["psi_resolution"][1] * 0.01)),
         ]
 
-        self._psi_i = RectBivariateSpline(
-            R[:: smooth_steps[0]],
-            Z[:: smooth_steps[1]],
-            psi[:: smooth_steps[0], :: smooth_steps[1]],
-            kx=self.params["degree_for_psi"][0],
-            ky=self.params["degree_for_psi"][1],
-            s=0.0,
-        )
+        # the file data and the subsampled grid stay on the host
+        with xp.use_backend("numpy"):
+            R = xp.linspace(self._r_range[0], self._r_range[1], nR)[:: smooth_steps[0]]
+            Z = xp.linspace(self._z_range[0], self._z_range[1], nZ)[:: smooth_steps[1]]
+        psi = psi[:: smooth_steps[0], :: smooth_steps[1]]
+        kx, ky = self.params["degree_for_psi"]
 
-        # find minimum of interpolated flux function (is not the same as (R_at_axis, Z_at_axis) and psi.min()!)
-        self._psi_i_min = minimize(
-            lambda x: self.psi(
-                x[0],
-                x[1],
-            ),
-            x0=[R_at_axis, Z_at_axis],
-        )
+        # the spline is clamped to its data, like RectBivariateSpline (the subsampled grid may end before the range)
+        self._psi_bounds = ((float(R[0]), float(R[-1])), (float(Z[0]), float(Z[-1])))
+        self._psi_i = _rect_spline(R, Z, psi, kx, ky)
+
+        # find minimum of interpolated flux function (is not the same as (R_at_axis, Z_at_axis) and psi.min()!), with
+        # a host copy of the spline, so that the optimizer steps don't evaluate on the device
+        with xp.use_backend("numpy"):
+            psi_i_host = _rect_spline(R, Z, psi, kx, ky)
+            self._psi_i_min = minimize(
+                lambda x: (
+                    float(_evaluate_rect(psi_i_host, self._psi_bounds, x[0], x[1])) / (self.units.B * self.units.x**2)
+                ),
+                x0=[R_at_axis, Z_at_axis],
+            )
 
         # set on-axis and boundary fluxes
         # (psi_edge is read from file in Weber/rad; rescale like self.psi())
@@ -1783,31 +1794,15 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         self._psi1 = psi_edge / (self.units.B * self.units.x**2)
 
         # interpolate toroidal field function, pressure profile and q-profile on unifrom flux grid from axis to boundary
-        flux_grid = xp.linspace(self._psi0, self._psi1, g_profile.size)
+        with xp.use_backend("numpy"):
+            flux_grid = xp.linspace(self._psi0, self._psi1, g_profile.size)
 
         smooth_step = int(1 / (self.params["flux_resolution"] * 0.01))
+        k = self.params["degree_for_flux"]
 
-        self._g_i = UnivariateSpline(
-            flux_grid[::smooth_step],
-            g_profile[::smooth_step],
-            k=self.params["degree_for_flux"],
-            s=0.0,
-            ext=3,
-        )
-        self._p_i = UnivariateSpline(
-            flux_grid[::smooth_step],
-            p_profile[::smooth_step],
-            k=self.params["degree_for_flux"],
-            s=0.0,
-            ext=3,
-        )
-        self._q_i = UnivariateSpline(
-            flux_grid[::smooth_step],
-            q_profile[::smooth_step],
-            k=self.params["degree_for_flux"],
-            s=0.0,
-            ext=3,
-        )
+        self._g_i = _univariate_spline(flux_grid[::smooth_step], g_profile[::smooth_step], k)
+        self._p_i = _univariate_spline(flux_grid[::smooth_step], p_profile[::smooth_step], k)
+        self._q_i = _univariate_spline(flux_grid[::smooth_step], q_profile[::smooth_step], k)
 
     @property
     def units(self) -> Units:
@@ -1864,36 +1859,15 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
     def q_psi(self, psi, der=0):
         """Safety factor q = q(psi)."""
-        out = self._q_i(psi, nu=der)
-
-        # remove all "dimensions" for point-wise evaluation
-        if isinstance(psi, (int, float)):
-            assert out.ndim == 0
-            out = out.item()
-
-        return out
+        return _evaluate_1d(self._q_i, psi, nu=der)
 
     def g_psi(self, psi, der=0):
         """Toroidal field function g = g(psi)."""
-        out = self._g_i(psi, nu=der)
-
-        # remove all "dimensions" for point-wise evaluation
-        if isinstance(psi, (int, float)):
-            assert out.ndim == 0
-            out = out.item()
-
-        return out
+        return _evaluate_1d(self._g_i, psi, nu=der)
 
     def p_psi(self, psi, der=0):
         """Pressure profile p = p(psi) in units Pa (as in the EQDSK file)."""
-        out = self._p_i(psi, nu=der)
-
-        # remove all "dimensions" for point-wise evaluation
-        if isinstance(psi, (int, float)):
-            assert out.ndim == 0
-            out = out.item()
-
-        return out
+        return _evaluate_1d(self._p_i, psi, nu=der)
 
     def n_psi(self, psi, der=0):
         """Number density profile n = n(psi)."""
@@ -1922,11 +1896,11 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
         is_float = all(isinstance(v, (int, float)) for v in [R, Z])
 
-        out = self._psi_i(R, Z, dx=dR, dy=dZ, grid=False)
+        out = _evaluate_rect(self._psi_i, self._psi_bounds, R, Z, dR, dZ)
 
         # remove all "dimensions" for point-wise evaluation
         if is_float:
-            assert out.size == 1  # scipy >= 1.18 returns shape (1,) for a single point
+            assert out.size == 1
             out = out.item()
 
         # rescale to Struphy units
@@ -2121,6 +2095,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         """All Struphy units."""
         return self._units
 
+    @xp.evaluate_on_host
     @profile
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
@@ -2142,6 +2117,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @xp.evaluate_on_host
     @profile
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter^3."""
@@ -2171,6 +2147,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @xp.evaluate_on_host
     @profile
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3."""
@@ -2190,6 +2167,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         return self.params["p0"] + tmp / self.units.p
 
+    @xp.evaluate_on_host
     @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
@@ -2200,9 +2178,9 @@ class GVECequilibrium(NumericalMHDequilibrium):
             # flat (marker) evaluation
             if len(etas) == 1:
                 assert etas[0].ndim == 2
-                eta1 = etas[0][:, 0]
-                eta2 = etas[0][:, 1]
-                eta3 = etas[0][:, 2]
+                eta1 = etas[0][0]
+                eta2 = etas[0][1]
+                eta3 = etas[0][2]
                 flat_eval = True
             # meshgrid evaluation
             else:
@@ -2237,9 +2215,9 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2269,7 +2247,17 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         # evaluate
         if self.params["use_boozer"]:
+            if flat_eval:
+                # the Boozer transform is computed per flux surface, so gvec cannot evaluate it at scattered points
+                raise NotImplementedError("GVECequilibrium: marker evaluation is not available with use_boozer=True.")
             ev = gvec.EvaluationsBoozer(rho=rho, theta_B=theta, zeta_B=zeta, state=self.state)
+        elif flat_eval:
+            import xarray as xr
+
+            # coordinates sharing one dimension make gvec evaluate point by point instead of on the tensor grid
+            # rho x theta x zeta (one value per marker, not n_markers**3)
+            rho, theta, zeta = (xr.DataArray(c, dims="marker") for c in (rho, theta, zeta))
+            ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
         else:
             ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
 
@@ -2407,6 +2395,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         """All Struphy units."""
         return self._units
 
+    @xp.evaluate_on_host
     @profile
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
@@ -2445,9 +2434,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2480,6 +2469,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @xp.evaluate_on_host
     @profile
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B)
@@ -2520,9 +2510,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2555,15 +2545,16 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @xp.evaluate_on_host
     @profile
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3 in Pascal."""
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2586,15 +2577,16 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
+    @xp.evaluate_on_host
     @profile
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:
@@ -2610,6 +2602,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # density in default units, n=1 --> 10^20 m^(-3)
         return p0_pascal / (self.params["T_kelvin"] * k_Boltzmann) / self.units.n
 
+    @xp.evaluate_on_host
     @profile
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""
@@ -2647,9 +2640,9 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
+            eta1 = etas[0][0]
+            eta2 = etas[0][1]
+            eta3 = etas[0][2]
             flat_eval = True
         # meshgrid evaluation
         else:

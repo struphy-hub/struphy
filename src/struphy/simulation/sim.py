@@ -18,7 +18,9 @@ from typing import TYPE_CHECKING
 
 import cunumpy as xp
 import h5py
+import numpy as np
 import yaml
+from cunumpy.kernels import Kernel
 from feectools.linalg.memory import stencil_matrix_memory
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
@@ -77,6 +79,7 @@ from struphy.post_processing.output import Output
 from struphy.propagators.base import Propagator
 from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.kernel_compilation import collect_kernels, missing_cuda
 from struphy.utils.progress import tqdm
 from struphy.utils.utils import ruff_autofix_and_format
 
@@ -240,6 +243,8 @@ class Simulation(SimulationBase):
 
         logger.debug("\nAllocating simulation data ...")
 
+        self._compile_setup_cuda_kernels()
+
         with ProfileManager.profile_region("setup: allocate"):
             # feec
             with ProfileManager.profile_region("allocate feec", functions=[self._allocate_feec]):
@@ -258,6 +263,85 @@ class Simulation(SimulationBase):
                 self.model.post_allocate()
 
         logger.debug("... Done.")
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The :class:`~cunumpy.kernels.Kernel` objects the time stepping calls, each once.
+
+        Collected after :meth:`allocate` from the domain (:meth:`Domain.kernels
+        <struphy.geometry.base.Domain.kernels>`), the Derham complex (:meth:`Derham.kernels
+        <struphy.feec.psydac_derham.Derham.kernels>`), the particles of every kinetic variable
+        (:meth:`Particles.kernels <struphy.pic.base.Particles.kernels>`) and the propagators of the model
+        (:meth:`Propagator.kernels <struphy.propagators.base.Propagator.kernels>`). Kernels that only
+        diagnostics or the initial solves call are not included; they run during the setup anyway.
+        """
+        owners = [self.domain, self.derham]
+        for species in self.model.species.values():
+            for variable in species.variables.values():
+                if isinstance(variable, (PICVariable, SPHVariable)):
+                    owners.append(variable.particles)
+        owners += self.model.prop_list
+        return collect_kernels(*owners)
+
+    def _compile_setup_cuda_kernels(self) -> None:
+        """Compile the CUDA kernels that :meth:`allocate` itself calls (mass-matrix assembly) before it calls them.
+
+        :meth:`compile_cuda_kernels` runs after :meth:`allocate`, so without this the first assembly would include
+        the compilation (~1 s per kernel on a node whose CuPy cache does not have it yet), in the assembly's
+        profiling regions. Here it is counted in ``"setup: compile cuda kernels (assembly)"``. Nothing happens on
+        the NumPy backend.
+        """
+        if xp.get_backend() != "cupy":
+            return
+
+        from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
+
+        with ProfileManager.profile_region("setup: compile cuda kernels (assembly)"):
+            kernel_3d_mat.compile()
+
+    def compile_cuda_kernels(self) -> tuple[Kernel, ...]:
+        """Compile the CUDA versions of the kernels of :meth:`kernels` now, before the time stepping.
+
+        A CUDA kernel is otherwise compiled on its first call, which puts the compile time into the
+        first time step (and its profiling regions). :meth:`run` calls this method after
+        :meth:`allocate`, in the profiling region ``"setup: compile cuda kernels"``. CuPy caches the
+        compiled kernels on disk, so a second run on the same machine mostly loads them.
+
+        On the NumPy backend this does nothing (the pyccel kernels are compiled by ``struphy compile``).
+
+        Returns
+        -------
+        tuple[Kernel, ...]
+            The kernels whose CUDA version was compiled; empty on the NumPy backend.
+
+        Raises
+        ------
+        NotImplementedError
+            On the CuPy backend, if a kernel the time stepping calls has no CUDA version. All such
+            kernels are listed, and nothing is compiled; without this check the run would fail at the
+            first call of the first one, in the time loop.
+        """
+        if xp.get_backend() != "cupy":
+            return ()
+
+        kernels = self.kernels()
+        missing = missing_cuda(kernels)
+        if missing:
+            lines = "\n".join(
+                f"  - {kernel.name}" + (f" (expected at {kernel.cuda_path})" if kernel.cuda_path else "")
+                for kernel in missing
+            )
+            raise NotImplementedError(
+                f"Model {self.model_name} cannot run on the CuPy backend: {len(missing)} of the "
+                f"{len(kernels)} kernels its time stepping calls have no CUDA version:\n{lines}",
+            )
+
+        compiled = []
+        with ProfileManager.profile_region("setup: compile cuda kernels"):
+            for kernel in kernels:
+                if kernel.compile():
+                    compiled.append(kernel)
+        logger.info(f"Compiled {len(compiled)} CUDA kernels: {', '.join(k.name for k in compiled)}")
+        return tuple(compiled)
 
     def estimate_mem(self, print_report: bool = False) -> dict:
         """Estimate the memory footprint of all model variables and FEEC matrices, in bytes,
@@ -599,11 +683,12 @@ class Simulation(SimulationBase):
 
         self.data = DataContainer(self.env.path_out, comm=self.comm)
 
-        # time quantities (current time value, value in seconds and index)
+        # time quantities (current time value, value in seconds and index); host bookkeeping of the time loop,
+        # NumPy on both backends, so that reading them for the loop control and saving them never waits for the device
         self.time_state = {}
-        self.time_state["value"] = xp.zeros(1, dtype=float)
-        self.time_state["value_sec"] = xp.zeros(1, dtype=float)
-        self.time_state["index"] = xp.zeros(1, dtype=int)
+        self.time_state["value"] = np.zeros(1, dtype=float)
+        self.time_state["value_sec"] = np.zeros(1, dtype=float)
+        self.time_state["index"] = np.zeros(1, dtype=int)
 
         # add time quantities to data object for saving
         for key, val in self.time_state.items():
@@ -657,6 +742,13 @@ class Simulation(SimulationBase):
             with ProfileManager.profile_region("setup: total"):
                 # equation paramters
                 self.allocate()
+
+                # CUDA kernels (CuPy backend only): compile them now rather than in the first time step
+                self.compile_cuda_kernels()
+
+                # time step dependent data of the propagators (e.g. preconditioners), rather than in the first step
+                with ProfileManager.profile_region("setup: prepare time step", functions=[self._prepare_time_step]):
+                    self._prepare_time_step()
                 with ProfileManager.profile_region("setup: run metadata", functions=[self._write_run_metadata]):
                     self._write_run_metadata(
                         one_time_step=one_time_step,
@@ -798,7 +890,7 @@ class Simulation(SimulationBase):
                 # update time and index (round time to 10 decimals for a clean time grid!)
                 self.time_state["value"][0] = round(float(self.time_state["value"][0]) + dt, 14)
                 self.time_state["value_sec"][0] = round(
-                    float(self.time_state["value_sec"][0]) + dt * self.model.units.t, 14
+                    float(self.time_state["value_sec"][0]) + dt * float(self.model.units.t), 14
                 )
                 self.time_state["index"][0] += 1
 
@@ -854,7 +946,7 @@ class Simulation(SimulationBase):
                         + "physical time [s]:".ljust(25)
                         + "{0:4.2e} / {1:4.2e}".format(
                             float(self.time_state["value_sec"][0]),
-                            Tend * self.model.units.t,
+                            Tend * float(self.model.units.t),
                         ).rjust(25)
                     )
                     message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
@@ -875,8 +967,8 @@ class Simulation(SimulationBase):
 
             logger.info("Struphy run finished.")
 
-            if self.clone_config is not None:
-                self.clone_config.free()
+            # the clone communicators are not freed here: the model (FEEC operators on sub_comm, particle
+            # reductions on inter_comm) is still used after the run, e.g. for diagnostics
 
         return self.output
 
@@ -1137,9 +1229,11 @@ class Simulation(SimulationBase):
         """
         # check for polar singularity
         if self.domain.pole:
-            assert derham_opts.polar_ck == 1, """Polar singularity detected in domain but derham_opts.polar_ck != 1. 
+            assert (
+                derham_opts.polar_splines
+            ), """Polar singularity detected in domain but derham_opts.polar_splines is False.
             You have two options:
-            a) set derham_opts.polar_ck = 1 to use polar splines 
+            a) set derham_opts.polar_splines = True to use polar splines
             b) modify your domain definition to cut a hole around the singularity."""
 
         # create discrete derham sequence
@@ -1287,6 +1381,16 @@ class Simulation(SimulationBase):
 
         #             self._pointer[key] = val["obj"].vector
 
+    def _prepare_time_step(self):
+        """Call :meth:`~struphy.propagators.base.Propagator.prepare_time_step` of each propagator with the time step
+        it receives from :meth:`~struphy.models.base.StruphyModel.integrate` (e.g. ``dt / 2`` for all but the last
+        propagator with Strang splitting, see :meth:`~struphy.models.base.StruphyModel.propagator_calls`)."""
+        steps = {}
+        for name, h in self.model.propagator_calls(self.time_opts.dt, self.time_opts.split_algo):
+            steps.setdefault(name, h)
+        for name, h in steps.items():
+            getattr(self.model.propagators, name).prepare_time_step(h)
+
     @profile
     def _allocate_propagators(self):
         """Allocate propagators and bind shared FEEC/domain operators.
@@ -1357,10 +1461,10 @@ class Simulation(SimulationBase):
         """
 
         # save scalar quantities in group 'scalar/'
-        for key, scalar in self.model.scalars.dct.items():
-            val = scalar.value
+        # the host copies of the scalars (Scalars.to_host): saving them copies nothing from the device
+        for key in self.model.scalars.dct:
             key_scalar = "scalar/" + key
-            data.add_data({key_scalar: val})
+            data.add_data({key_scalar: self.model.scalars.host_value(key)})
 
         with h5py.File(data.file_path, "a") as file:
             # store grid_info only for runs with 512 ranks or smaller
@@ -1552,7 +1656,7 @@ class Simulation(SimulationBase):
                     elif isinstance(subval, (PICVariable, SPHVariable)):
                         key_restart = os.path.join("restart", species)
                         subval.particles._markers[:, :] = file[key_restart][-1, :, :]
-                        # refresh the cached hole/ghost masks for the restored rows
+                        # refresh the cached hole/ghost masks for the restored markers
                         subval.particles.update_holes()
                         subval.particles._update_ghost_particles()
 
@@ -1843,7 +1947,8 @@ class Simulation(SimulationBase):
             for species_name, species in model_species.items()
         }
         for species_name, variables in definitions.items():
-            species = self.model.species.get(species_name)
+            # runs written before a species was renamed keep the old name in their metadata
+            species = self.model.species.get(self.model._renamed_species.get(species_name, species_name))
             if species is None:
                 continue
             for variable_name, entry in variables.items():

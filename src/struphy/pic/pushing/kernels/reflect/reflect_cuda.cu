@@ -1,5 +1,7 @@
 #include "struphy/pic/pushing/pusher_utilities_kernels.cuh"
 
+using namespace struphy_cuda;
+
 /**
  * Reflect velocities with the same arguments as the pyccel reflect (reflect_kernels.py).
  *
@@ -8,12 +10,12 @@
  *
  * @param markers Marker array view; positions are already inside the logical cube.
  * @param args_domain Mapping arguments; every spline and analytic mapping.
- * @param outside_inds View of the marker row indices to reflect.
+ * @param outside_inds View of the marker indices to reflect.
  * @param axis Logical velocity component to reverse (0, 1 or 2).
  */
 extern "C" __global__ void reflect(Array2D<double> markers, DomainArgs args_domain,
                                    Array1D<long long> outside_inds, int axis) {
     long long i = (long long)blockDim.x * blockIdx.x + threadIdx.x;
     if (i >= outside_inds.shape[0]) return;
-    struphy_cuda::reflect_velocity(outside_inds(i), markers, args_domain, axis);
+    pusher_utilities_kernels::reflect_velocity(outside_inds(i), markers, args_domain, axis);
 }

@@ -8,9 +8,10 @@
 // for kernel arguments and in Argument._pack (struphy/utils/cuda_arguments.py) for struct fields.
 //
 // The layout is NumPy's: for a C-contiguous (row-major) array of shape (n0, n1, n2),
-// strides = (n1 * n2, n2, 1), so the last index runs fastest; for shape (n_markers, n_cols),
-// strides = (n_cols, 1) and markers(ip, j) is data[ip * n_cols + j]. A sliced or transposed
-// CuPy array keeps its own strides, so it is indexed correctly without a copy.
+// strides = (n1 * n2, n2, 1), so the last index runs fastest; for the marker buffer of shape
+// (n_cols, n_markers) (struphy.pic.marker_layout), strides = (n_markers, 1) and markers(j, ip) is
+// data[j * n_markers + ip]. A sliced or transposed CuPy array keeps its own strides, so it is indexed
+// correctly without a copy.
 template<class T> struct Array1D {
     T* data;
     long long shape[1], strides[1];

@@ -54,21 +54,27 @@ def push_vxb_analytic(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
 
     # fmt: off
-    #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp parallel private(b_abs, b_cart, b_form, b_norm, b_normxvperp, det_df, dfm, e1, e2, e3, ip, span1, span2, span3, thread_derham, v, vpar, vperp, vxb_norm)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
+        if markers[first_pusher_idx, ip] == -1.0 or markers[-1, ip] == -2.0:
             continue
 
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+        e1 = markers[0, ip]
+        e2 = markers[1, ip]
+        e3 = markers[2, ip]
+        v[:] = markers[3:6, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -83,14 +89,14 @@ def push_vxb_analytic(
         det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
+        span1, span2, span3 = get_spans(e1, e2, e3, thread_derham)
 
         # magnetic field 2-form
         eval_2form_spline_mpi(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             b2_1,
             b2_2,
             b2_3,
@@ -120,4 +126,8 @@ def push_vxb_analytic(
             linalg_kernels.cross(b_norm, vperp, b_normxvperp)
 
             # analytic rotation
-            markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
+            markers[3:6, ip] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

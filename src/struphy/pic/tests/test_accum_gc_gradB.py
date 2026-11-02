@@ -36,17 +36,16 @@ def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
     zero = derham.coeff_spaces["Hcurl"].zeros()
 
     n_mk = 5
-    markers = np.zeros((n_mk, 40))
-    markers[:, :3] = rng.uniform(0.05, 0.95, (n_mk, 3))
-    markers[:, 3] = rng.standard_normal(n_mk)
-    markers[:, 4] = rng.uniform(0.1, 1.0, n_mk)
-    markers[:, 5] = rng.uniform(0.5, 1.5, n_mk)
+    markers = np.zeros((40, n_mk))
+    markers[:3] = rng.uniform(0.05, 0.95, (3, n_mk))
+    markers[3] = rng.standard_normal(n_mk)
+    markers[4] = rng.uniform(0.1, 1.0, n_mk)
+    markers[5] = rng.uniform(0.5, 1.5, n_mk)
     args_markers = MarkerArguments(
-        markers, np.ones(n_mk, dtype=bool), n_mk, 2, 5, 6, 10, 20, 25, 30, 4, np.zeros(3, dtype=int)
+        markers, np.ones(n_mk, dtype=bool), n_mk, 2, 5, 6, 10, 20, 25, 30, 4, np.zeros(3, dtype=int), False
     )
 
     space = "H1vec" if basis_u == 0 else "Hdiv"
-    dummy_mat = np.zeros((1, 1, 1, 1, 1, 1))
 
     def accumulate(grad_PB, grad_PBeq):
         vec = derham.coeff_spaces[space].zeros()
@@ -54,7 +53,6 @@ def test_cc_lin_mhd_5d_gradB_uses_full_gradB(basis_u):
             args_markers,
             derham.args_derham,
             domain.args_domain,
-            *[dummy_mat] * 6,
             *[blk._data for blk in vec.blocks],
             0.1,
             1.0,

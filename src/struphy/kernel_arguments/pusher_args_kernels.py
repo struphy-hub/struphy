@@ -11,7 +11,7 @@ class MarkerArguments:
     Paramaters
     ----------
     markers : array[float]
-        Markers array.
+        Markers array of shape (n_cols, n_markers_max), one column per marker (see :mod:`struphy.pic.marker_layout`).
 
     Np : int
         Total number of particles.
@@ -45,6 +45,10 @@ class MarkerArguments:
         Kinetic boundary condition in each logical direction
         (0: periodic, 1: reflect, 2: remove, 3: refill (handled in Python)),
         see :func:`~struphy.pic.pushing.pusher_utilities_kernels.apply_kinetic_bc_marker`.
+
+    pole : bool
+        Whether the domain has a pole at eta1=0 (markers then move through the axis),
+        see :func:`~struphy.pic.pushing.pusher_utilities_kernels.update_position_stage`.
     """
 
     def __init__(
@@ -61,22 +65,26 @@ class MarkerArguments:
         first_free_idx: int,
         mu_idx: int,
         bc_type: "int[:]",
+        pole: bool,
     ):
         self.markers = markers
         self.valid_mks = valid_mks
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx
-        self.n_markers = markers.shape[0]
+        # markers (columns) the kernels loop over; Particles lowers it to the columns that can hold markers
+        # (Particles.n_markers_used)
+        self.n_markers = markers.shape[1]
 
         # useful indices
         self.first_diagnostics_idx = first_diagnostics_idx
-        self.first_init_idx = first_pusher_idx
+        self.first_pusher_idx = first_pusher_idx
         self.first_shift_idx = first_shift_idx  # starting idx for eta-shifts due to boundary conditions
         self.residual_idx = residual_idx  # residual in iterative solvers
         self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
         self.mu_idx = mu_idx  # particle magnetic moment
         self.bc_type = bc_type  # kinetic boundary conditions per axis
+        self.pole = pole  # pole at eta1=0
 
 
 class DerhamArguments:

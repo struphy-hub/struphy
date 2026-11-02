@@ -13,6 +13,10 @@ import xarray as xr
 from struphy import DerhamOptions, EnvironmentOptions, Output, Simulation, Time, grids, perturbations
 from struphy.models import Maxwell
 
+# serial integration test: it runs a small simulation and CLI subprocesses; the per-rank pytest tmp dirs differ,
+# so under mpirun the ranks would write into different folders and hang
+pytestmark = pytest.mark.mpi_skip
+
 
 def run_command(*args):
     """Include CLI diagnostics in pytest's failure report."""
@@ -87,7 +91,7 @@ def test_python_api(run_path):
         assert np.isfinite(filtered.filtered).all()
 
         energies = run_path / "energies.png"
-        out.plot.energies(parts=["electric_energy", "magnetic_energy"], total="total_energy").save(energies)
+        out.plot.energies(parts=["en_E", "en_B"], total="en_tot").save(energies)
         profile = run_path / "electric-field.png"
         signal.plasma.plot.lineout(x="eta3", t=-1).save(profile)
         assert_image(energies)
@@ -109,7 +113,7 @@ def test_cli(run_path):
     report_dir = run_path / "cli-report"
     command("report", run_path, "--format", "html", "--directory", report_dir)
     reports = list(report_dir.glob("*.html"))
-    assert reports and "total_energy" in reports[0].read_text()
+    assert reports and "en_tot" in reports[0].read_text()
 
     def plasma_command(*args):
         return run_command(sys.executable, "-m", "plasma_plots", *args)
@@ -121,8 +125,8 @@ def test_cli(run_path):
         run_path,
         ".",
         "energies",
-        'parts=["electric_energy","magnetic_energy"]',
-        "total=total_energy",
+        'parts=["en_E","en_B"]',
+        "total=en_tot",
         "-o",
         energy_plot,
     )

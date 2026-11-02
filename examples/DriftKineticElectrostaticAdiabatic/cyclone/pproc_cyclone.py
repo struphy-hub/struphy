@@ -1,3 +1,12 @@
+"""Post-process and plot the cyclone base case (DriftKineticElectrostaticAdiabatic).
+
+Run as ``python pproc_cyclone.py [path_out] [flags of params_cyclone.py] [--show]``. Figures are written
+into ``<path_out>/results`` (``--show`` shows them instead): the growth of the potential, the standard plots of the
+examples (slices in the physical planes and 3D views of phi and rho) and the snapshots of the products below at the
+first, middle and last saved time, and the marker trajectories.
+"""
+
+import argparse
 import sys
 from pathlib import Path
 
@@ -6,8 +15,22 @@ import pyvista as pv
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing.plot_3d import plot_field_3d
+from struphy.post_processing.slices import plot_physical_slices
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "sim_1"
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+# The flags of the run (parsed from the same command line), for the default output folder.
+sys.path.insert(0, str(SCRIPT_DIR))
+from params_cyclone import args, parser  # noqa: E402
+
+DEFAULT_OUTPUT = Path(args.out_folder) / args.sim_folder
+
+# evaluation points per cell of the VTK files, i.e. the resolution of the 3D plots
+CELLDIVIDE = 2
+
+# standard plots (slices and 3D views) of the scalar fields: (key, label, species, variable)
+FIELDS = [("phi", "phi", "em_fields", "phi"), ("rho", "rho", "diagnostics", "rho")]
 
 # scalar whose exponential growth rate is fitted, and the fit window in Struphy time units
 FIT_QUANTITY = "phi_integral"
@@ -15,7 +38,7 @@ FIT_WINDOW = (0.0, None)
 
 SHOW_EQUIL_PROFILE = False
 
-# products shown at the last saved time, as (product, physical plane, logical coordinate held fixed)
+# products shown at the standard snapshots, as (product, physical plane, logical coordinate held fixed)
 SNAPSHOTS = [
     ("kinetic_ions/e1_e2_density/delta_f", "RZ", {}),
     ("em_fields/phi_xyz", "RZ", {"eta3": 0}),
@@ -51,9 +74,9 @@ def plot_growth(series, window=(None, None)):
     return fig, ax
 
 
-def plot_plane(data, plane, fixed):
-    """Pseudocolor plot of the last saved time in the physical RZ or XY plane."""
-    snapshot = data.isel(t=-1, **fixed)
+def plot_plane(data, plane, fixed, n):
+    """Pseudocolor plot of the saved time step ``n`` in the physical RZ or XY plane."""
+    snapshot = data.isel(t=n, **fixed)
     if plane == "RZ":
         snapshot = snapshot.assign_coords(R=np.hypot(snapshot.X, snapshot.Y))
         x, y = "R", "Z"
@@ -93,21 +116,62 @@ def plot_trajectories(orbits, max_markers=1000):
     return fig, ax
 
 
-def main(path_out=DEFAULT_OUTPUT):
-    run = Output(path_out).pproc(physical=True)
+def main(path_out=DEFAULT_OUTPUT, save_figs=True):
+    run = Output(path_out)
+    snapshots = run.standard_snapshots()
+    # VTK files (for the 3D views) of the standard snapshots only
+    run.pproc(physical=True, create_vtk=True, celldivide=CELLDIVIDE, vtk_steps=snapshots)
+
+    # The profiling packaging picks these files up from here and uploads them with the run.
+    results_dir = Path(run.path_out) / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    def save(figs):
+        """Save the figures as ``<name>.png`` into the results folder and close them, or keep them for plt.show()."""
+        if save_figs:
+            for name, fig in figs.items():
+                fig.savefig(results_dir / f"{name}.png")
+                plt.close(fig)
 
     # growth rate of the electrostatic potential
-    plot_growth(run.evaluate("scalars", variables=FIT_QUANTITY)[FIT_QUANTITY], window=FIT_WINDOW)
+    fig, _ = plot_growth(run.evaluate("scalars", variables=FIT_QUANTITY)[FIT_QUANTITY], window=FIT_WINDOW)
+    save({FIT_QUANTITY: fig})
 
     if SHOW_EQUIL_PROFILE:
-        plot_equilibrium(run.path_out)
+        save({"equilibrium": plot_equilibrium(run.path_out)[0]})
 
-    for name, plane, fixed in SNAPSHOTS:
-        plot_plane(product(run, name), plane, fixed)
+    # at the first, middle and last saved time, e.g. phi_slices_xy_t1.5.png and phi_3d_t1.5.png
+    for n in snapshots:
+        t = float(run.time[n])
+        figs = {}
+        for name, plane, fixed in SNAPSHOTS:
+            key = "_".join([name.replace("/", "_"), plane] + [f"{k}{v}" for k, v in fixed.items()])
+            figs[f"{key}_t{t:.6g}"] = plot_plane(product(run, name), plane, fixed, n)[0]
+        for key, label, species, variable in FIELDS:
+            field = (key, f"{label} at t = {t:.3g}", f"{species}/{variable}", n, None, None)
+            slices = plot_physical_slices(run, run.domain, run.grid.num_elements, [field], components=True)
+            figs.update({f"{fig_name}_t{t:.6g}": fig for fig_name, fig in slices.items()})
+            plot_field_3d(
+                run.path_out, variable, species=species, snapshot=n, filename=results_dir / f"{key}_3d_t{t:.6g}.png"
+            )
+        save(figs)
 
-    plot_trajectories(run.evaluate("kinetic_ions/orbits"), max_markers=1000)
-    plt.show()
+    save({"orbits": plot_trajectories(run.evaluate("kinetic_ions/orbits"), max_markers=1000)[0]})
+
+    if not save_figs:
+        plt.show()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_OUTPUT)
+    # the flags of the run are parsed by params_cyclone.py, the rest here
+    _, other_flags = parser.parse_known_args()
+    pproc_parser = argparse.ArgumentParser(description="Post-process and plot a saved simulation run.")
+    pproc_parser.add_argument(
+        "path_out",
+        nargs="?",
+        default=DEFAULT_OUTPUT,
+        help="Simulation output folder (default: the output folder of the run flags, sim_1 beside this script)",
+    )
+    pproc_parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
+    pproc_args = pproc_parser.parse_args(other_flags)
+    main(pproc_args.path_out, save_figs=not pproc_args.show)

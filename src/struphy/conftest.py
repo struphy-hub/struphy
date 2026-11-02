@@ -32,6 +32,17 @@ def pytest_addoption(parser):
     parser.addoption("--nclones", type=int, default=1)
     parser.addoption("--model-name", type=str, default="Maxwell")
     parser.addoption("--logging-level", type=str, default="WARNING")
+    parser.addoption(
+        "--update-baselines",
+        action="store_true",
+        help="Overwrite the baselines of the model regression tests (models/tests/regression/) instead of comparing.",
+    )
+
+
+@pytest.fixture
+def update_baselines(request) -> bool:
+    """Value of the ``--update-baselines`` option, see models/tests/regression/."""
+    return request.config.getoption("--update-baselines")
 
 
 def pytest_generate_tests(metafunc):

@@ -69,6 +69,19 @@ SLURM_PRESETS: dict[str, dict] = {
         "mail_type": "none",
         "time": "00:15:00",
     },
+    # Pitagora's GPU (booster) partition, one node with its 4 GPUs. Not detected by `detect_machine_name`
+    # (the login nodes are shared with the DCGP partition), so a run picks it with `launch(slurm_preset=...)`.
+    "pitagora_booster": {
+        "cpus_per_task": 1,
+        "mem": "480GB",
+        "gres": "gpu:4,tmpfs:10g",
+        "partition": "boost_fua_dbg",
+        "account": "FUSIO_HLST_6",
+        "output": "./%x.%j.out",
+        "error": "./%x.%j.err",
+        "mail_type": "none",
+        "time": "00:15:00",
+    },
     "tok": {
         "cpus_per_task": 1,
         "mem_per_cpu": "1GB",

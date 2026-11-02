@@ -35,7 +35,7 @@ class TimeDependentSource(Propagator):
         Attributes
         ----------
         source : FEECVariable
-            Source coefficient field in ``"H1"`` space.
+            Source coefficient field in any FEEC space (``"H1"``, ``"Hcurl"``, ``"Hdiv"``, ``"L2"`` or ``"H1vec"``).
         """
 
         def __init__(self):
@@ -48,7 +48,6 @@ class TimeDependentSource(Propagator):
         @source.setter
         def source(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1"
             self._source = new
 
     def __init__(self):
@@ -104,11 +103,10 @@ class TimeDependentSource(Propagator):
         self._hfun = hfun
         self._c0 = self.variables.source.spline.vector.copy()
 
+    def update_source(self, t: float):
+        """Set the source coefficients to :math:`c_0\\, h(t)` at time ``t``."""
+        self.update_feec_variables(source=self._c0 * self._hfun(t))
+
     @profile
     def __call__(self, dt):
-        # new coeffs
-        cn1 = self._c0 * self._hfun(self.time_state[0])
-
-        # write new coeffs into self.feec_vars
-        # max_dc = self.feec_vars_update(cn1)
-        self.update_feec_variables(source=cn1)
+        self.update_source(self.time_state[0])

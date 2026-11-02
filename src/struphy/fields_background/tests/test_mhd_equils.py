@@ -161,7 +161,7 @@ def test_equils(equil_domain_pair):
     mat_123_1_sp, mat_123_2_sp, mat_123_3_sp = xp.meshgrid(e1, e2, e3, indexing="ij", sparse=True)
 
     # markers
-    markers = xp.random.rand(33, 10)
+    markers = xp.random.rand(10, 33)
 
     # create MHD equilibrium
     eq_mhd = getattr(equils, equil_domain_pair[0])(**equil_domain_pair[1])
@@ -307,6 +307,8 @@ def test_equils(equil_domain_pair):
     results.append(eq_mhd.unit_b_cart(e1, e2_pt, e3_pt, squeeze_out=True))
 
     # asserts
+    kind = "e1"
+
     for i in range(0, 5):
         assert_scalar(results[i], kind, e1, e2_pt, e3_pt)
 
@@ -858,7 +860,7 @@ def test_current_sheet_plot_profiles(monkeypatch):
 def assert_scalar(result, kind, *etas):
     if kind == "markers":
         markers = etas[0]
-        n_p = markers.shape[0]
+        n_p = markers.shape[1]
 
         assert isinstance(result, xp.ndarray)
         assert result.shape == (n_p,)
@@ -925,7 +927,7 @@ def assert_scalar(result, kind, *etas):
 def assert_vector(result, kind, *etas):
     if kind == "markers":
         markers = etas[0]
-        n_p = markers.shape[0]
+        n_p = markers.shape[1]
 
         assert isinstance(result, xp.ndarray)
         assert result.shape == (3, n_p)

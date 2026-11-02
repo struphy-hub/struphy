@@ -1,6 +1,6 @@
 #pragma once
 #include "struphy/geometry/domains/constants_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::hollow_cylinder_kernels {
 /**
  * Evaluate the hollow cylinder mapping, as in hollow_cylinder_kernels.hollow_cyl.
  *
@@ -48,4 +48,4 @@ __device__ inline void hollow_cyl_df(double eta1, double eta2, double a1, double
     df_out[7] = 0.0;
     df_out[8] = lz;
 }
-}
+}  // namespace struphy_cuda::hollow_cylinder_kernels

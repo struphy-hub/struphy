@@ -1,5 +1,7 @@
 #include "struphy/geometry/evaluation_kernels.cuh"
 
+using namespace struphy_cuda;
+
 // Same arguments, in the same order, as the pyccel kernel in kernel_evaluate_kernels.py. mat_f has five
 // dimensions, more than cunumpy's array views (Array1D-Array4D), so it is passed as a C-contiguous pointer.
 
@@ -47,7 +49,7 @@ extern "C" __global__ void kernel_evaluate(Array3D<double> eta1, Array3D<double>
 
     for (int k = 0; k < 9; ++k) out[k] = mat_f_point[k];
 
-    struphy_cuda::select_metric_coeff(e1, e2, e3, kind_coeff, args, tmp0, tmp1, tmp2, tmp3, avoid_round_off, out);
+    evaluation_kernels::select_metric_coeff(e1, e2, e3, kind_coeff, args, tmp0, tmp1, tmp2, tmp3, avoid_round_off, out);
 
     for (int k = 0; k < 9; ++k) mat_f_point[k] = out[k];
 }

@@ -285,7 +285,7 @@ def test_maxwellian_3d_mhd(num_elements, with_desc, show_plot=False):
     v2_fl = xp.random.randn(n_mks)
     v3_fl = xp.random.randn(n_mks)
     args_fl = [e1_fl, e2_fl, e3_fl, v1_fl, v2_fl, v3_fl]
-    e_args_fl = xp.concatenate((e1_fl[:, None], e2_fl[:, None], e3_fl[:, None]), axis=1)
+    e_args_fl = xp.stack((e1_fl, e2_fl, e3_fl), axis=0)
 
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
@@ -806,7 +806,7 @@ def test_maxwellian_2d_uniform(num_elements, show_plot=False):
     assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana =}"
 
 
-@pytest.mark.parametrize("B0", [5.0, lambda etas: 1.0 + etas[:, 0] + 0.5 * etas[:, 2]])
+@pytest.mark.parametrize("B0", [5.0, lambda etas: 1.0 + etas[0] + 0.5 * etas[2]])
 @pytest.mark.parametrize("volume_form", [False, True])
 def test_gyro_maxwellian_2d_B0_meshgrid(B0, volume_form):
     """Meshgrid and flat evaluation of GyroMaxwellian2D must agree for scalar and callable B0."""
@@ -1075,7 +1075,7 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
     v1_fl = xp.random.randn(n_mks)
     v2_fl = xp.random.rand(n_mks)
     args_fl = [e1_fl, e2_fl, e3_fl, v1_fl, v2_fl]
-    e_args_fl = xp.concatenate((e1_fl[:, None], e2_fl[:, None], e3_fl[:, None]), axis=1)
+    e_args_fl = xp.stack((e1_fl, e2_fl, e3_fl), axis=0)
 
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
@@ -1542,7 +1542,7 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     def ref_psic_and_absB(eta1, eta2, eta3, v_para, mu):
         """Independent reference computation of psi_c and |B0|, mirroring
         CanonicalMaxwellian2D.eval_psic but without using the class under test."""
-        etas = xp.concatenate((eta1[:, None], eta2[:, None], eta3[:, None]), axis=1)
+        etas = xp.stack((eta1, eta2, eta3), axis=0)
         absB = mhd_equil.absB0(etas)
         x, y, z = mhd_equil.domain(etas)
         R, P, Z = mhd_equil.inverse_map(x, y, z)
@@ -1643,7 +1643,7 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
 
     # calling again with the same markers must hit the internal psi_c cache
     # and still return the (correct) result
-    markers = xp.concatenate((eta1[:, None], eta2[:, None], eta3[:, None], v_para[:, None], mu[:, None]), axis=1)
+    markers = xp.stack((eta1, eta2, eta3, v_para, mu), axis=0)
     assert maxwellian_nc._check_psi_c_cached(markers)
     res_cached = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
     assert xp.allclose(res_cached, res_ana, atol=10e-10), f"{res_cached=},\n {res_ana=}"
@@ -1721,9 +1721,7 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_cache=}"
 
     # a cache hit must not overwrite the buffer that the cached psi_c points to
-    markers_c = xp.concatenate(
-        (eta1_c[:, None], eta2_c[:, None], eta3_c[:, None], v_para_c[:, None], mu_c[:, None]), axis=1
-    )
+    markers_c = xp.stack((eta1_c, eta2_c, eta3_c, v_para_c, mu_c), axis=0)
     assert maxwellian_cache._check_psi_c_cached(markers_c)
     res_cache = maxwellian_cache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
     assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_ana_c=}"
@@ -1757,6 +1755,37 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
         f"no cache={t_nocache * 1e3:.2f} ms, with cache={t_cache * 1e3:.2f} ms, "
         f"speedup={speedup:.2f}x"
     )
+
+
+@pytest.mark.mpi_skip
+def test_canonical_maxwellian_unshifted():
+    """With ``shifted=False``, CanonicalMaxwellian2D uses the exact canonical toroidal momentum
+    psi - epsilon F v_par / |B0| (with and without the cache buffers); the default keeps the shift."""
+    import cunumpy as xp
+
+    from struphy import domains, equils
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
+
+    epsilon, R0, B0 = 0.05, 5.0, 1.0
+    equil = equils.AdhocTorus(a=1.0, R0=R0, B0=B0, q0=1.25, q1=2.25)
+    equil.domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=R0)
+
+    n_mks = 100
+    xp.random.seed(0)
+    markers = xp.random.rand(5, n_mks)
+    markers[3] = (markers[3] - 0.5) * 4.0
+    markers[4] *= 0.5
+
+    etas = markers[:3]
+    x, y, z = equil.domain(etas)
+    R, _, Z = equil.inverse_map(x, y, z)
+    exact = equil.psi(R, Z) - epsilon * B0 * R0 / equil.absB0(etas) * markers[3]
+
+    for cache_size in (None, n_mks):
+        unshifted = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size, shifted=False)
+        assert xp.allclose(unshifted.eval_psic(markers), exact)
+        shifted = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size)
+        assert not xp.allclose(shifted.eval_psic(markers), exact)
 
 
 def test_moment_factors_and_division():

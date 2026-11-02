@@ -3,6 +3,7 @@ import importlib.util
 import logging
 import os
 import pickle
+import signal
 import subprocess
 import sys
 
@@ -31,7 +32,7 @@ def test_domain_deepcopy(mapping):
     assert domain_copy.args_domain.params is not domain.args_domain.params
     assert domain_copy.args_domain.degree is not domain.args_domain.degree
 
-    markers = xp.array([[0.2, 0.4, 0.6]])
+    markers = xp.array([[0.2], [0.4], [0.6]])
     assert xp.allclose(domain(markers), domain_copy(markers))
     assert xp.allclose(domain.jacobian(markers), domain_copy.jacobian(markers))
 
@@ -52,7 +53,7 @@ def test_domain_pickle_roundtrip(mapping):
     assert restored.args_domain is not None
     assert restored.args_domain.kind_map == domain.args_domain.kind_map
 
-    markers = xp.array([[0.3, 0.5, 0.7]])
+    markers = xp.array([[0.3], [0.5], [0.7]])
     assert xp.allclose(domain(markers), restored(markers))
     assert xp.allclose(domain.jacobian_det(markers), restored.jacobian_det(markers))
 
@@ -76,7 +77,7 @@ def test_spline_default(with_gvec=False):
     assert xp.allclose(domain.cy, ref.cy)
     assert xp.allclose(domain.cz, ref.cz)
 
-    markers = xp.array([[0.3, 0.5, 0.7]])
+    markers = xp.array([[0.3], [0.5], [0.7]])
     assert xp.allclose(domain(markers), ref(markers))
     assert xp.allclose(domain.jacobian_det(markers), ref.jacobian_det(markers))
 
@@ -165,10 +166,10 @@ def test_prepare_arg():
     assert Domain.prepare_arg([A1, A2, A3], E1, E2, E3).shape == shape_vector
 
     # ============== markers evaluation ==========================
-    markers = xp.random.rand(10, 6)
+    markers = xp.random.rand(6, 10)
 
-    shape_scalar = (markers.shape[0], 1)
-    shape_vector = (markers.shape[0], 3)
+    shape_scalar = (markers.shape[1], 1)
+    shape_vector = (markers.shape[1], 3)
 
     # ======== callables ============
 
@@ -192,11 +193,11 @@ def test_prepare_arg():
 
     # ======== arrays ===============
 
-    A1 = a1(markers[:, 0], markers[:, 1], markers[:, 2])
-    A2 = a2(markers[:, 0], markers[:, 1], markers[:, 2])
-    A3 = a3(markers[:, 0], markers[:, 1], markers[:, 2])
+    A1 = a1(markers[0], markers[1], markers[2])
+    A2 = a2(markers[0], markers[1], markers[2])
+    A3 = a3(markers[0], markers[1], markers[2])
 
-    A = a_vec(markers[:, 0], markers[:, 1], markers[:, 2])
+    A = a_vec(markers[0], markers[1], markers[2])
 
     # scalar function
     assert Domain.prepare_arg(A1, markers).shape == shape_scalar
@@ -228,18 +229,18 @@ def test_hollow_torus_inverse_map(sfl, pol_period):
     domain = HollowTorus(sfl=sfl, pol_period=pol_period)
 
     xp.random.seed(1234)
-    etas = xp.random.rand(50, 3)
+    etas = xp.random.rand(3, 50)
     # eta2 = 0 and eta2 = 0.5 lie on the midplane
-    etas[:10, 1] = 0.0
-    etas[10:20, 1] = 0.5
+    etas[1, :10] = 0.0
+    etas[1, 10:20] = 0.5
 
     x, y, z = domain(etas, remove_outside=False)
     e1, e2, e3 = domain.inverse_map(x, y, z)
 
-    assert xp.allclose(domain(xp.stack([e1, e2, e3], axis=1), remove_outside=False), xp.stack([x, y, z]))
-    assert xp.allclose(e1, etas[:, 0])
-    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[:, 1]), 1 - xp.abs(e2 - etas[:, 1])), 0.0)
-    assert xp.allclose(e3, etas[:, 2])
+    assert xp.allclose(domain(xp.stack([e1, e2, e3]), remove_outside=False), xp.stack([x, y, z]))
+    assert xp.allclose(e1, etas[0])
+    assert xp.allclose(xp.minimum(xp.abs(e2 - etas[1]), 1 - xp.abs(e2 - etas[1])), 0.0)
+    assert xp.allclose(e3, etas[2])
 
 
 @pytest.mark.parametrize(
@@ -273,7 +274,7 @@ def test_evaluation_mappings(mapping):
     arr1 = xp.linspace(0.0, 1.0, 4)
     arr2 = xp.linspace(0.0, 1.0, 5)
     arr3 = xp.linspace(0.0, 1.0, 6)
-    arrm = xp.random.rand(10, 8)
+    arrm = xp.random.rand(8, 10)
     logger.info("")
     logger.info('Testing "evaluate"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape} {arrm.shape}")
@@ -305,12 +306,12 @@ def test_evaluation_mappings(mapping):
 
     # markers evaluation:
     logger.info(f"markers evaluation, shape: {domain(arrm).shape}")
-    assert domain(arrm).shape == (3, arrm.shape[0])
-    assert domain.jacobian(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.jacobian_det(arrm).shape == (arrm.shape[0],)
-    assert domain.jacobian_inv(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.metric(arrm).shape == (3, 3, arrm.shape[0])
-    assert domain.metric_inv(arrm).shape == (3, 3, arrm.shape[0])
+    assert domain(arrm).shape == (3, arrm.shape[1])
+    assert domain.jacobian(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.jacobian_det(arrm).shape == (arrm.shape[1],)
+    assert domain.jacobian_inv(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.metric(arrm).shape == (3, 3, arrm.shape[1])
+    assert domain.metric_inv(arrm).shape == (3, 3, arrm.shape[1])
 
     # eta1-array evaluation:
     logger.info(f"eta1 array evaluation, shape: {domain(arr1, 0.5, 0.5, squeeze_out=True).shape}")
@@ -472,7 +473,7 @@ def test_pullback():
     logger.info('Testing "pull"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # physical function to pull back (used as components of forms too):
     def fun(x, y, z):
@@ -503,9 +504,9 @@ def test_pullback():
 
         # markers pullback:
         if p_str == "0" or p_str == "3":
-            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (markers.shape[0],)
+            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (markers.shape[1],)
         else:
-            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (3, markers.shape[0])
+            assert domain.pull(fun_form, markers, kind=p_str, squeeze_out=True).shape == (3, markers.shape[1])
 
         # eta1-array pullback:
         # logger.info('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
@@ -632,7 +633,7 @@ def test_pushforward():
     logger.info('Testing "push"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # logical function to push (used as components of forms too):
     def fun(e1, e2, e3):
@@ -663,9 +664,9 @@ def test_pushforward():
 
         # markers push:
         if p_str == "0" or p_str == "3":
-            assert domain.push(fun_form, markers, kind=p_str).shape == (markers.shape[0],)
+            assert domain.push(fun_form, markers, kind=p_str).shape == (markers.shape[1],)
         else:
-            assert domain.push(fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
+            assert domain.push(fun_form, markers, kind=p_str).shape == (3, markers.shape[1])
 
         # eta1-array push:
         # logger.info('eta1 array push, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
@@ -792,7 +793,7 @@ def test_transform():
     logger.info('Testing "transform"...')
     logger.info(f"array shapes: {arr1.shape} {arr2.shape} {arr3.shape}")
 
-    markers = xp.random.rand(13, 6)
+    markers = xp.random.rand(6, 13)
 
     # logical function to push (used as components of forms too):
     def fun(e1, e2, e3):
@@ -823,9 +824,9 @@ def test_transform():
 
         # markers transform:
         if p_str == "0_to_3" or p_str == "3_to_0":
-            assert domain.transform(fun_form, markers, kind=p_str).shape == (markers.shape[0],)
+            assert domain.transform(fun_form, markers, kind=p_str).shape == (markers.shape[1],)
         else:
-            assert domain.transform(fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
+            assert domain.transform(fun_form, markers, kind=p_str).shape == (3, markers.shape[1])
 
         # eta1-array transform:
         # logger.info('eta1 array transform, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
@@ -1199,6 +1200,34 @@ def serial_child_env(**extra):
     return env
 
 
+def run_fake_cupy_child(code: str):
+    """Run ``code`` in a serial child Python process on cunumpy's fake CuPy and fail the test if the child fails.
+
+    The check is serial, so under ``mpirun`` only rank 0 starts the child; the other ranks skip. Before, every rank
+    started the same child at the same time, and on CI the GVEC case crashed (SIGILL) in one of the two concurrent
+    children with no output. The child runs with ``faulthandler`` (a crash prints the Python traceback) and one OpenMP
+    thread, and a failure reports the signal or exit code and the end of both output streams (GVEC writes its Fortran
+    messages to stdout).
+    """
+    from maybempi import MPI
+
+    if MPI.COMM_WORLD.Get_rank() != 0:
+        pytest.skip("serial check, runs on MPI rank 0")
+    result = subprocess.run(
+        [sys.executable, "-X", "faulthandler", "-c", code],
+        env=serial_child_env(CUNUMPY_FAKE_CUPY="1", OMP_NUM_THREADS="1"),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        rc = result.returncode
+        how = f"signal {signal.Signals(-rc).name}" if rc < 0 else f"exit code {rc}"
+        pytest.fail(
+            f"child process failed with {how}\n"
+            f"--- stdout (end) ---\n{result.stdout[-2000:]}\n--- stderr (end) ---\n{result.stderr[-4000:]}",
+        )
+
+
 @pytest.mark.skipif(_cupy_installed(), reason="the fake CuPy cannot replace an installed CuPy")
 @pytest.mark.parametrize("mapping", CUDA_DOMAIN_MAPPINGS)
 def test_cuda_args_domain_fake_cupy(mapping):
@@ -1207,10 +1236,7 @@ def test_cuda_args_domain_fake_cupy(mapping):
     Runs in a subprocess because the fake CuPy must be installed before cunumpy is imported.
     """
     code = f"from struphy.geometry.tests.test_domain import check_cuda_args_domain; check_cuda_args_domain({mapping!r})"
-    result = subprocess.run(
-        [sys.executable, "-c", code], env=serial_child_env(CUNUMPY_FAKE_CUPY="1"), capture_output=True, text=True
-    )
-    assert result.returncode == 0, result.stderr[-4000:]
+    run_fake_cupy_child(code)
 
 
 @requires_cupy
@@ -1232,6 +1258,32 @@ def test_domain_deepcopy_and_pickle_on_cupy(mapping):
             assert other_cuda.__cuda_args__()[0]["t1"]["data"] == other.T[0].data.ptr
             assert other_cuda.__cuda_args__()[0]["cx"]["data"] == other_cuda.cx.data.ptr
             assert (other_cuda.cx == cuda_args.cx).all()
+
+
+@pytest.mark.mpi_skip
+def test_domain_subpackages_visible_to_type_checkers():
+    """Each domain sub-package resolves its class lazily through ``__getattr__`` (to avoid a circular import with the
+    kernels), which IDEs (Pylance) and type checkers do not follow: it must also import the class under
+    ``TYPE_CHECKING``, otherwise e.g. ``domains.Cuboid`` is unknown to them."""
+    import ast
+
+    from struphy.geometry import domains
+
+    root = os.path.dirname(domains.__file__)
+    for name in sorted(os.listdir(root)):
+        init = os.path.join(root, name, "__init__.py")
+        if not os.path.isfile(init):
+            continue
+        with open(init) as f:
+            tree = ast.parse(f.read())
+        exported = set()
+        checked = set()
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "__all__" for t in node.targets):
+                exported |= set(ast.literal_eval(node.value))
+            if isinstance(node, ast.If) and getattr(node.test, "id", None) == "TYPE_CHECKING":
+                checked |= {alias.asname or alias.name for imp in node.body for alias in getattr(imp, "names", [])}
+        assert exported <= checked, f"{name}/__init__.py: {exported - checked} not imported under TYPE_CHECKING"
 
 
 if __name__ == "__main__":

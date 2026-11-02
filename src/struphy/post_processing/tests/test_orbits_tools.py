@@ -17,7 +17,7 @@ def test_guiding_center_and_classification(tmp_path):
     equil.domain = domain
 
     rng = np.random.default_rng(0)
-    etas = np.column_stack((rng.uniform(0.3, 0.9, N_MARKERS), rng.random(N_MARKERS), rng.random(N_MARKERS)))
+    etas = np.stack((rng.uniform(0.3, 0.9, N_MARKERS), rng.random(N_MARKERS), rng.random(N_MARKERS)))
     x = domain(etas, change_out_order=True)
     b = equil.b_cart(etas)[0].T
     absB = np.linalg.norm(b, axis=1)

@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.fem.tensor import FemSpace, TensorFemSpace
 from feectools.fem.vector import VectorFemSpace
@@ -17,7 +16,16 @@ from maybempi import MPI, SerialComm
 from scope_profiler import ProfileManager
 
 from struphy import equils
-from struphy.feec import mass_kernels
+from struphy.feec.kernels.kernel_1d_eval import kernel_1d_eval
+from struphy.feec.kernels.kernel_1d_mat import kernel_1d_mat
+from struphy.feec.kernels.kernel_2d_eval import kernel_2d_eval
+from struphy.feec.kernels.kernel_2d_mat import kernel_2d_mat
+from struphy.feec.kernels.kernel_3d_diag import kernel_3d_diag
+from struphy.feec.kernels.kernel_3d_eval import kernel_3d_eval
+from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
+from struphy.feec.kernels.kernel_3d_matrixfree import kernel_3d_matrixfree
+from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
+from struphy.feec.kronecker_mass import kronecker_apply_operator
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.utilities import LocalProjectionMatrix, LocalRotationMatrix, get_quad_grids
@@ -27,10 +35,16 @@ from struphy.io.options import LiteralOptions
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.docstring_converter import auto_convert_docstring, info
+from struphy.utils.docstring_converter import info
 from struphy.utils.utils import __class_with_params_repr_no_defaults__
 
 logger = logging.getLogger("struphy")
+
+# assembly kernels by dimension of the problem (1d, 2d or 3d)
+_MAT_KERNELS = {1: kernel_1d_mat, 2: kernel_2d_mat, 3: kernel_3d_mat}
+_EVAL_KERNELS = {1: kernel_1d_eval, 2: kernel_2d_eval, 3: kernel_3d_eval}
+_MATRIXFREE_KERNELS = {3: kernel_3d_matrixfree}
+_DIAG_KERNELS = {3: kernel_3d_diag}
 
 # space identifiers with scalar-valued and vector-valued elements
 _SCALAR_SPACES = ("H1", "L2")
@@ -212,7 +226,6 @@ class WeightedMassOperators:
     # Mass matrices related to L2-scalar products in all 3d derham spaces #
     #######################################################################
 
-    @auto_convert_docstring
     @property
     def M0(self):
         r"""
@@ -232,7 +245,6 @@ class WeightedMassOperators:
             )
         return self._M0
 
-    @auto_convert_docstring
     @property
     def M1(self):
         r"""
@@ -253,7 +265,6 @@ class WeightedMassOperators:
 
         return self._M1
 
-    @auto_convert_docstring
     @property
     def M2(self):
         r"""
@@ -275,7 +286,6 @@ class WeightedMassOperators:
 
         return self._M2
 
-    @auto_convert_docstring
     @property
     def M3(self):
         r"""
@@ -297,7 +307,6 @@ class WeightedMassOperators:
 
         return self._M3
 
-    @auto_convert_docstring
     @property
     def M3p_inv(self):
         r"""
@@ -327,7 +336,36 @@ class WeightedMassOperators:
             )
         return self._M3p_inv
 
-    @auto_convert_docstring
+    @property
+    def M3q0(self):
+        r"""
+        Mass matrix for 3-forms weighted with the square root of the equilibrium pressure,
+        :math:`q_0 = \sqrt{p_0}`:
+
+        .. math::
+
+            \mathbb M^3_{q_0, ijk,mno} =
+            \int \Lambda^3_{ijk}\,\Lambda^3_{mno}
+            \frac{q_0}{\sqrt{g}}\,\mathrm d\boldsymbol\eta.
+
+        This operator couples the perturbation of :math:`q` to the velocity in the linear models with the variable
+        :math:`q` (pressure perturbation :math:`\tilde p = 2 q_0 \tilde q`).
+        """
+        if not hasattr(self, "_M3q0"):
+            assert self.eq_mhd is not None, "M3q0 requires an MHD equilibrium."
+
+            def q0(e1, e2, e3):
+                return self.eq_mhd.q0(e1, e2, e3)
+
+            self._M3q0 = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=(q0, "1/sqrt_g"),
+                name="M3q0",
+                assemble=True,
+            )
+        return self._M3q0
+
     @property
     def Mv(self):
         r"""
@@ -352,7 +390,6 @@ class WeightedMassOperators:
     ######################################
     # Predefined weighted mass operators #
     ######################################
-    @auto_convert_docstring
     @property
     def M2stab_for_rot(self):
         r"""
@@ -374,7 +411,6 @@ class WeightedMassOperators:
 
         return self._M2stab_for_rot
 
-    @auto_convert_docstring
     @property
     def M1n(self):
         r"""
@@ -402,7 +438,6 @@ class WeightedMassOperators:
 
         return self._M1n
 
-    @auto_convert_docstring
     @property
     def M2n(self):
         r"""
@@ -430,7 +465,43 @@ class WeightedMassOperators:
 
         return self._M2n
 
-    @auto_convert_docstring
+    @property
+    def M2gyro(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{2,\textnormal{gyro}}_{(\mu,ijk), (\nu,mno)} = \int \frac{\|B_0(\boldsymbol{\eta})\|^2}{n^0_{\textnormal{eq}}(\boldsymbol{\eta})} \vec{\Lambda}^2_{\mu,ijk} \left(G - \hat b^1_0 (\hat b^1_0)^\top \right) \vec{\Lambda}^2_{\nu,mno} \frac{1}{\sqrt{g}} \textnormal{d}\boldsymbol{\eta},
+
+        where :math:`\hat b^1_0` are the covariant (1-form) components of the unit vector along :math:`\mathbf B_0`. For
+        2-forms :math:`\mathbf j, \mathbf j'` it is the discrete
+        :math:`\int (\mathbf J \times \mathbf B_0) \cdot (\mathbf J' \times \mathbf B_0) / n^0_{\textnormal{eq}} \,\textnormal d \mathbf x`,
+        the counterpart of :attr:`M1gyro` on :math:`H(\textnormal{div})`.
+        """
+        if not hasattr(self, "_M2gyro"):
+            assert self.eq_mhd is not None, (
+                "M2gyro requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
+            bb = LocalProjectionMatrix(self.eq_mhd.unit_b1_1, self.eq_mhd.unit_b1_2, self.eq_mhd.unit_b1_3)
+            weight = lambda *etas: self.eq_mhd.absB0(*etas) ** 2 / self.eq_mhd.n0(*etas)
+            M2_B = self.create_weighted_mass(
+                "Hdiv",
+                "Hdiv",
+                weights=("G", "1/sqrt_g", weight),
+                name="M2_Bn",
+                assemble=True,
+            )
+            M2para_B = self.create_weighted_mass(
+                "Hdiv",
+                "Hdiv",
+                weights=(bb, "1/sqrt_g", weight),
+                name="M2para_Bn",
+                assemble=True,
+            )
+            self._M2gyro = M2_B - M2para_B
+        return self._M2gyro
+
     @property
     def Mvn(self):
         r"""
@@ -458,7 +529,6 @@ class WeightedMassOperators:
 
         return self._Mvn
 
-    @auto_convert_docstring
     @property
     def M1ninv(self):
         r"""
@@ -486,7 +556,6 @@ class WeightedMassOperators:
 
         return self._M1ninv
 
-    @auto_convert_docstring
     @property
     def M1J(self):
         r"""
@@ -525,7 +594,6 @@ class WeightedMassOperators:
 
         return self._M1J
 
-    @auto_convert_docstring
     @property
     def M2J(self):
         r"""
@@ -564,7 +632,41 @@ class WeightedMassOperators:
 
         return self._M2J
 
-    @auto_convert_docstring
+    @property
+    def M21J(self):
+        r"""
+        Mixed mass matrix from 1-forms to 2-forms
+
+        .. math::
+
+            \mathbb M^{21,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk} \mathcal{R}(J) G^{-1} \vec{\Lambda}^1_{\nu,mno} \textnormal{d}\boldsymbol{\eta},
+
+        with the rotation matrix :math:`\mathcal{R}(J)` of :attr:`M2J`, such that
+        :math:`\mathbf v^\top \mathbb M^{21,J} \mathbf b = \int \mathbf V \cdot (\mathbf J_\textnormal{eq} \times \mathbf B)\, \textnormal d \mathbf x`
+        for a 2-form :math:`\mathbf V` and a 1-form :math:`\mathbf B`. The 1-form counterpart of :attr:`M2J` (which acts
+        on 2-forms).
+        """
+
+        if not hasattr(self, "_M21J"):
+            assert self.eq_mhd is not None, (
+                "M21J requires an MHD equilibrium to be provided when initializing the WeightedMassOperators object."
+            )
+            rot_J = LocalRotationMatrix(
+                self.eq_mhd.j2_1,
+                self.eq_mhd.j2_2,
+                self.eq_mhd.j2_3,
+            )
+
+            self._M21J = self.create_weighted_mass(
+                "Hcurl",
+                "Hdiv",
+                weights=(rot_J, "Ginv"),
+                name="M21J",
+                assemble=True,
+            )
+
+        return self._M21J
+
     @property
     def MvJ(self):
         r"""
@@ -603,7 +705,6 @@ class WeightedMassOperators:
 
         return self._MvJ
 
-    @auto_convert_docstring
     @property
     def M2B_div0(self):
         r"""
@@ -678,7 +779,6 @@ class WeightedMassOperators:
 
         return self._M2B_div0
 
-    @auto_convert_docstring
     @property
     def M2B(self):
         r"""
@@ -717,7 +817,6 @@ class WeightedMassOperators:
 
         return self._M2B
 
-    @auto_convert_docstring
     @property
     def M2Bn(self):
         r"""
@@ -762,7 +861,6 @@ class WeightedMassOperators:
 
         return self._M2Bn
 
-    @auto_convert_docstring
     @property
     def M1Bninv(self):
         r"""
@@ -807,7 +905,6 @@ class WeightedMassOperators:
 
         return self._M1Bninv
 
-    @auto_convert_docstring
     @property
     def M1para(self):
         r"""
@@ -832,7 +929,6 @@ class WeightedMassOperators:
             )
         return self._M1para
 
-    @auto_convert_docstring
     @property
     def M1perp(self):
         r"""
@@ -846,7 +942,6 @@ class WeightedMassOperators:
             self._M1perp = self.M1 - self.M1para
         return self._M1perp
 
-    @auto_convert_docstring
     @property
     def M1para_MHDeq(self):
         r"""
@@ -872,7 +967,6 @@ class WeightedMassOperators:
             )
         return self._M1para_MHDeq
 
-    @auto_convert_docstring
     @property
     def M1_MHDeq(self):
         r"""
@@ -896,7 +990,6 @@ class WeightedMassOperators:
             )
         return self._M1_MHDeq
 
-    @auto_convert_docstring
     @property
     def M1gyro(self):
         r"""
@@ -910,7 +1003,6 @@ class WeightedMassOperators:
             self._M1gyro = self.M1_MHDeq - self.M1para_MHDeq
         return self._M1gyro
 
-    @auto_convert_docstring
     @property
     def M0ad(self):
         r"""
@@ -937,7 +1029,6 @@ class WeightedMassOperators:
 
         return self._M0ad
 
-    @auto_convert_docstring
     @property
     def M0ad_withT(self):
         r"""
@@ -981,6 +1072,31 @@ class WeightedMassOperators:
                 assemble=False,
             )
         return self._WMMnew
+
+    @property
+    def WMM3new(self):
+        r"""Density-weighted mass matrix of :math:`L^2` (3-forms)
+
+        .. math::
+
+            \mathbb M^{3,\rho}_{ijk, mno} = \int \frac{\hat\rho^3}{g} \Lambda^3_{ijk} \Lambda^3_{mno} \, \textnormal d \boldsymbol \eta
+            = \int \rho \, \frac{\Lambda^3_{ijk}}{\sqrt g} \frac{\Lambda^3_{mno}}{\sqrt g} \, \textnormal d \mathbf x \,,
+
+        where :math:`\hat\rho^3` is the density 3-form of :attr:`WMMnew` (the same spline function), i.e. the
+        :math:`L^2` inner product of the push-forwards weighted with the physical density :math:`\rho`.
+        It enters the div-div term of the regularized kinetic energy, see
+        :func:`~struphy.feec.variational_utilities.kinetic_metric`, and is assembled together with :attr:`WMMnew`.
+        """
+        if not hasattr(self, "_WMM3new"):
+            spline = self.WMMnew.spline_functions["l2_field"]
+            self._WMM3new = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=("1/sqrt_g", "1/sqrt_g", spline),
+                name="WMM3new",
+                assemble=False,
+            )
+        return self._WMM3new
 
     #######################################
     # Wrapper around WeightedMassOperator #
@@ -1596,6 +1712,9 @@ class WeightedMassOperator(LinearOperator):
         self._dry_run = dry_run
         self._dtype = V.coeff_space.dtype
 
+        # number of calls of assemble(), lets dependent objects (e.g. preconditioners) detect new data
+        self._assembly_count = 0
+
         # recipe for re-creating the operator with WeightedMassOperators.create_weighted_mass, see to_dict()
         self._creation_info: dict | None = None
 
@@ -1615,6 +1734,8 @@ class WeightedMassOperator(LinearOperator):
             blocks, self._weights = self._init_blocks_from_weights(weights_info)
 
         self._mat = self._wrap_blocks(blocks)
+        # the operator dot() applies self._mat with (Kronecker blocks replaced), built on first use, see _apply_mat
+        self._apply_mat_cache = None
 
         # the weights are stored in the block order of the (possibly transposed) operator
         if transposed:
@@ -1929,13 +2050,8 @@ class WeightedMassOperator(LinearOperator):
         self._temp_mat = self._mat.domain.zeros()
 
     def _load_assembly_kernel(self):
-        """Load the pyccelized assembly kernel for the dimension of the problem (1d, 2d or 3d)."""
-        self._assembly_kernel = PyccelKernel(
-            getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_mat",
-            ),
-        )
+        """Load the assembly kernel for the dimension of the problem (1d, 2d or 3d)."""
+        self._assembly_kernel = _MAT_KERNELS[self._V.ldim]
 
     @property
     def derham(self):
@@ -2039,6 +2155,32 @@ class WeightedMassOperator(LinearOperator):
         return self._mat
 
     @property
+    def _apply_mat(self):
+        """The operator :meth:`dot` applies: :attr:`matrix`, with its blocks that are Kronecker products of 1D banded
+        matrices (constant weights, e.g. on a Cuboid) applied as such (:mod:`struphy.feec.kronecker_mass`).
+
+        Built on first use after every change of the matrix (assembly, copy into, in-place arithmetic).
+        """
+        if self._apply_mat_cache is None:
+            if getattr(self, "_kronecker_rejected", False):
+                self._apply_mat_cache = self._mat
+            else:
+                self._apply_mat_cache = kronecker_apply_operator(self._mat, name=self.name)
+                # a matrix changed by in-place arithmetic that is not a Kronecker product (e.g. the Schur complement
+                # M1 - dt^2 BC with particle data, rebuilt every step) is not checked again after further arithmetic:
+                # the check reads the whole matrix. Assembly and copies check again.
+                if getattr(self, "_changed_by_arithmetic", False) and self._apply_mat_cache is self._mat:
+                    self._kronecker_rejected = True
+        return self._apply_mat_cache
+
+    def _matrix_changed(self, by_arithmetic: bool):
+        """Invalidate :attr:`_apply_mat` after a change of the matrix (in-place arithmetic, or assembly/copy)."""
+        self._apply_mat_cache = None
+        self._changed_by_arithmetic = by_arithmetic
+        if not by_arithmetic:
+            self._kronecker_rejected = False
+
+    @property
     def nquads(self):
         if self._nquads is None:
             return self.derham.nquads
@@ -2085,28 +2227,62 @@ class WeightedMassOperator(LinearOperator):
 
         if apply_bc:
             if self._transposed:
-                self._W_boundary_op_T.dot(v, out=self._temp_WB)
-                self._W_extraction_op_T.dot(self._temp_WB, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_VE)
-                self._V_extraction_op.dot(self._temp_VE, out=self._temp_VB)
-                out = self._V_boundary_op.dot(self._temp_VB, out=out)
+                ops_in = (self._W_boundary_op_T, self._W_extraction_op_T)
+                ops_out = (self._V_extraction_op, self._V_boundary_op)
+                tmps_in = (self._temp_WB, self._temp_mat)
+                tmps_out = (self._temp_VE, self._temp_VB)
             else:
-                self._V_boundary_op_T.dot(v, out=self._temp_VB)
-                self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_WE)
-                self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
-                out = self._W_boundary_op.dot(self._temp_WB, out=out)
+                ops_in = (self._V_boundary_op_T, self._V_extraction_op_T)
+                ops_out = (self._W_extraction_op, self._W_boundary_op)
+                tmps_in = (self._temp_VB, self._temp_mat)
+                tmps_out = (self._temp_WE, self._temp_WB)
+            out = self._apply_chain(v, ops_in, tmps_in, ops_out, tmps_out, out)
         else:
             if self._transposed:
                 self._W_extraction_op_T.dot(v, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_VE)
                 out = self._V_extraction_op.dot(self._temp_VE, out=out)
             else:
                 self._V_extraction_op_T.dot(v, out=self._temp_mat)
-                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                self._apply_mat.dot(self._temp_mat, out=self._temp_WE)
                 out = self._W_extraction_op.dot(self._temp_WE, out=out)
 
         return out
+
+    def _apply_chain(self, v, ops_in, tmps_in, ops_out, tmps_out, out):
+        """``out = B_out E_out M E_in B_in v`` (boundary and extraction operators around the matrix), see :meth:`dot`.
+
+        Identity operators (e.g. the extraction operators without polar splines, or boundary operators without
+        essential boundary conditions) are skipped instead of applied as copies: each vector is passed on as it is,
+        and the matrix writes into the next temporary that is actually used (or into ``out``).
+        """
+        if out is v:
+            # in place: the chain must not read v after writing the output, so it reads a copy
+            v = v.copy()
+
+        x = v
+        for op, tmp in zip(ops_in, tmps_in):
+            if not isinstance(op, IdentityOperator):
+                x = op.dot(x, out=tmp)
+
+        # the first output operator that is not an identity reads the matrix product from its temporary
+        remaining = [(op, tmp) for op, tmp in zip(ops_out, tmps_out) if not isinstance(op, IdentityOperator)]
+        if not remaining:
+            return self._apply_mat.dot(x, out=out)
+        y = self._apply_mat.dot(x, out=remaining[0][1])
+        for k, (op, _) in enumerate(remaining):
+            target = out if k == len(remaining) - 1 else remaining[k + 1][1]
+            y = op.dot(y, out=target)
+        return y
+
+    def without_boundary_ops(self) -> "MassWithoutBoundaryOps":
+        """This operator applied without its boundary operators, see :class:`MassWithoutBoundaryOps`."""
+        return MassWithoutBoundaryOps(self)
+
+    @property
+    def boundary_ops(self):
+        """The boundary operators ``(B_V, B_W)`` applied on the domain and codomain side."""
+        return self._V_boundary_op, self._W_boundary_op
 
     def transpose(self, conjugate=False):
         """
@@ -2159,6 +2335,19 @@ class WeightedMassOperator(LinearOperator):
 
         return M
 
+    def _quad_grid(self, space_name, attribute, component):
+        """Quadrature-grid arrays (spans, weights or basis values) of one component of a space, as backend arrays.
+
+        The Derham keeps them as host arrays; on the CuPy backend the assembly kernel needs them on the device,
+        so they are copied there once and cached (they do not change between assemblies).
+        """
+        cache = self.__dict__.setdefault("_quad_grid_cache", {})
+        key = (space_name, attribute, component)
+        if key not in cache:
+            arrays = getattr(self.derham.spline_attributes[space_name], attribute)[component]
+            cache[key] = [xp.asarray(array) for array in arrays]
+        return cache[key]
+
     def assemble(self, weights=None, clear=True):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
@@ -2181,12 +2370,15 @@ class WeightedMassOperator(LinearOperator):
             Whether to first set all data to zero before assembly. If False,
             the new contributions are added to existing ones.
         """
+        self._matrix_changed(by_arithmetic=False)  # the matrix changes
         assert not self._dry_run, (
             "A dry-run operator has no matrix data and cannot be assembled (memory estimation only)."
         )
         if weights is not None or not clear:
             # the data no longer stems from the creation recipe
             self._creation_info = None
+
+        self._assembly_count += 1
 
         if self._matrix_free:
             if weights is not None:
@@ -2235,7 +2427,7 @@ class WeightedMassOperator(LinearOperator):
             # loop over codomain spaces (rows)
             for a, codomain_space in enumerate(codomain_spaces):
                 # knot span indices of elements of local domain
-                codomain_spans = spline_attr[W_name].quad_grid_spans[a]
+                codomain_spans = self._quad_grid(W_name, "quad_grid_spans", a)
 
                 # global start spline index on process
                 codomain_starts = [int(start) for start in codomain_space.coeff_space.starts]
@@ -2247,10 +2439,10 @@ class WeightedMassOperator(LinearOperator):
                 pts = self._quad_pts(W_name, a)
 
                 # global quadrature weights in format (local element, local weight)
-                wts = spline_attr[W_name].quad_grid_wts[a]
+                wts = self._quad_grid(W_name, "quad_grid_wts", a)
 
                 # evaluated basis functions at quadrature points of codomain space
-                codomain_basis = spline_attr[W_name].quad_grid_bases[a]
+                codomain_basis = self._quad_grid(W_name, "quad_grid_bases", a)
 
                 # loop over domain spaces (columns)
                 for b, domain_space in enumerate(domain_spaces):
@@ -2290,7 +2482,7 @@ class WeightedMassOperator(LinearOperator):
                     )
 
                     # evaluated basis functions at quadrature points of domain space
-                    domain_basis = spline_attr[V_name].quad_grid_bases[b]
+                    domain_basis = self._quad_grid(V_name, "quad_grid_bases", b)
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:
@@ -2362,6 +2554,11 @@ class WeightedMassOperator(LinearOperator):
                 self._mat[2, 1]._data[:] = -self._mat[1, 2].T._data
 
             logger.debug("Done.")
+
+    @property
+    def assembly_count(self) -> int:
+        """Number of calls of :meth:`assemble` (changes whenever the matrix data may have changed)."""
+        return self._assembly_count
 
     @property
     def is_reconstructible(self) -> bool:
@@ -2456,6 +2653,7 @@ class WeightedMassOperator(LinearOperator):
             out._weights = [list(row) for row in self._weights]
 
         self._mat.copy(out=out._mat)
+        out._matrix_changed(by_arithmetic=False)
 
         if self._creation_info is None:
             out._creation_info = None
@@ -2466,6 +2664,7 @@ class WeightedMassOperator(LinearOperator):
 
     def __imul__(self, a):
         self._mat *= a
+        self._matrix_changed(by_arithmetic=True)
         self._creation_info = None
         return self
 
@@ -2476,11 +2675,13 @@ class WeightedMassOperator(LinearOperator):
         if isinstance(M, WeightedMassOperator):
             self._creation_info = None
             self._mat += M._mat
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         elif isinstance(M, LinearOperator):
             self._creation_info = None
             self._mat += M
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         else:
@@ -2493,11 +2694,13 @@ class WeightedMassOperator(LinearOperator):
         if isinstance(M, WeightedMassOperator):
             self._creation_info = None
             self._mat -= M._mat
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         elif isinstance(M, LinearOperator):
             self._creation_info = None
             self._mat -= M
+            self._matrix_changed(by_arithmetic=True)
             return self
 
         else:
@@ -2570,7 +2773,7 @@ class WeightedMassOperator(LinearOperator):
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = PyccelKernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
+        kernel = _EVAL_KERNELS[W.ldim]
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -2632,6 +2835,49 @@ class WeightedMassOperator(LinearOperator):
         return info(self, use_rst=use_rst)
 
 
+class MassWithoutBoundaryOps(LinearOperator):
+    """A :class:`WeightedMassOperator` applied without its boundary operators: ``E_W M E_V^T`` instead of
+    ``B_W E_W M E_V^T B_V^T`` (:meth:`WeightedMassOperator.dot` with ``apply_bc=False``).
+
+    Between operators that apply the same boundary operators on the outside, e.g. in ``grad.T @ M1 @ grad`` with
+    ``grad = B1 G B0^T``, this is the same operator: boundary operators are 0/1 diagonal masks, hence symmetric and
+    idempotent (``B1^T B1 = B1``), and the masked products are bit for bit the same, with two fewer passes over the
+    vectors per product. Get it with :meth:`WeightedMassOperator.without_boundary_ops`.
+    """
+
+    def __init__(self, mass: "WeightedMassOperator"):
+        self._mass = mass
+
+    @property
+    def mass(self):
+        """The wrapped mass operator."""
+        return self._mass
+
+    @property
+    def domain(self):
+        return self._mass.domain
+
+    @property
+    def codomain(self):
+        return self._mass.codomain
+
+    @property
+    def dtype(self):
+        return self._mass.dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return MassWithoutBoundaryOps(self._mass.transpose(conjugate=conjugate))
+
+    def dot(self, v, out=None):
+        return self._mass.dot(v, out=out, apply_bc=False)
+
+
 class StencilMatrixFreeMassOperator(LinearOperator):
     r"""Class implementing matrix-free weighted mass operators between StencilVectorSpaces.
 
@@ -2668,19 +2914,8 @@ class StencilMatrixFreeMassOperator(LinearOperator):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = PyccelKernel(
-            getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_matrixfree",
-            ),
-        )
-
-        self._diag_kernel = PyccelKernel(
-            getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_diag",
-            ),
-        )
+        self._dot_kernel = _MATRIXFREE_KERNELS[self._V.ldim]
+        self._diag_kernel = _DIAG_KERNELS[self._V.ldim]
 
         # temporary with ghost regions for the diagonal (contributions to other processes are exchanged)
         self._diag_tmp = W.coeff_space.zeros()
@@ -3265,7 +3500,7 @@ class L2Projector:
             pads = fem_space.coeff_space.pads
 
             if isinstance(vec, StencilVector):
-                mass_kernels.kernel_3d_vec(
+                kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,
@@ -3276,7 +3511,7 @@ class L2Projector:
                     vec._data,
                 )
             else:
-                mass_kernels.kernel_3d_vec(
+                kernel_3d_vec(
                     *spans,
                     *fem_space.degree,
                     *starts,
@@ -3520,3 +3755,384 @@ class AverageOperator(LinearOperator):
         return AverageOperator(
             self.derham, self._space, self._direction, transposed=not self._transposed, nquads=self._nquads
         )
+
+
+class WeightedAverageProjection(LinearOperator):
+    r"""
+    Projection onto functions that are constant in the given directions, orthogonal with respect to
+    a symmetric positive (semi-)definite operator :math:`\mathbb S` on the 0-form coefficients:
+
+    .. math::
+
+        \Pi_{\mathbb S} = \mathbb E \, (\mathbb E^\top \mathbb S \, \mathbb E)^{-1} \, \mathbb E^\top \mathbb S \,,
+
+    where :math:`\mathbb E` embeds the coefficients of the remaining directions as constant along the
+    averaged ones (:math:`\mathbb E^\top` sums over the averaged directions). For a weighted mass matrix
+    :math:`\mathbb S`, :math:`\Pi_{\mathbb S} \phi` is the spline in the remaining directions closest to
+    :math:`\phi` in the weighted :math:`L^2` norm, i.e. the weighted average (e.g. the flux-surface
+    average with the volume element :math:`\sqrt g` for :math:`\mathbb M^0`). Then
+
+    .. math::
+
+        \mathbb S (\mathbb I - \Pi_{\mathbb S}) = \mathbb S - \mathbb S \mathbb E \, (\mathbb E^\top \mathbb S \, \mathbb E)^{-1} \, \mathbb E^\top \mathbb S
+
+    is symmetric. If the weight of :math:`\mathbb S` does not depend on the averaged directions,
+    :math:`\Pi_{\mathbb S}` is the plain average of :class:`AverageOperator`. If all three directions
+    are averaged, :math:`\mathbb E` is the vector of ones and the reduced matrix is the scalar
+    :math:`\mathbb 1^\top \mathbb S \, \mathbb 1` (the weighted mean over the whole domain).
+
+    The reduced matrix :math:`\mathbb E^\top \mathbb S \, \mathbb E` (on the remaining directions) is
+    assembled once by probing :math:`\mathbb S` with colored vectors and factorized on every process;
+    one application costs one application of :math:`\mathbb S` and a sparse solve.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence (0-forms). With polar splines, the constructor returns a
+        :class:`PolarWeightedAverageProjection` instead.
+
+    S : LinearOperator
+        Symmetric operator on the 0-form coefficients (e.g. a weighted mass operator), positive
+        definite on the functions constant in the averaged directions (up to essential boundary
+        conditions, whose reduced rows are replaced by the identity).
+
+    directions : tuple[int]
+        The averaged directions (0, 1 and/or 2; all three for the global mean).
+    """
+
+    def __new__(cls, derham: Derham | None = None, *args, **kwargs):
+        # polar splines: the projection on the polar 0-forms
+        if cls is WeightedAverageProjection and derham is not None and derham.polar_splines:
+            return PolarWeightedAverageProjection(derham, *args, **kwargs)
+        return super().__new__(cls)
+
+    def __init__(self, derham: Derham, S: LinearOperator, directions: tuple[int, ...]):
+        import numpy as np
+        from scipy import sparse
+        from scipy.sparse.linalg import splu
+
+        V = derham.V0
+        assert S.domain == V and S.codomain == V, "S must act on the 0-form coefficients."
+        directions = tuple(sorted(set(directions)))
+        assert directions and all(d in (0, 1, 2) for d in directions)
+        kept = tuple(d for d in range(3) if d not in directions)
+
+        self._derham = derham
+        self._S = S
+        self._space = V
+        self._directions = directions
+        self._kept = kept
+        self._comm = None if isinstance(derham.comm, (SerialComm, type(None))) else derham.comm
+        self._local = tuple(slice(p * m, p * m + e - s + 1) for p, m, s, e in zip(V.pads, V.shifts, V.starts, V.ends))
+        self._red_shape = tuple(V.npts[d] for d in kept)
+        self._red_local = tuple(slice(V.starts[d], V.ends[d] + 1) for d in kept)
+        self._tmp = V.zeros()
+        self._tmp2 = V.zeros()
+
+        # reduced matrix E^T S E, column by column with colored probes: in each kept direction the
+        # columns of one color are at least 2 p + 1 apart (also across a periodic boundary)
+        strides = []
+        for d in kept:
+            n, p = V.npts[d], V.pads[d]
+            stride = n
+            if not V.periods[d]:
+                stride = min(n, 2 * p + 1)
+            else:
+                for s in range(2 * p + 1, n + 1):
+                    if n % s == 0:
+                        stride = s
+                        break
+            strides.append(stride)
+
+        rows, cols, vals = [], [], []
+        n_red = int(np.prod(self._red_shape))
+        index = np.arange(n_red).reshape(self._red_shape)
+        for color in np.ndindex(*strides):
+            probe = np.zeros(self._red_shape)
+            sel = tuple(slice(c, None, s) for c, s in zip(color, strides))
+            probe[sel] = 1.0
+            col = self._ET(self._S.dot(self._E(probe, out=self._tmp), out=self._tmp2))
+            # entry (b, a) for the probed columns a: rows b within the coupling width of a
+            for a in index[sel].ravel():
+                a_idx = np.unravel_index(a, self._red_shape)
+                ranges = []
+                for k, d in enumerate(kept):
+                    n, p = V.npts[d], V.pads[d]
+                    r = np.arange(a_idx[k] - p, a_idx[k] + p + 1)
+                    r = r % n if V.periods[d] else r[(r >= 0) & (r < n)]
+                    ranges.append(np.unique(r))
+                for b_idx in np.ndindex(*[len(r) for r in ranges]):
+                    b = tuple(r[i] for r, i in zip(ranges, b_idx))
+                    rows.append(index[b])
+                    cols.append(a)
+                    vals.append(col[b])
+        K = sparse.coo_matrix((vals, (rows, cols)), shape=(n_red, n_red)).tocsc()
+        K.sum_duplicates()
+        # rows without entries (essential boundary conditions of S): identity
+        diag = K.diagonal()
+        empty = np.abs(diag) <= 1e-14 * max(np.abs(diag).max(), 1e-300)
+        if np.any(empty):
+            K = K + sparse.diags(empty.astype(float))
+        self._K_lu = splu(K.tocsc())
+
+    def _ET(self, v):
+        """E^T v: sum over the averaged directions, as global array over the kept directions (all processes)."""
+        import numpy as np
+
+        loc = xp.to_numpy(v._data[self._local]).sum(axis=self._directions)
+        out = np.zeros(self._red_shape)
+        out[self._red_local] = loc
+        if self._comm is not None:
+            out = self._comm.allreduce(out, op=MPI.SUM)
+        return out
+
+    def _E(self, red, out):
+        """E red: the global array over the kept directions, constant along the averaged ones."""
+        loc = red[self._red_local]
+        shape = [1, 1, 1]
+        for k, d in enumerate(self._kept):
+            shape[d] = loc.shape[k]
+        out._data[self._local] = xp.asarray(loc.reshape(shape))
+        out.update_ghost_regions()
+        return out
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    @property
+    def directions(self) -> tuple[int, ...]:
+        """The averaged directions."""
+        return self._directions
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._space.zeros()
+        red = self._K_lu.solve(self._ET(self._S.dot(v, out=self._tmp)).ravel()).reshape(self._red_shape)
+        return self._E(red, out)
+
+    def transpose(self, conjugate=False):
+        raise NotImplementedError("Only S @ (I - P) is symmetric; P itself is not.")
+
+    def tosparse(self):
+        raise NotImplementedError
+
+    def toarray(self):
+        raise NotImplementedError
+
+
+class PolarWeightedAverageProjection(LinearOperator):
+    r"""
+    :class:`WeightedAverageProjection` on polar 0-forms,
+
+    .. math::
+
+        \Pi_{\mathbb S} = \mathbb B \, (\mathbb B^\top \mathbb S \, \mathbb B)^{-1} \, \mathbb B^\top \mathbb S \,,
+
+    where :math:`\mathbb B` embeds the polar 0-forms that are constant in the averaged directions:
+
+    * :math:`\eta_3`: the polar unknowns of the poloidal plane (polar coefficients and outer tensor-product rings),
+      constant in :math:`\eta_3`;
+    * :math:`\eta_2`: the functions of :math:`\eta_1` only, i.e. the function that is 1 on the inner rings (in polar
+      coefficients) and the constants in :math:`\eta_2` on the outer rings
+      (:func:`~struphy.polar.kron_2dx1d.poloidal_average_basis`).
+
+    Averages over :math:`\eta_1` (across the pole) are not implemented. The reduced matrix
+    :math:`\mathbb B^\top \mathbb S \, \mathbb B` is assembled once by probing :math:`\mathbb S` with colored vectors
+    and factorized on every process.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence (with polar splines).
+
+    S : LinearOperator
+        Symmetric operator on the polar 0-forms (e.g. a weighted mass operator), positive definite on the
+        functions constant in the averaged directions (up to essential boundary conditions, whose reduced
+        rows are replaced by the identity).
+
+    directions : tuple[int]
+        The averaged directions (1 and/or 2).
+    """
+
+    def __init__(self, derham: Derham, S: LinearOperator, directions: tuple[int, ...]):
+        import numpy as np
+        from scipy import sparse
+        from scipy.sparse.linalg import splu
+
+        from struphy.polar.basic import PolarDerhamSpace
+        from struphy.polar.kron_2dx1d import poloidal_average_basis, poloidal_extraction_matrix, poloidal_mass_matrix
+
+        V = S.domain
+        assert isinstance(V, PolarDerhamSpace) and V.space_id == "H1", "S must act on the polar 0-forms."
+        assert S.codomain == V
+        directions = tuple(sorted(set(directions)))
+        if 0 in directions:
+            raise NotImplementedError("Averages over eta1 (across the pole) are not implemented for polar splines.")
+        assert directions and all(d in (1, 2) for d in directions)
+
+        self._derham = derham
+        self._S = S
+        self._space = V
+        self._directions = directions
+        self._comm = None if isinstance(derham.comm, (SerialComm, type(None))) else derham.comm
+        if self._comm is not None and self._comm.Get_size() == 1:
+            self._comm = None
+        self._tmp = V.zeros()
+        self._tmp2 = V.zeros()
+
+        tp = V.parent_space
+        n1, n2, n3 = tp.npts
+        self._npol, self._nr = V.n_polar[0], V.n_rings[0]
+        self._n2, self._n3 = n2, n3
+        n_unknowns = self._npol + (n1 - self._nr) * n2
+        E_op = derham.extraction_ops["H1"]
+        self._B_pol = poloidal_average_basis(V, E_op) if 1 in directions else sparse.eye(n_unknowns, format="csr")
+        self._avg3 = 2 in directions
+        self._red_shape = (self._B_pol.shape[1], 1 if self._avg3 else n3)
+
+        # sparsity of the reduced matrix: poloidal coupling of the polar 0-forms, band in eta_3
+        Ep = abs(poloidal_extraction_matrix(V, (0,), E_op.blocks_ten_to_pol, None))
+        P_pol = Ep @ abs(poloidal_mass_matrix(derham, ("B", "B"), ("B", "B"), None)) @ Ep.T
+        P_pol = abs(self._B_pol).T @ P_pol @ abs(self._B_pol)
+        if self._avg3:
+            P_3 = sparse.csr_matrix(np.ones((1, 1)))
+        else:
+            p3 = derham.degree[2]
+            k = np.arange(n3)
+            dist = np.abs(k[:, None] - k[None, :])
+            if derham.spl_kind[2]:
+                dist = np.minimum(dist, n3 - dist)
+            P_3 = sparse.csr_matrix((dist <= p3).astype(float))
+        P = (sparse.kron(P_pol, P_3, format="csc") != 0).astype(float).tocsc()
+        n_red = P.shape[0]
+
+        # greedy coloring: columns of one color have disjoint rows
+        conflict = (P.T @ P).tocsr()
+        colors = -np.ones(n_red, dtype=int)
+        for a in range(n_red):
+            used = set(colors[conflict.indices[conflict.indptr[a] : conflict.indptr[a + 1]]])
+            c = 0
+            while c in used:
+                c += 1
+            colors[a] = c
+
+        rows, cols, vals = [], [], []
+        for color in range(colors.max() + 1):
+            probe_cols = np.flatnonzero(colors == color)
+            probe = np.zeros(n_red)
+            probe[probe_cols] = 1.0
+            col = self._BT(self._S.dot(self._B(probe.reshape(self._red_shape), out=self._tmp), out=self._tmp2)).ravel()
+            for a in probe_cols:
+                b = P.indices[P.indptr[a] : P.indptr[a + 1]]
+                rows.append(b)
+                cols.append(np.full(b.size, a))
+                vals.append(col[b])
+        K = sparse.coo_matrix(
+            (np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(n_red, n_red)
+        ).tocsc()
+        # rows without entries (essential boundary conditions of S): identity
+        diag = K.diagonal()
+        empty = np.abs(diag) <= 1e-14 * max(np.abs(diag).max(), 1e-300)
+        if np.any(empty):
+            K = K + sparse.diags(empty.astype(float))
+        self._K_lu = splu(K.tocsc())
+        logger.debug(f"PolarWeightedAverageProjection: reduced size {n_red}, {colors.max() + 1} probes")
+
+    def _BT(self, v: PolarVector):
+        """B^T v as global array of the reduced shape (all processes)."""
+        import numpy as np
+
+        from struphy.polar.kron_2dx1d import _interior
+
+        nr, n2 = self._nr, self._n2
+        tp = self._space.parent_space
+        s, e = tp.starts, tp.ends
+        n1 = tp.npts[0]
+
+        # outer rings: local part (summed over eta_3 if averaged), then summed over the processes
+        r3 = self._red_shape[1]
+        outer = np.zeros((n1 - nr, n2, r3))
+        L = xp.to_numpy(_interior(v.tp))
+        i0 = max(s[0], nr)
+        if i0 <= e[0]:
+            loc = L[i0 - s[0] :]
+            loc = loc.sum(axis=2, keepdims=True) if self._avg3 else loc
+            k = slice(None) if self._avg3 else slice(s[2], e[2] + 1)
+            outer[i0 - nr : e[0] + 1 - nr, s[1] : e[1] + 1, k] = loc
+        if self._comm is not None:
+            outer = self._comm.allreduce(outer, op=MPI.SUM)
+
+        # polar coefficients are held by all processes
+        pol = np.asarray(v.pol[0])
+        pol = pol.sum(axis=1, keepdims=True) if self._avg3 else pol
+        Y = np.concatenate((pol, outer.reshape(-1, r3)), axis=0)
+        return self._B_pol.T @ Y
+
+    def _B(self, red, out: PolarVector) -> PolarVector:
+        """B red: the polar 0-form constant in the averaged directions."""
+        import numpy as np
+
+        from struphy.polar.kron_2dx1d import _interior
+
+        nr, n2, npol = self._nr, self._n2, self._npol
+        tp = self._space.parent_space
+        s, e = tp.starts, tp.ends
+        n1 = tp.npts[0]
+
+        X = self._B_pol @ red
+        out.pol[0][:] = X[:npol]
+        outer = X[npol:].reshape(n1 - nr, n2, -1)
+        L = _interior(out.tp)
+        L[...] = 0.0
+        i0 = max(s[0], nr)
+        if i0 <= e[0]:
+            k = slice(None) if self._avg3 else slice(s[2], e[2] + 1)
+            L[i0 - s[0] :] = xp.asarray(outer[i0 - nr : e[0] + 1 - nr, s[1] : e[1] + 1, k])
+        out.tp.update_ghost_regions()
+        return out
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._space.dtype
+
+    @property
+    def directions(self) -> tuple[int, ...]:
+        """The averaged directions."""
+        return self._directions
+
+    @property
+    def basis_pol(self):
+        """The poloidal factor of B (columns in the polar unknowns of the poloidal plane)."""
+        return self._B_pol
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._space.zeros()
+        red = self._K_lu.solve(self._BT(self._S.dot(v, out=self._tmp)).ravel()).reshape(self._red_shape)
+        return self._B(red, out)
+
+    def transpose(self, conjugate=False):
+        raise NotImplementedError("Only S @ (I - P) is symmetric; P itself is not.")
+
+    def tosparse(self):
+        raise NotImplementedError
+
+    def toarray(self):
+        raise NotImplementedError

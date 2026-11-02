@@ -936,13 +936,13 @@ class TorusModesSin(Perturbation):
         Toroidal mode numbers.
 
     pfuns : tuple | list[str]
-        "sin" or "cos" or "exp" to define the profile functions.
+        "sin", "exp" or "d_exp" to define the profile functions.
 
     amps : tuple | list[float]
         Amplitudes of each mode (m_i, n_i).
 
     pfun_params : tuple | list
-        Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
+        Provides :math:`[r_0, \sigma]` parameters for each "exp" and "d_exp" profile function, and l_s for "sin".
 
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
@@ -966,13 +966,15 @@ class TorusModesSin(Perturbation):
             \begin{aligned}
             &\sin(l_s\pi\eta_1)\,,
             \\[2mm]
-            &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            &\frac{1}{\sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
             \\[2mm]
-            & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
+            & - \frac{\eta_1 - r_0}{\sigma^2 \sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
             \end{aligned}
             \right.
 
-        Can ony be used in logical space (use 'given_in_basis').
+        for ``"sin"``, ``"exp"`` and ``"d_exp"``, respectively; ``"d_exp"`` is the derivative of ``"exp"``.
+
+        Can only be used in logical space (use 'given_in_basis').
         """
 
     def __init__(
@@ -1079,13 +1081,13 @@ class TorusModesCos(Perturbation):
         Toroidal mode numbers.
 
     pfuns : tuple[str]
-        "sin" or "cos" or "exp" to define the profile functions.
+        "sin", "cos", "exp" or "d_exp" to define the profile functions.
 
     amps : tuple[float]
         Amplitudes of each mode (m_i, n_i).
 
     pfun_params : tuple | list
-        Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
+        Provides :math:`[r_0, \sigma]` parameters for each "exp" and "d_exp" profile function, and l_s for "sin".
 
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
@@ -1107,13 +1109,17 @@ class TorusModesCos(Perturbation):
 
             \chi_s(\eta_1) = \left\{
             \begin{aligned}
-            &\sin(\pi\eta_1)\,,
+            &\sin(l_s\pi\eta_1)\,,
             \\[2mm]
-            &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            &\cos(\pi\eta_1)\,,
             \\[2mm]
-            & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
+            &\frac{1}{\sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
+            \\[2mm]
+            & - \frac{\eta_1 - r_0}{\sigma^2 \sqrt{2 \pi \sigma^2}} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
             \end{aligned}
             \right.
+
+        for ``"sin"``, ``"cos"``, ``"exp"`` and ``"d_exp"``, respectively; ``"d_exp"`` is the derivative of ``"exp"``.
 
         Can only be used in logical space (use 'given_in_basis').
         """
@@ -1430,6 +1436,70 @@ class Erf_z(Perturbation):
         val = self._amp * erf((e3 - 0.5) / self._delta)
 
         return val
+
+
+class Gaussian(Perturbation):
+    r"""Gaussian bump (e.g. a localized pulse as initial condition for wave propagation).
+
+    Parameters
+    ----------
+    amp : float
+        Amplitude.
+
+    center : tuple[float]
+        Center :math:`(x_0, y_0, z_0)` of the bump.
+
+    sigma : tuple[float]
+        Widths :math:`(\sigma_x, \sigma_y, \sigma_z)` per direction; ``None`` for a direction without variation.
+
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class). The coordinates are physical with
+        ``"physical"`` and logical otherwise.
+
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
+    """
+
+    @classmethod
+    def doc_formula(cls):
+        r"""
+        .. math::
+
+            u(x, y, z) = A \, \exp\left(-\frac{(x - x_0)^2}{2 \sigma_x^2} - \frac{(y - y_0)^2}{2 \sigma_y^2}
+            - \frac{(z - z_0)^2}{2 \sigma_z^2}\right)\,,
+
+        where a direction with :math:`\sigma = ` ``None`` is left out.
+        """
+
+    def __init__(
+        self,
+        amp: float = 1e-4,
+        center: tuple = (0.5, 0.5, 0.5),
+        sigma: tuple = (0.1, 0.1, None),
+        given_in_basis: LiteralOptions.GivenInBasis = None,
+        comp: int = 0,
+    ):
+        # use setter to store input parameters
+        self.params = copy.deepcopy(locals())
+
+        assert len(center) == 3 and len(sigma) == 3, "center and sigma need three entries (one per direction)."
+        assert any(s is not None for s in sigma), "At least one width must be given."
+
+        self._amp = amp
+        self._center = center
+        self._sigma = sigma
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
+    def __call__(self, x, y, z):
+        arg = 0.0 * x
+        for coord, c, s in zip((x, y, z), self._center, self._sigma):
+            if s is not None:
+                arg = arg + (coord - c) ** 2 / (2 * s**2)
+
+        return self._amp * xp.exp(-arg)
 
 
 class RestelliAnalyticSolutionVelocity(Perturbation):

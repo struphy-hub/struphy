@@ -1,5 +1,7 @@
 import logging
+import os
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,11 +12,21 @@ from struphy.post_processing import output as output_module
 
 logger = logging.getLogger("struphy")
 
-EXAMPLES_DIR = Path(__file__).resolve().parents[4] / "examples"
+# the examples/ folder of the source checkout; set STRUPHY_EXAMPLES_DIR when struphy is not installed from it
+EXAMPLES_DIR = Path(os.environ.get("STRUPHY_EXAMPLES_DIR") or Path(__file__).resolve().parents[4] / "examples")
 
 PARAMS_MODULES = sorted(
     p for p in EXAMPLES_DIR.rglob("*.py") if p.name != "__init__.py" and p.name.startswith("params_")
 )
+
+
+@pytest.mark.examples
+@pytest.mark.mpi_skip
+def test_examples_found():
+    """A wrong STRUPHY_EXAMPLES_DIR must fail; otherwise :func:`test_examples` would silently have no cases.
+    Without it (e.g. an installed struphy without the examples), no examples is fine."""
+    if os.environ.get("STRUPHY_EXAMPLES_DIR"):
+        assert PARAMS_MODULES, f"No params_*.py files in STRUPHY_EXAMPLES_DIR={EXAMPLES_DIR}"
 
 
 @pytest.mark.examples
@@ -46,6 +58,9 @@ def test_examples(params_path: Path, monkeypatch):
     logger.info(f"{pproc_path = }")
     logger.info(f"{regress_path = }")
 
+    # parameter files with command line options (e.g. the profiling cases) run at a small resolution
+    # with `--test-run`; the others ignore the command line
+    monkeypatch.setattr(sys, "argv", [str(params_path), "--test-run"])
     params = import_parameters_py(str(params_path), name=example_name)
     params.sim.run(one_time_step=True)
 

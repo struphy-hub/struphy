@@ -13,6 +13,10 @@ inputs:
     description: "Number of kernels to compile in parallel (default: number of CPU cores, at most 8)"
     required: false
     default: ""
+  openmp:
+    description: "Compile kernels with OpenMP support"
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -35,4 +39,8 @@ runs:
           if [ "$JOBS" -gt 8 ]; then JOBS=8; fi
         fi
         echo "Compiling with $JOBS parallel jobs"
-        struphy compile -y --language ${{ inputs.language }} -j "$JOBS"
+        OPENMP_FLAGS=()
+        if [ "${{ inputs.openmp }}" = "true" ]; then
+          OPENMP_FLAGS+=(--openmp)
+        fi
+        struphy compile -y --language ${{ inputs.language }} -j "$JOBS" "${OPENMP_FLAGS[@]}"

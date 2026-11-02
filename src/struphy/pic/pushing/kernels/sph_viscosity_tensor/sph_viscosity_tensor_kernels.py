@@ -32,7 +32,7 @@ def sph_viscosity_tensor(
     deviatoric strain rate, and store the 9 coefficients
 
     * :math:`- w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
-      / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[:, output_indices[3*j + k]]`` for :math:`j, k = 0, 1, 2`
+      / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[output_indices[3*j + k], :]`` for :math:`j, k = 0, 1, 2`
 
     where :math:`\sqrt g = \det DF`, the smoothed SPH density is given by
 
@@ -62,14 +62,14 @@ def sph_viscosity_tensor(
           (\nabla W_h)_k(\boldsymbol \eta_i - \boldsymbol \eta_l)\,.
 
     This kernel requires the coefficients of the mean velocity :math:`v_k^{N,h}`
-    for each particle to be pre-evaluated and stored at ``markers[:, first_free_idx:first_free_idx + 3]``,
+    for each particle to be pre-evaluated and stored at ``markers[first_free_idx:first_free_idx + 3, :]``,
     which can be achieved by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_mean_velocity_coeffs`.
     """
 
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    n_cols = shape(markers)[1]
+    n_cols = shape(markers)[0]
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
@@ -87,10 +87,10 @@ def sph_viscosity_tensor(
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        loc_box = int(markers[ip, n_cols - 2])
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        loc_box = int(markers[n_cols - 2, ip])
         n_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
@@ -109,7 +109,7 @@ def sph_viscosity_tensor(
             h2,
             h3,
         )
-        weight = markers[ip, weight_idx]
+        weight = markers[weight_idx, ip]
         for j in range(3):
             for k in range(3):
                 grad_v_at_eta[j, k] = sph_eval_kernels.box_based_kernel(
@@ -162,4 +162,4 @@ def sph_viscosity_tensor(
         for j in range(3):
             for k in range(3):
                 if output_indices[3 * j + k] >= 0:
-                    markers[ip, output_indices[3 * j + k]] = d_piola[j, k]
+                    markers[output_indices[3 * j + k], ip] = d_piola[j, k]

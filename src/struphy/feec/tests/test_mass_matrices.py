@@ -328,6 +328,7 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
 
     from struphy import domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import LocalRotationMatrix
     from struphy.geometry.base import Domain
@@ -476,9 +477,11 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
         stab = mass_ops.M2stab_for_rot
         M = mass_ops.M2B
 
-    # stabilization and solver
+    # stabilization and solver, left-preconditioned with the stabilizing mass matrix
+    # (unpreconditioned GMRES took about 50 s for the curved domains)
     M += eps * stab
-    Minv = inverse(M, solver, tol=1e-7, maxiter=1000, verbose=False)
+    pc = MassMatrixPreconditioner(stab)
+    Minv = inverse(pc @ M, solver, tol=1e-7, maxiter=1000, verbose=False) @ pc
 
     if case == "1-form":
         result = derham.create_spline_function("result", "Hcurl")
@@ -1595,7 +1598,8 @@ def test_average_operator_subcomm():
 
 
 @pytest.mark.parametrize("dim_reduce", [0, 1, 2])
-def test_mass_preconditioner_array_weights_mpi(dim_reduce):
+@pytest.mark.parametrize("weight_reduction", ["midpoint", "average"])
+def test_mass_preconditioner_array_weights_mpi(dim_reduce, weight_reduction):
     """Preconditioner with array weights must not depend on the MPI decomposition
     (num_elements not divisible by the number of processes)."""
 
@@ -1630,11 +1634,59 @@ def test_mass_preconditioner_array_weights_mpi(dim_reduce):
         M.assemble()
 
         _, v = create_equal_random_arrays(derham.V0fem, seed=1234)
-        out += [MassMatrixPreconditioner(M, dim_reduce=dim_reduce).dot(v)]
+        out += [MassMatrixPreconditioner(M, dim_reduce=dim_reduce, weight_reduction=weight_reduction).dot(v)]
 
     s, e = out[0].space.starts, out[0].space.ends
     sl = tuple(slice(si, ei + 1) for si, ei in zip(s, e))
     assert xp.allclose(out[0][sl], out[1][sl], rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("d", [0, 1, 2])
+def test_reduced_weight_1d(d):
+    """1d weights of the MassMatrixPreconditioner (mid point and mean of the 3d weight)
+    for callable and array weights, against analytic values."""
+
+    import cunumpy as xp
+
+    from struphy.feec.preconditioner import _reduced_weight_1d
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    derham = Derham(TensorProductGrid(num_elements=[7, 5, 4]), DerhamOptions(degree=[2, 2, 1], bcs=(None, None, None)))
+
+    def w(e1, e2, e3):
+        return 1.0 + e1 + 2.0 * e2**2 + 3.0 * e3**3 + e1 * e2 * e3
+
+    # analytic mid point and mean over the other two directions
+    midpoint = {
+        0: lambda x: w(x, 0.5, 0.5),
+        1: lambda x: w(0.5, x, 0.5),
+        2: lambda x: w(0.5, 0.5, x),
+    }
+    average = {
+        0: lambda x: 1.0 + x + 2.0 / 3.0 + 3.0 / 4.0 + x / 4.0,
+        1: lambda x: 1.5 + 2.0 * x**2 + 3.0 / 4.0 + x / 4.0,
+        2: lambda x: 1.5 + 2.0 / 3.0 + 3.0 * x**3 + x / 4.0,
+    }
+
+    pts = [xp.ravel(p) for p in derham.spline_attributes["H1"].quad_grid_pts[0]]
+    arr = w(*xp.meshgrid(*pts, indexing="ij"))
+    x = pts[d]
+
+    for reduction, exact in (("average", average[d]), ("midpoint", None)):
+        from_callable = _reduced_weight_1d(w, 0, d, derham, reduction)(x)
+        from_array = _reduced_weight_1d(arr, 0, d, derham, reduction)
+        if reduction == "average":
+            assert xp.allclose(from_callable, exact(x), rtol=1e-13, atol=1e-13)
+            assert xp.allclose(from_array, exact(x), rtol=1e-13, atol=1e-13)
+        else:
+            assert xp.allclose(from_callable, midpoint[d](x), rtol=1e-13, atol=1e-13)
+            # the array weight is only known at the quadrature points: it is taken at the
+            # global quadrature point with index (num_elements * nquads) // 2
+            mid = [(n * q) // 2 for n, q in zip(derham.num_elements, derham.nquads)]
+            cut = tuple(slice(None) if k == d else mid[k] for k in range(3))
+            assert xp.allclose(from_array, arr[cut], rtol=1e-13, atol=1e-13)
 
 
 def test_transpose_and_copy():
@@ -1691,6 +1743,40 @@ def test_transpose_and_copy():
         assert xp.allclose(A.T.toarray(), A_arr.T, atol=1e-14)
         if symmetry == "asym":
             assert xp.allclose(A.T.toarray(), -A_arr, atol=1e-14)
+
+
+@pytest.mark.parametrize(
+    "num_elements, degree", [((16, 1, 1), (3, 1, 1)), ((16, 2, 1), (2, 2, 1)), ((8, 6, 4), (2, 2, 2))]
+)
+@pytest.mark.parametrize("space", ["M0", "M1", "M2", "M3"])
+def test_mass_preconditioner_diagonal_scaling_periodic_exact(num_elements, degree, space):
+    """On the periodic logical cube the mass matrices are Kronecker products, so MassMatrixPreconditioner with
+    diagonal scaling inverts them exactly; also with fewer points than the band width in a direction (one element),
+    where band entries wrap onto the main diagonal."""
+
+    import numpy as np
+    from maybempi import MPI
+
+    from struphy import domains
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = domains.Cuboid(r1=12.56)
+    derham = Derham(TensorProductGrid(num_elements=num_elements), DerhamOptions(degree=degree), comm=MPI.COMM_WORLD)
+    M = getattr(WeightedMassOperators(derham, domain), space)
+
+    rng = np.random.default_rng(0)
+    v = M.domain.zeros()
+    for block in v.blocks if hasattr(v, "blocks") else [v]:
+        block._data[:] = rng.random(block._data.shape)
+    v.update_ghost_regions()
+
+    w = MassMatrixPreconditioner(M, diagonal_scaling=True).dot(M.dot(v))
+    err = ((w - v).inner(w - v) / v.inner(v)) ** 0.5
+    assert err < 1e-12, f"{space}, {num_elements=}, {degree=}: |P M v - v| / |v| = {err}"
 
 
 if __name__ == "__main__":

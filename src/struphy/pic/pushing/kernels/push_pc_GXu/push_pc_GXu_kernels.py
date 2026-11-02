@@ -71,13 +71,13 @@ def push_pc_GXu(
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v[:] = markers[3:6, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -125,4 +125,4 @@ def push_pc_GXu(
         linalg_kernels.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities
-        markers[ip, 3:6] -= dt * e_cart / 2.0
+        markers[3:6, ip] -= dt * e_cart / 2.0

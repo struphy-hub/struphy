@@ -42,6 +42,19 @@ def _poisson(n, p, bcs, sigma=0.0):
     return derham, domain, mass_ops, A
 
 
+def _curl_curl(num_elements, degree, sigma, domain=None):
+    domain = Cuboid() if domain is None else domain
+    derham = Derham(
+        TensorProductGrid(num_elements=num_elements),
+        DerhamOptions(degree=degree, bcs=(("dirichlet", "dirichlet"), None, None)),
+        comm=MPI.COMM_WORLD,
+        domain=domain,
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    A = derham.curl.T @ mass_ops.M2 @ derham.curl + sigma * mass_ops.M1
+    return derham, domain, mass_ops, A
+
+
 class _SmootherAsOperator(LinearOperator):
     """x = S b (one smoother call from zero initial guess)."""
 
@@ -176,6 +189,66 @@ def test_poisson_h_independent(bcs, nullspace, p, smoother, smoother_precond):
     assert niter[1] <= niter[0] + 2
 
 
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("smoother_precond", ["mass", "jacobi"])
+def test_vcycle_spd_hiptmair(smoother_precond):
+    """With the Hiptmair smoother, the V-cycle for the curl-curl operator is symmetric positive definite and contracts."""
+    derham, domain, mass_ops, A = _curl_curl((8, 8, 1), (2, 2, 1), 1e-3)
+    opts = MultiGridOptions(hiptmair=True, smoother_precond=smoother_precond)
+    pc = MultiGridPreconditioner(A, derham, domain, opts, mass_ops=mass_ops)
+    B = _assemble_dense(pc)
+    Ad = _assemble_dense(A)
+    assert np.abs(B - B.T).max() < 1e-10 * np.abs(B).max()
+
+    N = Ad.shape[0]
+    Q = np.eye(N)[:, np.flatnonzero(np.diag(Ad) != 0.0)]
+    assert np.linalg.eigvalsh(Q.T @ B @ Q).min() > 0.0
+    E = Q.T @ (np.eye(N) - B @ Ad) @ Q
+    assert np.abs(np.linalg.eigvals(E)).max() < 0.5
+
+
+def test_curl_curl_h_independent():
+    """With the Hiptmair smoother, MG-preconditioned CG for the curl-curl operator converges in a number of
+    iterations independent of the mesh size and of sigma; without it, the iterations grow for small sigma."""
+    niter = {}
+    for n in (8, 16):
+        for sigma in (1.0, 1e-4):
+            derham, domain, mass_ops, A = _curl_curl((n, n, n), (2, 2, 2), sigma)
+            _, u = create_equal_random_arrays(derham.fem_spaces["1"], seed=3)
+            b = A.dot(derham.boundary_ops["1"].dot(u))
+            for hiptmair in (True, False):
+                opts = MultiGridOptions(hiptmair=hiptmair)
+                pc = MultiGridPreconditioner(A, derham, domain, opts, mass_ops=mass_ops)
+                tol = 1e-8 * np.sqrt(b.inner(b))
+                solver = inverse(A, "pcg", pc=pc, tol=tol, maxiter=200, recycle=False)
+                solver.dot(b)
+                assert solver.get_info()["success"]
+                niter[n, sigma, hiptmair] = solver.get_info()["niter"]
+
+    assert max(v for k, v in niter.items() if k[2]) <= 12
+    assert niter[16, 1e-4, True] <= niter[8, 1e-4, True] + 2
+    assert niter[16, 1e-4, False] > 2 * niter[16, 1e-4, True]
+
+
+def test_curl_curl_mapped():
+    """On a mapped domain, the Hiptmair smoother with Jacobi preconditioning stays robust in sigma."""
+    from struphy.geometry.domains import HollowCylinder
+
+    niter = []
+    for sigma in (1.0, 1e-4):
+        derham, domain, mass_ops, A = _curl_curl((8, 8, 8), (2, 2, 2), sigma, HollowCylinder(a1=0.1, a2=1.0, Lz=3.0))
+        _, u = create_equal_random_arrays(derham.fem_spaces["1"], seed=3)
+        b = A.dot(derham.boundary_ops["1"].dot(u))
+        opts = MultiGridOptions(hiptmair=True, smoother_precond="jacobi")
+        pc = MultiGridPreconditioner(A, derham, domain, opts, mass_ops=mass_ops)
+        solver = inverse(A, "pcg", pc=pc, tol=1e-8 * np.sqrt(b.inner(b)), maxiter=200, recycle=False)
+        solver.dot(b)
+        assert solver.get_info()["success"]
+        niter.append(solver.get_info()["niter"])
+    assert max(niter) <= 30
+    assert max(niter) <= min(niter) + 3
+
+
 def test_update():
     """Changing a scalar of the operator re-uses the coarse operators and still converges."""
     derham, domain, mass_ops, A = _poisson(16, 2, DIRICHLET, sigma=2.0)
@@ -204,3 +277,5 @@ def test_options():
         MultiGridOptions(smoother="gauss-seidel")
     with pytest.raises(AssertionError):
         MultiGridOptions(n_pre=0, n_post=0)
+    opts = MultiGridOptions(hiptmair=True)
+    assert MultiGridOptions.from_dict(opts.to_dict()) == opts

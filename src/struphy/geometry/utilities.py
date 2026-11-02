@@ -150,8 +150,18 @@ def field_line_tracing(
         Control points (2d) of flux aligned spline mapping (Z-component).
     """
 
-    from scipy.optimize import newton, root
+    from scipy.optimize import root
     from scipy.sparse.linalg import splu
+
+    # The roots of the equal-angle tracing are found on the active backend: one batched Newton (secant) solve over
+    # all rays per flux surface, with psi evaluated on the device on the CuPy backend. The knots, collocation matrices
+    # and their (small) LU solves, and the other xi-parametrizations (a SciPy root per flux surface) run on the host.
+    backend = xp.get_backend()
+
+    def psi_host(R, Z, **kwargs):
+        """psi at host points, for the host parts: evaluated on the caller's backend."""
+        with xp.use_backend(backend):
+            return xp.to_numpy(psi(xp.to_cunumpy(R), xp.to_cunumpy(Z), **kwargs))
 
     # for equal_angle one mapping is enough
     if xi_param == "equal_angle":
@@ -161,92 +171,7 @@ def field_line_tracing(
         ns, nx = num_elements_pre
         ps, px = p_pre
 
-    # spline knots
-    Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
-    Tx = bsp.make_knots(xp.linspace(0.0, 1.0, nx + 1), px, True)
-
-    # interpolation (Greville) points
-    s_gr = bsp.greville(Ts, ps, False)
-    x_gr = bsp.greville(Tx, px, True)
-
-    if px % 2 == 1:
-        assert x_gr[0] == 0.0
-
-    # collocation matrices
-    Is = bsp.collocation_matrix(Ts, ps, s_gr, False)
-    Ix = bsp.collocation_matrix(Tx, px, x_gr, True)
-
-    ILUs = [
-        splu(csc_matrix(Is)),
-        splu(csc_matrix(Ix)),
-    ]
-
-    # check if pole is included
-    if xp.abs(psi(psi_axis_R, psi_axis_Z) - psi0) < 1e-14:
-        pole = True
-    else:
-        pole = False
-
-    R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
-    Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
-
-    r_flux_surface = None
-
-    # function whose root must be found
-    for j, x in enumerate(x_gr):
-        for i, s in enumerate(s_gr):
-            if pole and i == 0:
-                R[i, j] = psi_axis_R
-                Z[i, j] = psi_axis_Z
-                continue
-
-            if i < s_gr.size // 2:
-                r_guess = 1 * r0
-            else:
-                r_guess = 1 * r_flux_surface
-
-            # function whose root must be found
-            def f(r):
-                _R = psi_axis_R + r * xp.cos(2 * xp.pi * x)
-                _Z = psi_axis_Z + r * xp.sin(2 * xp.pi * x)
-
-                psi_norm = (psi(_R, _Z) - psi0) / (psi1 - psi0)
-
-                if psi_norm < 0.0:
-                    return -((-psi_norm) ** psi_power) - s
-                else:
-                    return psi_norm**psi_power - s
-
-            r_flux_surface = newton(f, x0=r_guess)
-
-            R[i, j] = psi_axis_R + r_flux_surface * xp.cos(2 * xp.pi * x)
-            Z[i, j] = psi_axis_Z + r_flux_surface * xp.sin(2 * xp.pi * x)
-
-    # get control points
-    cR_equal_angle = kron_lusolve_2d(ILUs, R)
-    cZ_equal_angle = kron_lusolve_2d(ILUs, Z)
-
-    if pole:
-        cR_equal_angle[0, :] = psi_axis_R
-        cZ_equal_angle[0, :] = psi_axis_Z
-
-    # for equal angle parametrization stop here and return the control points
-    if xi_param == "equal_angle":
-        return cR_equal_angle, cZ_equal_angle
-
-    # for all other parametrizations continue
-    else:
-        logger.info("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
-
-        # create temporary domain
-        domain_eq_angle = PoloidalSplineTorus(
-            num_elements=num_elements_pre, degree=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle
-        )
-
-        # create new interpolation data
-        ns, nx = num_elements
-        ps, px = degree
-
+    with xp.use_backend("numpy"):
         # spline knots
         Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
         Tx = bsp.make_knots(xp.linspace(0.0, 1.0, nx + 1), px, True)
@@ -267,94 +192,181 @@ def field_line_tracing(
             splu(csc_matrix(Ix)),
         ]
 
-        xi_param_dict = {
-            "equal_arc_length": 1,
-            "sfl": 2,
-            "equal_area": 3,
-            "equal_volume": 4,
-        }
+    # check if pole is included
+    if abs(float(psi(psi_axis_R, psi_axis_Z)) - psi0) < 1e-14:
+        pole = True
+    else:
+        pole = False
 
-        # target function for xi parametrization
-        def f_angles(xis, s_val):
-            assert xp.all(xp.logical_and(xis > 0.0, xis < 1.0))
+    # the rays from the magnetic axis
+    cos_x = xp.cos(2 * xp.pi * xp.to_cunumpy(x_gr))
+    sin_x = xp.sin(2 * xp.pi * xp.to_cunumpy(x_gr))
 
-            # add 0 and 1 to angles array
-            xis_extended = xp.array([0.0] + list(xis) + [1.0])
+    R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
+    Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
 
-            # compute (R, Z) coordinates for given xis on fixed flux surface corresponding to s_val
-            _RZ = domain_eq_angle(s_val, xis_extended, 0.0, squeeze_out=True)
+    r_flux_surface = None
 
-            _R = _RZ[0]
-            _Z = _RZ[2]
+    for i, s in enumerate(s_gr):
+        if pole and i == 0:
+            R[i] = psi_axis_R
+            Z[i] = psi_axis_Z
+            continue
 
-            # |grad(psi)| at xis
-            gp = xp.sqrt(psi(_R, _Z, dR=1) ** 2 + psi(_R, _Z, dZ=1) ** 2)
+        # function whose roots must be found: one equation per ray
+        def f(r, s=float(s)):
+            psi_norm = (psi(psi_axis_R + r * cos_x, psi_axis_Z + r * sin_x) - psi0) / (psi1 - psi0)
+            return xp.sign(psi_norm) * xp.abs(psi_norm) ** psi_power - s
 
-            # compute weighted arc_lengths between two successive points in xis_extended array
-            dl = xp.zeros(xis_extended.size - 1, dtype=float)
-            weighted_arc_lengths_flux_surface(_R, _Z, gp, dl, xi_param_dict[xi_param])
-
-            # total length of the flux surface
-            l = xp.sum(dl)
-
-            # cumulative sum of arc lengths, start with 0!
-            l_cum = xp.cumsum(dl)
-
-            # odd spline degree
-            if px % 2 == 1:
-                xi_diff = l_cum[:-1] / l - x_gr[1:]
-            # even spline degree
-            else:
-                xi_diff = l_cum[:-1] / l - x_gr
-
-            return xi_diff
-
-        # loop over flux surfaces and find xi parametrization
-        R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
-        Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
-
-        if px % 2 == 1:
-            xis0 = x_gr[1:].copy()
+        # the inner surfaces start from r0, the outer ones from the previous surface on the same ray
+        if i < s_gr.size // 2:
+            r_guess = xp.full(x_gr.size, float(r0))
         else:
-            xis0 = x_gr.copy()
+            r_guess = r_flux_surface
 
-        # loop over flux surfaces and finds roots of F_single
-        for i in range(s_gr.size):
-            s_flux = s_gr[i]
+        tracing = xp.optimize.newton(f, r_guess, full_output=True)
+        assert bool(xp.all(tracing.converged)), f"Field-line tracing did not converge on flux surface {s = }."
+        r_flux_surface = tracing.root
 
-            if i == 0 and pole:
-                R[i, :] = psi_axis_R
-                Z[i, :] = psi_axis_Z
-                continue
+        R[i] = psi_axis_R + r_flux_surface * cos_x
+        Z[i] = psi_axis_Z + r_flux_surface * sin_x
 
-            # find root of target function and check for convergence
-            tracing = root(f_angles, x0=xis0, args=(s_flux,), method="hybr")
-            assert tracing["success"]
+    # get control points (on the host)
+    with xp.use_backend("numpy"):
+        cR_equal_angle = kron_lusolve_2d(ILUs, xp.to_numpy(R))
+        cZ_equal_angle = kron_lusolve_2d(ILUs, xp.to_numpy(Z))
 
-            # set new initial guess
-            xis0 = tracing["x"]
+    if pole:
+        cR_equal_angle[0, :] = psi_axis_R
+        cZ_equal_angle[0, :] = psi_axis_Z
 
-            # add zero angle for odd degree
+    # for equal angle parametrization stop here and return the control points
+    if xi_param == "equal_angle":
+        return cR_equal_angle, cZ_equal_angle
+
+    # for all other parametrizations continue
+    else:
+        # on the host (a SciPy root and a pyccel kernel per flux surface)
+        with xp.use_backend("numpy"):
+            logger.info("Calculation of pre-mapping successful! Start angle parametrization " + xi_param + ".")
+
+            # create temporary domain
+            domain_eq_angle = PoloidalSplineTorus(
+                num_elements=num_elements_pre, degree=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle
+            )
+
+            # create new interpolation data
+            ns, nx = num_elements
+            ps, px = degree
+
+            # spline knots
+            Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
+            Tx = bsp.make_knots(xp.linspace(0.0, 1.0, nx + 1), px, True)
+
+            # interpolation (Greville) points
+            s_gr = bsp.greville(Ts, ps, False)
+            x_gr = bsp.greville(Tx, px, True)
+
             if px % 2 == 1:
-                R[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[0]
-                Z[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[2]
+                assert x_gr[0] == 0.0
 
-                R[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0, squeeze_out=True)[0]
-                Z[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0, squeeze_out=True)[2]
+            # collocation matrices
+            Is = bsp.collocation_matrix(Ts, ps, s_gr, False)
+            Ix = bsp.collocation_matrix(Tx, px, x_gr, True)
 
+            ILUs = [
+                splu(csc_matrix(Is)),
+                splu(csc_matrix(Ix)),
+            ]
+
+            xi_param_dict = {
+                "equal_arc_length": 1,
+                "sfl": 2,
+                "equal_area": 3,
+                "equal_volume": 4,
+            }
+
+            # target function for xi parametrization
+            def f_angles(xis, s_val):
+                assert xp.all(xp.logical_and(xis > 0.0, xis < 1.0))
+
+                # add 0 and 1 to angles array
+                xis_extended = xp.array([0.0] + list(xis) + [1.0])
+
+                # compute (R, Z) coordinates for given xis on fixed flux surface corresponding to s_val
+                _RZ = domain_eq_angle(s_val, xis_extended, 0.0, squeeze_out=True)
+
+                _R = _RZ[0]
+                _Z = _RZ[2]
+
+                # |grad(psi)| at xis
+                gp = xp.sqrt(psi_host(_R, _Z, dR=1) ** 2 + psi_host(_R, _Z, dZ=1) ** 2)
+
+                # compute weighted arc_lengths between two successive points in xis_extended array
+                dl = xp.zeros(xis_extended.size - 1, dtype=float)
+                weighted_arc_lengths_flux_surface(_R, _Z, gp, dl, xi_param_dict[xi_param])
+
+                # total length of the flux surface
+                l = xp.sum(dl)
+
+                # cumulative sum of arc lengths, start with 0!
+                l_cum = xp.cumsum(dl)
+
+                # odd spline degree
+                if px % 2 == 1:
+                    xi_diff = l_cum[:-1] / l - x_gr[1:]
+                # even spline degree
+                else:
+                    xi_diff = l_cum[:-1] / l - x_gr
+
+                return xi_diff
+
+            # loop over flux surfaces and find xi parametrization
+            R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
+            Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
+
+            if px % 2 == 1:
+                xis0 = x_gr[1:].copy()
             else:
-                R[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[0]
-                Z[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[2]
+                xis0 = x_gr.copy()
 
-        # get control points
-        cR = kron_lusolve_2d(ILUs, R)
-        cZ = kron_lusolve_2d(ILUs, Z)
+            # loop over flux surfaces and finds roots of F_single
+            for i in range(s_gr.size):
+                s_flux = s_gr[i]
 
-        if pole:
-            cR[0, :] = psi_axis_R
-            cZ[0, :] = psi_axis_Z
+                if i == 0 and pole:
+                    R[i, :] = psi_axis_R
+                    Z[i, :] = psi_axis_Z
+                    continue
 
-        return cR, cZ
+                # find root of target function and check for convergence
+                tracing = root(f_angles, x0=xis0, args=(s_flux,), method="hybr")
+                assert tracing["success"]
+
+                # set new initial guess
+                xis0 = tracing["x"]
+
+                # add zero angle for odd degree
+                if px % 2 == 1:
+                    R[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[0]
+                    Z[i, 1:] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[2]
+
+                    R[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0, squeeze_out=True)[0]
+                    Z[i, 0] = domain_eq_angle(s_flux, 0.0, 0.0, squeeze_out=True)[2]
+
+                else:
+                    R[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[0]
+                    Z[i, :] = domain_eq_angle(s_flux, tracing["x"], 0.0, squeeze_out=True)[2]
+
+            # get control points
+            cR = kron_lusolve_2d(ILUs, R)
+            cZ = kron_lusolve_2d(ILUs, Z)
+
+            if pole:
+                cR[0, :] = psi_axis_R
+                cZ[0, :] = psi_axis_Z
+
+            return cR, cZ
 
 
 class TransformedPformComponent:

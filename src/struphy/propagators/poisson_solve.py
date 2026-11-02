@@ -4,6 +4,7 @@ from typing import Callable, Literal
 
 from feectools.linalg.stencil import StencilVector
 
+from struphy.feec.preconditioner import _parse_directions
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions
 from struphy.linear_algebra.solver import SolverParameters
@@ -35,7 +36,7 @@ class PoissonSolve(ImplicitDiffusion):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`Poisson`.
+        r"""Configuration options for :class:`Poisson`.
 
         Parameters
         ----------
@@ -45,12 +46,17 @@ class PoissonSolve(ImplicitDiffusion):
             Internally mapped to ``sigma_1 = stab_eps`` in the parent
             :class:`ImplicitDiffusion` formulation.
 
-        stab_mat : {"M0", "M0ad", "Id"}, default="Id"
+        stab_mat : {"M0", "M0ad", "Id"}, default="M0"
             Stabilization matrix multiplied by ``stab_eps``.
 
             - ``"M0"``: standard weighted 0-form mass operator.
             - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
             - ``"Id"``: identity operator.
+
+        stab_average : str, default=None
+            If not None, the stabilization becomes ``stab_mat @ (I - A)``, where ``A`` is the
+            ``stab_mat``-weighted average over the given logical directions, e.g. ``"eta3"`` or
+            ``"eta2 eta3"``, see :class:`ImplicitDiffusion`.
 
         diffusion_mat : {"M1", "M1perp", "M1gyro"}, defaults="M1"
             Diffusion matrix.
@@ -67,9 +73,15 @@ class PoissonSolve(ImplicitDiffusion):
             Name of the symmetric iterative solver passed to
             :func:`psydac.linalg.solvers.inverse`.
 
-        precond : LiteralOptions.OptsDiffusionPrecond, default="MassMatrixPreconditioner"
-            Name of the preconditioner configuration, see :class:`ImplicitDiffusion`
-            (``"MultiGrid"`` for geometric multigrid).
+        precond : LiteralOptions.OptsDiffusionPrecond, default=None
+            Name of the preconditioner, see :class:`ImplicitDiffusion`
+            (``"MultiGrid"`` for geometric multigrid, ``"StiffnessPreconditioner"`` for the
+            Kronecker approximation of the Laplacian, ``"MassMatrixPreconditioner"`` for the
+            Kronecker approximation of ``M0``). Requires ``solver="pcg"``.
+
+        precond_params : dict, default=None
+            Keyword arguments passed to the constructor of the mass-matrix or stiffness
+            preconditioner, see :class:`ImplicitDiffusion`.
 
         multigrid : MultiGridOptions, default=None
             Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
@@ -80,6 +92,23 @@ class PoissonSolve(ImplicitDiffusion):
             Iterative-solver controls (for example ``tol``, ``maxiter``,
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
+
+        enforce_compatibility : bool, default=True
+            If ``True`` and the Poisson operator is singular (no Dirichlet boundary conditions
+            and no polar splines, e.g. fully periodic), the constant ("net charge") component of the
+            right-hand side is removed before the solve,
+
+            .. math::
+
+                \mathbf b \leftarrow \mathbf b - \frac{\mathbf 1^\top \mathbf b}{\mathbf 1^\top \mathbb M^0 \mathbf 1}\, \mathbb M^0 \mathbf 1\,,
+
+            such that the discrete compatibility condition :math:`\mathbf 1^\top \mathbf b = 0` holds
+            (:math:`\mathbf 1` is the coefficient vector of the constant function). This is equivalent to
+            a uniform neutralizing background; for particle sources, the net charge is Monte-Carlo noise.
+            Without it, the constant mode of ``phi`` becomes ``(net charge) / stab_eps``, and
+            ``grad phi`` loses digits to cancellation. ``stab_eps`` then only fixes the constant of ``phi``.
+            Set to ``False`` if ``stab_eps * stab_mat`` is a physical term (e.g. adiabatic electrons with
+            ``stab_mat="M0ad"``) and not just a stabilization.
 
         filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
             If not None, specifies a filter to the accumulation of a specific variable.
@@ -97,13 +126,16 @@ class PoissonSolve(ImplicitDiffusion):
         OptsDiffusionMat = Literal["M1", "M1perp", "M1para", "M1gyro"]
         # propagator options
         stab_eps: float = 0.0
-        stab_mat: OptsStabMat = "Id"
+        stab_mat: OptsStabMat = "M0"
+        stab_average: str = None
         diffusion_mat: OptsDiffusionMat = "M1"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsDiffusionPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsDiffusionPrecond = None
+        precond_params: dict = None
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
+        enforce_compatibility: bool = True
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
@@ -112,10 +144,13 @@ class PoissonSolve(ImplicitDiffusion):
             check_option(self.diffusion_mat, self.OptsDiffusionMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
-            if self.precond == "MultiGrid":
-                assert self.solver == "pcg", "precond='MultiGrid' requires solver='pcg'."
+            if self.precond is not None:
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
+            _parse_directions(self.stab_average)
 
             # defaults
+            if self.precond_params is None:
+                self.precond_params = {}
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
             if self.multigrid is None:
@@ -131,6 +166,7 @@ class PoissonSolve(ImplicitDiffusion):
         self,
         rho: FEECVariable | Callable | ParticlesToGrid | list = None,
         rho_coeffs: float | list = None,
+        delta_f_source: bool = False,
     ):
         """
         Parameters
@@ -149,8 +185,11 @@ class PoissonSolve(ImplicitDiffusion):
         rho_coeffs : float or list, default=None
             Multiplicative coefficient(s) applied to ``rho``.
             If ``None``, coefficients default to ``1.0`` for all sources.
+
+        delta_f_source : bool, default=False
+            Deposit particle sources with delta-f weights also for full-f markers, see :class:`ImplicitDiffusion`.
         """
-        super().__init__(rho=rho, rho_coeffs=rho_coeffs)
+        super().__init__(rho=rho, rho_coeffs=rho_coeffs, delta_f_source=delta_f_source)
 
     @property
     def options(self) -> Options:

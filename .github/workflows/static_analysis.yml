@@ -1,4 +1,4 @@
-name: isort & ruff
+name: ruff
 
 on:
   pull_request:
@@ -26,62 +26,6 @@ jobs:
           chmod +x cloc
           ./cloc --version
           ./cloc $(git ls-files)
-
-  struphy_lint_all:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: true  # This is crucial!
-          fetch-depth: 5
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      # You can test your matrix by printing the current Python version
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
-
-      - name: Install prerequisites (Ubuntu)
-        uses: ./.github/actions/install/ubuntu-latest
-
-      - name: Install struphy
-        uses: ./.github/actions/install/install-struphy-editable
-
-      - name: Reinstall feectools from submodule
-        uses: ./.github/actions/install/feectools-submodule
-
-      - name: Lint the repo
-        run: |
-          struphy lint all --output-format plain --verbose
-
-  # black:
-  #   runs-on: ubuntu-latest
-  #   continue-on-error: true
-  #   steps:
-  #     - name: Checkout the code
-  #       uses: actions/checkout@v4
-
-  #     - name: Code formatting with black
-  #       run: |
-  #         pip install black "black[jupyter]"
-  #         # black --check src/
-  #         # black --check tutorials/
-
-  isort:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout the code
-        uses: actions/checkout@v4
-
-      - name: Code formatting with isort
-        run: |
-          pip install isort
-          isort --check src/
 
   # mypy:
   #   runs-on: ubuntu-latest
@@ -113,23 +57,11 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@v4
 
-      - name: Code formatting with ruff
-        run: |
-          pip install ruff==0.15.0
-          ruff check
-      
-      # - name: ruff format --check
-      #   run: |
-      #     ruff format --check
+      - name: Install ruff
+        run: pip install ruff==0.16.10
 
-  # pylint:
-  #   runs-on: ubuntu-latest
-  #   continue-on-error: true
-  #   steps:
-  #     - name: Checkout the code
-  #       uses: actions/checkout@v4
+      - name: Check formatting (ruff format)
+        run: ruff format --check
 
-  #     - name: Linting with pylint
-  #       run: |
-  #         pip install pylint
-  #         pylint src/ || true
+      - name: Lint and check import sorting (ruff check)
+        run: ruff check

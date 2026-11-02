@@ -58,9 +58,10 @@ def linop_nbytes(op, _seen: set = None) -> int:
     if isinstance(op, BlockLinearOperator):
         return sum(linop_nbytes(block, _seen) for row in op.blocks for block in row)
 
-    for attr in ("multiplicants", "addends", "mats"):
-        if hasattr(op, attr):
-            return sum(linop_nbytes(child, _seen) for child in getattr(op, attr))
+    # (a ComposedKroneckerStencilMatrix has both multiplicands and mats, the factors of the product)
+    children = [attr for attr in ("multiplicands", "addends", "mats") if hasattr(op, attr)]
+    if children:
+        return sum(linop_nbytes(child, _seen) for attr in children for child in getattr(op, attr))
 
     for attr in ("operator", "tp_operator"):
         if hasattr(op, attr):

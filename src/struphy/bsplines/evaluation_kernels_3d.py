@@ -24,7 +24,9 @@ from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+import struphy.kernel_arguments.spline_args_kernels as spline_args_kernels  # do not remove; needed to identify dependencies
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 
 #################################
 ### Single process evaluation ###
@@ -1140,18 +1142,12 @@ def eval_spline_derivative_mpi_kernel(
     return spline_value
 
 
-@stack_array("bn1", "bn2", "bn3", "bd1", "bd2", "bd3")
 def eval_spline_mpi(
     eta1: float,
     eta2: float,
     eta3: float,
     _data: "float[:,:,:]",
-    kind: "int[:]",
-    pn: "int[:]",
-    tn1: "float[:]",
-    tn2: "float[:]",
-    tn3: "float[:]",
-    starts: "int[:]",
+    args_spline: "SplineArguments",
 ) -> float:
     """
     Point-wise evaluation of a tensor-product spline, distributed.
@@ -1164,17 +1160,9 @@ def eval_spline_mpi(
         _data : array[float]
             The spline coefficients c_ijk.
 
-        kind : array[int]
-            Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
-
-        pn : array[int]
-            Spline degrees of V0 in each direction.
-
-        tn1, tn2, tn3 : array[float]
-            Knot vectors of V0 in each direction.
-
-        starts : array[float]
-            Start indices of splines on current process.
+        args_spline : SplineArguments
+            Kind of 1d basis, spline degrees and knot vectors of V0, and start indices of the splines on the
+            current process.
 
     Returns
     -------
@@ -1182,43 +1170,34 @@ def eval_spline_mpi(
             Value of tensor-product spline at point (eta_1, eta_2, eta_3).
     """
 
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
     # get spline values at eta
-    span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
-    span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
-    span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
+    span1 = bsplines_kernels.find_span(args_spline.tn1, args_spline.pn[0], eta1)
+    span2 = bsplines_kernels.find_span(args_spline.tn2, args_spline.pn[1], eta2)
+    span3 = bsplines_kernels.find_span(args_spline.tn3, args_spline.pn[2], eta3)
 
-    bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-    bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-    bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+    bsplines_kernels.b_d_splines_slim(args_spline.tn1, args_spline.pn[0], eta1, span1, args_spline.bn1, args_spline.bd1)
+    bsplines_kernels.b_d_splines_slim(args_spline.tn2, args_spline.pn[1], eta2, span2, args_spline.bn2, args_spline.bd2)
+    bsplines_kernels.b_d_splines_slim(args_spline.tn3, args_spline.pn[2], eta3, span3, args_spline.bn3, args_spline.bd3)
 
-    if kind[0] == 0:
-        b1 = bn1
+    if args_spline.kind[0] == 0:
+        b1 = args_spline.bn1
     else:
-        b1 = bd1
+        b1 = args_spline.bd1
 
-    if kind[1] == 0:
-        b2 = bn2
+    if args_spline.kind[1] == 0:
+        b2 = args_spline.bn2
     else:
-        b2 = bd2
+        b2 = args_spline.bd2
 
-    if kind[2] == 0:
-        b3 = bn3
+    if args_spline.kind[2] == 0:
+        b3 = args_spline.bn3
     else:
-        b3 = bd3
+        b3 = args_spline.bd3
 
     value = eval_spline_mpi_kernel(
-        pn[0] - kind[0],
-        pn[1] - kind[1],
-        pn[2] - kind[2],
+        args_spline.pn[0] - args_spline.kind[0],
+        args_spline.pn[1] - args_spline.kind[1],
+        args_spline.pn[2] - args_spline.kind[2],
         b1,
         b2,
         b3,
@@ -1226,7 +1205,7 @@ def eval_spline_mpi(
         span2,
         span3,
         _data,
-        starts,
+        args_spline.starts,
     )
 
     return value
@@ -1237,12 +1216,7 @@ def eval_spline_mpi_tensor_product(
     eta2: "float[:]",
     eta3: "float[:]",
     _data: "float[:,:,:]",
-    kind: "int[:]",
-    pn: "int[:]",
-    tn1: "float[:]",
-    tn2: "float[:]",
-    tn3: "float[:]",
-    starts: "int[:]",
+    args_spline: "SplineArguments",
     values: "float[:,:,:]",
 ):
     """
@@ -1257,17 +1231,9 @@ def eval_spline_mpi_tensor_product(
         _data : array[float]
             The spline coefficients c_ijk.
 
-        kind : array[int]
-            Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
-
-        pn : array[int]
-            Spline degrees of V0 in each direction.
-
-        tn1, tn2, tn3 : array[float]
-            Knot vectors of V0 in each direction.
-
-        starts : array[float]
-            Start indices of splines on current process.
+        args_spline : SplineArguments
+            Kind of 1d basis, spline degrees and knot vectors of V0, and start indices of the splines on the
+            current process.
 
         values : array[float]
             Return array for spline values S_ijk = S(eta1[i], eta2[j], eta3[k]).
@@ -1283,21 +1249,15 @@ def eval_spline_mpi_tensor_product(
                 if eta3[k] == -1.0:
                     continue  # point not in process domain
 
-                values[i, j, k] = eval_spline_mpi(eta1[i], eta2[j], eta3[k], _data, kind, pn, tn1, tn2, tn3, starts)
+                values[i, j, k] = eval_spline_mpi(eta1[i], eta2[j], eta3[k], _data, args_spline)
 
 
-@stack_array("bn1", "bn2", "bn3", "bd1", "bd2", "bd3")
 def eval_spline_mpi_tensor_product_fast(
     eta1: "float[:]",
     eta2: "float[:]",
     eta3: "float[:]",
     _data: "float[:,:,:]",
-    kind: "int[:]",
-    pn: "int[:]",
-    tn1: "float[:]",
-    tn2: "float[:]",
-    tn3: "float[:]",
-    starts: "int[:]",
+    args_spline: "SplineArguments",
     values: "float[:,:,:]",
 ):
     """
@@ -1313,143 +1273,56 @@ def eval_spline_mpi_tensor_product_fast(
         _data : array[float]
             The spline coefficients c_ijk.
 
-        kind : array[int]
-            Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
-
-        pn : array[int]
-            Spline degrees of V0 in each direction.
-
-        tn1, tn2, tn3 : array[float]
-            Knot vectors of V0 in each direction.
-
-        starts : array[float]
-            Start indices of splines on current process.
+        args_spline : SplineArguments
+            Kind of 1d basis, spline degrees and knot vectors of V0, and start indices of the splines on the
+            current process.
 
         values : array[float]
             Return array for spline values S_ijk = S(eta1[i], eta2[j], eta3[k]).
     """
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
     for i in range(len(eta1)):
         if eta1[i] == -1.0:
             continue  # point not in process domain
 
-        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1[i])
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1[i], span1, bn1, bd1)
-        if kind[0] == 0:
-            b1 = bn1
+        span1 = bsplines_kernels.find_span(args_spline.tn1, args_spline.pn[0], eta1[i])
+        bsplines_kernels.b_d_splines_slim(
+            args_spline.tn1, args_spline.pn[0], eta1[i], span1, args_spline.bn1, args_spline.bd1
+        )
+        if args_spline.kind[0] == 0:
+            b1 = args_spline.bn1
         else:
-            b1 = bd1
+            b1 = args_spline.bd1
 
         for j in range(len(eta2)):
             if eta2[j] == -1.0:
                 continue  # point not in process domain
 
-            span2 = bsplines_kernels.find_span(tn2, pn[1], eta2[j])
-            bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2[j], span2, bn2, bd2)
-            if kind[1] == 0:
-                b2 = bn2
+            span2 = bsplines_kernels.find_span(args_spline.tn2, args_spline.pn[1], eta2[j])
+            bsplines_kernels.b_d_splines_slim(
+                args_spline.tn2, args_spline.pn[1], eta2[j], span2, args_spline.bn2, args_spline.bd2
+            )
+            if args_spline.kind[1] == 0:
+                b2 = args_spline.bn2
             else:
-                b2 = bd2
+                b2 = args_spline.bd2
 
             for k in range(len(eta3)):
                 if eta3[k] == -1.0:
                     continue  # point not in process domain
 
-                span3 = bsplines_kernels.find_span(tn3, pn[2], eta3[k])
-                bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3[k], span3, bn3, bd3)
-                if kind[2] == 0:
-                    b3 = bn3
-                else:
-                    b3 = bd3
-
-                values[i, j, k] = eval_spline_mpi_kernel(
-                    pn[0] - kind[0],
-                    pn[1] - kind[1],
-                    pn[2] - kind[2],
-                    b1,
-                    b2,
-                    b3,
-                    span1,
-                    span2,
-                    span3,
-                    _data,
-                    starts,
+                span3 = bsplines_kernels.find_span(args_spline.tn3, args_spline.pn[2], eta3[k])
+                bsplines_kernels.b_d_splines_slim(
+                    args_spline.tn3, args_spline.pn[2], eta3[k], span3, args_spline.bn3, args_spline.bd3
                 )
-
-
-@stack_array("b1", "b2", "b3")
-def eval_spline_mpi_tensor_product_fixed(
-    span1s: "int[:]",
-    span2s: "int[:]",
-    span3s: "int[:]",
-    b1s: "float[:,:]",
-    b2s: "float[:,:]",
-    b3s: "float[:,:]",
-    _data: "float[:,:,:]",
-    kind: "int[:]",
-    pn: "int[:]",
-    starts: "int[:]",
-    values: "float[:,:,:]",
-):
-    """
-    Tensor-product evaluation of a tensor-product spline, distributed,
-    and optimized for a fixed grid (spans and spline values have been pre-evaluated).
-
-    Parameters
-    ----------
-        span1s, span2s, span3s : array[int]
-            Knot span indices.
-
-        b1s, b2s, b3s : array[float]
-            Values of p+1 non-zero basis functions at evaluation points.
-
-        _data : array[float]
-            The spline coefficients c_ijk.
-
-        kind : array[int]
-            Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
-
-        pn : array[int]
-            Spline degrees of V0 in each direction.
-
-        starts : array[float]
-            Start indices of splines on current process.
-
-        values : array[float]
-            Return array for spline values S_ijk where ijk are the flattened indices corresponding to spans.
-    """
-
-    # allocate spline values
-    b1 = empty(pn[0] - kind[0] + 1, dtype=float)
-    b2 = empty(pn[1] - kind[1] + 1, dtype=float)
-    b3 = empty(pn[2] - kind[2] + 1, dtype=float)
-
-    ni = span1s.size
-    nj = span2s.size
-    nk = span3s.size
-
-    for i in range(ni):
-        span1 = span1s[i]
-        b1[:] = b1s[i, :]
-        for j in range(nj):
-            span2 = span2s[j]
-            b2[:] = b2s[j, :]
-            for k in range(nk):
-                span3 = span3s[k]
-                b3[:] = b3s[k, :]
+                if args_spline.kind[2] == 0:
+                    b3 = args_spline.bn3
+                else:
+                    b3 = args_spline.bd3
 
                 values[i, j, k] = eval_spline_mpi_kernel(
-                    pn[0] - kind[0],
-                    pn[1] - kind[1],
-                    pn[2] - kind[2],
+                    args_spline.pn[0] - args_spline.kind[0],
+                    args_spline.pn[1] - args_spline.kind[1],
+                    args_spline.pn[2] - args_spline.kind[2],
                     b1,
                     b2,
                     b3,
@@ -1457,7 +1330,7 @@ def eval_spline_mpi_tensor_product_fixed(
                     span2,
                     span3,
                     _data,
-                    starts,
+                    args_spline.starts,
                 )
 
 

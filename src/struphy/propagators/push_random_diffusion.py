@@ -110,7 +110,8 @@ class PushRandomDiffusion(Propagator):
 
         particles = self.variables.var.particles
 
-        self._noise = array(particles.markers[:, :3])
+        # one column per marker, like the markers
+        self._noise = array(particles.markers[:3])
 
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
@@ -149,8 +150,8 @@ class PushRandomDiffusion(Propagator):
         self._noise[:] = random.multivariate_normal(
             self._mean,
             self._cov,
-            len(particles.markers),
-        )
+            particles.n_markers_max,
+        ).T
 
         # push markers
         self._pusher(dt)

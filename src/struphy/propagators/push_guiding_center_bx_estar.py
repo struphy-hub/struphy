@@ -1,7 +1,7 @@
 "Only particle variables are updated."
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from line_profiler import profile
@@ -42,7 +42,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
         \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf{b}_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf{b}_0\,,
 
-    Here, :math:`\mathbf B = \mathbf{B}_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation). The electric potential :math:`\phi` and/or the magnetic perturbation :math:`\tilde{\mathbf B}` can be ignored by passing ``None``.
+    Here, :math:`\mathbf B = \mathbf{B}_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation). The electric potential :math:`\phi` and/or the magnetic perturbation :math:`\tilde{\mathbf B}` can be ignored by passing ``None``. Instead of the potential, an electric field :math:`\mathbf E \in H(\textnormal{curl})` can be passed (``e_field``, explicit algorithm); then :math:`\mathbf E^* = \mathbf E - \varepsilon \mu_p \nabla |\mathbf B|` (gauge-invariant electromagnetic formulation).
     In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
     .. math::
@@ -83,17 +83,27 @@ class PushGuidingCenterBxEstar(Propagator):
         self,
         phi: FEECVariable = None,
         b_tilde: FEECVariable = None,
+        e_field: FEECVariable = None,
     ):
-        """
+        r"""
         Parameters
         ----------
         phi : FEECVariable, default=None
             Electric potential in ``"H1"`` space contributing to :math:`E^*`.
             If ``None``, an empty ``FEECVariable(space="H1")`` is created internally.
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation in ``"Hcurl"`` space contributing to :math:`B^*`.
+            Magnetic perturbation in ``"Hdiv"`` space contributing to :math:`B^*`.
             If ``None``, the perturbation is ignored.
+        e_field : FEECVariable, default=None
+            Electric field in ``"Hcurl"`` space, used in :math:`E^* = E - \varepsilon \mu \nabla |B|` instead of
+            :math:`-\nabla \phi` (gauge-invariant electromagnetic formulation). Cannot be combined with ``phi``. Only the
+            explicit algorithm is consistent with a general :math:`E` (the discrete gradients conserve a Hamiltonian
+            with a potential); a discrete-gradient ``algo`` is replaced by ``"explicit"``, with a warning.
         """
+        assert phi is None or e_field is None, "Pass either the potential phi or the electric field e_field, not both."
+        if e_field is not None:
+            assert isinstance(e_field, FEECVariable) and e_field.space == "Hcurl", "e_field must be in Hcurl."
+        self.e_field = e_field
         self.variables = self.Variables()
         self.phi = phi if phi is not None else FEECVariable(space="H1")
         if phi is None:
@@ -178,31 +188,43 @@ class PushGuidingCenterBxEstar(Propagator):
         self._absB0 = self.projected_equil.absB0
         curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
+        # the kernels need tensor-product coefficients: transposed extraction operators
+        # PolarVector --> Stencil-/BlockVector (identity maps in case of no polar splines)
+        self._E0T = self.derham.extraction_ops["0"].transpose()
+        self._E1T = self.derham.extraction_ops["1"].transpose()
+
         # magnetic perturbation
         if self.b_tilde is not None:
             self._B_dot_b = self.derham.V0.zeros()
             self._grad_b_full = self.derham.V1.zeros()
 
             self._PB = getattr(self.basis_ops, "PB")
+            self._B_dot_b_pol = self._PB.codomain.zeros()
+            self._grad_b_pol = self.derham.grad.codomain.zeros()
 
-            B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
-            B_dot_b.update_ghost_regions()
-
-            grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
-            grad_b_full.update_ghost_regions()
-
-            grad_b_full += self._gradB1
-            B_dot_b += self._absB0
+            self._update_b_tilde()
         else:
             self._grad_b_full = self._gradB1
             self._B_dot_b = self._absB0
 
-        # allocate electric field
+        # allocate electric potential (self._phi holds its tensor-product coefficients)
         if self._allocate_phi:
             self.phi.allocate(self.derham, self.domain)
-        self._phi = self.phi.spline.vector
+        self._phi = self.derham.V0.zeros()
+        self._update_phi()
         self._evaluate_e_field = self.options.evaluate_e_field
+        if self.e_field is not None:
+            self._evaluate_e_field = True
+            # the discrete gradients conserve the Hamiltonian, which contains no potential for a general E:
+            # they would remove the work of E along the step (inconsistent scheme), hence the explicit algorithm
+            if "discrete_gradient" in self.options.algo:
+                logger.warning(
+                    f'{self.__class__.__name__} with e_field: algo="{self.options.algo}" needs a potential, '
+                    'using algo="explicit" (default Butcher tableau).'
+                )
+                self._options = replace(self.options, algo="explicit", butcher=None)
         self._e_field = self.derham.V1.zeros()
+        self._e_field_pol = self.derham.grad.codomain.zeros()
 
         # choose method
         particles = self.variables.ions.particles
@@ -482,24 +504,42 @@ class PushGuidingCenterBxEstar(Propagator):
                 pushes_eta=True,
             )
 
+    def _update_phi(self):
+        """Extract the electric potential to the tensor-product space."""
+        phi = self._E0T.dot(self.phi.spline.vector, out=self._phi)
+        phi.update_ghost_regions()
+
+    def _update_b_tilde(self):
+        """Parallel magnetic perturbation and its gradient (plus equilibrium) in the tensor-product spaces."""
+        B_dot_b_pol = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b_pol)
+        B_dot_b = self._E0T.dot(B_dot_b_pol, out=self._B_dot_b)
+        B_dot_b.update_ghost_regions()
+
+        grad_b_pol = self.derham.grad.dot(B_dot_b_pol, out=self._grad_b_pol)
+        grad_b_full = self._E1T.dot(grad_b_pol, out=self._grad_b_full)
+        grad_b_full.update_ghost_regions()
+
+        grad_b_full += self._gradB1
+        B_dot_b += self._absB0
+
     @profile
     def __call__(self, dt):
+        # electric potential
+        self._update_phi()
+
         # electric field
         # TODO: add out to __neg__ of StencilVector
-        if self._evaluate_e_field:
-            e_field = self.derham.grad.dot(-self._phi, out=self._e_field)
+        if self.e_field is not None:
+            e_field = self._E1T.dot(self.e_field.spline.vector, out=self._e_field)
+            e_field.update_ghost_regions()
+        elif self._evaluate_e_field:
+            e_field_pol = self.derham.grad.dot(-self.phi.spline.vector, out=self._e_field_pol)
+            e_field = self._E1T.dot(e_field_pol, out=self._e_field)
             e_field.update_ghost_regions()
 
         # magnetic perturbation
         if self.b_tilde is not None:
-            B_dot_b = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b)
-            B_dot_b.update_ghost_regions()
-
-            grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
-            grad_b_full.update_ghost_regions()
-
-            grad_b_full += self._gradB1
-            B_dot_b += self._absB0
+            self._update_b_tilde()
 
         # call pusher
         self._pusher(dt)

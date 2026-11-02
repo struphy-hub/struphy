@@ -104,7 +104,7 @@ jobs:
       - name: Submit SLURM job, package and push profiling data
         run: |
           source .venv-fortran/bin/activate
-          python profiling/submit_diocotron_job.py \
+          python examples/ToyDrift/diocotron_instability/submit_diocotron_instability.py \
             --language ${{ matrix.compile-language }} \
             --compiler GNU \
             --upload

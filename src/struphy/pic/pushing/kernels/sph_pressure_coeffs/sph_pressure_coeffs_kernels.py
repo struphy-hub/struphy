@@ -27,9 +27,9 @@ def sph_pressure_coeffs(
 ):
     r"""For each particle, evaluate
 
-    * the density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[:, output_indices[0]]``)
-    * the coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[:, output_indices[1]]``)
-    * the coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` and store it at ``markers[:, output_indices[2]]``)
+    * the density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[output_indices[0], :]``)
+    * the coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[output_indices[1], :]``)
+    * the coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` and store it at ``markers[output_indices[2], :]``)
 
     where the smoothed SPH density is given by
 
@@ -43,7 +43,7 @@ def sph_pressure_coeffs(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    n_cols = shape(markers)[1]
+    n_cols = shape(markers)[0]
     Np = args_markers.Np
     weight_idx = args_markers.weight_idx
     valid_mks = args_markers.valid_mks
@@ -53,10 +53,10 @@ def sph_pressure_coeffs(
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        loc_box = int(markers[ip, n_cols - 2])
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        loc_box = int(markers[n_cols - 2, ip])
         n_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,
@@ -75,11 +75,11 @@ def sph_pressure_coeffs(
             h2,
             h3,
         )
-        weight = markers[ip, weight_idx]
+        weight = markers[weight_idx, ip]
         # save
         if output_indices[0] >= 0:
-            markers[ip, output_indices[0]] = n_at_eta
+            markers[output_indices[0], ip] = n_at_eta
         if output_indices[1] >= 0:
-            markers[ip, output_indices[1]] = weight / n_at_eta
+            markers[output_indices[1], ip] = weight / n_at_eta
         if output_indices[2] >= 0:
-            markers[ip, output_indices[2]] = weight * n_at_eta ** (gamma - 2)
+            markers[output_indices[2], ip] = weight * n_at_eta ** (gamma - 2)

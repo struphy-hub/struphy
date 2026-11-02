@@ -9,13 +9,16 @@ from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
-from struphy.feec.mass import L2Projector, WeightedMassOperator
+from struphy.feec import preconditioner
+from struphy.feec.fused_derivatives import fuse_boundary_gradient
+from struphy.feec.mass import L2Projector, WeightedAverageProjection, WeightedMassOperator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector, ParticlesToGrid
+from struphy.pic.particles import DeltaFParticles6D
 from struphy.propagators.base import Propagator
 from struphy.utils.utils import check_option
 
@@ -75,13 +78,27 @@ class ImplicitDiffusion(Propagator):
         Multiplicative coefficient(s) for ``rho`` sources.
         If a scalar is provided, it is applied to a single source.
         If a sequence is provided, it has one entry per entry of ``rho``
-        (the neutralising background of a full-f accumulator gets the coefficient
-        of its accumulator), or one entry per collected source.
+        (the neutralising background of a full-f ``"H1"`` accumulator gets the coefficient
+        of its accumulator), or one entry per collected source (no background source is collected
+        with ``delta_f_source=True``, the control variate or delta-f markers).
         If ``None``, all coefficients default to ``1.0``.
 
     diagnostic : FEECVariable, default=None
         If not None, updates at each call to the propagator, takes the value of the right-hand side.
         Otherwise does not provide diagnostic.
+
+    delta_f_source : bool, default=False
+        Deposit particle sources with the delta-f weights :math:`(f - f_0)/s` also for full-f markers (without
+        the control variate): the weights are updated before and the full-f weights restored after the deposit,
+        and no background source is added. The Monte-Carlo noise is then that of :math:`f - f_0` instead of
+        :math:`f`, which is much smaller for small perturbations; meant for the initial Poisson solve of full-f models.
+
+    Note
+    ----
+    The deposited particle density is :math:`f - f_0` with the control variate (the weights are updated before
+    each deposit), with delta-f markers (:class:`~struphy.pic.particles.DeltaFParticles6D`) and with
+    ``delta_f_source=True``. Otherwise (full-f), for ``"H1"`` accumulators the neutralizing background
+    :math:`-n_0` is added as a separate source with the coefficient of the particle source.
 
     Notes
     -----
@@ -117,6 +134,7 @@ class ImplicitDiffusion(Propagator):
         rho: FEECVariable | ParticlesToGrid | Callable | list = None,
         rho_coeffs: float | list = None,
         diagnostic: FEECVariable | None = None,
+        delta_f_source: bool = False,
     ):
         if isinstance(rho, list):
             for r in rho:
@@ -131,10 +149,11 @@ class ImplicitDiffusion(Propagator):
         self.rho = rho
         self.rho_coeffs = rho_coeffs
         self.diagnostic = diagnostic
+        self.delta_f_source = delta_f_source
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`ImplicitDiffusion`.
+        r"""Configuration options for :class:`ImplicitDiffusion`.
 
         Parameters
         ----------
@@ -161,20 +180,30 @@ class ImplicitDiffusion(Propagator):
             If ``True``, divide ``sigma_1``, ``sigma_2`` and ``sigma_3`` by the
             time step passed to ``__call__(dt)`` before assembling the system.
 
-        stab_mat : {"M0", "M0ad", "Id"}, default="M0"
+        stab_mat : {"M0", "M0ad", "M0ad_withT", "Id"}, default="M0"
             Stabilization operator used in the term weighted by ``sigma_1`` and
             ``sigma_2``.
 
             - ``"M0"``: standard weighted 0-form mass operator.
-            - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator.
+            - ``"M0ad"``: adiabatic-electron weighted 0-form mass operator (weight :math:`n_0`).
+            - ``"M0ad_withT"``: adiabatic-electron weighted 0-form mass operator (weight :math:`n_0/T_0`).
             - ``"Id"``: identity operator.
 
-        diffusion_mat : {"M1", "M1perp"} or WeightedMassOperator, default="M1"
+        stab_average : str, default=None
+            If not None, the stabilization becomes ``stab_mat @ (I - A)``, where ``A`` is the average
+            over the given logical directions, e.g. ``"eta3"`` or ``"eta2 eta3"``, weighted with
+            ``stab_mat`` (:class:`~struphy.feec.mass.WeightedAverageProjection`; e.g. the flux-surface
+            average with the volume element for ``"M0"``), such that the operator stays symmetric.
+            With ``precond="MultiGrid"``, the average is re-built on every coarse level.
+
+        diffusion_mat : {"M1", "M1perp", None} or WeightedMassOperator, default="M1"
             Diffusion metric in the bilinear form
             ``grad.T @ diffusion_mat @ grad``.
             You can pass the name of a pre-built operator in ``mass_ops`` or a
             custom ``WeightedMassOperator`` compatible with the codomain of
-            ``grad``.
+            ``grad``. With ``None`` there is no diffusion term and the system is
+            ``sigma_1 * stab_mat`` only (a weighted L2 projection); then ``precond`` cannot be
+            ``"MultiGrid"`` or ``"StiffnessPreconditioner"``.
 
         x0 : StencilVector, default=None
             Initial guess for the iterative linear solver.
@@ -183,11 +212,29 @@ class ImplicitDiffusion(Propagator):
             Name of the symmetric iterative solver passed to
             :func:`psydac.linalg.solvers.inverse`.
 
-        precond : LiteralOptions.OptsDiffusionPrecond, default="MassMatrixPreconditioner"
-            Name of the preconditioner configuration.
-            ``"MultiGrid"`` uses a geometric multigrid V-cycle
-            (:class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`,
-            requires ``solver="pcg"``). The other values currently result in ``pc=None``.
+        precond : LiteralOptions.OptsDiffusionPrecond, default=None
+            Name of the preconditioner:
+
+            - ``None``: no preconditioner.
+            - ``"MultiGrid"``: geometric multigrid V-cycle
+              (:class:`~struphy.linear_algebra.multigrid.preconditioner.MultiGridPreconditioner`,
+              requires ``solver="pcg"`` or ``"pcg_sr"``).
+            - ``"MassMatrixPreconditioner"``: Kronecker
+              approximation of the inverse of the 0-form mass matrix ``M0``
+              (see :mod:`struphy.feec.preconditioner`).
+            - ``"PolarMassMatrixPreconditioner"``: 2D x 1D Kronecker approximation of the inverse
+              of ``M0`` on polar splines.
+            - ``"StiffnessPreconditioner"``: Kronecker approximation of the inverse of
+              ``grad.T @ diffusion_mat @ grad + sigma * stab_mat (I - A)``
+              (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with ``mid=diffusion_mat``,
+              ``stab=stab_mat`` and ``stab_average``), with ``sigma = sigma_1`` (divided by dt if
+              ``divide_by_dt=True``). With polar splines, this is a
+              :class:`~struphy.feec.preconditioner.PolarStiffnessPreconditioner`.
+
+        precond_params : dict, default=None
+            Keyword arguments passed to the constructor of the mass-matrix or stiffness
+            preconditioner, e.g. ``{"weights": "unit"}`` for ``"StiffnessPreconditioner"``
+            or ``{"dim_reduce": None}`` for ``"MassMatrixPreconditioner"``.
 
         multigrid : MultiGridOptions, default=None
             Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
@@ -198,6 +245,22 @@ class ImplicitDiffusion(Propagator):
             Iterative-solver controls (for example ``tol``, ``maxiter``,
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
+
+        enforce_compatibility : bool, default=False
+            If ``True`` and the diffusion operator is singular (no Dirichlet boundary conditions
+            and no polar splines, i.e. the constant functions are in its kernel), the right-hand side
+            is made compatible before the solve by removing its constant ("net charge") component,
+
+            .. math::
+
+                \mathbf b \leftarrow \mathbf b - \frac{\mathbf 1^\top \mathbf b}{\mathbf 1^\top \mathbb M^0 \mathbf 1}\, \mathbb M^0 \mathbf 1\,,
+
+            where :math:`\mathbf 1` (all ones) is the coefficient vector of the constant function
+            (partition of unity). This is equivalent to adding a uniform neutralizing background.
+            It is meant for (nearly) singular problems where ``sigma_1`` is only a small
+            stabilization; then ``phi`` stays of order one instead of growing like
+            ``(net charge) / sigma_1``, which would destroy the accuracy of ``grad phi``.
+            For ``stab_mat="M0"`` and ``sigma_2 = 0`` it changes ``phi`` only by a constant, for any ``sigma_1``.
 
         filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
             If not None, specifies a filter to the accumulation of a specific variable.
@@ -212,20 +275,23 @@ class ImplicitDiffusion(Propagator):
         """
 
         # specific literals
-        OptsStabMat = Literal["M0", "M0ad", "Id"]
-        OptsDiffusionMat = Literal["M1", "M1perp"]
+        OptsStabMat = Literal["M0", "M0ad", "M0ad_withT", "Id"]
+        OptsDiffusionMat = Literal["M1", "M1perp", None]
         # propagator options
         sigma_1: float = 1.0
         sigma_2: float = 0.0
         sigma_3: float = 1.0
         divide_by_dt: bool = False
         stab_mat: OptsStabMat = "M0"
+        stab_average: str = None
         diffusion_mat: OptsDiffusionMat = "M1"
         x0: StencilVector = None
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsDiffusionPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsDiffusionPrecond = None
+        precond_params: dict = None
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
+        enforce_compatibility: bool = False
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
@@ -234,10 +300,20 @@ class ImplicitDiffusion(Propagator):
             check_option(self.diffusion_mat, self.OptsDiffusionMat)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
-            if self.precond == "MultiGrid":
-                assert self.solver == "pcg", "precond='MultiGrid' requires solver='pcg'."
+            if self.precond is not None:
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
+            if self.diffusion_mat is None:
+                assert self.precond not in ("MultiGrid", "StiffnessPreconditioner"), (
+                    f"precond={self.precond!r} needs a diffusion term (diffusion_mat=None)."
+                )
+                assert self.stab_average is None, (
+                    "Without a diffusion term the averaged part of phi is undetermined (stab_average must be None)."
+                )
+            preconditioner._parse_directions(self.stab_average)
 
             # defaults
+            if self.precond_params is None:
+                self.precond_params = {}
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
             if self.multigrid is None:
@@ -258,9 +334,23 @@ class ImplicitDiffusion(Propagator):
     @profile
     def allocate(self):
         # always stabilize
+        auto_stabilized = False
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14
+            auto_stabilized = True
             logger.warning(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
+
+        # The automatic stabilization only makes singular problems (e.g. periodic in all directions) solvable. With a
+        # Dirichlet boundary in some direction, grad.T @ M1 @ grad is already positive definite and 1e-14 * stab_mat
+        # changes the solution only at round-off, but applying it costs a whole stab_mat product per solver iteration;
+        # it is then left out of the solver's operator. (M1perp can be degenerate, so it keeps the stabilization.)
+        self._stabilize_lhs = not (
+            auto_stabilized
+            and self.options.diffusion_mat == "M1"
+            and any(any(sides) for sides in self.derham.dirichlet_bc)
+        )
+        if not self._stabilize_lhs:
+            logger.info("Dirichlet boundary present: the automatic stabilization is left out of the solver operator")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1
@@ -295,11 +385,13 @@ class ImplicitDiffusion(Propagator):
                     filter_params=filter_params,
                 )
 
-                if not rhs.particles.control_variate and rhs.space_id == "H1":
+                if not self._deposits_delta_f(rhs.particles) and rhs.space_id == "H1":
                     l2_proj = L2Projector("H1", Propagator.mass_ops)
-                    f0e = -rho.pic_variable.species.charge_number * rhs.particles.f0
-                    # neutralising background: get_dofs already returns (n0, Lambda^0)_L2,
-                    # i.e. the weak-form rhs, so it is added as a StencilVector (no extra M0)
+                    # neutralising background -n0: the accumulator deposits the particle density (weights) and the
+                    # charge (number and sign) is in the coefficient of the source, which the background shares
+                    f0e = -1 * rhs.particles.f0
+                    # get_dofs already returns (n0, Lambda^0)_L2, i.e. the weak-form rhs,
+                    # so it is added as a StencilVector (no extra M0)
                     rho_eh = l2_proj.get_dofs(f0e.n, apply_bc=True)
                     return [rhs, rho_eh]
 
@@ -344,7 +436,15 @@ class ImplicitDiffusion(Propagator):
         else:
             stab_mat = getattr(self.mass_ops, self.options.stab_mat)
 
-        if isinstance(self.options.diffusion_mat, str):
+        # stabilization without the (stab_mat-weighted) average over the given directions: stab_mat @ (I - A)
+        average_dirs = preconditioner._parse_directions(self.options.stab_average)
+        if average_dirs:
+            avg = WeightedAverageProjection(self.derham, stab_mat, average_dirs)
+            stab_mat = stab_mat @ (IdentityOperator(stab_mat.domain, stab_mat.codomain) - avg)
+
+        if self.options.diffusion_mat is None:
+            diffusion_mat = None
+        elif isinstance(self.options.diffusion_mat, str):
             diffusion_mat = getattr(self.mass_ops, self.options.diffusion_mat)
         else:
             diffusion_mat = self.options.diffusion_mat
@@ -354,13 +454,35 @@ class ImplicitDiffusion(Propagator):
 
         # Set lhs matrices (without dt)
         self._stab_mat = stab_mat
-        self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
+        if diffusion_mat is None:
+            self._diffusion_op = None
+        else:
+            # grad = B1 G B0^T already applies the boundary operator B1 of the 1-forms on both sides of diffusion_mat;
+            # if diffusion_mat applies the same one, it is left out there (the same operator, see
+            # MassWithoutBoundaryOps), except for the multigrid preconditioner, which coarsens the operator by its
+            # structure
+            mid = diffusion_mat
+            grad, grad_t = self.derham.grad, self.derham.grad.T
+            B1 = self.derham.boundary_ops["1"]
+            if self.options.precond != "MultiGrid" and all(
+                op is B1 for op in getattr(diffusion_mat, "boundary_ops", (None,))
+            ):
+                mid = diffusion_mat.without_boundary_ops()
+            if self.options.precond != "MultiGrid":
+                # on the GPU, the gradient and its transpose with their boundary operators as one kernel each
+                grad, grad_t = fuse_boundary_gradient(grad), fuse_boundary_gradient(grad_t)
+            self._diffusion_op = grad_t @ mid @ grad
 
         # preconditioner and solver for Ax=b
+        # the multigrid and stiffness preconditioners depend on sigma_1, they are updated in __call__
+        # if it changes (e.g. with dt); _pc_sig_1 is the sigma_1 they were built with
         self._mg = None
-        if self.options.precond == "MultiGrid":
-            # the operator is updated in __call__ if sigma_1 changes (e.g. with dt)
-            self._mg_sig_1 = self._sigma_1
+        self._stiffness_pc = None
+        self._pc_sig_1 = self._sigma_1
+        precond = self.options.precond
+        if precond is None:
+            pc = None
+        elif precond == "MultiGrid":
             self._mg = MultiGridPreconditioner(
                 self._sigma_1 * stab_mat + self._diffusion_op,
                 self.derham,
@@ -369,15 +491,20 @@ class ImplicitDiffusion(Propagator):
                 mass_ops=self.mass_ops,
             )
             pc = self._mg
+        elif precond == "StiffnessPreconditioner":
+            self._stiffness_pc = self._build_stiffness_pc(self._sigma_1)
+            pc = self._stiffness_pc
         else:
-            # TODO: mass-matrix preconditioners are not effective for this operator
-            pc = None
+            pc_class = getattr(preconditioner, precond)
+            pc = pc_class(self.mass_ops.M0, **self.options.precond_params)
 
         # solver just with A_2, but will be set during call with dt
+        # (only "pcg" and "pcg_sr" take a preconditioner)
+        pc_kwargs = {"pc": pc} if self.options.solver in ("pcg", "pcg_sr") else {}
         self._solver = inverse(
-            self._diffusion_op,
+            stab_mat if self._diffusion_op is None else self._diffusion_op,
             self.options.solver,
-            pc=pc,
+            **pc_kwargs,
             x0=self.x0,
             tol=self.options.solver_params.tol,
             maxiter=self.options.solver_params.maxiter,
@@ -390,6 +517,51 @@ class ImplicitDiffusion(Propagator):
         self._rhs = phi.space.zeros()
         self._rhs2 = phi.space.zeros()
         self._tmp_src = phi.space.zeros()
+
+        # constant function and its weak form M0 @ 1, for removing the kernel component of the rhs
+        self._ones = None
+        if self.options.enforce_compatibility and self.operator_is_singular:
+            self._ones = phi.space.zeros()
+            owned = tuple(slice(s, e + 1) for s, e in zip(self._ones.starts, self._ones.ends))
+            self._ones[owned] = 1.0
+            self._ones.update_ghost_regions()
+            self._m0_ones = self.mass_ops.M0.dot(self._ones)
+            self._ones_m0_ones = self._ones.inner(self._m0_ones)
+
+    @staticmethod
+    def _is_full_f(particles) -> bool:
+        """True if the marker weights are full-f weights f / s (no control variate, no delta-f markers)."""
+        return not particles.control_variate and not isinstance(particles, DeltaFParticles6D)
+
+    def _deposits_delta_f(self, particles) -> bool:
+        """True if the particle source deposits f - f0 (so that no neutralizing background is needed)."""
+        return not self._is_full_f(particles) or self.delta_f_source
+
+    @property
+    def operator_is_singular(self) -> bool:
+        """True if the diffusion operator ``grad.T @ diffusion_mat @ grad`` is known to be singular
+        with the constant functions (coefficient vector of all ones) in its kernel: no Dirichlet boundary
+        conditions and tensor-product splines. Polar splines are conservatively treated as regular."""
+        if self._diffusion_op is None:
+            return False
+        no_dirichlet = not any(any(bc) for bc in self.derham.dirichlet_bc)
+        return (
+            no_dirichlet
+            and not self.derham.polar_splines
+            and isinstance(self.variables.phi.spline.vector, StencilVector)
+        )
+
+    def _build_stiffness_pc(self, sig_1: float) -> preconditioner.StiffnessPreconditioner:
+        """StiffnessPreconditioner for ``sig_1 * stab_mat (I - A) + grad.T @ diffusion_mat @ grad``."""
+        return preconditioner.StiffnessPreconditioner(
+            self.mass_ops,
+            "grad",
+            sigma=sig_1,
+            mid=self.options.diffusion_mat,
+            stab=self.options.stab_mat,
+            stab_average=self.options.stab_average,
+            **self.options.precond_params,
+        )
 
     @property
     def sources(self) -> list[StencilVector | FEECVariable | AccumulatorVector]:
@@ -439,8 +611,13 @@ class ImplicitDiffusion(Propagator):
 
         # compute rhs
         phin = self.variables.phi.spline.vector
-        rhs = self._stab_mat.dot(phin, out=self._rhs)
-        rhs *= sig_2
+        if sig_2 == 0.0:
+            # no stab_mat product only to multiply it by zero (e.g. Poisson: sigma_2 = 0)
+            rhs = self._rhs
+            rhs *= 0.0
+        else:
+            rhs = self._stab_mat.dot(phin, out=self._rhs)
+            rhs *= sig_2
 
         self._rhs2 *= 0.0
         for src, coeff in zip(self.sources, self.coeffs):
@@ -450,7 +627,9 @@ class ImplicitDiffusion(Propagator):
                 v = src.spline.vector
                 self._rhs2 += sig_3 * coeff * self.mass_ops.M0.dot(v, out=self._tmp_src)
             elif isinstance(src, AccumulatorVector):
-                if src.particles.control_variate:
+                # delta-f weights for full-f markers, restored after the deposit (delta_f_source)
+                restore_full_f = self.delta_f_source and self._is_full_f(src.particles)
+                if src.particles.control_variate or restore_full_f:
                     src.particles.update_weights()
 
                 if src.space_id == "H1":
@@ -463,7 +642,7 @@ class ImplicitDiffusion(Propagator):
                     first_free_idx = src.particles.first_free_idx
                     density = src.particles.f0.n0(eta)
 
-                    src.particles.markers[valid_mks, first_free_idx] = density
+                    src.particles.markers[first_free_idx, valid_mks] = density
                     # 2. accumulate
                     src()
                     # 3. take weak divergence
@@ -471,19 +650,35 @@ class ImplicitDiffusion(Propagator):
                 else:
                     raise ValueError(f"Unsupported source space {src.space_id}.")
 
+                if restore_full_f:
+                    src.particles.weights = src.particles.weights0.copy()
+
                 self._rhs2 += sig_3 * coeff * vec
 
         rhs += self._rhs2
+
+        # remove the kernel component (net charge) of the rhs: 1^T rhs = 0 (compatibility condition)
+        if self._ones is not None:
+            rhs.mul_iadd(-self._ones.inner(rhs) / self._ones_m0_ones, self._m0_ones)
 
         if self.diagnostic is not None:
             proj = L2Projector("H1", self.mass_ops)
             self.diagnostic.spline.vector = proj.solve(rhs)
 
         # compute lhs
-        self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
-        if self._mg is not None and sig_1 != self._mg_sig_1:
-            self._mg.update(self._solver.linop)
-            self._mg_sig_1 = sig_1
+        if self._diffusion_op is None:
+            self._solver.linop = sig_1 * self._stab_mat
+        elif self._stabilize_lhs:
+            self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op
+        else:
+            self._solver.linop = self._diffusion_op
+        if sig_1 != self._pc_sig_1:
+            if self._mg is not None:
+                self._mg.update(self._solver.linop)
+            if self._stiffness_pc is not None:
+                self._stiffness_pc = self._build_stiffness_pc(sig_1)
+                self._solver.set_options(pc=self._stiffness_pc)
+            self._pc_sig_1 = sig_1
 
         # solve
         with ProfileManager.profile_region(self._solve_region, functions=[self._solver.solve]):

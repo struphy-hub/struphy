@@ -18,18 +18,26 @@ from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.local_projectors_args_cuda import CudaLocalProjectorsArguments
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaDomainArguments, CudaMarkerArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.pic.tests.kernel_test_args import N_GEOMETRY_DOMAINS
-from struphy.utils.cuda_arguments import CUDA_OPTIONS, write_local_projectors_header, write_pusher_header
+from struphy.utils.cuda_arguments import (
+    CUDA_OPTIONS,
+    write_local_projectors_header,
+    write_pusher_header,
+    write_spline_header,
+)
 
 N_COLS = 25
 MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)
 ARGS_DIR = Path(struphy.__file__).parent / "kernel_arguments"
 HEADER = ARGS_DIR / "pusher_args.cuh"
 LOCAL_PROJECTORS_HEADER = ARGS_DIR / "local_projectors_args.cuh"
+SPLINE_HEADER = ARGS_DIR / "spline_args.cuh"
 
 # (CUDA class, pyccel source, pyccel class, struct members that only the CUDA class has, its header)
 ARGUMENT_PAIRS = (
-    (CudaMarkerArguments, "pusher_args_kernels.py", "MarkerArguments", {"n_markers"}, HEADER),
+    (CudaMarkerArguments, "pusher_args_kernels.py", "MarkerArguments", {"n_markers", "prepare_rows"}, HEADER),
     (CudaDerhamArguments, "pusher_args_kernels.py", "DerhamArguments", {"nt1", "nt2", "nt3"}, HEADER),
     (CudaDomainArguments, "pusher_args_kernels.py", "DomainArguments", set(), HEADER),
     (
@@ -39,16 +47,17 @@ ARGUMENT_PAIRS = (
         set(),
         LOCAL_PROJECTORS_HEADER,
     ),
+    (CudaSplineArguments, "spline_args_kernels.py", "SplineArguments", set(), SPLINE_HEADER),
 )
 
 
 def make_arguments(n_markers, seed=0):
     rng = np.random.default_rng(seed)
-    markers = cunumpy.asarray(rng.random((n_markers, N_COLS)))
+    markers = cunumpy.asarray(rng.random((N_COLS, n_markers)))
     valid = cunumpy.asarray(rng.random(n_markers) > 0.1)
     bc = cunumpy.zeros(3, dtype=np.int64)
     args_class = CudaMarkerArguments if cunumpy.get_backend() == "cupy" else MarkerArguments
-    return args_class(markers, valid, n_markers, *MARKER_INDICES, bc), Cuboid().args_domain
+    return args_class(markers, valid, n_markers, *MARKER_INDICES, bc, False), Cuboid().args_domain
 
 
 def make_pusher(kernel):
@@ -93,13 +102,17 @@ def test_generated_local_projectors_header(tmp_path):
     assert LOCAL_PROJECTORS_HEADER.read_text() == write_local_projectors_header(tmp_path / "local_projectors_args.cuh")
 
 
+def test_generated_spline_header(tmp_path):
+    assert SPLINE_HEADER.read_text() == write_spline_header(tmp_path / "spline_args.cuh")
+
+
 @pytest.mark.parametrize("cuda_class, source, class_name, cuda_only, header", ARGUMENT_PAIRS)
 def test_argument_classes_correspond(cuda_class, source, class_name, cuda_only, header):
     """Each CUDA argument class mirrors its pyccel class: same constructor, same attributes in the same order."""
     assert cuda_class.__name__ == "Cuda" + class_name
     cuda_parameters = list(inspect.signature(cuda_class.__init__).parameters)[1:]
     assert cuda_parameters == pyccel_init_parameters(source, class_name)
-    # attributes set from constructor arguments; derived ones (e.g. n_markers, bn1) are skipped by the parser
+    # attributes set from constructor arguments; derived ones (e.g. n_markers, bn1) are skipped by the parser.
     pyccel_fields = [field.name for field in CudaStruct.from_pyccel_class(ARGS_DIR / source, class_name).fields]
     cuda_fields = [field.name for field in cuda_class.struct.fields]
     assert [name for name in cuda_fields if name not in cuda_only] == pyccel_fields
@@ -121,6 +134,9 @@ def test_owners_select_pyccel_classes_on_numpy():
         assert type(domain.args_domain) is DomainArguments
         assert type(particles.args_markers) is MarkerArguments
         assert type(derham.args_derham) is DerhamArguments
+        for space in ("H1", "Hcurl"):
+            spline = derham.create_spline_function("f", space)
+            assert all(type(args) is SplineArguments for args in spline._args_spline)
 
 
 @requires_cupy
@@ -133,9 +149,11 @@ def test_cuda_struct_layout(cuda_class, source, class_name, cuda_only, header):
 @requires_cupy
 def test_cuda_classes_reject_host_arrays():
     with cunumpy.use_backend("numpy"):
-        markers = np.zeros((10, N_COLS))
+        markers = np.zeros((N_COLS, 10))
         with pytest.raises(TypeError, match="CuPy array"):
-            CudaMarkerArguments(markers, np.ones(10, dtype=bool), 10, *MARKER_INDICES, np.zeros(3, dtype=np.int64))
+            CudaMarkerArguments(
+                markers, np.ones(10, dtype=bool), 10, *MARKER_INDICES, np.zeros(3, dtype=np.int64), False
+            )
 
 
 @requires_cupy
@@ -176,13 +194,14 @@ def test_catalog_signatures():
     for catalog in CATALOGS.values():
         catalog.check_signatures()
     assert {package.split(".", 1)[1]: len(catalog) for package, catalog in CATALOGS.items()} == {
-        "pic.pushing.kernels": 44,
-        "pic.accumulation.kernels": 16,
+        "pic.pushing.kernels": 46,
+        "pic.accumulation.kernels": 29,
         "pic.diagnostics.kernels": 10,
         "pic.sph.kernels": 4,
-        "bsplines.kernels": 3,
+        "pic.kernels": 4,
+        "bsplines.kernels": 4,
         "geometry.kernels": 4,
-        "feec.kernels": 1,
+        "feec.kernels": 17,
         "feec.local_projectors.kernels": 8,
     }
 
@@ -212,7 +231,7 @@ def test_geometry_evaluation_on_cupy(domain_index):
     """Geometry evaluations run on CuPy for every analytic mapping and four spline mappings and agree with NumPy."""
     from struphy.pic.tests.kernel_test_args import geometry_domain
 
-    markers = np.random.default_rng(3).uniform(-0.1, 1.0, (50, 3))
+    markers = np.random.default_rng(3).uniform(-0.1, 1.0, (3, 50))
     eta = (np.linspace(0.1, 0.9, 5), np.linspace(0.0, 1.0, 4), np.linspace(0.2, 0.8, 3))
     results = []
     for backend in ("numpy", "cupy"):

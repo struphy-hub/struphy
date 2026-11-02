@@ -76,7 +76,8 @@ jobs:
       - name: Install struphy
         uses: ./.github/actions/install/install-struphy
         with:
-          optional-deps: 'mpi,phys'
+          # pproc: plasma-plots for the post-processing scripts of the examples (.plasma accessor)
+          optional-deps: 'mpi,phys,pproc'
         env:
           FC: ${{ env.FC }}
           CC: ${{ env.CC }}
@@ -107,7 +108,7 @@ jobs:
               TEST_FILES="bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/"
               ;;
             shard-2)
-              TEST_FILES="propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/ dispersion_relations/tests/ io/tests/ simulation/tests/"
+              TEST_FILES="api/tests/ propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/ dispersion_relations/tests/ io/tests/ simulation/tests/ models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py models/tests/test_scalars.py models/tests/test_splitting_order.py"
               ;;
             shard-3)
               TEST_FILES="feec/tests/"
@@ -135,14 +136,27 @@ jobs:
           echo "Running $PYTEST_CMD $TEST_FILES"
           $PYTEST_CMD $TEST_FILES
 
+      # --rootdir: the tests are run from site-packages, which has no pytest config file. Without it, pytest takes the
+      # test folder as rootdir/confcutdir and does not load struphy/conftest.py (fixtures nclones, update_baselines).
       - name: Run model tests with MPI
         if: matrix.test-type == 'model' && matrix.shard == 'shard-1'
         shell: bash
         run: |
-          mpirun -oversubscribe -n 2 pytest -x -m models --with-mpi $STRUPHY_PATH/models/tests/default_params/
+          mpirun -oversubscribe -n 2 pytest -x -m models --with-mpi --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/regression/
 
       - name: Run verification tests with MPI
         if: matrix.test-type == 'verification' && matrix.shard == 'shard-1'
         shell: bash
         run: |
-          mpirun --oversubscribe -n 2 pytest -x --with-mpi $STRUPHY_PATH/models/tests/verification/
+          mpirun --oversubscribe -n 2 pytest -x --with-mpi --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/verification/
+
+      # serial runs of the examples (the PR workflow runs them on 2 ranks); struphy is installed from the wheel,
+      # so the examples are taken from the checkout
+      - name: Run examples tests (serial)
+        # also after failed model tests
+        if: ${{ !cancelled() && matrix.test-type == 'model' && matrix.shard == 'shard-1' }}
+        shell: bash
+        env:
+          STRUPHY_EXAMPLES_DIR: ${{ github.workspace }}/examples
+        run: |
+          pytest -x -m examples --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/test_examples.py

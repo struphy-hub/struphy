@@ -20,7 +20,8 @@ permissions:
 
 concurrency:
   group: "docs-${{ github.ref }}"
-  cancel-in-progress: true
+  # never cancel a running GitHub Pages deployment
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-docs:
@@ -51,19 +52,20 @@ jobs:
 
       - name: Build Sphinx docs
         env:
-          STRUPHY_DOCS_SKIP_TUTORIALS: "1"
+          # the deployed docs (main) keep the tutorials; PR builds skip them to save time
+          STRUPHY_DOCS_SKIP_TUTORIALS: ${{ (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') && '0' || '1' }}
         run: |
           cd doc
           make html
 
       - name: Upload built docs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: doc/_build/html/
 
   deploy-docs:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build-docs
     runs-on: ubuntu-latest
     permissions:

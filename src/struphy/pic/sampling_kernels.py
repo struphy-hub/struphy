@@ -45,8 +45,8 @@ def set_particles_symmetric_3d_3v(numbers: "float[:,:]", markers: "float[:,:]"):
         else:
             e[0] = 1 - e[0]
 
-        markers[i_part, 0:3] = e
-        markers[i_part, 3:6] = v
+        markers[0:3, i_part] = e
+        markers[3:6, i_part] = v
 
 
 @stack_array("e", "v")
@@ -78,8 +78,8 @@ def set_particles_symmetric_2d_3v(numbers: "float[:,:]", markers: "float[:,:]"):
         else:
             e[0] = 1 - e[0]
 
-        markers[i_part, 1:3] = e
-        markers[i_part, 3:6] = v
+        markers[1:3, i_part] = e
+        markers[3:6, i_part] = v
 
 
 def tile_int_kernel(

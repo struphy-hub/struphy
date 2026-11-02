@@ -73,7 +73,7 @@ def thermal_energy(
     dfm = empty((3, 3), dtype=float)
 
     # fmt: off
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, eta1, eta2, eta3, wvol, vv, dfm, det_df)
+    #$ omp parallel private(det_df, dfm, eta1, eta2, eta3, iel1, iel2, iel3, q1, q2, q3, vv, wvol)
     #$ omp for reduction( + : res)
     # fmt: on
     for iel1 in range(nel1):
@@ -106,3 +106,7 @@ def thermal_energy(
                             det_df = linalg_kernels.det(dfm)
 
                             res[0] += vv * det_df * log(vv) * wvol
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on
