@@ -36,6 +36,50 @@ def test_nested_sum_follows_its_summands():
     assert scalars.dct["total"].value[0] == 60.0
 
 
+class _AllocatedConstant(Scalar):
+    """A scalar that reads its value from an object of `holder` created by the allocation, as BilinearEnergyFEEC
+    reads the spline vector of a variable."""
+
+    def __init__(self, holder):
+        super().__init__()
+        self.holder = holder
+
+    def allocate(self):
+        self.data = self.holder.data
+
+    def _local_update(self):
+        self.local_value[0] = self.data[0]
+
+    def _mpi_sum(self):
+        self.value[0] = self.local_value[0]
+
+
+def test_scalars_follow_a_new_allocation():
+    """A second Simulation.run() allocates new objects; the scalars (and the summands of sums) must use those,
+    not the ones of the first run (issue #852)."""
+    from types import SimpleNamespace
+
+    holder = SimpleNamespace(data=xp.array([1.0]))
+    a, b = _AllocatedConstant(holder), _Constant(2.0)
+    scalars = Scalars(a=a, total=a + b)
+
+    scalars.update()
+    assert scalars.host_value("a")[0] == 1.0
+    assert scalars.host_value("total")[0] == 3.0
+
+    # second run: the allocation replaces the object, the old one keeps its last value
+    holder.data = xp.array([10.0])
+    scalars.reset_allocation()
+    scalars.update()
+    assert scalars.host_value("a")[0] == 10.0
+    assert scalars.host_value("total")[0] == 12.0
+
+    # within a run, the object fetched at the allocation is used
+    holder.data[0] = 20.0
+    scalars.update()
+    assert scalars.host_value("a")[0] == 20.0
+
+
 class _MovingParticles:
     """Markers whose accessors return copies, as `Particles.velocities` does (it is fancy-indexed)."""
 
