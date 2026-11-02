@@ -3682,6 +3682,8 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
         pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
         x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
+        # feectools returns xp (possibly cupy) arrays; keep the point sets on the host as in the "B" case
+        x, wts = xp.to_numpy(x), xp.to_numpy(wts)
 
         pts = x % 1.0
 
@@ -3887,13 +3889,16 @@ def get_span_and_basis(pts, space):
             # avoid 1. --> 0. for clamped interpolation
             x = pts[n, nq] % (1.0 + 1e-14)
             span_tmp = bsp.find_span(T, degree, x)
-            basis[n, nq, :] = bsp.basis_funs_all_ders(
-                T,
-                degree,
-                x,
-                span_tmp,
-                0,
-                normalization=space.basis,
+            # feectools returns an xp (possibly cupy) array; basis is assembled on the host
+            basis[n, nq, :] = xp.to_numpy(
+                bsp.basis_funs_all_ders(
+                    T,
+                    degree,
+                    x,
+                    span_tmp,
+                    0,
+                    normalization=space.basis,
+                )
             )
             span[n, nq] = span_tmp  # % space.nbasis
 

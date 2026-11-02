@@ -24,8 +24,9 @@ MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)  # vdim, weight_idx, ..., mu_idx
 BOUNDARY_CONDITIONS = ((0, 0, 0), (1, 1, 1), (2, 0, 1))  # periodic, reflect, mixed with remove
 
 
-def marker_arguments(bc):
-    """Markers with a hole (marker 0) and a boundary particle (marker 1), in a Cuboid."""
+def marker_arguments(bc, pole=False):
+    """Markers with a hole (marker 0) and a boundary particle (marker 1), in a Cuboid; `pole` sets
+    ``args_markers.pole`` (a pole at eta1 = 0, for the regular position update of the guiding-centre pushers)."""
     rng = np.random.default_rng(7)
     markers = rng.random((N_COLS, N_MARKERS))
     markers[3:6] = rng.uniform(-2, 2, (3, N_MARKERS))
@@ -44,7 +45,7 @@ def marker_arguments(bc):
         N_MARKERS,
         *MARKER_INDICES,
         xp.asarray(bc, dtype=np.int64),
-        False,  # Cuboid has no pole
+        pole,  # Cuboid has no pole; callers that set it pass their own domain
     )
     return args_markers, Cuboid().args_domain
 
