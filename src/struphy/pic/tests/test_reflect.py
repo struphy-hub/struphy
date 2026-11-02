@@ -89,6 +89,7 @@ def test_particle_boundary_reflection(backend):
         assert bool(xp.all(particles.markers[particles.first_pusher_idx, selected] == -1.0))
 
 
+@pytest.mark.mpi_skip
 @pytest.mark.parametrize("backend", BACKENDS)
 # time steps that reflect markers but keep each stage displacement below the domain size (one reflection must bring
 # the marker back): the random U gives logical velocities of up to 20 (Hcurl), 400 (Hdiv) and 3 (H1vec)
