@@ -143,12 +143,29 @@ thermodynamic variable (pressure perturbation :math:`\tilde p = 2 q_0 \tilde q`)
 
   * :class:`~struphy.models.LinearMHDWithQ`
 
+    * :class:`~struphy.models.PerturbativeMHDWithQ`
+
+  * :class:`~struphy.models.PerturbativeEulerWithQ`
+
+The perturbative models add the terms that are nonlinear in the perturbations, each in its own energy conserving step,
+to the steps of their linear parent.
+
 .. autoclass:: struphy.models.LinearEulerWithQ
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
 
 .. autoclass:: struphy.models.LinearMHDWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeEulerWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQ
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
