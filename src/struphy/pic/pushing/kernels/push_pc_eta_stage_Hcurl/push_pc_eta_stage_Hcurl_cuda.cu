@@ -24,7 +24,8 @@ using namespace struphy_cuda;
  * @param b Butcher weights b; n_stages is its length.
  * @param c Butcher nodes c (unused, as in the pyccel kernel).
  *
- * Holes (markers[0, ip] == -1) are skipped, as in pyccel. The kinetic boundary conditions are applied after the update.
+ * Holes and markers reflected in an earlier stage (first_pusher_idx == -1) and boundary particles (last column
+ * == -2) are skipped, as in pyccel. The kinetic boundary conditions are applied after the update.
  */
 extern "C" __global__ void push_pc_eta_stage_Hcurl(double dt, int stage, MarkerArgs args_markers,
                                                    DomainArgs args_domain, DerhamArgs args_derham, Array3D<double> u_1,
@@ -49,8 +50,10 @@ extern "C" __global__ void push_pc_eta_stage_Hcurl(double dt, int stage, MarkerA
 
     double last = stage == n_stages - 1 ? 1.0 : 0.0;
 
-    // only do something if particle is a "true" particle (i.e. not a hole)
-    if (args_markers.markers(0, ip) == -1.0) return;
+    // skip holes, markers reflected in an earlier stage (their start position is overwritten) and boundary particles
+    if (args_markers.markers(first_pusher_idx, ip) == -1.0 ||
+        args_markers.markers(args_markers.markers.shape[0] - 1, ip) == -2.0)
+        return;
 
     double e1 = args_markers.markers(0, ip);
     double e2 = args_markers.markers(1, ip);
