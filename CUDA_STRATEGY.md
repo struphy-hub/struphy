@@ -334,16 +334,18 @@ These are the largest kernels. They are ported by hand like the others (decision
 
 **Step 4 – Hybrid MHD–kinetic 6D (current and pressure coupling)**
 
-| # | Kernel | Used by |
-|---|---|---|
-| 20 | `cc_lin_mhd_6d_1` (A) | `CurrentCoupling6DDensity` |
-| 21–23 | `push_bxu_Hcurl`, `push_bxu_Hdiv`, `push_bxu_H1vec` (P) | `CurrentCoupling6DCurrent` |
-| 24 | `cc_lin_mhd_6d_2` (A) | `CurrentCoupling6DCurrent` |
-| 25–27 | `push_pc_eta_stage_Hcurl`, `push_pc_eta_stage_Hdiv`, `push_pc_eta_stage_H1vec` (P) | `PushEtaPC` |
-| 28–29 | `push_pc_GXu` (P), `pc_lin_mhd_6d` (A) | `PressureCoupling6D` |
-| 30–31 | `push_pc_GXu_full` (P), `pc_lin_mhd_6d_full` (A) | `PressureCoupling6D` (full) |
+| # | Kernel | Used by | Status |
+|---|---|---|---|
+| 20 | `cc_lin_mhd_6d_1` (A) | `CurrentCoupling6DDensity` | ✓ |
+| 21–23 | `push_bxu_Hcurl`, `push_bxu_Hdiv`, `push_bxu_H1vec` (P) | `CurrentCoupling6DCurrent` | ✓ |
+| 24 | `cc_lin_mhd_6d_2` (A) | `CurrentCoupling6DCurrent` | ✓ |
+| 25–27 | `push_pc_eta_stage_Hcurl`, `push_pc_eta_stage_Hdiv`, `push_pc_eta_stage_H1vec` (P) | `PushEtaPC` | ✓ |
+| 28–29 | `push_pc_GXu` (P), `pc_lin_mhd_6d` (A) | `PressureCoupling6D` | ✓ |
+| 30–31 | `push_pc_GXu_full` (P), `pc_lin_mhd_6d_full` (A) | `PressureCoupling6D` (full) | ✓ |
+| – | `cc_lin_mhd_6d_1_mf`, `cc_lin_mhd_6d_2_mf`, `pc_lin_mhd_6d_mf`, `marker_operator_symm_dot`, `marker_operator_pressure_dot` (A, matrix-free) | the three coupling propagators with `matrix_free=True` | ✓ |
 
-The three spaces (H1vec/Hcurl/Hdiv) differ only in the basis; port one, then the other two.
+With these, every kernel of `LinearMHDVlasovCC` and `LinearMHDVlasovPC` has a CUDA version, see
+[the notes](#hybrid-6d-linearmhdvlasovcc-linearmhdvlasovpc-implementation-notes).
 
 **Step 5 – Hybrid 5D**
 
@@ -923,3 +925,39 @@ fallback for that kernel. They take only arrays and scalars, no argument objects
 - **Separate follow-ups.** `SplineFunction.__call__` already dispatches CUDA kernels for marker and dense/sparse
   grid evaluation. Remaining evaluation work is the host-only `eval_tp_fixed_loc` helper and distributed
   field-evaluation MPI handling/coverage. FFT eta3 solves are an additional optimization.
+
+## Hybrid 6D (`LinearMHDVlasovCC`, `LinearMHDVlasovPC`) implementation notes
+
+Step 4 of the [porting order](#porting-order): the 17 kernels that the two models use and that had no CUDA version.
+
+- **Kernels.** Pushers `push_bxu_{Hcurl,Hdiv,H1vec}`, `push_pc_GXu(_full)` and `push_pc_eta_stage_{Hcurl,Hdiv,H1vec}`
+  (the Butcher arrays are `Array1D`, so `n_stages` is `b.shape[0]` as in pyccel); accumulations `cc_lin_mhd_6d_1`,
+  `cc_lin_mhd_6d_2`, `pc_lin_mhd_6d(_full)`; and the matrix-free variants `cc_lin_mhd_6d_1_mf`, `cc_lin_mhd_6d_2_mf`,
+  `pc_lin_mhd_6d_mf`, `marker_operator_symm_dot`, `marker_operator_pressure_dot`. `push_eta_stage`, both
+  `push_vxb_*` and `marker_operator_asym_dot` were ported before. Same arguments, order and arithmetic as pyccel, one
+  thread per marker.
+- **Device helpers.** `filler_kernels.cuh` gets `fill_mat(_vec)_pressure(_full)`; `particle_to_mat_kernels.cuh`
+  gets `mat_fill_{v0vec,v1,v2}_asym`, `m_v_fill_{v0vec,v1,v2}_symm` and `m_v_fill_v1_pressure(_full)`. These take
+  the spans and the thread-local `SplineScratch` of the caller (like `vec_fill_v1`), because the kernels evaluate
+  B or U at the same spans first.
+- **Propagators.** `CurrentCoupling6DDensity`, `CurrentCoupling6DCurrent` and `PressureCoupling6D` no longer fall
+  back to the assembled matrices on CuPy when `matrix_free=True` (the default of `PressureCoupling6D`). `PushEtaPC`
+  passes its Butcher arrays with `xp.asarray`, as `PushEta` does. The coupling constants of the two current-coupling
+  propagators are Python floats (`epsilon` is a 0-d array on CuPy, which a CUDA `double` parameter rejects).
+- **Parameter size.** `pc_lin_mhd_6d(_full)` take 36 `Array6D` views (104 bytes each), so their parameter lists are
+  about 4.8 KB. That is above the 4 KB limit of CUDA before 12.1, but within the 32 KB that CUDA 12.1+ allows on
+  Volta and newer GPUs (H100 included). The pyccel signature is unchanged; the matrix-free path (the
+  `PressureCoupling6D` default) does not have this problem.
+- **Found, not fixed here.** `push_pc_eta_stage_*` (pyccel, and the CUDA port alike) skips only holes
+  (`markers[0] == -1`), not markers reflected in an earlier stage (`markers[first_pusher_idx] == -1`, which
+  `push_eta_stage` skips). With reflecting boundaries such a marker's later stages start from eta = (-1, ...). The
+  parity cases therefore test reflecting boundaries on the analytic mappings only.
+- **Tests.** `PARITY_CASES` entries for all 17 kernels (Cuboid, Colella, HollowTorus, ShafranovDshapedCylinder and a
+  3d spline mapping; every `basis_u`; with and without boundary cut; every boundary condition and RK4 stage for the
+  stage pusher; `n_v` 2 and 3). The CPU emulation agrees with pyccel. A wrong velocity factor in
+  `fill_mat_pressure` or an untransposed `DF^{-1}` in `push_bxu_Hcurl` makes it fail. Both models, with both
+  `matrix_free` settings, ran two steps of a small R-wave slab on the fake CuPy with emulated launches; fields,
+  markers and energies agree with NumPy to 1e-15 (by hand, no test file yet). That needed the `shear_alf`
+  preconditioner set to `MassMatrixPreconditioner`: the default `StiffnessPreconditioner` fails on CuPy in feectools
+  (`DenseInverse` applies the device matrix of `KroneckerSumSolver._DenseApply` to a host identity). GPU tests have
+  not run on an H100.
