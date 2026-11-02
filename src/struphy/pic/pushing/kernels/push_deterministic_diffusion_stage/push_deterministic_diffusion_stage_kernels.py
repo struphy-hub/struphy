@@ -73,8 +73,8 @@ def push_deterministic_diffusion_stage(
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[0, ip] == -1.0:
+        # skip holes, markers reflected in an earlier stage (their start position is overwritten) and boundary particles
+        if markers[first_pusher_idx, ip] == -1.0 or markers[-1, ip] == -2.0:
             continue
 
         e1 = markers[0, ip]

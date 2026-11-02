@@ -124,3 +124,33 @@ def test_pc_eta_stage_skips_reflected_markers(backend, space, dt):
     positions = markers[:3, 2:]
     assert np.all((positions >= 0.0) & (positions <= 1.0))
     np.testing.assert_array_equal(markers[:, 1], boundary_particle)
+
+
+@pytest.mark.mpi_skip
+def test_deterministic_diffusion_stage_skips_reflected_markers():
+    """Like test_pc_eta_stage_skips_reflected_markers, for push_deterministic_diffusion_stage (pyccel only)."""
+    from struphy.pic.pushing.kernels.push_deterministic_diffusion_stage import push_deterministic_diffusion_stage
+    from struphy.pic.tests.kernel_test_args import (
+        butcher_arguments,
+        derham_arguments,
+        marker_arguments,
+        spline_coefficients,
+    )
+
+    args_markers, args_domain = marker_arguments((1, 1, 1))
+    boundary_particle = args_markers.markers[:, 1].copy()
+    pi_u, *pi_grad_u = spline_coefficients(n=4, seed=64)
+    # a positive density; diffusion coefficient 0.1 with dt = 0.1 moves markers by up to 0.1 per stage
+    pi_u = 1.0 + 0.5 * np.abs(pi_u)
+    a, b, c, n_stages = butcher_arguments("rk4")
+    for stage in range(n_stages):
+        push_deterministic_diffusion_stage(
+            0.1, stage, args_markers, args_domain, derham_arguments(), pi_u, *pi_grad_u, 0.1, a, b, c
+        )
+    markers = args_markers.markers
+
+    reflected = markers[args_markers.first_pusher_idx, 2:] == -1.0
+    assert reflected.any(), "no marker was reflected; increase the diffusion coefficient"
+    positions = markers[:3, 2:]
+    assert np.all((positions >= 0.0) & (positions <= 1.0))
+    np.testing.assert_array_equal(markers[:, 1], boundary_particle)
