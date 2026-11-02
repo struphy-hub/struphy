@@ -38,6 +38,9 @@ and **ask whether to add it to that family** as a child, before writing code. Th
   `DriftKineticMaxwell`.
 - **LinearEuler family** (zero-flow equilibrium): `LinearEuler` → `LinearMHD` → `LinearMHDVlasovCC`,
   `LinearMHDVlasovPC`, `LinearMHDDriftkineticCC` (hybrid models with energetic ions).
+- **LinearEulerWithQ family** (zero-flow equilibrium, variable q = sqrt(p)): `LinearEulerWithQ` →
+  `LinearMHDWithQ`. Shares the equilibrium scalars and the magnetic field with the LinearEuler family through
+  utilities in `utils.py`.
 - **Maxwell family**: `Maxwell` → `ColdPlasma` → `ColdPlasmaVlasov`.
 - **SPH family**: `ColdEulerSPH` → `EulerSPH` → `ViscousEulerSPH`; `ColdEulerSPH` → `IncompressibleNavierStokesSPH`.
 
@@ -85,6 +88,11 @@ and the convergence order of the time stepping. When a new family is created, ad
     `super().__init__()` (whose `init_variables()` includes them); `KineticIons` of the Vlasov and guiding-center
     models only set `space`. Use the same variable names along the chain (`e_field`, `b_field`, `phi`, `var`) and
     the scalar names `en_f`, `en_E`, `en_B`, `en_phi`, `en_mu`, `en_tot`.
+  - Code shared by models that are not parent and child (e.g. the magnetic energies of `LinearMHD` and
+    `LinearMHDWithQ`) goes into utility functions or classes in `models/utils.py`, for every family (in a section
+    per family), which each model calls from its own hooks. Keep short code (a few lines: variable links, creating
+    the propagators, checks of the flags) in the models, even if it is repeated: it shows what the model does.
+    Don't use mixin classes: with them the hooks depend on the order of the bases (MRO) and are hard to follow.
   - A model that renames a propagator adds `_renamed_propagators = {"old": "new"}` (class attribute), so that
     `from_dict` restores the options of old run metadata; unmatched options are skipped with a warning.
   - After the inner classes, annotate the attributes whose class the model defines or changes, e.g.
