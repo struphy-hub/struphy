@@ -1,20 +1,16 @@
-import copy
-
 from struphy.io.options import BaseUnits, LiteralOptions
-from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, Scalars
-from struphy.models.species import (
-    FieldSpecies,
-    FluidSpecies,
-)
+from struphy.models.maxwell import Maxwell
+from struphy.models.scalars import BilinearEnergyFEEC
+from struphy.models.species import FluidSpecies
 from struphy.models.variables import FEECVariable
 from struphy.propagators.jxb_cold import JxBCold
-from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
 from struphy.propagators.ohm_cold import OhmCold
 
 
-class ColdPlasma(StruphyModel):
+class ColdPlasma(Maxwell):
     """Cold plasma model: electron-fluid current coupled with Maxwell's equations via a cold-plasma Ohm's law.
+
+    Extends :class:`~struphy.models.Maxwell` by the current of a cold electron fluid.
 
     Parameters
     ----------
@@ -34,19 +30,15 @@ class ColdPlasma(StruphyModel):
     def model_type(cls) -> LiteralOptions.ModelTypes:
         return "Fluid"
 
-    ## species
-
-    class EMFields(FieldSpecies):
-        def __init__(self):
-            self.e_field = FEECVariable(space="Hcurl")
-            self.b_field = FEECVariable(space="Hdiv")
-            self.init_variables()
+    ## additional species
 
     class Electrons(FluidSpecies):
+        """Cold electron fluid, represented by its current (named ``electrons`` in all models of the family)."""
+
         def __init__(
             self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
+            charge_number: int = -1,
+            mass_number: float = 1 / 1836,
             alpha: float = None,
             epsilon: float = None,
         ):
@@ -58,13 +50,26 @@ class ColdPlasma(StruphyModel):
                 epsilon=epsilon,
             )
 
-    ## propagators
+    ## additional propagators
 
-    class Propagators:
-        def __init__(self):
-            self.maxwell = MaxwellWeakAmpere()
+    class Propagators(Maxwell.Propagators):
+        """Propagators of :class:`~struphy.models.Maxwell` plus ``ohm`` (cold-plasma Ohm's law) and ``jxb``
+        (rotation of the current in the background magnetic field).
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`Maxwell.Propagators <struphy.models.Maxwell.Propagators>`.
+        """
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.ohm = OhmCold()
             self.jxb = JxBCold()
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    electrons: Electrons
+    propagators: Propagators
 
     ## abstract methods
 
@@ -76,50 +81,45 @@ class ColdPlasma(StruphyModel):
         alpha: float = None,
         epsilon: float = None,
     ):
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
+        self._store_params(locals())
+        # for the hooks: the arguments of this constructor
+        self._electron_args = {
+            "charge_number": charge_number,
+            "mass_number": mass_number,
+            "alpha": alpha,
+            "epsilon": epsilon,
+        }
 
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.electrons = self.Electrons(
-            charge_number=charge_number,
-            mass_number=mass_number,
-            alpha=alpha,
-            epsilon=epsilon,
-        )
+        # 1.-5. see Maxwell
+        super().__init__(base_units)
 
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
+    def _create_species(self):
+        """:meta private:"""
+        super()._create_species()
+        self.electrons = self.Electrons(**self._electron_args)
 
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators()
-
-        # 4. assign variables to propagators
-        self.propagators.maxwell.variables.e = self.em_fields.e_field
-        self.propagators.maxwell.variables.b = self.em_fields.b_field
-
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
         self.propagators.ohm.variables.j = self.electrons.current
         self.propagators.ohm.variables.e = self.em_fields.e_field
 
         self.propagators.jxb.variables.j = self.electrons.current
 
-        # 5. define scalars to be tracked during simulation
-        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
-        kinetic_energy = BilinearEnergyFEEC(
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        # en_tot of Maxwell is replaced by the one including the current energy (and kept last)
+        en_tot = scalars.pop("en_tot")
+        en_J = BilinearEnergyFEEC(
             self.electrons.current,
             bilinear_form_name="M1ninv",
             normalization=self.electrons.equation_params.alpha**2,
         )
-        total_energy = electric_energy + magnetic_energy + kinetic_energy
-
-        self.scalars = Scalars(
-            electric_energy=electric_energy,
-            magnetic_energy=magnetic_energy,
-            kinetic_energy=kinetic_energy,
-            total_energy=total_energy,
-        )
+        scalars["en_J"] = en_J
+        scalars["en_tot"] = en_tot + en_J
+        return scalars
 
     @property
     def bulk_species(self):
@@ -155,6 +155,16 @@ class ColdPlasma(StruphyModel):
             -\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf{B} = \frac{\alpha^2}{\varepsilon} \mathbf{j}
 
         where :math:`(n_0, \mathbf{B}_0)` denotes an inhomogeneous background.
+
+        **Conserved quantities** (for :math:`\mathbf E \times \mathbf n = 0` on the boundary, or periodic
+        boundaries):
+
+        Energy:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \frac 12 \int \left( |\mathbf E|^2 + |\mathbf B|^2
+            + \frac{\alpha^2}{n_0} |\mathbf j|^2 \right) \textnormal d \mathbf x = 0
         """
 
     @classmethod
@@ -173,32 +183,10 @@ class ColdPlasma(StruphyModel):
     def doc_scalar_quantities(cls):
         r"""**The following scalars are tracked during simulation:**
 
-        - Electric field energy: ``electric_energy``
-        - Magnetic field energy: ``magnetic_energy``
-        - Cold-current energy: ``kinetic_energy``
-        - Total energy: ``total_energy``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
-        2. :class:`~struphy.propagators.ohm_cold.OhmCold`
-        3. :class:`~struphy.propagators.jxb_cold.JxBCold`
-        """
-        doc = rf"""**1. propagators.maxwell.Maxwell:**
-
-{MaxwellWeakAmpere.__doc__}
-
-**2. OhmCold:**
-
-{OhmCold.__doc__}
-
-**3. JxBCold:**
-
-{JxBCold.__doc__}
-"""
-        return doc
+        - Electric field energy: :math:`\frac 12 \int |\mathbf E|^2 \, dV` (``en_E``)
+        - Magnetic field energy: :math:`\frac 12 \int |\mathbf B|^2 \, dV` (``en_B``)
+        - Cold-current energy: :math:`\frac{\alpha^2}{2} \int |\mathbf j|^2 / n_0 \, dV` (``en_J``)
+        - Total energy: ``en_tot`` (sum of the above)"""
 
     @classmethod
     def doc_long_description(cls):
@@ -206,7 +194,10 @@ class ColdPlasma(StruphyModel):
         electron fluid is represented only through its current, so thermal
         pressure and kinetic velocity-space effects are omitted. It is useful as
         a reduced model between vacuum Maxwell and fully kinetic Vlasov-Maxwell
-        dynamics."""
+        dynamics.
+
+        In the Maxwell family it extends :class:`~struphy.models.Maxwell` by the cold electron current; its child
+        :class:`~struphy.models.ColdPlasmaVlasov` adds a hot kinetic species."""
 
     @classmethod
     def doc_examples(cls):

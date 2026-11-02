@@ -2,8 +2,8 @@
  "case": "ViscousEulerSPH",
  "ranks": {
   "1": {
-   "commit": "e6f39429",
-   "date": "2026-10-30",
+   "commit": "9d2174f5",
+   "date": "2026-10-31",
    "values": {
     "time": [
      0.0,
@@ -17,14 +17,14 @@
      9.24812675003142e-05,
      0.00016670309948302428
     ],
-    "markers/euler_fluid/var/n": 5000,
-    "markers/euler_fluid/var/sum_w": 1.000780672619598,
-    "markers/euler_fluid/var/sum_w_v2": 0.00033340619896604856
+    "markers/fluid/var/n": 5000,
+    "markers/fluid/var/sum_w": 1.000780672619598,
+    "markers/fluid/var/sum_w_v2": 0.00033340619896604856
    }
   },
   "2": {
-   "commit": "e6f39429",
-   "date": "2026-10-30",
+   "commit": "9d2174f5",
+   "date": "2026-10-31",
    "values": {
     "time": [
      0.0,
@@ -38,9 +38,9 @@
      9.24812675003142e-05,
      0.00016670309948302428
     ],
-    "markers/euler_fluid/var/n": 5000,
-    "markers/euler_fluid/var/sum_w": 1.000780672619598,
-    "markers/euler_fluid/var/sum_w_v2": 0.00033340619896604856
+    "markers/fluid/var/n": 5000,
+    "markers/fluid/var/sum_w": 1.000780672619598,
+    "markers/fluid/var/sum_w_v2": 0.00033340619896604856
    }
   }
  }

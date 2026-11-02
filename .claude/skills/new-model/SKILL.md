@@ -1,6 +1,6 @@
 ---
 name: new-model
-description: Use when a user wants to implement, add or create a new Struphy model (a new PDE system in src/struphy/models/), or to add terms to an existing model. Checks first whether the model belongs to an existing model family (Vlasov, Guiding-center, LinearEuler, ...) and asks the user whether to add it there. Triggers on requests like "implement a new model", "add a model for ...", "create model X with propagators Y and Z".
+description: Use when a user wants to implement, add or create a new Struphy model (a new PDE system in src/struphy/models/), or to add terms to an existing model. Checks first whether the model belongs to an existing model family (Vlasov, Guiding-center, LinearEuler, Maxwell, SPH, ...) and asks the user whether to add it there. Triggers on requests like "implement a new model", "add a model for ...", "create model X with propagators Y and Z".
 ---
 
 # Implementing a new Struphy model

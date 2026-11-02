@@ -890,7 +890,7 @@ class Simulation(SimulationBase):
                 # update time and index (round time to 10 decimals for a clean time grid!)
                 self.time_state["value"][0] = round(float(self.time_state["value"][0]) + dt, 14)
                 self.time_state["value_sec"][0] = round(
-                    float(self.time_state["value_sec"][0]) + dt * self.model.units.t, 14
+                    float(self.time_state["value_sec"][0]) + dt * float(self.model.units.t), 14
                 )
                 self.time_state["index"][0] += 1
 
@@ -946,7 +946,7 @@ class Simulation(SimulationBase):
                         + "physical time [s]:".ljust(25)
                         + "{0:4.2e} / {1:4.2e}".format(
                             float(self.time_state["value_sec"][0]),
-                            Tend * self.model.units.t,
+                            Tend * float(self.model.units.t),
                         ).rjust(25)
                     )
                     message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
@@ -1947,7 +1947,8 @@ class Simulation(SimulationBase):
             for species_name, species in model_species.items()
         }
         for species_name, variables in definitions.items():
-            species = self.model.species.get(species_name)
+            # runs written before a species was renamed keep the old name in their metadata
+            species = self.model.species.get(self.model._renamed_species.get(species_name, species_name))
             if species is None:
                 continue
             for variable_name, entry in variables.items():

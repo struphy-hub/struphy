@@ -892,6 +892,11 @@ class Output:
         value = self.metadata[key]
         return cls.from_dict(tuples(value)) if value is not None else None
 
+    def _model_species_name(self, name: str) -> str:
+        """Current name of a species saved under ``name`` (runs written before a species was renamed keep the old
+        name in their data file)."""
+        return getattr(self.model, "_renamed_species", {}).get(name, name)
+
     @cached_property
     def model(self):
         """Model reconstructed from saved metadata, including initial conditions."""
@@ -900,7 +905,8 @@ class Output:
 
         model = self._restore("model", StruphyModel)
         for species_name, variables in self.initial_conditions.items():
-            species = model.species.get(species_name)
+            # runs written before a species was renamed keep the old name in their metadata
+            species = model.species.get(model._renamed_species.get(species_name, species_name))
             if species is None:
                 continue
             for variable_name, definition in variables.items():
@@ -1248,7 +1254,8 @@ class Output:
                 self._pproc_kinetic_kinds = []
                 for name in file["kinetic"].keys():
                     self._pproc_kinetic_species += [name]
-                    self._pproc_kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
+                    species = self.model.species[self._model_species_name(name)]
+                    self._pproc_kinetic_kinds += [next(iter(species.variables.values())).space]
                     self._pproc_exist_particles[name] = {
                         key: key in file["kinetic"][name] for key in ("markers", "f", "n_sph")
                     }
@@ -1850,7 +1857,7 @@ class Output:
         """
 
         species = path_kinetic_species.split("/")[-1]
-        species_obj: ParticleSpecies = self.model.particle_species[species]
+        species_obj: ParticleSpecies = self.model.particle_species[self._model_species_name(species)]
 
         # open hdf5 files and get names and number of saved markers of kinetic species
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:

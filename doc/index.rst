@@ -17,6 +17,12 @@ The Struphy website `<https://struphy-hub.github.io/>`_ gives an overview of the
 and a gallery of examples. Ready-to-run simulations are in `struphy-examples <https://github.com/struphy-hub/struphy-examples>`_,
 see :ref:`quickstart_examples`.
 
+This documentation is published on `GitHub pages <https://struphy-hub.github.io/struphy/index.html>`_ and on
+`Read the Docs <https://struphy.readthedocs.io/en/latest/>`_. Read the Docs also has the doc pages of older Struphy
+versions, starting from 3.1.0 (version menu of Read the Docs). The Read the Docs build does not compile Struphy and
+therefore does not execute all the notebooks in the doc (e.g. the :ref:`tutorials <tutorials>`): since the notebooks
+are stored without outputs, most of them appear there without any outputs. The GitHub pages build executes them.
+
 The code is freely available under an `MIT license <https://github.com/struphy-hub/struphy/blob/devel/LICENSE>`_ - Copyright (c) 2019-2026, Struphy developers, Max Planck Institute for Plasma Physics.
 
 .. image:: pics/MPI_PP_Logo_Wide_E_green_rgb.png

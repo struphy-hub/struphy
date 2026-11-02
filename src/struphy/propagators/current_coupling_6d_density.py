@@ -190,12 +190,13 @@ class CurrentCoupling6DDensity(Propagator):
         Ab = self.variables.u.species.mass_number
         epsilon = self.energetic_ions.species.equation_params.epsilon
 
-        self._coupling_const = Ah / Ab / epsilon
+        # a Python float (epsilon is a 0-d array on CuPy; CUDA kernels take scalars)
+        self._coupling_const = float(Ah / Ab / epsilon)
 
         self._boundary_cut_e1 = self.options.boundary_cut[0]
 
-        # load accumulator (the matrix-free kernels have no CUDA version)
-        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        # load accumulator
+        self._matrix_free = self.options.matrix_free
         if self._matrix_free:
             # the filling of the matrix per marker (in the first free columns of the marker array)
             self._column = particles.args_markers.first_free_idx
