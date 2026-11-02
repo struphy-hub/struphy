@@ -87,3 +87,39 @@ def test_particle_boundary_reflection(backend):
             xp.to_numpy(particles.markers[3:6, selected]).T, [[-1.0, 2.0, 3.0], [1.0, -2.0, 3.0], [-1.0, -2.0, -3.0]]
         )
         assert bool(xp.all(particles.markers[particles.first_pusher_idx, selected] == -1.0))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+# time steps that reflect markers but keep each stage displacement below the domain size (one reflection must bring
+# the marker back): the random U gives logical velocities of up to 20 (Hcurl), 400 (Hdiv) and 3 (H1vec)
+@pytest.mark.parametrize("space, dt", [("Hcurl", 0.01), ("Hdiv", 0.001), ("H1vec", 0.05)])
+def test_pc_eta_stage_skips_reflected_markers(backend, space, dt):
+    """A marker reflected in an RK stage of push_pc_eta_stage is not pushed again in the later stages (issue #866).
+
+    Reflection overwrites its start position (row first_pusher_idx is set to -1); pushing it again from there sent
+    it far outside the domain."""
+    import importlib
+
+    from struphy.pic.tests.kernel_test_args import (
+        butcher_arguments,
+        derham_arguments,
+        marker_arguments,
+        spline_coefficients,
+    )
+
+    name = f"push_pc_eta_stage_{space}"
+    kernel = getattr(importlib.import_module(f"struphy.pic.pushing.kernels.{name}"), name)
+    with xp.use_backend(backend):
+        args_markers, args_domain = marker_arguments((1, 1, 1))
+        boundary_particle = xp.to_numpy(args_markers.markers[:, 1]).copy()
+        args = (args_markers, args_domain, derham_arguments(), *spline_coefficients(n=3, seed=62), False)
+        a, b, c, n_stages = butcher_arguments("rk4")
+        for stage in range(n_stages):
+            kernel(dt, stage, *args, a, b, c, n_threads=args_markers.n_markers)
+        markers = xp.to_numpy(args_markers.markers)
+
+    reflected = markers[args_markers.first_pusher_idx, 2:] == -1.0
+    assert reflected.any(), "no marker was reflected; increase dt"
+    positions = markers[:3, 2:]
+    assert np.all((positions >= 0.0) & (positions <= 1.0))
+    np.testing.assert_array_equal(markers[:, 1], boundary_particle)

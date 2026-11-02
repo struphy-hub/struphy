@@ -462,22 +462,9 @@ def push_pc_GXu_args(domain):
     return (0.2, 0, *hybrid_6d_markers(domain), derham_arguments(), *spline_coefficients(n=9, seed=61))
 
 
-# Unlike push_eta_stage, push_pc_eta_stage (pyccel, and the CUDA version alike) does not skip markers reflected in an
-# earlier stage (first_pusher_idx == -1): their later stages start from eta = (-1, ...) and leave the domain. On the
-# analytic mappings both versions still agree there; the spline mapping, evaluated far outside its knots, amplifies
-# round-off to 1e-6. Reflecting boundaries are therefore tested on the analytic mappings only.
-REFLECT_DOMAINS = tuple(domain for domain in GC_DOMAINS if domain < N_ANALYTIC_DOMAINS)
-
-
-def pc_eta_stage_domain(n, bc):
-    """Domain of case `n`: cycling through GC_DOMAINS, or through REFLECT_DOMAINS for reflecting boundaries."""
-    domains = REFLECT_DOMAINS if 1 in bc else GC_DOMAINS
-    return domains[n % len(domains)]
-
-
 # (boundary conditions, Butcher method, stage, index into geometry_domain(), use_perp_model)
 PC_ETA_STAGE_CASES = tuple(
-    (bc, method, stage, pc_eta_stage_domain(n, bc), n % 2 == 0)
+    (bc, method, stage, GC_DOMAINS[n % len(GC_DOMAINS)], n % 2 == 0)
     for n, (bc, method, stage) in enumerate(
         (bc, method, stage)
         for bc in BOUNDARY_CONDITIONS
