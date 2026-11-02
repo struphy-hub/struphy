@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from dataclasses import dataclass
 from typing import Callable, Literal
@@ -239,7 +240,8 @@ class ImplicitDiffusion(Propagator):
         multigrid : MultiGridOptions, default=None
             Options of the multigrid preconditioner (if ``precond="MultiGrid"``).
             If ``None``, defaults to ``MultiGridOptions()``. Set ``nullspace="constants"``
-            for (nearly) singular problems, e.g. a periodic Poisson problem with tiny ``sigma_1``.
+            for (nearly) singular problems, e.g. a periodic Poisson problem with tiny ``sigma_1``; for an
+            exactly singular system (:attr:`lhs_is_singular`) it is set automatically if left ``None``.
 
         solver_params : SolverParameters, default=None
             Iterative-solver controls (for example ``tol``, ``maxiter``,
@@ -490,11 +492,15 @@ class ImplicitDiffusion(Propagator):
         if precond is None:
             pc = None
         elif precond == "MultiGrid":
+            mg_options = self.options.multigrid
+            # singular system: the coarse levels must know the kernel, otherwise pcg needs many more iterations
+            if self.lhs_is_singular and mg_options.nullspace is None:
+                mg_options = dataclasses.replace(mg_options, nullspace="constants")
             self._mg = MultiGridPreconditioner(
                 self._sigma_1 * stab_mat + self._diffusion_op,
                 self.derham,
                 self.domain,
-                self.options.multigrid,
+                mg_options,
                 mass_ops=self.mass_ops,
             )
             pc = self._mg
@@ -586,10 +592,15 @@ class ImplicitDiffusion(Propagator):
 
     @property
     def lhs_is_singular(self) -> bool:
-        """True if the whole system matrix ``sigma_1 * stab_mat (I - A) + grad.T @ diffusion_mat @ grad`` is
+        r"""True if the whole system matrix ``sigma_1 * stab_mat (I - A) + grad.T @ diffusion_mat @ grad`` is
         singular, with the constants in its kernel: the diffusion operator is singular (see
         :attr:`operator_is_singular`) and the stabilization removes the average ``A`` (``stab_average``), which
-        reproduces the constants. Then the right-hand side is made compatible and the mean of ``phi`` is fixed."""
+        reproduces the constants. Then the right-hand side is made compatible and the mean of ``phi`` is fixed.
+
+        The kernel can be larger than the constants if ``diffusion_mat`` is degenerate (``"M1perp"``,
+        ``"M1gyro"``) and :math:`\mathbf B_0` is not along the averaged directions (e.g. ``stab_average="eta3"``
+        with :math:`\mathbf B_0` along :math:`\eta_1`); such a setup stays singular.
+        Polar splines are treated as regular, see :attr:`operator_is_singular`."""
         return (
             self.operator_is_singular
             and self._stabilize_lhs
