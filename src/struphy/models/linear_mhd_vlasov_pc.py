@@ -122,6 +122,19 @@ class LinearMHDVlasovPC(LinearMHD):
         self.propagators.push_eta_pc.variables.var = self.energetic_ions.var
         self.propagators.push_vxb.variables.ions = self.energetic_ions.var
 
+    def post_allocate(self):
+        """:meta private:"""
+        super().post_allocate()
+
+        # the energy exchange is exact only if the transport and the pressure coupling use the same U_perp
+        perp_eta = self.propagators.push_eta_pc.options.use_perp_model
+        perp_pc = self.propagators.pc6d.options.use_perp_model
+        if perp_eta != perp_pc:
+            logger.warning(
+                f"LinearMHDVlasovPC: use_perp_model differs between push_eta_pc ({perp_eta}) and pc6d ({perp_pc}); "
+                "the pressure coupling then does not conserve the energy.",
+            )
+
     def _create_scalars(self):
         """:meta private:"""
         scalars = super()._create_scalars()
@@ -180,12 +193,11 @@ class LinearMHDVlasovPC(LinearMHD):
 
         with :math:`(\nabla \cdot \mathbb{P}_\textnormal{h})_i = \sum_k \partial_k (\mathbb{P}_\textnormal{h})_{ki}` and
         :math:`(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)_k = \sum_i \partial_k \tilde U_{\perp,i} \, v_i`.
-        The index :math:`\perp` denotes the components perpendicular to the Cartesian :math:`z`-axis,
-        :math:`\mathbf a_\perp = (a_x, a_y, 0)`, which is the direction of :math:`\mathbf B_0` in the setups this model is
-        made for (option ``use_perp_model=True`` of ``push_eta_pc`` and ``pc6d``, the default; with
-        ``use_perp_model=False`` the projection is dropped, :math:`\mathbf a_\perp = \mathbf a`). ``push_eta_pc`` forms
-        :math:`\tilde{\mathbf U}_\perp` by dropping the :math:`\eta_3`-component of :math:`\tilde{\mathbf U}`, which is the
-        same for mappings with :math:`\eta_3 \propto z` (e.g. ``Cuboid``).
+        The index :math:`\perp` denotes the projection perpendicular to the equilibrium magnetic field,
+        :math:`\mathbf a_\perp = \mathbf a - (\mathbf b_0 \cdot \mathbf a) \mathbf b_0` with
+        :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|` (option ``use_perp_model=True`` of ``push_eta_pc`` and
+        ``pc6d``, the default; with ``use_perp_model=False`` the projection is dropped,
+        :math:`\mathbf a_\perp = \mathbf a`).
 
         **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and :math:`\mathbf B_0 \cdot \mathbf n = 0`
         on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions;

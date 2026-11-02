@@ -15,11 +15,9 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.marker_operator_pressure_dot import marker_operator_pressure_dot
-from struphy.pic.accumulation.kernels.pc_lin_mhd_6d import pc_lin_mhd_6d
 from struphy.pic.accumulation.kernels.pc_lin_mhd_6d_full import pc_lin_mhd_6d_full
 from struphy.pic.accumulation.kernels.pc_lin_mhd_6d_mf import pc_lin_mhd_6d_mf
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
-from struphy.pic.pushing.kernels.push_pc_GXu import push_pc_GXu
 from struphy.pic.pushing.kernels.push_pc_GXu_full import push_pc_GXu_full
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
@@ -44,9 +42,11 @@ class PressureCoupling6D(Propagator):
 
     with :math:`\mathbb{P}_\textnormal{h} : \nabla \mathbf V_\perp = \sum_{k,i} (\mathbb{P}_\textnormal{h})_{ki} \, \partial_k V_{\perp,i}`
     and :math:`(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)_k = \sum_i \partial_k \tilde U_{\perp,i} \, v_i`, in Cartesian
-    components. The index :math:`\perp` denotes the components perpendicular to the Cartesian :math:`z`-axis,
-    :math:`\mathbf a_\perp = (a_x, a_y, 0)` (``use_perp_model=True``, default); with ``use_perp_model=False``,
-    :math:`\mathbf a_\perp = \mathbf a`. Both equations contain :math:`\int \mathbb{P}_\textnormal{h} : \nabla \tilde{\mathbf U}_\perp
+    components. The index :math:`\perp` denotes the projection perpendicular to the equilibrium magnetic field,
+    :math:`\mathbf a_\perp = \mathbf a - (\mathbf b_0 \cdot \mathbf a) \mathbf b_0` with
+    :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|` (``use_perp_model=True``, default); with
+    ``use_perp_model=False``, :math:`\mathbf a_\perp = \mathbf a`. In strong form, the first equation reads
+    :math:`\rho_0 \partial_t \tilde{\mathbf U} = - \frac{A_\textnormal{h}}{A_\textnormal{b}} (\nabla \cdot \mathbb{P}_\textnormal{h})_\perp`. Both equations contain :math:`\int \mathbb{P}_\textnormal{h} : \nabla \tilde{\mathbf U}_\perp
     \,\textrm d \mathbf x` with opposite signs, so the substep conserves
     :math:`\frac 12 \int \rho_0 |\tilde{\mathbf U}|^2 \,\textrm d \mathbf x + \frac{A_\textnormal{h}}{2 A_\textnormal{b}} \iint |\mathbf v|^2 f_\textnormal{h} \,\textnormal{d}^3 \mathbf v \,\textrm d \mathbf x`.
 
@@ -56,7 +56,12 @@ class PressureCoupling6D(Propagator):
 
         \begin{bmatrix} u^{n+1} - u^n \\ V^{n+1} - V^n \end{bmatrix}
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n)^{-1} V^\top (\bar {\mathcal X})^\top \mathbb G^\top (\bar {\mathbf \Lambda}^1)^\top \bar {DF}^{-1} \\ - {DF}^{-\top} \bar {\mathbf \Lambda}^1 \mathbb G \bar {\mathcal X} V (\mathbb M^n)^{-1} & 0 \end{bmatrix}
-        \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} \,.
+        \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} \,,
+
+    where :math:`\mathcal X` is ``X1``, ``X2`` or ``Xv`` of
+    :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`, or :math:`\mathcal X^\perp` (``Xperp``,
+    including the projection perpendicular to :math:`\mathbf b_0`) for ``use_perp_model=True``. Since the same :math:`\mathcal X` enters both
+    off-diagonal blocks, the step conserves the discrete energy exactly.
     """
 
     class Variables:
@@ -126,8 +131,11 @@ class PressureCoupling6D(Propagator):
             If ``None``, defaults to ``FilterParameters()``.
 
         use_perp_model : bool, default=True
-            If ``True``, use the perpendicular pressure-coupling model;
-            otherwise use the full-model kernels.
+            If ``True``, couple only the velocity perpendicular to the equilibrium magnetic field,
+            :math:`\tilde{\mathbf U}_\perp = \tilde{\mathbf U} - (\mathbf b_0 \cdot \tilde{\mathbf U}) \mathbf b_0`
+            (:meth:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Xperp`);
+            otherwise couple the full velocity. Use the same value in
+            :class:`~struphy.propagators.push_eta_pc.PushEtaPC`.
 
         matrix_free : bool, default=True
             Apply the 3x3 block particle matrix matrix-free, with its filling :math:`w_p G^{-1}(\boldsymbol \eta_p)`
@@ -195,7 +203,11 @@ class PressureCoupling6D(Propagator):
         # call operatros
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
         _A = getattr(self.mass_ops, id_M)
-        self._X = getattr(self.basis_ops, id_X)
+        if self.options.use_perp_model:
+            # Cartesian components of U_perp = U - (b0 . U) b0
+            self._X = self.basis_ops.Xperp(self.options.u_space)
+        else:
+            self._X = getattr(self.basis_ops, id_X)
         self._XT = self._X.transpose()
         grad = self.derham.grad
         gradT = grad.transpose()
@@ -208,12 +220,9 @@ class PressureCoupling6D(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Call the accumulation and Pusher class
-        if self.options.use_perp_model:
-            accum_ker = pc_lin_mhd_6d
-            pusher_ker = push_pc_GXu
-        else:
-            accum_ker = pc_lin_mhd_6d_full
-            pusher_ker = push_pc_GXu_full
+        # the perpendicular projection is in self._X, the kernels use all three velocity components
+        accum_ker = pc_lin_mhd_6d_full
+        pusher_ker = push_pc_GXu_full
 
         # define Accumulator and arguments
         particles = self.variables.energetic_ions.particles
@@ -222,7 +231,7 @@ class PressureCoupling6D(Propagator):
             # the three vectors, and the filling of the matrices per marker (in the first free columns of the marker array)
             column = particles.args_markers.first_free_idx
             assert particles.n_cols_aux >= 6, "matrix_free needs 6 free (auxiliary) marker columns."
-            n_v = 2 if self.options.use_perp_model else 3
+            n_v = 3
             self._args_accum = (n_v, column)
             self._ACC = AccumulatorVector(
                 particles,
