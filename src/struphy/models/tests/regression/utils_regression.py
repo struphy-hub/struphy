@@ -62,11 +62,7 @@ EXCLUDED_KEYS = {
 }
 
 # cases whose default run is known to produce non-finite values (inf/nan); remove a case once it is fixed
-_DT_TOO_LARGE = "default dt=0.01 too large: VariationalMomentumAdvection does not converge, blow-up in the first step"
-KNOWN_NONFINITE = {
-    "VariationalBarotropicFluid": _DT_TOO_LARGE,
-    "VariationalPressurelessFluid": _DT_TOO_LARGE,
-}
+KNOWN_NONFINITE = {}
 
 UPDATE_COMMANDS = (
     "pytest -m models --update-baselines src/struphy/models/tests/regression/\n"
