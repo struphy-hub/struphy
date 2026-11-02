@@ -3,11 +3,13 @@ from struphy.models.linear_mhd_with_q import LinearMHDWithQ
 from struphy.models.utils import (
     PerturbativeEnergies,
     add_perturbative_scalars,
-    link_perturbative_propagators,
 )
 from struphy.models.variables import FEECVariable
+from struphy.propagators.background_current import BackgroundCurrent
 from struphy.propagators.momentum_advection import MomentumAdvection
 from struphy.propagators.shear_alfven_nonlinear import ShearAlfvenNonlinear
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
+from struphy.propagators.sound_wave_linear_with_q import SoundWaveLinearWithQ
 from struphy.propagators.sound_wave_nonlinear_with_q import SoundWaveNonlinearWithQ
 
 
@@ -30,7 +32,8 @@ class PerturbativeMHDWithQ(LinearMHDWithQ):
     ## additional propagators
 
     class Propagators(LinearMHDWithQ.Propagators):
-        """Propagators of :class:`~struphy.models.LinearMHDWithQ` (with the inertia of the total density) plus
+        """Propagators of :class:`~struphy.models.LinearMHDWithQ`, with ``shear_alf``, ``bg_current`` and ``sound``
+        created again with the inertia of the total density, plus
         ``nonlin_alf`` (nonlinear shear-Alfvén terms), ``nonlin_sound`` (nonlinear sound wave terms) and ``mom_adv``
         (advection of mass and momentum).
 
@@ -38,14 +41,20 @@ class PerturbativeMHDWithQ(LinearMHDWithQ):
         ----------
         rho_field : FEECVariable, optional
             Density perturbation, for the inertia of the total density (default: None).
+        b_field : FEECVariable, optional
+            Magnetic field perturbation, used by ``bg_current`` (default: None).
         **kwargs
             Passed to :class:`LinearMHDWithQ.Propagators <struphy.models.LinearMHDWithQ.Propagators>`.
         """
 
         splitting_order = ("shear_alf", "nonlin_alf", "bg_current", "bg_q", "sound", "nonlin_sound", "mom_adv")
 
-        def __init__(self, rho_field: FEECVariable = None, **kwargs):
-            super().__init__(rho_field=rho_field, **kwargs)
+        def __init__(self, rho_field: FEECVariable = None, b_field: FEECVariable = None, **kwargs):
+            super().__init__(b_field=b_field, **kwargs)
+            # the linear steps with the inertia of the total density (replace those of the parent; b in H(div))
+            self.shear_alf = ShearAlfvenPropagator(rho_field=rho_field)
+            self.bg_current = BackgroundCurrent(b_field=b_field, rho_field=rho_field)
+            self.sound = SoundWaveLinearWithQ(rho_field=rho_field)
             self.nonlin_alf = ShearAlfvenNonlinear(rho_field=rho_field)
             self.nonlin_sound = SoundWaveNonlinearWithQ(rho_field=rho_field)
             self.mom_adv = MomentumAdvection()
@@ -73,7 +82,11 @@ class PerturbativeMHDWithQ(LinearMHDWithQ):
     def _link_propagator_variables(self):
         """:meta private:"""
         super()._link_propagator_variables()
-        link_perturbative_propagators(self.propagators, self.mhd)
+        self.propagators.nonlin_sound.variables.u = self.mhd.velocity
+        self.propagators.nonlin_sound.variables.q = self.mhd.sqrt_p
+
+        self.propagators.mom_adv.variables.n = self.mhd.density
+        self.propagators.mom_adv.variables.u = self.mhd.velocity
         self.propagators.nonlin_alf.variables.u = self.mhd.velocity
         self.propagators.nonlin_alf.variables.b = self.em_fields.b_field
 

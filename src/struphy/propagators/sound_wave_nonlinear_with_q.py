@@ -6,13 +6,13 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.density_weighted import VelocityMass
 from struphy.feec.variational_utilities import Pressure_transport_operator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -60,7 +60,7 @@ class SoundWaveNonlinearWithQ(Propagator):
     (:class:`~struphy.feec.variational_utilities.Pressure_transport_operator` with the adiabatic index
     :math:`\gamma / 2`), the mass matrix :math:`\mathbb M^3` (:attr:`~struphy.feec.mass.WeightedMassOperators.M3`)
     and the mass matrix :math:`\mathbb M^2_\rho` of the total density
-    (:class:`~struphy.feec.density_weighted.VelocityMass`, with the constructor argument ``rho_field``; without it
+    (:class:`~struphy.propagators.utils.VelocityMass`, with the constructor argument ``rho_field``; without it
     :math:`\mathbb M^2_{\rho_0}`). The force is the transpose of the operator of the :math:`\mathbf q` equation, so the
     discrete energy :math:`\frac 12 \mathbf u^\top \mathbb M^2_\rho \mathbf u + \frac{1}{\gamma - 1} \mathbf q^\top \mathbb M^3
     \mathbf q` (a positive definite quadratic form) is conserved for any weight in :math:`\mathbb S`.
@@ -220,7 +220,7 @@ class SoundWaveNonlinearWithQ(Propagator):
             pc = getattr(preconditioner, self.options.precond)(self.mass_ops.M2n)
 
         self._schur_solver = SchurSolver(
-            self._velocity_mass.M,
+            self._velocity_mass.M_rho,
             self._B @ self._C,
             self.options.solver,
             precond=pc,

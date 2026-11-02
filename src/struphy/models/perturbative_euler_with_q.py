@@ -3,10 +3,10 @@ from struphy.models.linear_euler_with_q import LinearEulerWithQ
 from struphy.models.utils import (
     PerturbativeEnergies,
     add_perturbative_scalars,
-    link_perturbative_propagators,
 )
 from struphy.models.variables import FEECVariable
 from struphy.propagators.momentum_advection import MomentumAdvection
+from struphy.propagators.sound_wave_linear_with_q import SoundWaveLinearWithQ
 from struphy.propagators.sound_wave_nonlinear_with_q import SoundWaveNonlinearWithQ
 
 
@@ -28,8 +28,9 @@ class PerturbativeEulerWithQ(LinearEulerWithQ):
     ## additional propagators
 
     class Propagators(LinearEulerWithQ.Propagators):
-        """Propagators of :class:`~struphy.models.LinearEulerWithQ` (with the inertia of the total density) plus
-        ``nonlin_sound`` (nonlinear sound wave terms) and ``mom_adv`` (advection of mass and momentum).
+        """Propagators of :class:`~struphy.models.LinearEulerWithQ`, with ``sound`` created again with the inertia of
+        the total density, plus ``nonlin_sound`` (nonlinear sound wave terms) and ``mom_adv`` (advection of mass and
+        momentum).
 
         Parameters
         ----------
@@ -40,7 +41,9 @@ class PerturbativeEulerWithQ(LinearEulerWithQ):
         """
 
         def __init__(self, rho_field: FEECVariable = None, **kwargs):
-            super().__init__(rho_field=rho_field, **kwargs)
+            super().__init__(**kwargs)
+            # the linear sound wave step with the inertia of the total density (replaces the one of the parent)
+            self.sound = SoundWaveLinearWithQ(rho_field=rho_field)
             self.nonlin_sound = SoundWaveNonlinearWithQ(rho_field=rho_field)
             self.mom_adv = MomentumAdvection()
 
@@ -67,7 +70,11 @@ class PerturbativeEulerWithQ(LinearEulerWithQ):
     def _link_propagator_variables(self):
         """:meta private:"""
         super()._link_propagator_variables()
-        link_perturbative_propagators(self.propagators, self.mhd)
+        self.propagators.nonlin_sound.variables.u = self.mhd.velocity
+        self.propagators.nonlin_sound.variables.q = self.mhd.sqrt_p
+
+        self.propagators.mom_adv.variables.n = self.mhd.density
+        self.propagators.mom_adv.variables.u = self.mhd.velocity
 
     def _create_scalars(self):
         """:meta private:"""

@@ -6,11 +6,11 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.density_weighted import VelocityMass
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -60,7 +60,7 @@ class BackgroundCurrent(Propagator):
 
     **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`): the
     inertia is that of the total density, :math:`\mathbb M^2_{\rho_0} \to \mathbb M^2_\rho`, :math:`\rho = \rho_0 +
-    \tilde \rho^n` (:class:`~struphy.feec.density_weighted.VelocityMass`, assembled at :math:`t^n`; the step is still
+    \tilde \rho^n` (:class:`~struphy.propagators.utils.VelocityMass`, assembled at :math:`t^n`; the step is still
     exact in time, since the density does not change in it).
     """
 
@@ -162,7 +162,7 @@ class BackgroundCurrent(Propagator):
             self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=self.rho_field
         )
         self._M2n_inv = inverse(
-            self._velocity_mass.M,
+            self._velocity_mass.M_rho,
             self.options.solver,
             pc=pc,
             tol=self.options.solver_params.tol,

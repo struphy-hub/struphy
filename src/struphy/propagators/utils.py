@@ -1,5 +1,8 @@
-"""Operators for a velocity 2-form weighted with the total density :math:`\\rho = \\rho_0 + \\tilde \\rho` of the
-perturbative models (density 3-form evolving in time), on the quadrature grid of the mass matrices."""
+"""Utilities shared by several propagators (called explicitly from the propagators, no mixin classes).
+
+Operators of a velocity 2-form weighted with the total density :math:`\\rho = \\rho_0 + \\tilde \\rho` of the
+perturbative models (density 3-form evolving in time), on the quadrature grid of the mass matrices
+(:class:`HdivDensityOperators`, :class:`VelocityMass`)."""
 
 import logging
 
@@ -18,7 +21,7 @@ class HdivDensityOperators:
     r"""Operators of a velocity :math:`\mathbf u \in H(\textnormal{div})` (2-form coefficients) weighted with a density
     3-form :math:`\hat \rho^3 = \sum_{ijk} \rho_{ijk} \Lambda^3_{ijk}` that changes in time:
 
-    * the mass matrix :attr:`M` (:meth:`update_density`),
+    * the mass matrix :attr:`M_rho` (:meth:`update_M_rho`),
 
       .. math::
 
@@ -31,11 +34,11 @@ class HdivDensityOperators:
       :math:`\boldsymbol \rho^\top k(\mathbf u) = \mathbf u^\top \mathbb M^2_\rho \mathbf u` (same quadrature), the
       derivative of the kinetic energy :math:`\frac 12 \int \rho |\mathbf u|^2` with respect to the density
       coefficients;
-    * the antisymmetric matrix :attr:`W` of the vorticity force (:meth:`update_vorticity`),
+    * the antisymmetric matrix :attr:`W` of the vorticity force (:meth:`update_W`),
       :math:`\mathbf v^\top \mathbb W \mathbf u = \int \rho\, \mathbf v \cdot (\boldsymbol \omega \times \mathbf u)
       \,\textnormal d \mathbf x` for a vorticity 1-form :math:`\boldsymbol \omega`.
 
-    :meth:`update_density` also checks the sign of the density: the discrete transport of the density is not
+    :meth:`update_M_rho` also checks the sign of the density: the discrete transport of the density is not
     positivity preserving, and where :math:`\rho \leq 0` at a quadrature point, :math:`\mathbb M^2_\rho` is no longer
     positive definite (its solves can fail, and the kinetic energy is no longer a norm). The minimum of the (physical)
     density at the quadrature points is :attr:`min_density`; a warning is logged when it becomes non-positive.
@@ -72,14 +75,14 @@ class HdivDensityOperators:
         self._a = [xp.zeros(shape, dtype=float) for _ in range(3)]
         self._f = xp.zeros(shape, dtype=float)
         self._tmp = xp.zeros(shape, dtype=float)
-        self._weights_M = [[xp.zeros(shape, dtype=float) for _ in range(3)] for _ in range(3)]
+        self._weights_M_rho = [[xp.zeros(shape, dtype=float) for _ in range(3)] for _ in range(3)]
         self._weights_W = [[xp.zeros(shape, dtype=float) for _ in range(3)] for _ in range(3)]
 
         self._rho_spline = derham.create_spline_function("rho_density_weighted", "L2")
         self._u_spline = derham.create_spline_function("u_density_weighted", "Hdiv")
         self._omega_spline = derham.create_spline_function("omega_density_weighted", "Hcurl")
 
-        self._M = mass_ops.create_weighted_mass("Hdiv", "Hdiv")
+        self._M_rho = mass_ops.create_weighted_mass("Hdiv", "Hdiv")
         self._W = mass_ops.create_weighted_mass("Hdiv", "Hdiv")
         self._get_dofs_V3 = L2Projector("L2", mass_ops).get_dofs
 
@@ -87,13 +90,13 @@ class HdivDensityOperators:
         self._warned_non_positive = False
 
     @property
-    def M(self):
-        r"""Density-weighted mass matrix :math:`\mathbb M^2_\rho` (assembled by :meth:`update_density`)."""
-        return self._M
+    def M_rho(self):
+        r"""Density-weighted mass matrix :math:`\mathbb M^2_\rho` (assembled by :meth:`update_M_rho`)."""
+        return self._M_rho
 
     @property
     def W(self):
-        r"""Antisymmetric matrix of the vorticity force (assembled by :meth:`update_vorticity`)."""
+        r"""Antisymmetric matrix of the vorticity force (assembled by :meth:`update_W`)."""
         return self._W
 
     def _eval_rho(self, rho: Vector):
@@ -102,7 +105,7 @@ class HdivDensityOperators:
 
     @property
     def min_density(self) -> float:
-        """Minimum of the physical density at the quadrature points (all MPI ranks) at the last :meth:`update_density`."""
+        """Minimum of the physical density at the quadrature points (all MPI ranks) at the last :meth:`update_M_rho`."""
         return self._min_density
 
     def _check_density(self, rho_values):
@@ -126,16 +129,16 @@ class HdivDensityOperators:
         else:
             self._warned_non_positive = False
 
-    def update_density(self, rho: Vector):
-        r"""Assemble :attr:`M` for the density 3-form with the coefficients ``rho`` (total density), and check its sign
+    def update_M_rho(self, rho: Vector):
+        r"""Assemble :attr:`M_rho` for the density 3-form with the coefficients ``rho`` (total density), and check its sign
         (:attr:`min_density`)."""
         rho_values = self._eval_rho(rho)
         self._check_density(rho_values)
         for i in range(3):
             for j in range(3):
-                self._weights_M[i][j][:] = rho_values
-                self._weights_M[i][j] *= self._G_g[i, j]
-        self._M.assemble(self._weights_M)
+                self._weights_M_rho[i][j][:] = rho_values
+                self._weights_M_rho[i][j] *= self._G_g[i, j]
+        self._M_rho.assemble(self._weights_M_rho)
 
     def kinetic_form(self, u: Vector, out: Vector) -> Vector:
         r"""The linear form :math:`k(\mathbf u)` in :math:`V^3_h` (see class docstring), written to ``out``."""
@@ -152,7 +155,7 @@ class HdivDensityOperators:
         self._f /= self._inv_sqrt_g
         return self._get_dofs_V3(self._f, dofs=out)
 
-    def update_vorticity(self, rho: Vector, omega: Vector):
+    def update_W(self, rho: Vector, omega: Vector):
         r"""Assemble :attr:`W` for the density 3-form ``rho`` and the vorticity 1-form ``omega``: with
         :math:`\mathbf a = \hat\rho^3 G^{-1} \hat{\boldsymbol\omega}^1 / \sqrt g`, the weight of
         :math:`\hat v_i \hat u_j` is :math:`\epsilon_{ikj} a_k` (:math:`\hat{\mathbf v} \cdot (\mathbf a \times \hat{\mathbf u})`)."""
@@ -204,18 +207,18 @@ class VelocityMass:
     ):
         self._rho_field = rho_field
         if rho_field is None:
-            self._M = mass_ops.M2n
+            self._M_rho = mass_ops.M2n
         else:
             self._ops = HdivDensityOperators(derham, domain, mass_ops)
-            self._M = self._ops.M
+            self._M_rho = self._ops.M_rho
             self._n3 = projected_equil.n3
             self._rho = self._n3.space.zeros()
             self.update()
 
     @property
-    def M(self):
+    def M_rho(self):
         """The mass matrix (the same object after every :meth:`update`)."""
-        return self._M
+        return self._M_rho
 
     @property
     def weighted(self) -> bool:
@@ -228,4 +231,4 @@ class VelocityMass:
             return
         self._n3.copy(out=self._rho)
         self._rho += self._rho_field.spline.vector
-        self._ops.update_density(self._rho)
+        self._ops.update_M_rho(self._rho)

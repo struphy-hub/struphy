@@ -6,13 +6,13 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.density_weighted import VelocityMass
 from struphy.feec.variational_utilities import Hdiv0_transport_operator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -58,7 +58,7 @@ class ShearAlfvenNonlinear(Propagator):
     :math:`\mathbb C \mathbb T^2` of :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` with
     :math:`\mathbf B_0 \to \mathbf w`), the mass matrix :math:`\mathbb M^2`
     (:attr:`~struphy.feec.mass.WeightedMassOperators.M2`) and the mass matrix :math:`\mathbb M^2_\rho` of the total
-    density (:class:`~struphy.feec.density_weighted.VelocityMass`, with the constructor argument ``rho_field``; without
+    density (:class:`~struphy.propagators.utils.VelocityMass`, with the constructor argument ``rho_field``; without
     it :math:`\mathbb M^2_{\rho_0}`). The induction equation holds strongly in :math:`V^2_h` (the divergence of
     :math:`\mathbf b` is conserved), and the energy :math:`\frac 12 \mathbf u^\top \mathbb M^2_\rho \mathbf u + \frac 12
     \mathbf b^\top \mathbb M^2 \mathbf b` is conserved for any weight in :math:`\mathbb T`.
@@ -208,7 +208,7 @@ class ShearAlfvenNonlinear(Propagator):
             pc = getattr(preconditioner, self.options.precond)(self.mass_ops.M2n)
 
         self._schur_solver = SchurSolver(
-            self._velocity_mass.M,
+            self._velocity_mass.M_rho,
             self._B @ self._C,
             self.options.solver,
             precond=pc,

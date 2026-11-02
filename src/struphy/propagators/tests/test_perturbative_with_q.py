@@ -7,7 +7,6 @@ import pytest
 from maybempi import MPI
 
 from struphy import EnvironmentOptions, Simulation, Time, domains, equils, perturbations
-from struphy.feec.density_weighted import HdivDensityOperators, VelocityMass
 from struphy.io.options import DerhamOptions
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models import LinearMHDWithQ, PerturbativeEulerWithQ, PerturbativeMHDWithQ
@@ -15,6 +14,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.momentum_advection import MomentumAdvection
 from struphy.propagators.shear_alfven_nonlinear import ShearAlfvenNonlinear
 from struphy.propagators.sound_wave_nonlinear_with_q import SoundWaveNonlinearWithQ
+from struphy.propagators.utils import HdivDensityOperators, VelocityMass
 from struphy.topology import grids
 
 GAMMA = 5 / 3
@@ -73,7 +73,7 @@ def kinetic_energy(model):
         Propagator.derham, Propagator.domain, Propagator.mass_ops, Propagator.projected_equil, model.mhd.density
     )
     u = model.mhd.velocity.spline.vector
-    return u.inner(mass.M.dot(u)) / 2
+    return u.inner(mass.M_rho.dot(u)) / 2
 
 
 def q_energy(model, coef):
@@ -151,19 +151,19 @@ def test_energy_conservation_linear_steps_with_density(tmp_path):
 
 
 def test_density_sign_check(tmp_path, caplog):
-    """HdivDensityOperators.update_density reports the minimum of the total density at the quadrature points and warns
+    """HdivDensityOperators.update_M_rho reports the minimum of the total density at the quadrature points and warns
     (once) when it is non-positive."""
     import logging
 
     allocate_model(tmp_path, "sign")
     ops = HdivDensityOperators(Propagator.derham, Propagator.domain, Propagator.mass_ops)
     rho = Propagator.projected_equil.n3.copy()
-    ops.update_density(rho)
+    ops.update_M_rho(rho)
     assert ops.min_density > 0.0
     rho *= -1.0
     with caplog.at_level(logging.WARNING, logger="struphy"):
-        ops.update_density(rho)
-        ops.update_density(rho)
+        ops.update_M_rho(rho)
+        ops.update_M_rho(rho)
     assert ops.min_density < 0.0
     if MPI.COMM_WORLD.Get_rank() == 0:
         assert caplog.text.count("non-positive") == 1
@@ -177,9 +177,9 @@ def test_density_weighted_operators(tmp_path):
     u = model.mhd.velocity.spline.vector
     rho = Propagator.projected_equil.n3.copy()
     rho += model.mhd.density.spline.vector
-    ops.update_density(rho)
+    ops.update_M_rho(rho)
     k = ops.kinetic_form(u, out=rho.space.zeros())
-    uMu = u.inner(ops.M.dot(u))
+    uMu = u.inner(ops.M_rho.dot(u))
     assert abs(rho.inner(k) - uMu) < 1e-13 * uMu
     omega = model.em_fields.b_field.spline.vector  # any 2-form for the test: use its weak curl
     from feectools.linalg.solvers import inverse
@@ -189,7 +189,7 @@ def test_density_weighted_operators(tmp_path):
     M1 = Propagator.mass_ops.M1
     M1_inv = inverse(M1, "pcg", pc=preconditioner.MassMatrixPreconditioner(M1), tol=1e-14)
     omega1 = M1_inv.dot(Propagator.derham.curl.T.dot(Propagator.mass_ops.M2.dot(omega)))
-    ops.update_vorticity(rho, omega1)
+    ops.update_W(rho, omega1)
     v = Propagator.mass_ops.M2.dot(u)
     Wu, Wv = ops.W.dot(u), ops.W.dot(v)
     scale = xp.sqrt(Wu.inner(Wu) * v.inner(v))

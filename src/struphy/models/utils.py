@@ -4,7 +4,6 @@ import logging
 from feectools.linalg.block import BlockVector
 
 import struphy.models as models
-from struphy.feec.density_weighted import VelocityMass
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
@@ -12,6 +11,7 @@ from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
+from struphy.propagators.utils import VelocityMass
 
 logger = logging.getLogger("struphy")
 
@@ -182,23 +182,6 @@ def magnetic_discretization_doc(model_cls) -> str:
 GAMMA = 5 / 3
 
 
-def link_perturbative_propagators(propagators, mhd):
-    """Assign the variables of the propagators ``nonlin_sound`` and ``mom_adv`` of the perturbative models.
-
-    Parameters
-    ----------
-    propagators : object
-        The ``Propagators`` instance of the model.
-    mhd : FluidSpecies
-        The fluid species ``mhd`` of the model (``density``, ``velocity``, ``sqrt_p``).
-    """
-    propagators.nonlin_sound.variables.u = mhd.velocity
-    propagators.nonlin_sound.variables.q = mhd.sqrt_p
-
-    propagators.mom_adv.variables.n = mhd.density
-    propagators.mom_adv.variables.u = mhd.velocity
-
-
 class PerturbativeEnergies:
     """Energies of the perturbation of the full (nonlinear) system in the perturbative models: the kinetic energy with
     the total density, :math:`\\frac 12 \\int (\\rho_0 + \\tilde \\rho) |\\tilde{\\mathbf U}|^2`, the internal energy
@@ -234,7 +217,7 @@ class PerturbativeEnergies:
         """Kinetic energy with the total density."""
         self._kinetic_mass.update()
         u = self._mhd.velocity.spline.vector
-        return u.inner(self._kinetic_mass.M.dot(u, out=self._tmp_u)) / 2
+        return u.inner(self._kinetic_mass.M_rho.dot(u, out=self._tmp_u)) / 2
 
     def en_internal(self):
         """Perturbation of the internal energy."""

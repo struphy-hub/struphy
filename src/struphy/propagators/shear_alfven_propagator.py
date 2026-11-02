@@ -8,7 +8,6 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.density_weighted import VelocityMass
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.schur_solver import SchurSolver
@@ -17,6 +16,7 @@ from struphy.models.variables import FEECVariable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -80,7 +80,7 @@ class ShearAlfvenPropagator(Propagator):
 
     **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
     with ``u_space="Hdiv"``): the inertia is that of the total density, :math:`\mathbb M^2_{\rho_0} \to \mathbb
-    M^2_\rho`, :math:`\rho = \rho_0 + \tilde \rho^n` (:class:`~struphy.feec.density_weighted.VelocityMass`, assembled
+    M^2_\rho`, :math:`\rho = \rho_0 + \tilde \rho^n` (:class:`~struphy.propagators.utils.VelocityMass`, assembled
     at :math:`t^n`; the density does not change in this step, so the energy is still conserved exactly). The
     preconditioners are still built from :math:`\mathbb M^2_{\rho_0}`.
     """
@@ -247,7 +247,7 @@ class ShearAlfvenPropagator(Propagator):
             if u_space == "Hdiv"
             else None
         )
-        _A = getattr(self.mass_ops, id_M) if self._velocity_mass is None else self._velocity_mass.M
+        _A = getattr(self.mass_ops, id_M) if self._velocity_mass is None else self._velocity_mass.M_rho
         _T = getattr(self.basis_ops, id_T)
         _M2 = self.mass_ops.M2
         curl = self.derham.curl

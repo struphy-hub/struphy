@@ -6,12 +6,12 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.density_weighted import VelocityMass
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -91,7 +91,7 @@ class SoundWaveLinearWithQ(Propagator):
 
     **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`): the
     inertia is that of the total density, :math:`\rho_0 \to \rho = \rho_0 + \tilde\rho^n` in the momentum equation,
-    i.e. :math:`\mathbb M^2_{\rho_0} \to \mathbb M^2_{\rho}` (:class:`~struphy.feec.density_weighted.VelocityMass`,
+    i.e. :math:`\mathbb M^2_{\rho_0} \to \mathbb M^2_{\rho}` (:class:`~struphy.propagators.utils.VelocityMass`,
     assembled at :math:`t^n`, with the coefficients ``projected_equil.n3`` of :math:`\rho_0`), and the density is not
     advanced (the continuity equation is in :class:`~struphy.propagators.momentum_advection.MomentumAdvection`). The
     step then conserves :math:`\frac 12 \mathbf u^\top \mathbb M^2_\rho \mathbf u + \frac{2}{\gamma} \mathbf q^\top
@@ -224,7 +224,7 @@ class SoundWaveLinearWithQ(Propagator):
         self._velocity_mass = VelocityMass(
             self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=self.rho_field
         )
-        _A = self._velocity_mass.M
+        _A = self._velocity_mass.M_rho
         _M3 = self.mass_ops.M3
         _M3q0 = self.mass_ops.M3q0
         div = self.derham.div

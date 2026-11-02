@@ -7,12 +7,12 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.density_weighted import HdivDensityOperators
 from struphy.feec.variational_utilities import L2_transport_operator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import HdivDensityOperators
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -51,11 +51,11 @@ class MomentumAdvection(Propagator):
     :math:`E = \frac 12 \mathbf u^\top \mathbb M^2_\rho \mathbf u = \frac 12 \boldsymbol \rho^\top k(\mathbf u)`, with the
     density-weighted mass matrix :math:`\mathbb M^2_\rho` and the linear form
     :math:`k(\mathbf u)_{ijk} = \int \Lambda^3_{ijk} |\tilde{\mathbf U}_h|^2 \frac{1}{\sqrt g}\,\textnormal d \mathbf x`
-    (:class:`~struphy.feec.density_weighted.HdivDensityOperators`, same quadrature, so that the identity is exact).
+    (:class:`~struphy.propagators.utils.HdivDensityOperators`, same quadrature, so that the identity is exact).
     With the transport operator :math:`\mathbb L[\mathbf w] \mathbf u = \mathbb D \hat \Pi^2[\hat w^3 \mathbf u]`
     (:class:`~struphy.feec.variational_utilities.L2_transport_operator`) and the antisymmetric matrix
     :math:`\mathbb W[\mathbf w, \boldsymbol \omega]` of :math:`\int w\, \mathbf v \cdot (\boldsymbol \omega \times
-    \mathbf u)` (:class:`~struphy.feec.density_weighted.HdivDensityOperators`), with the weak curl
+    \mathbf u)` (:class:`~struphy.propagators.utils.HdivDensityOperators`), with the weak curl
     :math:`\boldsymbol \omega = (\mathbb M^1)^{-1} \mathbb C^\top \mathbb M^2 \mathbf u`,
 
     .. math::
@@ -253,7 +253,7 @@ class MomentumAdvection(Propagator):
         self._LT.update_coeffs(rho_w)
         self._curlT_M2.dot(u_w, out=self._omega_rhs)
         self._M1_inv.dot(self._omega_rhs, out=self._omega)
-        self._ops.update_vorticity(rho_w, self._omega)
+        self._ops.update_W(rho_w, self._omega)
 
     @profile
     def __call__(self, dt):
@@ -283,13 +283,13 @@ class MomentumAdvection(Propagator):
             n1 += self._tmp_n
 
             # mass matrix of the midpoint density and averaged kinetic form
-            self._ops.update_density(self._total_density(nn, n1, self._rho_bar))
+            self._ops.update_M_rho(self._total_density(nn, n1, self._rho_bar))
             k1 = self._ops.kinetic_form(u1, out=self._k1)
             k1 += k0
             k1 *= 0.5
 
             # (M + dt/2 W) u^{n+1} = (M - dt/2 W) u^n + dt/2 L^T kbar
-            rhs = self._ops.M.dot(un, out=self._rhs)
+            rhs = self._ops.M_rho.dot(un, out=self._rhs)
             self._ops.W.dot(un, out=self._tmp_u)
             self._tmp_u *= -dt / 2
             rhs += self._tmp_u
@@ -298,7 +298,7 @@ class MomentumAdvection(Propagator):
             rhs += self._tmp_u
 
             # zero initial guess: a converged iterate as initial guess makes BiCGStab break down (zero residual)
-            self._solver.linop = self._ops.M + (dt / 2) * self._ops.W
+            self._solver.linop = self._ops.M_rho + (dt / 2) * self._ops.W
             self._du *= 0.0
             u_new = self._solver.dot(rhs, out=self._du)
 
