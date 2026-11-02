@@ -13,7 +13,7 @@ from struphy import DerhamOptions, EnvironmentOptions, Simulation, Time, domains
 from struphy.geometry.tests.test_domain import _cupy_installed, run_fake_cupy_child
 from struphy.models import Vlasov, VlasovAmpereOneSpecies
 from struphy.particles.parameters import BoundaryParameters, LoadingParameters
-from struphy.pic.pushing.kernels.push_bxu_Hdiv import push_bxu_Hdiv
+from struphy.pic.pushing.kernels.push_deterministic_diffusion_stage import push_deterministic_diffusion_stage
 from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
 from struphy.pic.pushing.kernels.reflect import reflect
 from struphy.utils.kernel_compilation import collect_kernels, missing_cuda
@@ -94,11 +94,11 @@ def test_collect_kernels_walks_owners_and_containers():
         "not an owner",
         push_eta_stage,
         Owner(push_eta_stage, reflect),
-        {"a": [Owner(push_bxu_Hdiv)], "b": (reflect,)},
+        {"a": [Owner(push_deterministic_diffusion_stage)], "b": (reflect,)},
         Owner,  # a class with a kernels() method is not an owner
     )
-    assert collected == (push_eta_stage, reflect, push_bxu_Hdiv)
-    assert missing_cuda(collected) == [push_bxu_Hdiv]
+    assert collected == (push_eta_stage, reflect, push_deterministic_diffusion_stage)
+    assert missing_cuda(collected) == [push_deterministic_diffusion_stage]
 
 
 def test_kernels_of_a_small_model(tmp_path):
@@ -183,8 +183,8 @@ def test_compile_cuda_kernels_on_cupy_backend(tmp_path, monkeypatch):
     assert compiled == ["push_eta_stage", "reflect"]
 
     compiled.clear()
-    monkeypatch.setattr(Simulation, "kernels", lambda self: (push_eta_stage, push_bxu_Hdiv, reflect))
-    with pytest.raises(NotImplementedError, match=r"1 of the\s+3 kernels.*\n  - push_bxu_Hdiv \(expected at .*"):
+    monkeypatch.setattr(Simulation, "kernels", lambda self: (push_eta_stage, push_deterministic_diffusion_stage, reflect))
+    with pytest.raises(NotImplementedError, match=r"1 of the\s+3 kernels.*\n  - push_deterministic_diffusion_stage \(expected at .*"):
         sim.compile_cuda_kernels()
     assert compiled == []
 
@@ -195,7 +195,7 @@ from cunumpy.kernels import CudaKernel
 
 from struphy import Simulation
 from struphy.models import Maxwell
-from struphy.pic.pushing.kernels.push_bxu_Hdiv import push_bxu_Hdiv
+from struphy.pic.pushing.kernels.push_deterministic_diffusion_stage import push_deterministic_diffusion_stage
 from struphy.pic.pushing.kernels.push_eta_stage import push_eta_stage
 from struphy.pic.pushing.kernels.reflect import reflect
 
@@ -203,13 +203,13 @@ compiled = []
 CudaKernel.compile = lambda self, **kwargs: compiled.append(self.name)
 sim = Simulation(model=Maxwell())
 with cunumpy.use_backend("numpy"):
-    Simulation.kernels = lambda self: (push_eta_stage, push_bxu_Hdiv)
+    Simulation.kernels = lambda self: (push_eta_stage, push_deterministic_diffusion_stage)
     assert sim.compile_cuda_kernels() == ()
 with cunumpy.use_backend("cupy"):
     try:
         sim.compile_cuda_kernels()
     except NotImplementedError as error:
-        assert "push_bxu_Hdiv" in str(error) and "push_eta_stage" not in str(error), error
+        assert "push_deterministic_diffusion_stage" in str(error) and "push_eta_stage" not in str(error), error
     else:
         raise AssertionError("a kernel without CUDA version did not raise")
     assert compiled == []
@@ -242,6 +242,6 @@ def test_compile_cuda_kernels_on_gpu(tmp_path):
         assert compiled == sim.kernels()
         assert "vlasov_maxwell" in names(compiled)
 
-        sim.kernels = lambda: (push_eta_stage, push_bxu_Hdiv)
-        with pytest.raises(NotImplementedError, match="push_bxu_Hdiv"):
+        sim.kernels = lambda: (push_eta_stage, push_deterministic_diffusion_stage)
+        with pytest.raises(NotImplementedError, match="push_deterministic_diffusion_stage"):
             sim.compile_cuda_kernels()
