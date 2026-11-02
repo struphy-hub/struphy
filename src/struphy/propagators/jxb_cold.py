@@ -29,7 +29,11 @@ class JxBCold(Propagator):
 
     .. math::
 
-        \mathbb M^1_{1/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right) = \frac{\Delta t}{2} \frac{1}{\varepsilon} \mathbb M^1_{B_0/n_0} \left( \mathbf j^{n+1} + \mathbf j^n \right)\,.
+        \mathbb M^1_{1/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right) = -\frac{\Delta t}{2} \frac{1}{\varepsilon} \mathbb M^1_{B_0/n_0} \left( \mathbf j^{n+1} + \mathbf j^n \right)\,,
+
+    where :math:`\mathbb M^1_{1/n_0}` is the 1-form mass matrix weighted with :math:`1/n_0` (``M1ninv``) and
+    :math:`\mathbb M^1_{B_0/n_0}` the skew-symmetric one of :math:`(\mathbf B_0 \times \mathbf j) \cdot \mathbf F / n_0`
+    (``M1Bninv``), hence the minus sign.
     """
 
     class Variables:
@@ -65,7 +69,7 @@ class JxBCold(Propagator):
         ----------
         solver : LiteralOptions.OptsGenSolver, default="pbicgstab"
             Iterative solver used for the linear current update. The system matrix
-            :math:`\mathbb M^1_{1/n_0} - \frac{\Delta t}{2 \varepsilon} \mathbb M^1_{B_0/n_0}` is not symmetric
+            :math:`\mathbb M^1_{1/n_0} + \frac{\Delta t}{2 \varepsilon} \mathbb M^1_{B_0/n_0}` is not symmetric
             (:math:`\mathbb M^1_{B_0/n_0}` is skew-symmetric), so a solver for general matrices is needed.
             The symmetric solvers of older parameter files (``"pcg"``, ...) are replaced by ``"pbicgstab"``,
             with a warning.
