@@ -11,7 +11,6 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.pic.accumulation.kernels.gc_density_0form import gc_density_0form
 from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
-from struphy.propagators.base import Propagator
 from struphy.propagators.gyrokinetic_poisson_solve import GyrokineticPoissonSolve
 
 
@@ -169,7 +168,6 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         :meta private:
         """
         self._tmp3 = xp.empty(1, dtype=float)
-        self._e_field = Propagator.derham.V1.zeros()
 
         self.propagators.gc_poisson(1.0)
 
@@ -184,13 +182,9 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         self.average_matrix = average_matrix_z @ average_matrix_teta
 
     def _compute_en_phi(self):
-        phi = self.em_fields.phi.spline.vector
-        epsilon = self.kinetic_ions.equation_params.epsilon
-
-        e1 = Propagator.derham.grad.dot(-phi, out=self._e_field)
-        en_phi1 = 0.5 * Propagator.mass_ops.M1gyro.dot_inner(e1, e1)
-        en_phi = 0.5 / epsilon**2 * Propagator.mass_ops.M0ad.dot_inner(phi, phi)
-        return en_phi + en_phi1
+        # 1/2 phi^T (1/(Z eps^2) M0ad_withT (I - A) + G^T M1gyro G) phi with the operator of the quasi-neutrality
+        # solve: the electrons don't respond to the averaged potential <phi>, so it has no adiabatic energy
+        return 0.5 * self.propagators.gc_poisson.quadratic_form(self.em_fields.phi.spline.vector)
 
     def _compute_phi_integral_ITGtest(self):
         phi = self.em_fields.phi.spline.vector
@@ -263,7 +257,8 @@ class DriftKineticElectrostaticAdiabatic(GuidingCenter):
         r"""**The following scalars are tracked during simulation:**
 
         - Integral of the averaged squared potential (ITG diagnostic): ``phi_integral``
-        - Field energy: ``en_phi``
+        - Field energy: ``en_phi`` (one half of the quadratic form of the quasi-neutrality operator, see
+          :meth:`~struphy.propagators.implicit_diffusion.ImplicitDiffusion.quadratic_form`)
         - Parallel kinetic energy: ``en_f``
         - Magnetic-moment energy: ``en_mu``
         - Total energy: ``en_tot`` = ``en_phi + en_f + en_mu``
