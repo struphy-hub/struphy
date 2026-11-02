@@ -148,7 +148,7 @@ class LinearMHDVlasovPC(LinearMHD):
 
         .. math::
 
-            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + \mathbf{J}_0 \times \tilde{\mathbf{B}}
+            \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde{p} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \left( \nabla \cdot \mathbb{P}_\textnormal{h} \right)_\perp = (\nabla \times \tilde{\mathbf{B}}) \times \mathbf{B}_0 + \mathbf{J}_0 \times \tilde{\mathbf{B}}
 
         .. math::
 
@@ -172,11 +172,20 @@ class LinearMHDVlasovPC(LinearMHD):
 
             \frac{\partial f_\textnormal{h}}{\partial t} + (\mathbf{v} + \tilde{\mathbf{U}}_\perp) \cdot \nabla f_\textnormal{h} + \left[ \frac{1}{\epsilon} \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) - \nabla \tilde{\mathbf{U}}_\perp \cdot \mathbf{v} \right] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} = 0
 
-        Perpendicular pressure tensor:
+        Energetic-particle pressure tensor:
 
         .. math::
 
-            \tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp \mathbf{v}_\perp^\top f_\textnormal{h} \, d \mathbf{v}
+            \mathbb{P}_\textnormal{h} = \int_{\mathbb{R}^3} \mathbf{v} \mathbf{v}^\top f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}
+
+        with :math:`(\nabla \cdot \mathbb{P}_\textnormal{h})_i = \sum_k \partial_k (\mathbb{P}_\textnormal{h})_{ki}` and
+        :math:`(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)_k = \sum_i \partial_k \tilde U_{\perp,i} \, v_i`.
+        The index :math:`\perp` denotes the components perpendicular to the Cartesian :math:`z`-axis,
+        :math:`\mathbf a_\perp = (a_x, a_y, 0)`, which is the direction of :math:`\mathbf B_0` in the setups this model is
+        made for (option ``use_perp_model=True`` of ``push_eta_pc`` and ``pc6d``, the default; with
+        ``use_perp_model=False`` the projection is dropped, :math:`\mathbf a_\perp = \mathbf a`). ``push_eta_pc`` forms
+        :math:`\tilde{\mathbf U}_\perp` by dropping the :math:`\eta_3`-component of :math:`\tilde{\mathbf U}`, which is the
+        same for mappings with :math:`\eta_3 \propto z` (e.g. ``Cuboid``).
 
         **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and :math:`\mathbf B_0 \cdot \mathbf n = 0`
         on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions;
@@ -192,14 +201,14 @@ class LinearMHDVlasovPC(LinearMHD):
             \frac{\partial}{\partial t} \nabla \cdot \tilde{\mathbf B} = 0
 
         Total perturbed energy, for an equilibrium with :math:`\nabla \times \mathbf B_0 = 0` and
-        :math:`\nabla p_0 = 0`, with :math:`\gamma = 5/3`. The energy exchange between the MHD flow and the energetic
-        ions is due to the divergence of :math:`\tilde{\mathbb{P}}_{\textnormal{h},\perp}` in the momentum equation and
-        the term :math:`-(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v) \cdot \partial f_\textnormal{h} / \partial
-        \mathbf v` in the Vlasov equation. In the equations as written, these two cancel only up to terms with
-        :math:`\int v_\parallel \mathbf v_\perp f_\textnormal{h} \, \textnormal{d}^3 \mathbf v` (they cancel e.g. for a
-        uniform :math:`\mathbf b_0` and a gyrotropic :math:`f_\textnormal{h}`).
-        :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D` discretizes them as an adjoint
-        (skew-symmetric) pair, so that the discrete counterpart of the following energy is conserved exactly:
+        :math:`\nabla p_0 = 0`, with :math:`\gamma = 5/3`. The pressure coupling exchanges energy between the MHD flow
+        and the energetic ions: the work of :math:`(\nabla \cdot \mathbb{P}_\textnormal{h})_\perp` on the flow and of
+        :math:`-\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v` on the particles are
+        :math:`\pm \int \mathbb{P}_\textnormal{h} : \nabla \tilde{\mathbf U}_\perp \, \textnormal d \mathbf x` (adjoint
+        pair, also in :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`). The transport with
+        :math:`\tilde{\mathbf U}_\perp` does no work, because the phase-space flow
+        :math:`(\mathbf v + \tilde{\mathbf U}_\perp, \varepsilon^{-1} \mathbf v \times (\mathbf B_0 + \tilde{\mathbf B})
+        - \nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)` is divergence free:
 
         .. math::
 

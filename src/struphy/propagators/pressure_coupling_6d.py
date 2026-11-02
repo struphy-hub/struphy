@@ -35,12 +35,20 @@ class PressureCoupling6D(Propagator):
 
     .. math::
 
-        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = - \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} \cdot \mathbf V \,\textrm d \mathbf x
+        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = \frac{A_\textnormal{h}}{A_\textnormal{b}} \int_\Omega \mathbb{P}_\textnormal{h} : \nabla \mathbf V_\perp \,\textrm d \mathbf x
         \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
         \\[2mm]
         &\frac{\partial f_\textnormal{h}}{\partial t} - \left(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf{v} \right) \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
         \\[2mm]
-        &\tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}_\perp \mathbf{v}_\perp^\top \,\textnormal{d}^3 \mathbf v\,.
+        &\mathbb{P}_\textnormal{h} = \int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v} \mathbf{v}^\top \,\textnormal{d}^3 \mathbf v\,,
+
+    with :math:`\mathbb{P}_\textnormal{h} : \nabla \mathbf V_\perp = \sum_{k,i} (\mathbb{P}_\textnormal{h})_{ki} \, \partial_k V_{\perp,i}`
+    and :math:`(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)_k = \sum_i \partial_k \tilde U_{\perp,i} \, v_i`, in Cartesian
+    components. The index :math:`\perp` denotes the components perpendicular to the Cartesian :math:`z`-axis,
+    :math:`\mathbf a_\perp = (a_x, a_y, 0)` (``use_perp_model=True``, default); with ``use_perp_model=False``,
+    :math:`\mathbf a_\perp = \mathbf a`. Both equations contain :math:`\int \mathbb{P}_\textnormal{h} : \nabla \tilde{\mathbf U}_\perp
+    \,\textrm d \mathbf x` with opposite signs, so the substep conserves
+    :math:`\frac 12 \int \rho_0 |\tilde{\mathbf U}|^2 \,\textrm d \mathbf x + \frac{A_\textnormal{h}}{2 A_\textnormal{b}} \iint |\mathbf v|^2 f_\textnormal{h} \,\textnormal{d}^3 \mathbf v \,\textrm d \mathbf x`.
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
@@ -92,7 +100,7 @@ class PressureCoupling6D(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`PressureCoupling6D`.
+        r"""Configuration options for :class:`PressureCoupling6D`.
 
         Parameters
         ----------
