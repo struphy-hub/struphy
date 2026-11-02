@@ -1,13 +1,17 @@
 from struphy.io.options import BaseUnits
-from struphy.models.linear_euler_mixins import PerturbativeQMixin
 from struphy.models.linear_mhd_with_q import LinearMHDWithQ
+from struphy.models.utils import (
+    PerturbativeEnergies,
+    add_perturbative_scalars,
+    link_perturbative_propagators,
+)
 from struphy.models.variables import FEECVariable
 from struphy.propagators.momentum_advection import MomentumAdvection
 from struphy.propagators.shear_alfven_nonlinear import ShearAlfvenNonlinear
 from struphy.propagators.sound_wave_nonlinear_with_q import SoundWaveNonlinearWithQ
 
 
-class PerturbativeMHDWithQ(PerturbativeQMixin, LinearMHDWithQ):
+class PerturbativeMHDWithQ(LinearMHDWithQ):
     """Ideal MHD equations for the perturbations of a static (zero-flow) equilibrium, with all nonlinear terms, and the
     square root of the pressure, :math:`q = \\sqrt p`, as thermodynamic variable.
 
@@ -62,11 +66,28 @@ class PerturbativeMHDWithQ(PerturbativeQMixin, LinearMHDWithQ):
         # 1.-5. see LinearMHDWithQ (magnetic field in H(div), as needed by the nonlinear steps)
         super().__init__(base_units, mass_number, b_space="Hdiv", projected=False)
 
+    def _propagator_args(self):
+        """:meta private:"""
+        return {**super()._propagator_args(), "rho_field": self.mhd.density}
+
     def _link_propagator_variables(self):
         """:meta private:"""
         super()._link_propagator_variables()
+        link_perturbative_propagators(self.propagators, self.mhd)
         self.propagators.nonlin_alf.variables.u = self.mhd.velocity
         self.propagators.nonlin_alf.variables.b = self.em_fields.b_field
+
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        self._perturbative_energies = PerturbativeEnergies(self.mhd, self._magnetic_energies)
+        add_perturbative_scalars(scalars, self.mhd, self._perturbative_energies)
+        return scalars
+
+    def post_allocate(self):
+        """:meta private:"""
+        super().post_allocate()
+        self._perturbative_energies.allocate()
 
     ## abstract methods for documentation
 

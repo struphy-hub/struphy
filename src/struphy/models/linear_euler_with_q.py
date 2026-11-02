@@ -1,14 +1,15 @@
 from struphy.io.options import BaseUnits, LiteralOptions
 from struphy.models.base import StruphyModel
-from struphy.models.linear_euler_mixins import EquilibriumPressureMixin
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
 from struphy.models.species import FluidSpecies
+from struphy.models.utils import ones_l2
 from struphy.models.variables import FEECVariable
 from struphy.propagators.background_q_gradient import BackgroundQGradient
+from struphy.propagators.base import Propagator
 from struphy.propagators.sound_wave_linear_with_q import SoundWaveLinearWithQ
 
 
-class LinearEulerWithQ(EquilibriumPressureMixin, StruphyModel):
+class LinearEulerWithQ(StruphyModel):
     """Linearized compressible Euler equations around a static (zero-flow) equilibrium, for sound waves, with the
     square root of the pressure, :math:`q = \\sqrt p`, as thermodynamic variable.
 
@@ -112,6 +113,18 @@ class LinearEulerWithQ(EquilibriumPressureMixin, StruphyModel):
     @property
     def velocity_scale(self):
         return "thermal"
+
+    def post_allocate(self):
+        """:meta private:"""
+        if Propagator.projected_equil is None:
+            raise ValueError(
+                f"{type(self).__name__} needs an equilibrium (Simulation(equil=...)) providing n0 and p0, e.g. "
+                "equils.HomogenSlab."
+            )
+        self._ones = ones_l2()
+
+    def _compute_en_p_eq(self):
+        return Propagator.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
 
     ## abstract methods for documentation
 

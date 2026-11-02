@@ -1,12 +1,16 @@
 from struphy.io.options import BaseUnits
-from struphy.models.linear_euler_mixins import PerturbativeQMixin
 from struphy.models.linear_euler_with_q import LinearEulerWithQ
+from struphy.models.utils import (
+    PerturbativeEnergies,
+    add_perturbative_scalars,
+    link_perturbative_propagators,
+)
 from struphy.models.variables import FEECVariable
 from struphy.propagators.momentum_advection import MomentumAdvection
 from struphy.propagators.sound_wave_nonlinear_with_q import SoundWaveNonlinearWithQ
 
 
-class PerturbativeEulerWithQ(PerturbativeQMixin, LinearEulerWithQ):
+class PerturbativeEulerWithQ(LinearEulerWithQ):
     """Compressible Euler equations for the perturbations of a static (zero-flow) equilibrium, with all nonlinear
     terms, and the square root of the pressure, :math:`q = \\sqrt p`, as thermodynamic variable.
 
@@ -55,6 +59,27 @@ class PerturbativeEulerWithQ(PerturbativeQMixin, LinearEulerWithQ):
 
         # 1.-5. see LinearEulerWithQ
         super().__init__(base_units, mass_number)
+
+    def _propagator_args(self):
+        """:meta private:"""
+        return {**super()._propagator_args(), "rho_field": self.mhd.density}
+
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
+        link_perturbative_propagators(self.propagators, self.mhd)
+
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        self._perturbative_energies = PerturbativeEnergies(self.mhd)
+        add_perturbative_scalars(scalars, self.mhd, self._perturbative_energies)
+        return scalars
+
+    def post_allocate(self):
+        """:meta private:"""
+        super().post_allocate()
+        self._perturbative_energies.allocate()
 
     ## abstract methods for documentation
 

@@ -1,10 +1,17 @@
+from typing import Literal
+
 from struphy.io.options import BaseUnits
-from struphy.models.linear_euler_mixins import MagneticFieldMixin, add_magnetic_propagators
 from struphy.models.linear_euler_with_q import LinearEulerWithQ
+from struphy.models.species import FieldSpecies
+from struphy.models.utils import MagneticEnergies, add_magnetic_scalars, magnetic_discretization_doc
 from struphy.models.variables import FEECVariable
+from struphy.propagators.background_current import BackgroundCurrent
+from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
+from struphy.utils.utils import check_option
 
 
-class LinearMHDWithQ(MagneticFieldMixin, LinearEulerWithQ):
+class LinearMHDWithQ(LinearEulerWithQ):
     """Linear ideal MHD with zero-flow equilibrium, with the square root of the pressure, :math:`q = \\sqrt p`, as
     thermodynamic variable.
 
@@ -28,6 +35,15 @@ class LinearMHDWithQ(MagneticFieldMixin, LinearEulerWithQ):
         the Lorentz force, which makes this step exactly energy conserving at the price of inner mass matrix solves
         (default: False).
     """
+
+    OptsBSpace = Literal["Hdiv", "Hcurl"]
+
+    ## additional species
+
+    class EMFields(FieldSpecies):
+        def __init__(self, b_space: str = "Hdiv"):
+            self.b_field = FEECVariable(space=b_space)
+            self.init_variables()
 
     ## additional propagators
 
@@ -63,10 +79,15 @@ class LinearMHDWithQ(MagneticFieldMixin, LinearEulerWithQ):
             **kwargs,
         ):
             super().__init__(rho_field=rho_field, **kwargs)
-            add_magnetic_propagators(self, b_field=b_field, b_space=b_space, projected=projected, rho_field=rho_field)
+            if b_space == "Hdiv":
+                self.shear_alf = ShearAlfvenPropagator(rho_field=rho_field)
+            else:
+                assert rho_field is None, 'rho_field (perturbative models) needs b_space="Hdiv".'
+                self.shear_alf = ShearAlfvenCurlCurlPropagator(projected=projected)
+            self.bg_current = BackgroundCurrent(b_field=b_field, rho_field=rho_field)
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
-    em_fields: MagneticFieldMixin.EMFields
+    em_fields: EMFields
     propagators: Propagators
 
     ## abstract methods
@@ -75,16 +96,59 @@ class LinearMHDWithQ(MagneticFieldMixin, LinearEulerWithQ):
         self,
         base_units: BaseUnits = BaseUnits(),
         mass_number: float = 1.0,
-        b_space: MagneticFieldMixin.OptsBSpace = "Hdiv",
+        b_space: OptsBSpace = "Hdiv",
         projected: bool = False,
     ):
+        check_option(b_space, self.OptsBSpace)
+        if projected and b_space != "Hcurl":
+            raise ValueError('projected=True requires b_space="Hcurl".')
+
         # 0. store input parameters
         self._store_params(locals())
         # for the hooks (see LinearEulerWithQ)
-        self._init_magnetic_field(b_space, projected)
+        self._b_space = b_space
+        self._projected = projected
 
         # 1.-5. see LinearEulerWithQ
         super().__init__(base_units, mass_number)
+
+    def _create_species(self):
+        """:meta private:"""
+        self.em_fields = self.EMFields(b_space=self._b_space)
+        super()._create_species()
+
+    def _propagator_args(self):
+        """:meta private:"""
+        return {
+            **super()._propagator_args(),
+            "b_field": self.em_fields.b_field,
+            "b_space": self._b_space,
+            "projected": self._projected,
+        }
+
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
+        self.propagators.shear_alf.variables.u = self.mhd.velocity
+        self.propagators.shear_alf.variables.b = self.em_fields.b_field
+
+        self.propagators.bg_current.variables.u = self.mhd.velocity
+
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        self._magnetic_energies = MagneticEnergies(self.em_fields.b_field)
+        add_magnetic_scalars(scalars, self.em_fields.b_field, self._magnetic_energies)
+        return scalars
+
+    @property
+    def velocity_scale(self):
+        return "alfvén"
+
+    def post_allocate(self):
+        """:meta private:"""
+        super().post_allocate()
+        self._magnetic_energies.allocate()
 
     ## abstract methods for documentation
 
@@ -175,6 +239,15 @@ class LinearMHDWithQ(MagneticFieldMixin, LinearEulerWithQ):
         - Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V` (``en_B_tot``)"""
 
     @classmethod
+    def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence). The shear-Alfvén step
+        ``shear_alf`` is :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` for
+        ``b_space="Hdiv"`` (listed below) and
+        :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator` for
+        ``b_space="Hcurl"`` (at the end):"""
+        return magnetic_discretization_doc(cls)
+
+    @classmethod
     def doc_long_description(cls):
         r"""This model simulates small-amplitude perturbations in a magnetized plasma with a static
         equilibrium magnetic field :math:`\mathbf{B}_0` and zero background flow. It solves the linearized ideal
@@ -184,8 +257,8 @@ class LinearMHDWithQ(MagneticFieldMixin, LinearEulerWithQ):
 
         The magnetic field and its two discretizations (flag ``b_space``: ``"Hdiv"`` with the strong induction
         equation, ``"Hcurl"`` with the weak induction equation and the field-aligned curl-curl solve, exactly energy
-        conserving with ``projected=True``) are those of :class:`~struphy.models.LinearMHD`, shared through
-        :class:`~struphy.models.linear_euler_mixins.MagneticFieldMixin`. The species, the sound wave step and the
+        conserving with ``projected=True``) are those of :class:`~struphy.models.LinearMHD`, shared through the
+        utilities in :mod:`struphy.models.utils`. The species, the sound wave step and the
         background :math:`q` step are inherited from :class:`~struphy.models.LinearEulerWithQ`.
 
         The compressional part of the time step consists of three steps: the sound wave step, which conserves the

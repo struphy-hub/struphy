@@ -1,10 +1,17 @@
+from typing import Literal
+
 from struphy.io.options import BaseUnits
 from struphy.models.linear_euler import LinearEuler
-from struphy.models.linear_euler_mixins import MagneticFieldMixin, add_magnetic_propagators
+from struphy.models.species import FieldSpecies
+from struphy.models.utils import MagneticEnergies, add_magnetic_scalars, magnetic_discretization_doc
 from struphy.models.variables import FEECVariable
+from struphy.propagators.background_current import BackgroundCurrent
+from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
+from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
+from struphy.utils.utils import check_option
 
 
-class LinearMHD(MagneticFieldMixin, LinearEuler):
+class LinearMHD(LinearEuler):
     """Linear ideal MHD with zero-flow equilibrium for magnetohydrodynamic wave propagation.
 
     Extends :class:`~struphy.models.LinearEuler` by the magnetic field: the Lorentz force and the induction equation.
@@ -25,6 +32,15 @@ class LinearMHD(MagneticFieldMixin, LinearEuler):
         the Lorentz force, which makes this step exactly energy conserving at the price of inner mass matrix solves
         (default: False).
     """
+
+    OptsBSpace = Literal["Hdiv", "Hcurl"]
+
+    ## additional species
+
+    class EMFields(FieldSpecies):
+        def __init__(self, b_space: str = "Hdiv"):
+            self.b_field = FEECVariable(space=b_space)
+            self.init_variables()
 
     ## additional propagators
 
@@ -57,10 +73,14 @@ class LinearMHD(MagneticFieldMixin, LinearEuler):
             **kwargs,
         ):
             super().__init__(**kwargs)
-            add_magnetic_propagators(self, b_field=b_field, b_space=b_space, projected=projected)
+            if b_space == "Hdiv":
+                self.shear_alf = ShearAlfvenPropagator()
+            else:
+                self.shear_alf = ShearAlfvenCurlCurlPropagator(projected=projected)
+            self.bg_current = BackgroundCurrent(b_field=b_field)
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
-    em_fields: MagneticFieldMixin.EMFields
+    em_fields: EMFields
     propagators: Propagators
 
     ## abstract methods
@@ -69,16 +89,59 @@ class LinearMHD(MagneticFieldMixin, LinearEuler):
         self,
         base_units: BaseUnits = BaseUnits(),
         mass_number: float = 1.0,
-        b_space: MagneticFieldMixin.OptsBSpace = "Hdiv",
+        b_space: OptsBSpace = "Hdiv",
         projected: bool = False,
     ):
+        check_option(b_space, self.OptsBSpace)
+        if projected and b_space != "Hcurl":
+            raise ValueError('projected=True requires b_space="Hcurl".')
+
         # 0. store input parameters
         self._store_params(locals())
         # for the hooks (see LinearEuler)
-        self._init_magnetic_field(b_space, projected)
+        self._b_space = b_space
+        self._projected = projected
 
         # 1.-5. see LinearEuler
         super().__init__(base_units, mass_number)
+
+    def _create_species(self):
+        """:meta private:"""
+        self.em_fields = self.EMFields(b_space=self._b_space)
+        super()._create_species()
+
+    def _propagator_args(self):
+        """:meta private:"""
+        return {
+            **super()._propagator_args(),
+            "b_field": self.em_fields.b_field,
+            "b_space": self._b_space,
+            "projected": self._projected,
+        }
+
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
+        self.propagators.shear_alf.variables.u = self.mhd.velocity
+        self.propagators.shear_alf.variables.b = self.em_fields.b_field
+
+        self.propagators.bg_current.variables.u = self.mhd.velocity
+
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        self._magnetic_energies = MagneticEnergies(self.em_fields.b_field)
+        add_magnetic_scalars(scalars, self.em_fields.b_field, self._magnetic_energies)
+        return scalars
+
+    @property
+    def velocity_scale(self):
+        return "alfvén"
+
+    def post_allocate(self):
+        """:meta private:"""
+        super().post_allocate()
+        self._magnetic_energies.allocate()
 
     ## abstract methods for documentation
 
@@ -166,6 +229,15 @@ class LinearMHD(MagneticFieldMixin, LinearEuler):
         - Equilibrium magnetic energy: :math:`E_{B0} = \frac{1}{2} \int \frac{|\mathbf{B}_0|^2}{\mu_0} \, \mathrm{d}V`
         - Equilibrium internal energy: :math:`E_{p0} = \int \frac{p_0}{\gamma - 1} \, \mathrm{d}V`
         - Total magnetic energy: :math:`E_{B,\mathrm{tot}} = \frac{1}{2} \int \frac{|\mathbf{B}_0 + \tilde{\mathbf{B}}|^2}{\mu_0} \, \mathrm{d}V`"""
+
+    @classmethod
+    def doc_discretization(cls):
+        """Time integration is performed by the following propagators (in sequence). The shear-Alfvén step
+        ``shear_alf`` is :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` for
+        ``b_space="Hdiv"`` (listed below) and
+        :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator` for
+        ``b_space="Hcurl"`` (at the end):"""
+        return magnetic_discretization_doc(cls)
 
     @classmethod
     def doc_long_description(cls):
