@@ -255,7 +255,7 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
         .. math::
 
-            \mathbf{J}_\textnormal{gc} = \int \frac{f_\textnormal{h}}{B_\parallel^*} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            \mathbf{J}_\textnormal{gc} = \int f_\textnormal{h} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
 
         .. math::
 
@@ -273,9 +273,9 @@ class LinearMHDDriftkineticCC(LinearMHD):
             \\[2mm]
             \mathbf{B} &= \mathbf{B}_0 + \tilde{\mathbf{B}}
 
-        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and :math:`\mathbf B_0 \cdot \mathbf n = 0`
-        on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions; markers
-        that leave the domain take their energy with them, see ``n_lost_particles``):
+        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and
+        :math:`\mathbf B_0 \cdot \mathbf n = \tilde{\mathbf B} \cdot \mathbf n = 0` on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions;
+        otherwise, lost markers carry energy out of the domain, see ``n_lost_particles``):
 
         Mass perturbation, number of energetic ions (the guiding-center phase-space volume
         :math:`B_\parallel^* \, \textnormal{d} \mathbf x \, \textnormal{d} v_\parallel \textnormal{d} \mu` is preserved by

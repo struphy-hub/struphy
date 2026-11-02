@@ -220,8 +220,8 @@ class LinearMHDVlasovCC(LinearMHD):
         equations.
 
         **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and :math:`\mathbf B_0 \cdot \mathbf n = 0`
-        on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions; markers
-        that leave the domain take their energy with them, see ``n_lost_particles``):
+        on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions;
+        otherwise, lost markers carry energy out of the domain, see ``n_lost_particles``):
 
         Mass perturbation, number of energetic ions and divergence of the magnetic field:
 
