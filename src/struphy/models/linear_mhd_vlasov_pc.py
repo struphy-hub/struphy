@@ -178,6 +178,31 @@ class LinearMHDVlasovPC(LinearMHD):
 
             \tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp \mathbf{v}_\perp^\top f_\textnormal{h} \, d \mathbf{v}
 
+        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and :math:`\mathbf B_0 \cdot \mathbf n = 0`
+        on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions; markers
+        that leave the domain take their energy with them, see ``n_lost_particles``):
+
+        Mass perturbation, number of energetic ions and divergence of the magnetic field:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \int \tilde \rho \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\textnormal d}{\textnormal d t} \int \int_{\mathbb{R}^3} f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}
+            \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\partial}{\partial t} \nabla \cdot \tilde{\mathbf B} = 0
+
+        Total perturbed energy, for an equilibrium with :math:`\nabla \times \mathbf B_0 = 0` and
+        :math:`\nabla p_0 = 0`, with :math:`\gamma = 5/3`. The pressure-coupling terms (the divergence of
+        :math:`\tilde{\mathbb{P}}_{\textnormal{h},\perp}` in the momentum equation and the terms with
+        :math:`\tilde{\mathbf{U}}_\perp` in the Vlasov equation) exchange energy between the MHD flow and the energetic
+        ions; :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D` discretizes them as an adjoint pair:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \left[ \int \left( \frac{\rho_0}{2} |\tilde{\mathbf U}|^2
+            + \frac 12 |\tilde{\mathbf B}|^2 + \frac{\tilde p^2}{2 \gamma p_0} \right) \textnormal d \mathbf x
+            + \frac{A_\textnormal{h}}{2 A_\textnormal{b}} \int \int_{\mathbb{R}^3} |\mathbf v|^2 f_\textnormal{h} \,
+            \textnormal{d}^3 \mathbf{v} \, \textnormal d \mathbf x \right] = 0
         """
 
     @classmethod
