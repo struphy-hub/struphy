@@ -105,6 +105,8 @@ class LiteralOptions:
     OptsSaddlePointSolver = Literal["uzawa"]
     OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
     OptsNonlinearSolver = Literal["Picard", "Newton"]
+    # weights of the nonlinear terms in the steps of the perturbative models: at t^n or at t^{n+1/2} (Picard)
+    OptsTimeWeights = Literal["frozen", "midpoint"]
     OptsButcher = Literal["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"]
 
     # markers
