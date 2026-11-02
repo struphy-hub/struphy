@@ -183,8 +183,12 @@ def test_compile_cuda_kernels_on_cupy_backend(tmp_path, monkeypatch):
     assert compiled == ["push_eta_stage", "reflect"]
 
     compiled.clear()
-    monkeypatch.setattr(Simulation, "kernels", lambda self: (push_eta_stage, push_deterministic_diffusion_stage, reflect))
-    with pytest.raises(NotImplementedError, match=r"1 of the\s+3 kernels.*\n  - push_deterministic_diffusion_stage \(expected at .*"):
+    monkeypatch.setattr(
+        Simulation, "kernels", lambda self: (push_eta_stage, push_deterministic_diffusion_stage, reflect)
+    )
+    with pytest.raises(
+        NotImplementedError, match=r"1 of the\s+3 kernels.*\n  - push_deterministic_diffusion_stage \(expected at .*"
+    ):
         sim.compile_cuda_kernels()
     assert compiled == []
 
