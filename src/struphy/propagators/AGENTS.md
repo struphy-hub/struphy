@@ -40,6 +40,10 @@ All of the following are abstract; the class can't be instantiated without them.
   `self.update_feec_variables(<var>=new_coeffs)`, which also updates ghost regions. Particles are updated in place
   (e.g. by a `Pusher`). The current time is `self.time_state[0]`.
 
+Code shared by several propagators (e.g. the density-weighted mass matrix `VelocityMass` of the perturbative
+models) goes into `src/struphy/propagators/utils.py` and is called explicitly from the propagators; don't use mixin
+classes. `utils.py` is not a propagator module (`doc/check_propagator_doc.py` skips it).
+
 Linear solves: configure with `SolverParameters` (`src/struphy/linear_algebra/solver.py`) and choose solver and
 preconditioner through `Literal` options.
 

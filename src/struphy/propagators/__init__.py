@@ -25,6 +25,7 @@ _LAZY_IMPORTS = {
     "Magnetosonic": "struphy.propagators.magnetosonic",
     "MagnetosonicUniform": "struphy.propagators.magnetosonic_uniform",
     "MaxwellWeakAmpere": "struphy.propagators.maxwell_weak_ampere",
+    "MomentumAdvection": "struphy.propagators.momentum_advection",
     "OhmCold": "struphy.propagators.ohm_cold",
     "PoissonSolve": "struphy.propagators.poisson_solve",
     "PressureCoupling6D": "struphy.propagators.pressure_coupling_6d",
@@ -41,9 +42,11 @@ _LAZY_IMPORTS = {
     "ShearAlfvenB1": "struphy.propagators.shear_alfven_b1",
     "ShearAlfvenCurlCurlPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
     "ShearAlfvenCurrentCoupling5D": "struphy.propagators.shear_alfven_current_coupling_5d",
+    "ShearAlfvenNonlinear": "struphy.propagators.shear_alfven_nonlinear",
     "ShearAlfvenPropagator": "struphy.propagators.shear_alfven_propagator",
     "SoundWaveLinear": "struphy.propagators.sound_wave_linear",
     "SoundWaveLinearWithQ": "struphy.propagators.sound_wave_linear_with_q",
+    "SoundWaveNonlinearWithQ": "struphy.propagators.sound_wave_nonlinear_with_q",
     "TimeDependentSource": "struphy.propagators.time_dependent_source",
     "TwoFluidQuasiNeutralFull": "struphy.propagators.two_fluid_quasi_neutral_full",
     "VariationalAlfvenEvolve": "struphy.propagators.variational_alfven_evolve",
@@ -86,6 +89,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.magnetosonic import Magnetosonic
     from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform
     from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+    from struphy.propagators.momentum_advection import MomentumAdvection
     from struphy.propagators.ohm_cold import OhmCold
     from struphy.propagators.poisson_solve import PoissonSolve
     from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
@@ -102,9 +106,11 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
     from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
     from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
+    from struphy.propagators.shear_alfven_nonlinear import ShearAlfvenNonlinear
     from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
     from struphy.propagators.sound_wave_linear import SoundWaveLinear
     from struphy.propagators.sound_wave_linear_with_q import SoundWaveLinearWithQ
+    from struphy.propagators.sound_wave_nonlinear_with_q import SoundWaveNonlinearWithQ
     from struphy.propagators.time_dependent_source import TimeDependentSource
     from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
     from struphy.propagators.variational_alfven_evolve import VariationalAlfvenEvolve
@@ -146,6 +152,7 @@ __all__ = [
     "Magnetosonic",
     "MagnetosonicUniform",
     "MaxwellWeakAmpere",
+    "MomentumAdvection",
     "OhmCold",
     "PoissonSolve",
     "PressureCoupling6D",
@@ -162,9 +169,11 @@ __all__ = [
     "ShearAlfvenB1",
     "ShearAlfvenCurlCurlPropagator",
     "ShearAlfvenCurrentCoupling5D",
+    "ShearAlfvenNonlinear",
     "ShearAlfvenPropagator",
     "SoundWaveLinear",
     "SoundWaveLinearWithQ",
+    "SoundWaveNonlinearWithQ",
     "TimeDependentSource",
     "TwoFluidQuasiNeutralFull",
     "VariationalAlfvenEvolve",

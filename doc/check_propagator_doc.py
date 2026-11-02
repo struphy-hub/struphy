@@ -23,12 +23,12 @@ def main() -> int:
         expected_resolver=get_python_modules,
     )
 
-    expected_items = get_python_modules(PROPAGATORS_DIR, {"base.py", "__init__.py"})
+    expected_items = get_python_modules(PROPAGATORS_DIR, {"base.py", "__init__.py", "utils.py"})
     documented_items = get_documented_items(DOC_FILE, config.directive_pattern)
     syntax_targets = [
         (path.stem, path)
         for path in sorted(PROPAGATORS_DIR.glob("*.py"))
-        if path.name not in {"base.py", "__init__.py"}
+        if path.name not in {"base.py", "__init__.py", "utils.py"}
     ]
     return run_check(config, expected_items, documented_items, syntax_targets)
 

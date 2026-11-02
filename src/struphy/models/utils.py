@@ -11,6 +11,7 @@ from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
+from struphy.propagators.utils import VelocityMass
 
 logger = logging.getLogger("struphy")
 
@@ -174,6 +175,82 @@ def magnetic_discretization_doc(model_cls) -> str:
     doc += "(:class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`):\n\n"
     doc += f"{ShearAlfvenCurlCurlPropagator.__doc__}\n"
     return doc
+
+
+## nonlinear (perturbative) terms of the models with q = sqrt(p)
+
+GAMMA = 5 / 3
+
+
+class PerturbativeEnergies:
+    """Energies of the perturbation of the full (nonlinear) system in the perturbative models: the kinetic energy with
+    the total density, :math:`\\frac 12 \\int (\\rho_0 + \\tilde \\rho) |\\tilde{\\mathbf U}|^2`, the internal energy
+    :math:`\\int (2 q_0 \\tilde q + \\tilde q^2) / (\\gamma - 1)` and their sum, plus the change of the magnetic energy
+    :math:`\\frac 12 \\int (|\\mathbf B_0 + \\tilde{\\mathbf B}|^2 - |\\mathbf B_0|^2)` if ``magnetic_energies`` is given.
+
+    Parameters
+    ----------
+    mhd : FluidSpecies
+        The fluid species ``mhd`` of the model (``density``, ``velocity``, ``sqrt_p``).
+    magnetic_energies : MagneticEnergies, optional
+        Magnetic energies of the model with a magnetic field (default: None, no magnetic field).
+    """
+
+    def __init__(self, mhd, magnetic_energies: MagneticEnergies = None):
+        self._mhd = mhd
+        self._magnetic_energies = magnetic_energies
+
+    def allocate(self):
+        """Mass matrix of the total density and buffers (call in ``post_allocate`` of the model)."""
+        self._kinetic_mass = VelocityMass(
+            Propagator.derham,
+            Propagator.domain,
+            Propagator.mass_ops,
+            Propagator.projected_equil,
+            rho_field=self._mhd.density,
+        )
+        self._tmp_u: BlockVector = self._mhd.velocity.spline.vector.space.zeros()
+        # linear form of q0 in V3, for int 2 q0 q
+        self._M3_q0 = Propagator.mass_ops.M3.dot(Propagator.projected_equil.q3)
+
+    def en_U(self):
+        """Kinetic energy with the total density."""
+        self._kinetic_mass.update()
+        u = self._mhd.velocity.spline.vector
+        return u.inner(self._kinetic_mass.M_rho.dot(u, out=self._tmp_u)) / 2
+
+    def en_internal(self):
+        """Perturbation of the internal energy."""
+        q = self._mhd.sqrt_p.spline.vector
+        q2 = q.inner(Propagator.mass_ops.M3.dot(q))
+        return (2 * q.inner(self._M3_q0) + q2) / (GAMMA - 1)
+
+    def en_tot(self):
+        """Total energy of the perturbation."""
+        en_tot = self.en_U() + self.en_internal()
+        if self._magnetic_energies is not None:
+            en_tot += self._magnetic_energies.en_B_tot() - self._magnetic_energies.en_B_eq()
+        return en_tot
+
+
+def add_perturbative_scalars(scalars: dict, mhd, energies: PerturbativeEnergies):
+    """Replace the energies of the linear model by those of the perturbation of the full system: ``en_U`` (total
+    density), ``en_q2``, ``en_internal`` and ``en_tot`` (kept last).
+
+    Parameters
+    ----------
+    scalars : dict
+        Scalars of the linear model, modified in place.
+    mhd : FluidSpecies
+        The fluid species ``mhd`` of the model.
+    energies : PerturbativeEnergies
+        Energies of the perturbation.
+    """
+    scalars.pop("en_tot")
+    scalars["en_U"] = FunctionScalarFEEC(energies.en_U)
+    scalars["en_q2"] = BilinearEnergyFEEC(mhd.sqrt_p, bilinear_form_name="M3", normalization=2 / (GAMMA - 1))
+    scalars["en_internal"] = FunctionScalarFEEC(energies.en_internal)
+    scalars["en_tot"] = FunctionScalarFEEC(energies.en_tot)
 
 
 if __name__ == "__main__":
