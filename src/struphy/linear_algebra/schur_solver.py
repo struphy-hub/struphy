@@ -4,7 +4,121 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 from scope_profiler import ProfileManager
 
+from struphy.feec.mass import WeightedMassOperator
 from struphy.linear_algebra.solver import SolverParameters
+
+
+class SchurOperator(LinearOperator):
+    r"""The operator :math:`A + c\, \mathbb B_W\, BC\, \mathbb B_V^\top` of :class:`SchurSolver`, applied lazily
+    (without forming the sum as a matrix): :math:`A` and :math:`BC` are applied one after the other and the results
+    are added.
+
+    :math:`\mathbb B_V` and :math:`\mathbb B_W` are the boundary operators of :math:`A` if :math:`A` is a
+    :class:`~struphy.feec.mass.WeightedMassOperator` (identities otherwise). The operator is thus the same as the
+    matrix sum :math:`A + c\, BC` assembled into :math:`A` (whose boundary operators are applied to the whole sum).
+    Unlike the matrix sum, it also works if :math:`BC` is not a matrix of the tensor-product spline space, e.g. a
+    product of discrete derivatives and mass matrices on polar splines, or a matrix-free operator.
+
+    Parameters
+    ----------
+    A : LinearOperator
+        First summand.
+
+    BC : LinearOperator
+        Second summand (without the factor :math:`c` and the boundary operators).
+
+    scalar : float
+        The factor :math:`c`, can be changed with :attr:`scalar` (e.g. :math:`-\Delta t^2` for a new time step).
+    """
+
+    def __init__(self, A: LinearOperator, BC: LinearOperator, scalar: float = 1.0):
+        assert A.domain == BC.domain
+        assert A.codomain == BC.codomain
+        self._A = A
+        self._BC = BC
+        self._scalar = scalar
+
+        # boundary operators of A (the matrix sum applies them to BC too); skipped if they are identities
+        self._bv = None
+        self._bw = None
+        if isinstance(A, WeightedMassOperator):
+            bv, bw = A.boundary_ops
+            if A.transposed:  # the boundary operators of V act on the codomain side
+                bv, bw = bw, bv
+            if not isinstance(bv, IdentityOperator):
+                self._bv = bv.T
+                self._tmp_v = A.domain.zeros()
+            if not isinstance(bw, IdentityOperator):
+                self._bw = bw
+                self._tmp_w = A.codomain.zeros()
+
+        self._tmp = A.codomain.zeros()
+
+    @property
+    def A(self):
+        """First summand :math:`A`."""
+        return self._A
+
+    @property
+    def BC(self):
+        """Second summand :math:`BC`."""
+        return self._BC
+
+    @property
+    def scalar(self):
+        """The factor :math:`c` of :math:`BC`."""
+        return self._scalar
+
+    @scalar.setter
+    def scalar(self, c):
+        self._scalar = c
+
+    @property
+    def domain(self):
+        return self._A.domain
+
+    @property
+    def codomain(self):
+        return self._A.codomain
+
+    @property
+    def dtype(self):
+        return self._A.dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return SchurOperator(
+            self._A.transpose(conjugate=conjugate), self._BC.transpose(conjugate=conjugate), self._scalar
+        )
+
+    def dot(self, v, out=None):
+        """``out = A v + c B_W BC B_V^T v`` (no temporaries are allocated if ``out`` is given)."""
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+        if out is None:
+            out = self.codomain.zeros()
+        else:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+        if out is v:
+            v = v.copy()
+
+        x = v if self._bv is None else self._bv.dot(v, out=self._tmp_v)
+        if self._bw is None:
+            y = self._BC.dot(x, out=self._tmp)
+        else:
+            self._BC.dot(x, out=self._tmp_w)
+            y = self._bw.dot(self._tmp_w, out=self._tmp)
+        y *= self._scalar
+
+        self._A.dot(v, out=out)
+        out += y
+        return out
 
 
 class SchurSolver:
@@ -26,6 +140,11 @@ class SchurSolver:
         x^{n+1} = S^{-1} \left[ (A + \Delta t^2 BC) \, x^n - 2 \Delta t\, B \, y^n \right] \,.
 
     The caller passes :math:`B y^n` and computes :math:`y^{n+1} = y^n - \Delta t\, C (x^{n+1} + x^n)` itself.
+
+    If :math:`A` and :math:`BC` are both :class:`~struphy.feec.mass.WeightedMassOperator` of the same spaces (e.g.
+    :math:`BC` is an accumulated particle matrix), :math:`S` is assembled as a matrix (in a copy of :math:`A`).
+    Otherwise (e.g. :math:`BC` is a product of discrete derivatives and mass matrices, or a matrix-free operator),
+    :math:`S` is applied lazily as a :class:`SchurOperator`, which also works with polar splines.
 
     Parameters
     ----------
@@ -67,9 +186,11 @@ class SchurSolver:
         self._A = A
         self._BC = BC
 
-        # Allocate memory for matrices used in solving the Schur system
-        self._schur = A.copy()
-        self._rhs_m = A.copy()
+        # left- and right-hand side operators A - dt^2 BC and A + dt^2 BC (see update_operators): copies of A for the
+        # matrix sum (allocated at the first solve), lazy SchurOperators otherwise (rebuilt when A or BC is replaced)
+        self._schur = None
+        self._rhs_m = None
+        self._lazy_ops = None
 
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
@@ -112,11 +233,59 @@ class SchurSolver:
     def A(self, a):
         """Upper left block :math:`A`."""
         self._A = a
+        self._lazy_ops = None
 
     @BC.setter
     def BC(self, bc):
         """Product :math:`BC` of the off-diagonal blocks."""
         self._BC = bc
+        self._lazy_ops = None
+
+    @property
+    def matrix_sum(self) -> bool:
+        """Whether :math:`S` is assembled as a matrix (:math:`A` and :math:`BC` are weighted mass operators of the same
+        spaces) or applied lazily as a :class:`SchurOperator`."""
+        return (
+            isinstance(self._A, WeightedMassOperator)
+            and isinstance(self._BC, WeightedMassOperator)
+            and self._BC.domain is self._A.domain
+            and self._BC.codomain is self._A.codomain
+        )
+
+    def update_operators(self, dt: float):
+        r"""Set the left- and right-hand side operators :math:`S = A - \Delta t^2 BC` (also the operator of the
+        iterative solver) and :math:`A + \Delta t^2 BC` for the time step ``dt``.
+
+        Returns
+        -------
+        schur, rhs_m : LinearOperator
+            The left- and right-hand side operators.
+        """
+        if self.matrix_sum:
+            if self._schur is None:
+                self._schur = self._A.copy()
+                self._rhs_m = self._A.copy()
+
+            self._schur *= 0.0
+            self._schur += self._BC
+            self._schur *= -(dt**2)
+            self._schur += self._A
+
+            self._rhs_m *= 0.0
+            self._rhs_m += self._BC
+            self._rhs_m *= dt**2
+            self._rhs_m += self._A
+            schur, rhs_m = self._schur, self._rhs_m
+        else:
+            if self._lazy_ops is None:
+                self._lazy_ops = (SchurOperator(self._A, self._BC), SchurOperator(self._A, self._BC))
+            schur, rhs_m = self._lazy_ops
+            schur.scalar = -(dt**2)
+            rhs_m.scalar = dt**2
+
+        # use setter to update lhs matrix
+        self._solver.linop = schur
+        return schur, rhs_m
 
     @profile
     @ProfileManager.profile("solve: SchurSolver")
@@ -152,21 +321,10 @@ class SchurSolver:
         assert Byn.space == self._A.codomain
 
         # left- and right-hand side operators
-        self._schur *= 0.0
-        self._schur += self._BC
-        self._schur *= -(dt**2)
-        self._schur += self._A
-
-        self._rhs_m *= 0.0
-        self._rhs_m += self._BC
-        self._rhs_m *= dt**2
-        self._rhs_m += self._A
-
-        # use setter to update lhs matrix
-        self._solver.linop = self._schur
+        _, rhs_m = self.update_operators(dt)
 
         # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)
-        rhs = self._rhs_m.dot(xn, out=self._rhs)
+        rhs = rhs_m.dot(xn, out=self._rhs)
         rhs /= 2 * dt
         rhs -= Byn
         rhs *= 2 * dt
