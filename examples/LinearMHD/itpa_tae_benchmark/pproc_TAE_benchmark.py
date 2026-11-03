@@ -6,7 +6,8 @@ last saved time, together with the energy budget and the (m, n) harmonics of the
 are shown by their components in the basis of their initial condition (``given_in_basis``, else their FEEC form,
 see ``Output.field_basis``), as functions of the physical coordinates; the 3D views show the scalar fields and the
 first components (radial eta1 in a logical basis). The measured TAE frequency is compared with the analytical one
-and with the ideal MHD frequency of the ITPA benchmark (Koenies et al. 2018) and saved; a deviation of more than 10% fails with an ``AssertionError`` after the figures are saved (not with
+and with the ideal MHD frequency of the ITPA benchmark (Koenies et al. 2018) and saved; a deviation of more than
+10% fails with an ``AssertionError`` after the figures are saved (not with
 ``--test-run``). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
 (``pip install "struphy[pproc]"``).
 """

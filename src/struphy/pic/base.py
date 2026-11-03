@@ -331,9 +331,18 @@ class Particles(metaclass=ABCMeta):
             if bci == "reflect":
                 assert domain is not None, "Reflecting boundary conditions require a domain."
 
+        # "refill" (eta1 only): markers leaving through the walls are refilled (see _particle_refilling) instead of
+        # removed; it is "remove" with bc_refill (both walls if bc_refill is not given)
+        if "refill" in bc:
+            assert bc[0] == "refill" and "refill" not in bc[1:], "The 'refill' boundary condition is for eta1 only."
+            bc = ["remove"] + list(bc[1:])
+            if bc_refill is None:
+                bc_refill = ("inner", "outer")
+
         if bc_refill is not None:
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
+        self._bc_refill = bc_refill
 
         self._bc = bc
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
@@ -662,8 +671,8 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def bc_refill(self):
-        """How to re-enter particles if bc is 'refill'."""
-        return self.boundary_params.bc_refill
+        """How to re-enter particles if bc is 'refill' (or 'remove' with ``bc_refill``)."""
+        return self._bc_refill
 
     @property
     def bc_sph(self):
@@ -3175,6 +3184,9 @@ class Particles(metaclass=ABCMeta):
         When their guiding-centers also reach at the boundary, refills them as we did with guiding-center orbit.
         """
 
+        # eta3 = tor_period * phi / (2 pi) on a HollowTorus covering 1/tor_period of the torus
+        tor_period = self.domain.params.get("tor_period", 1)
+
         for kind in self.bc_refill:
             # sorting out particles which are out of the domain
             if kind == "inner":
@@ -3185,7 +3197,7 @@ class Particles(metaclass=ABCMeta):
             else:
                 outside_inds = xp.nonzero(self._is_outside_right)[0]
                 self.markers[0, outside_inds] = 1 - 1e-4
-                r_loss = 1.0
+                r_loss = self.domain.params["a2"]
 
             if len(outside_inds) == 0:
                 continue
@@ -3202,8 +3214,8 @@ class Particles(metaclass=ABCMeta):
                 if len(gyro_inside_inds) > 0:
                     outside_inds = outside_inds[~gyro_inside_inds]
 
-            # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss
-            self.markers[2, outside_inds] -= 2 * self.equil.q_r(r_loss) * self.markers[1, outside_inds]
+            # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss (in eta3: times tor_period)
+            self.markers[2, outside_inds] -= 2 * tor_period * self.equil.q_r(r_loss) * self.markers[1, outside_inds]
 
             # theta_boudary_transfer = - theta_loss
             self.markers[1, outside_inds] = 1.0 - self.markers[1, outside_inds]

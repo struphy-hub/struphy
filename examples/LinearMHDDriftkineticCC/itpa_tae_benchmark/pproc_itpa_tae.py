@@ -208,7 +208,11 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, compare=None):
     figs = {"energies": run.plot.energies(parts=ENERGIES).fig, "growth": growth_figure(run, gamma)}
     if compare is not None:
         other = Output(compare)
-        figs["filter_comparison"] = comparison_figure({run.path_out.name: run, other.path_out.name: other})
+        # labelled by the folder names, or by the full paths if the names are equal
+        labels = [run.path_out.name, other.path_out.name]
+        if labels[0] == labels[1]:
+            labels = [str(run.path_out), str(other.path_out)]
+        figs["filter_comparison"] = comparison_figure(dict(zip(labels, (run, other))))
     finish(figs, results_dir, save_figs)
 
     for n, t in zip(snapshots, times):

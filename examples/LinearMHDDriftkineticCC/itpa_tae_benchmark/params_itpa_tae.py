@@ -50,8 +50,8 @@ parser.add_argument(
     "--drift-algo",
     default="discrete_gradient_2nd_order",
     choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
-    help="Algorithm of the guiding-center drift push (PushGuidingCenterBxEstar): a discrete gradient (energy conserving, "
-    "iterative) or the explicit RK4.",
+    help="Algorithm of the guiding-center drift push (PushGuidingCenterBxEstar): a discrete gradient (energy "
+    "conserving, iterative) or the explicit RK4.",
 )
 parser.add_argument(
     "--marker-bc",
@@ -109,8 +109,8 @@ units), represented by {args.Np} markers with delta-f weights (control variate).
 benchmark,
     n_h(s) = n0 c3 exp(-(c2/c1) tanh((sqrt(s) - c0) / c2)),
     n0 = 1.44131e17 m^-3, c0 = 0.49123, c1 = 0.298228, c2 = 0.198739, c3 = 0.521298,
-(times --nh-scale = {args.nh_scale}) is taken with sqrt(s) = r(psi_c)/a, the minor radius of the flux surface psi = psi_c
-of the canonical toroidal momentum: the equilibrium is the canonical Maxwellian (an exact equilibrium of the
+(times --nh-scale = {args.nh_scale}) is taken with sqrt(s) = r(psi_c)/a, the minor radius of the flux surface
+psi = psi_c of the canonical toroidal momentum: the equilibrium is the canonical Maxwellian (an exact equilibrium of the
 guiding-center motion, see CanonicalMaxwellian2D with shift=None). The benchmark used a distribution of the flux
 label of the position instead, which is not an equilibrium; with a distribution of the canonical toroidal momentum
 its growth rate is about a factor of two smaller (NOVA-K, Sec. IV.D.1 of the paper). The guiding-center pushers use
@@ -274,10 +274,8 @@ model.energetic_ions.set_markers(
     loading_params=LoadingParameters(Np=args.Np, seed=1234, moments=(0.0, 0.0, vth, vth)),
     # delta-f: the weights carry f - f0, with the canonical Maxwellian f0
     weights_params=WeightsParameters(control_variate=True),
-    boundary_params=BoundaryParameters(bc=("remove", "periodic", "periodic"))
-    if args.marker_bc == "remove"
-    # refill: the markers leaving through the walls are refilled instead of removed (bc "remove" with bc_refill)
-    else BoundaryParameters(bc=("remove", "periodic", "periodic"), bc_refill=("inner", "outer")),
+    # refill: the markers leaving through the walls are refilled on the same flux surface instead of removed
+    boundary_params=BoundaryParameters(bc=(args.marker_bc, "periodic", "periodic")),
     sorting_params=SortingParameters(do_sort=True, sorting_frequency=10),
     saving_params=SavingParameters(n_markers=0),
     # the discrete-gradient pushers sort at mid-points in each iteration
