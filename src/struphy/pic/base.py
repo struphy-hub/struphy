@@ -342,6 +342,17 @@ class Particles(metaclass=ABCMeta):
         if bc_refill is not None:
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
+            # _particle_refilling maps along the field line of a HollowTorus (theta = 2 pi eta2) with an equilibrium
+            # q(r): fail here instead of when the first marker leaves
+            if domain is not None:
+                params = domain.params
+                assert all(key in params for key in ("a1", "a2", "tor_period")), (
+                    "Refilling markers needs a HollowTorus domain."
+                )
+                assert params.get("pol_period", 1) == 1, "Refilling markers needs pol_period = 1."
+            assert equil is None or hasattr(equil, "q_r"), (
+                "Refilling markers needs an equilibrium with q_r (AdhocTorus)."
+            )
         self._bc_refill = bc_refill
 
         self._bc = bc
@@ -3214,7 +3225,8 @@ class Particles(metaclass=ABCMeta):
                 if len(gyro_inside_inds) > 0:
                     outside_inds = outside_inds[~gyro_inside_inds]
 
-            # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss (in eta3: times tor_period)
+            # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss (in eta3: times tor_period); exact for
+            # straight field-line angles (sfl=True), to O(r/R) for the geometric angle (sfl=False)
             self.markers[2, outside_inds] -= 2 * tor_period * self.equil.q_r(r_loss) * self.markers[1, outside_inds]
 
             # theta_boudary_transfer = - theta_loss
