@@ -237,7 +237,10 @@ class VelocityMass:
 def extracted_ones(derham: Derham, form: str) -> Vector:
     """The vector of ones in the tensor-product space of the ``form`` (``"0"``, ``"1"``, ``"2"``, ``"3"`` or ``"v"``),
     mapped by the extraction operator, i.e. a vector of the coefficient space of the variables (polar with polar
-    splines). Used for density averages such as ``ones^T A ones / ones^T M ones``."""
+    splines). Used for density averages such as ``ones^T A ones / ones^T M ones`` (e.g. the reference density of a
+    stiffness preconditioner). With polar splines it is not the coefficient vector of a constant (the polar
+    coefficients near the pole are sums over the angle), so such an average weights the region near the axis more;
+    it is exact for a uniform density."""
     extraction = derham.extraction_ops[form]
     ones = extraction.domain.zeros()
     for block in getattr(ones, "blocks", (ones,)):
