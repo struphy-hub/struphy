@@ -45,6 +45,11 @@ VARIANTS = {
         "canonical Maxwellian, explicit Heun3",
         ["--init", "canonical", "--algo", "explicit", "--butcher", "heun3"],
     ),
+    "canonical_shift_B0_dg_1st": (
+        "canonical Maxwellian with the on-axis shift (shift=B0, not exact for barely trapped), discrete gradient, "
+        "1st order (fixed point)",
+        ["--init", "canonical", "--shift", "B0", "--algo", "discrete_gradient_1st_order"],
+    ),
     "gyro_dg_1st": (
         "gyro-Maxwellian (control, not an equilibrium), discrete gradient, 1st order (fixed point)",
         ["--init", "gyro", "--algo", "discrete_gradient_1st_order"],

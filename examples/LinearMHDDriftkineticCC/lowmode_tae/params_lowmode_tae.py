@@ -323,11 +323,10 @@ props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)
 
 # energetic ions: canonical Maxwellian (equilibrium, the control variate of delta-f)
 model.energetic_ions.var.add_background(
-    # with the exact canonical toroidal momentum (shifted=False): the shifted variant is not a constant of motion for
-    # a part of the trapped particles, which would drive delta-f in the steep gradient without any wave
-    maxwellians.CanonicalMaxwellian2D(
-        n=(n_hot, None), vth=(args.vth, None), equil=equil, epsilon=epsilon, shifted=False
-    )
+    # with the exact canonical toroidal momentum (shift=None): the profiles in psi_c are those of the reference paper
+    # (shift="B0" is not a constant of motion for a part of the trapped particles and would drive delta-f in the steep
+    # gradient without any wave; shift="Bmax" is an exact equilibrium, but with refitted profiles)
+    maxwellians.CanonicalMaxwellian2D(n=(n_hot, None), vth=(args.vth, None), equil=equil, epsilon=epsilon, shift=None)
 )
 
 # seed of the TAE: the m = 1 and m = 2 harmonics (n = 1: logical mode number -1 along eta3) of the velocity, Gaussian
