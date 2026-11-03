@@ -233,6 +233,9 @@ class SchurSolver:
     def A(self, a):
         """Upper left block :math:`A`."""
         self._A = a
+        # copies of the old A (with its boundary operators) for the matrix sum, rebuilt at the next solve
+        self._schur = None
+        self._rhs_m = None
         self._lazy_ops = None
 
     @BC.setter
