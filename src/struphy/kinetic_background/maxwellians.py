@@ -2,6 +2,7 @@
 
 import copy
 import logging
+import warnings
 from inspect import signature
 from typing import Callable
 
@@ -394,11 +395,17 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     Uses caching for evaluation of the canonical toroidal momentum in these coordinates.
 
     The distribution is parameterized by the density and thermal speed as functions of the
-    canonical toroidal momentum :math:`\psi_c`:
+    (shifted) canonical toroidal momentum :math:`\psi_c`:
 
     .. math::
 
-        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
+        \psi_c = P_\phi - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B_\text{ref})}\frac{m_sF}{q_sB_\text{ref}}
+        \mathcal{H}(\epsilon - \mu B_\text{ref})\,,\qquad P_\phi = \psi + \frac{m_s F}{q_s B}v_\parallel\,,
+
+    where :math:`P_\phi` is the canonical toroidal momentum and the reference field :math:`B_\text{ref}` is set by
+    ``shift`` (see below). The shift (Angelino et al., Phys. Plasmas 13, 052304 (2006)) makes :math:`\psi_c = \psi`
+    where :math:`|\mathbf B| = B_\text{ref}` on the orbit of a passing particle, such that the profiles in
+    :math:`\psi_c` are close to the profiles in the flux label of the position.
 
     - Energy
 
@@ -443,16 +450,28 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         Number of rows in the cache buffer for :math:`\psi_c` evaluation. If ``None``, no caching is used.
         Must be able to accomodate all markers on the current process.
 
-    shifted : bool, default=True
-        Whether to add the shift :math:`-\text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)} \frac{m_s F}{q_s B}
-        \mathcal{H}(\epsilon - \mu B)` (with the on-axis field :math:`B`) to the canonical toroidal momentum, such
-        that the profiles :math:`n(\psi_c)`, :math:`v_\text{th}(\psi_c)` are close to the profiles in the flux
-        label of the position. The shift is not a constant of motion for the trapped particles that bounce where the
-        field is larger than on the axis (the sign of :math:`v_\parallel` changes at the bounce points), so the
-        distribution is then not an exact equilibrium of the guiding-center motion: with steep profiles, use
-        ``shifted=False`` (the exact canonical toroidal momentum :math:`\psi + \frac{m_s F}{q_s B}v_\parallel`,
-        whose profiles are shifted by the drift-orbit width with respect to the position).
+    shift : str | None, default="Bmax"
+        Reference field :math:`B_\text{ref}` of the shift of the canonical toroidal momentum:
+
+        * ``"Bmax"``: the maximum of :math:`|\mathbf B|` on the flux surface :math:`\psi = P_\phi`, see
+          :meth:`~struphy.fields_background.base.AxisymmMHDequilibrium.absB_max`. A particle can only bounce
+          (:math:`v_\parallel = 0`) on this surface, hence the shift vanishes for all particles that can bounce,
+          :math:`\psi_c` is a function of the constants of motion :math:`P_\phi, \epsilon, \mu` and the
+          distribution is an exact equilibrium of the guiding-center motion (with the constant poloidal current
+          function :math:`F = -B_0 R_0` assumed in :math:`P_\phi`, as in
+          :class:`~struphy.fields_background.equils.AdhocTorus`). It has a net parallel flow.
+        * ``"B0"``: the on-axis field (Angelino et al.). The shift jumps at the bounce points of the trapped
+          particles with :math:`\epsilon > \mu B_0` (the sign of :math:`v_\parallel` changes there), so the
+          distribution is not an exact equilibrium (default up to Struphy 3.6).
+        * ``None``: no shift, :math:`\psi_c = P_\phi` (exact equilibrium, but the profiles are shifted by the
+          drift-orbit width with respect to the position).
+
+    shifted : bool, optional
+        Deprecated, use ``shift``: ``True`` is ``shift="B0"``, ``False`` is ``shift=None``.
     """
+
+    shift_modes = {None: 0, "B0": 1, "Bmax": 2}
+    """Integer codes of the values of ``shift``, as passed to the compiled kernels."""
 
     def __init__(
         self,
@@ -463,9 +482,20 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         equil: AxisymmMHDequilibrium = None,
         epsilon: float = 1.0,
         cache_size: int | None = None,
-        shifted: bool = True,
+        shift: str | None = "Bmax",
+        shifted: bool | None = None,
     ):
         assert isinstance(equil, AxisymmMHDequilibrium)
+
+        if shifted is not None:
+            warnings.warn(
+                'CanonicalMaxwellian2D(shifted=...) is deprecated, use shift="B0" (shifted=True) or shift=None '
+                "(shifted=False).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            shift = "B0" if shifted else None
+        assert shift in self.shift_modes, f"shift must be one of {list(self.shift_modes)}, but is {shift!r}."
 
         super().__init__(
             n=n,
@@ -481,12 +511,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         # store additional parameters
         self._equil = equil
         self._epsilon = epsilon
-        self._shifted = shifted
+        self._shift = shift
         self.params["vth"] = vth
         self.params["equil"] = equil
         self.params["epsilon"] = epsilon
         self.params["cache_size"] = cache_size
-        self.params["shifted"] = shifted
+        self.params["shift"] = shift
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -509,6 +539,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             self.cbufs["psic"] = xp.empty(cache_size, dtype=float)
             self.cbufs["positive_mask"] = xp.empty(cache_size, dtype=bool)
             self.cbufs["correction"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["Bref"] = xp.empty(cache_size, dtype=float)
             logger.debug(f"Created {len(self.cbufs)} cache buffers for psi_c evaluation, each with size {cache_size}.")
         else:
             self.cbufs = None
@@ -551,6 +582,11 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     def epsilon(self) -> float:
         """Epsilon parameter in the canonical toroidal momentum."""
         return self._epsilon
+
+    @property
+    def shift(self) -> str | None:
+        """Reference field of the shift of the canonical toroidal momentum (``"Bmax"``, ``"B0"`` or ``None``)."""
+        return self._shift
 
     @GyroMaxwellian2D.moment_factors.setter
     def moment_factors(self, new_factors: dict):
@@ -697,16 +733,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            if self._shifted:
-                positive_mask = (energy - mu * B0) > 0
-                correction = xp.zeros_like(psi_c)
-                correction[positive_mask] = (
-                    self._epsilon
-                    * xp.sign(vparallel[positive_mask])
-                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-                    * R0
+            if self._shift is not None:
+                self._add_shift(
+                    psi_c,
+                    energy,
+                    vparallel,
+                    mu,
+                    positive_mask=xp.empty(psi_c.shape, dtype=bool),
+                    correction=xp.empty(psi_c.shape, dtype=float),
+                    Bref=xp.empty(psi_c.shape, dtype=float),
                 )
-                psi_c += correction
         else:
             R = cbufs["R"][:n_markers]
             P = cbufs["P"][:n_markers]
@@ -716,6 +752,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             psi_c = cbufs["psic"][:n_markers]
             positive_mask = cbufs["positive_mask"][:n_markers]
             correction = cbufs["correction"][:n_markers]
+            Bref = cbufs["Bref"][:n_markers]
 
             R[:], P[:], Z[:] = self.equil.inverse_map(x, y, z)
             psi[:] = self.equil.psi(R, Z)
@@ -724,17 +761,62 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            if self._shifted:
-                positive_mask[:] = (energy - mu * B0) > 0
-                correction[:] = 0.0
-                correction[positive_mask] = (
-                    self._epsilon
-                    * xp.sign(vparallel[positive_mask])
-                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-                    * R0
+            if self._shift is not None:
+                self._add_shift(
+                    psi_c, energy, vparallel, mu, positive_mask=positive_mask, correction=correction, Bref=Bref
                 )
-                psi_c[:] += correction
         return psi_c
+
+    def _add_shift(self, psi_c, energy, vparallel, mu, *, positive_mask, correction, Bref):
+        r"""Add the shift :math:`-\text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B_\text{ref})}
+        \frac{m_sF}{q_sB_\text{ref}}\mathcal{H}(\epsilon - \mu B_\text{ref})` in place to the canonical toroidal
+        momentum ``psi_c`` (:math:`P_\phi` on input). ``positive_mask``, ``correction`` and ``Bref`` are work arrays
+        of the shape of ``psi_c``."""
+        B0 = self.equil.params["B0"]
+        R0 = self.equil.params["R0"]
+
+        if self._shift == "B0":
+            positive_mask[...] = (energy - mu * B0) > 0
+            correction[...] = 0.0
+            correction[positive_mask] = (
+                self._epsilon
+                * xp.sign(vparallel[positive_mask])
+                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                * R0
+            )
+        elif self._shift == "Bmax":
+            # maximum of |B| on the flux surface psi = P_phi, the only surface where the particle can bounce
+            Bref[...] = self.equil.absB_max(psi_c)
+            positive_mask[...] = (energy - mu * Bref) > 0
+            correction[...] = 0.0
+            correction[positive_mask] = (
+                self._epsilon
+                * xp.sign(vparallel[positive_mask])
+                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * Bref[positive_mask]))
+                * R0
+                * (B0 / Bref[positive_mask])
+            )
+        else:
+            raise ValueError(f"Unknown shift {self._shift!r}.")
+
+        psi_c[...] += correction
+
+    def shift_kernel_args(self):
+        """Arguments ``(shift_mode, psi_axis, psi_edge, bmax_table)`` of the compiled kernels that evaluate the
+        shifted canonical toroidal momentum of markers, see :attr:`shift_modes` and
+        :attr:`~struphy.fields_background.base.AxisymmMHDequilibrium.absB_max_table`."""
+        return self.shift_kernel_args_for(self.equil, self.shift)
+
+    @classmethod
+    def shift_kernel_args_for(cls, equil: AxisymmMHDequilibrium, shift: str | None):
+        """Kernel arguments of :meth:`shift_kernel_args` for a given equilibrium and ``shift``."""
+        assert shift in cls.shift_modes, f"shift must be one of {list(cls.shift_modes)}, but is {shift!r}."
+        psi_axis, psi_edge = equil.psi_range
+        if shift == "Bmax":
+            bmax_table = xp.ascontiguousarray(equil.absB_max_table, dtype=float)
+        else:
+            bmax_table = xp.zeros(2, dtype=float)
+        return cls.shift_modes[shift], float(psi_axis), float(psi_edge), bmax_table
 
     def eval_rc(self, eta1, eta2, eta3, vparallel, mu):
         r""" Square root of radially normalized canonical toroidal momentum.

@@ -113,6 +113,10 @@ class VariationalCompressibleFluid(StruphyModel):
 
         self._energy_evaluator = InternalEnergyEvaluator(Propagator.derham, self.propagators.variat_ent.options.gamma)
 
+        if self.params["divdiv_alpha"] > 0.0:
+            self._divUv = Propagator.derham.div @ Propagator.basis_ops.Uv
+            self._tmp_divu = self._divUv.codomain.zeros()
+
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
@@ -138,9 +142,6 @@ class VariationalCompressibleFluid(StruphyModel):
 
         :meta private:
         """
-        if not hasattr(self, "_divUv"):
-            self._divUv = Propagator.derham.div @ Propagator.basis_ops.Uv
-            self._tmp_divu = self._divUv.codomain.zeros()
         d = self._divUv.dot(self.fluid.velocity.spline.vector, out=self._tmp_divu)
         return self.params["divdiv_alpha"] * Propagator.mass_ops.WMM3new.dot_inner(d, d)
 

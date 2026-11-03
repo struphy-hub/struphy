@@ -262,6 +262,10 @@ class Simulation(SimulationBase):
             with ProfileManager.profile_region("model post allocate", functions=[self.model.post_allocate]):
                 self.model.post_allocate()
 
+            # the scalars fetch the newly allocated objects at their next update (a second run allocates again)
+            if self.model.scalars is not None:
+                self.model.scalars.reset_allocation()
+
         logger.debug("... Done.")
 
     def kernels(self) -> tuple[Kernel, ...]:
