@@ -1,3 +1,4 @@
+import copy
 import logging
 import math
 import os
@@ -385,7 +386,8 @@ class Particles(metaclass=ABCMeta):
 
         # background
         if background is None:
-            self._background = self.default_background
+            # a copy, since the default background is a class attribute and can get an equilibrium attached
+            self._background = copy.deepcopy(self.default_background)
             logger.info(f"Background set to default {self.background = }.")
         else:
             self._background = background
@@ -1325,6 +1327,18 @@ class Particles(metaclass=ABCMeta):
                     "Specified particle loading method does not exist!",
                 )
 
+            # inversion method for drawing uniformly on the disc (done above for pseudo-random markers)
+            if self.spatial == "disc":
+                if self.loading != "pseudo_random":
+                    self._markers[0, :n_mks_load_loc] = xp.sqrt(
+                        self._markers[0, :n_mks_load_loc],
+                    )
+            else:
+                assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
+
+            # final positions before the velocities, which can depend on them (mu of Particles5D)
+            self._clamp_off_pole()
+
             # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
             if isinstance(self, ParticlesSPH):
                 self._set_initial_condition()
@@ -1342,7 +1356,6 @@ class Particles(metaclass=ABCMeta):
 
                 u_mean = xp.array(self.loading_params.moments[: self.vdim])
                 v_th = xp.array(self.loading_params.moments[self.vdim :])
-                B0 = self.loading_params.B0
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if isinstance(self, Particles6D):
@@ -1365,6 +1378,9 @@ class Particles(metaclass=ABCMeta):
                         + u_mean[0]
                     )
 
+                    # mu = v_perp^2 / (2 B0) with v_perp drawn from a polar Maxwellian, where B0 is the local
+                    # field strength (loading_params.B0, the same as in the sampling density s0)
+                    B0 = self.loading_B0(self._markers[:3, :n_mks_load_loc])
                     self._markers[4, :n_mks_load_loc] = -xp.log(1.0 - self.velocities[1]) * v_th[1] ** 2 / B0
 
                     # mu is a magnetic moment and must be >= 0.
@@ -1407,15 +1423,6 @@ class Particles(metaclass=ABCMeta):
                         "Inverse transform sampling of given vdim is not implemented!",
                     )
 
-            # inversion method for drawing uniformly on the disc (done above for pseudo-random markers)
-            if self.spatial == "disc":
-                if self.loading != "pseudo_random":
-                    self._markers[0, :n_mks_load_loc] = xp.sqrt(
-                        self._markers[0, :n_mks_load_loc],
-                    )
-            else:
-                assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
-
             self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
@@ -1425,9 +1432,25 @@ class Particles(metaclass=ABCMeta):
                 counter = 0
                 for i in range(len(specific_markers)):
                     if i == int(self.markers[-1, counter]):
+                        # a drawn mu = v_perp^2 / (2 B0) of Particles5D belongs to the drawn position: rescale it
+                        # to the local B0 at a prescribed position, keeping the drawn v_perp
+                        rescale_mu = (
+                            isinstance(self, Particles5D)
+                            and specific_markers[i][4] is None
+                            and any(specific_markers[i][j] is not None for j in range(3))
+                        )
+                        if rescale_mu:
+                            B0_drawn = self.loading_B0(self._markers[:3, counter : counter + 1])
+
                         for j in range(3 + self.vdim):
                             if specific_markers[i][j] is not None:
                                 self._markers[j, counter] = specific_markers[i][j]
+
+                        if rescale_mu:
+                            self._clamp_off_pole(counter)
+                            self._markers[4, counter] *= (
+                                B0_drawn / self.loading_B0(self._markers[:3, counter : counter + 1])
+                            )[0]
 
                         counter += 1
 
@@ -1437,10 +1460,8 @@ class Particles(metaclass=ABCMeta):
             assert xp.all(~self.holes[:n_mks_load_loc])
             assert xp.all(self.holes[n_mks_load_loc:])
 
-        # keep markers off a pole at eta1=0, where the mapping is singular (holes have eta1=-1)
-        if self._pole:
-            eta1 = self._markers[0]
-            eta1[xp.logical_and(eta1 >= 0.0, eta1 < POLE_ETA1_MIN)] = POLE_ETA1_MIN
+        # keep markers off a pole at eta1=0, where the mapping is singular
+        self._clamp_off_pole()
 
         # the loaded markers occupy the first columns (fresh loading) or any columns (restart)
         self.count_markers_used()
@@ -2813,6 +2834,14 @@ class Particles(metaclass=ABCMeta):
 
         else:
             self._sorting_boxes = None
+
+    def _clamp_off_pole(self, col: int = None):
+        """Keep the markers off a pole at eta1=0, where the mapping is singular, by setting
+        eta1 < ``POLE_ETA1_MIN`` to ``POLE_ETA1_MIN`` (holes have eta1=-1 and are left alone);
+        only in column ``col`` if given."""
+        if self._pole:
+            eta1 = self._markers[0] if col is None else self._markers[0, col : col + 1]
+            eta1[xp.logical_and(eta1 >= 0.0, eta1 < POLE_ETA1_MIN)] = POLE_ETA1_MIN
 
     def _generate_sampling_moments(self):
         """Automatically determine moments for sampling distribution (Gaussian) from the given background."""

@@ -155,5 +155,10 @@ Lists of what is available, with parameters, under https://struphy-hub.github.io
 - For kinetic species, a background is required even if only using perturbations;
   perturbations attach to distribution moments (via `maxwellians.*`), not directly to
   the species variable like field perturbations do.
+- Guiding-center species (`GyroMaxwellian2D`, magnetic moment `mu = v_perp**2/(2*B0)`): by default
+  `B0="equil"` in both `LoadingParameters` and `GyroMaxwellian2D`, i.e. the local `|B_0|` of the
+  equilibrium, so markers and background are Maxwellian in `v_perp` everywhere. Pass a number (or a
+  callable of logical positions of shape `(3, N)`) only for a deliberately constant field strength, and
+  then use the same value in both, otherwise the weights `f_init/s0` depend on `mu`.
 - Keep `sim.run()` behind `if __name__ == "__main__":` to avoid starting a run on
   import. Post-processing scripts should open the saved output folder directly.
