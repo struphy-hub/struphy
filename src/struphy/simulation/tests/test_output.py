@@ -232,6 +232,22 @@ def test_all_builtin_initial_conditions_round_trip():
         assert Simulation._serialize_initial_condition(restored) == serialized, type(initial_condition).__name__
 
 
+def test_canonical_maxwellian_deprecated_shifted_round_trip():
+    """Run metadata written before ``CanonicalMaxwellian2D(shift=...)`` stores ``shifted`` (bool): it still loads."""
+    serialized = Simulation._serialize_initial_condition(
+        maxwellians.CanonicalMaxwellian2D(equil=equils.AdhocTorus(), shift="B0")
+    )
+    assert serialized["params"]["shift"] == "B0"
+
+    for shifted, shift in ((True, "B0"), (False, None)):
+        old = json.loads(json.dumps(serialized))
+        del old["params"]["shift"]
+        old["params"]["shifted"] = shifted
+        with pytest.warns(DeprecationWarning):
+            restored = Simulation._deserialize_initial_condition(old)
+        assert restored.shift == shift
+
+
 def test_run_metadata_embeds_user_function_source(tmp_path):
     sim = Simulation(model=VlasovAmpereOneSpecies(), env=EnvironmentOptions(out_folders=str(tmp_path)))
     sim.model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(user_density_profile, None)))
