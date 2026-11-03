@@ -36,8 +36,9 @@ with the velocity unit v_unit (the Alfven velocity of the base units, set by the
 (base units).
 
 Setup (ITPA TAE benchmark). Large-aspect-ratio tokamak with circular flux surfaces (AdhocTorus): major radius
-R0 = 10, minor radius a = 1, toroidal field B0 = 3, safety factor q(r) = 1.71 + 0.16 r^2/a^2, flat number density
-n = 1 and on-axis beta 0.0018. Only the toroidal mode number n = 6 is computed, on a sixth
+R0 = 10, minor radius a = 1, toroidal field B0 = 3, safety factor q(r) = 1.71 + 0.16 r^2/a^2, hydrogen
+bulk with the flat number density 2e19 m^-3 (n = 1 in the density unit, base units n = 0.2) and on-axis beta 0.0018,
+as in the ITPA benchmark (Koenies et al. 2018). Only the toroidal mode number n = 6 is computed, on a sixth
 of the torus (HollowTorus with tor_period = 6 and a hole of radius 0.1): the logical mode number -1 along eta3 is
 the physical n = 6. The velocity is initialized with the m = 10 and m = 11 harmonics, localized around r = 0.5
 (given as 2-form components).
@@ -45,10 +46,11 @@ the physical n = 6. The velocity is initialized with the m = 10 and m = 11 harmo
 Expected result. With n = 6 and m = 10 the gap is at q(r_c) = 21/12 = 1.75, i.e. r_c = 0.5, where n = 1 and
 |B| = 3.0 (flux-surface average), so v_A(r_c) = 3.0 v_unit and
     omega_TAE = 6/21 * 3.0/10 = 0.086 v_unit / x_unit,
-a period of about 73 time units (about 30 kHz with the default base units x_unit = 1 m, B = 1 T, n = 1e20 m^-3 and
-hydrogen, where v_unit = 2.2e6 m/s). The run up to t = 500 covers about 6.8 periods; the pproc script asserts the
-measured frequency within 10% of omega_TAE and shows the energies, the components of the fields and the radial
-profiles of the (m, n) harmonics.
+a period of about 73 time units. With the base units x_unit = 1 m, B = 1 T, n = 2e19 m^-3 and the hydrogen bulk,
+v_unit = 4.88e6 m/s, so omega_TAE = 4.2e5 rad/s (67 kHz). The ITPA benchmark reports the ideal MHD frequencies
+4.01e5 rad/s (CAS3D) and 4.13e5 rad/s (GYGLES). The run up to t = 500 covers about 6.8 periods; the pproc script
+asserts the measured frequency within 10% of omega_TAE and of the benchmark value 4.07e5 rad/s, and shows the
+energies, the components of the fields and the radial profiles of the (m, n) harmonics.
 
 References:
 - W. W. Heidbrink, "Basic physics of Alfven instabilities in toroidal plasmas", Phys. Plasmas 15, 055501 (2008).
@@ -151,8 +153,8 @@ from struphy import (
 # ---------------------
 from struphy.models import LinearMHD
 
-# Units
-base_units = BaseUnits()
+# Units of the ITPA benchmark: x_unit = 1 m, B_unit = 1 T and the bulk density 2e19 m^-3 (hydrogen)
+base_units = BaseUnits(x=1.0, B=1.0, n=0.2)
 
 # Model instance
 model = LinearMHD(base_units=base_units, b_space=args.b_space, projected=args.projected)
