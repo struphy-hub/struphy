@@ -314,7 +314,7 @@ background = maxwellians.GyroMaxwellian2D(
     n=(n_init, None),
     vth_para=(vth_init, None),
     vth_perp=(vth_init, None),
-)  # B0=equil.absB0)
+)
 model.kinetic_ions.var.add_background(background)
 # background.plot_density_profile("e1", "e2", domain=domain, plot_3D=True, in_physical=True)
 # background.plot_density_profile("e1", "v1", domain=domain)
@@ -327,7 +327,7 @@ init = maxwellians.GyroMaxwellian2D(
     n=(n_init, perturbation),
     vth_para=(vth_init, None),
     vth_perp=(vth_init, None),
-)  # B0=equil.absB0)
+)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

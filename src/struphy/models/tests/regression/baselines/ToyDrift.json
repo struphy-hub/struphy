@@ -2,8 +2,8 @@
  "case": "ToyDrift",
  "ranks": {
   "1": {
-   "commit": "e6f39429",
-   "date": "2026-10-30",
+   "commit": "070d2a6d",
+   "date": "2026-11-03",
    "values": {
     "time": [
      0.0,
@@ -32,12 +32,12 @@
     "feec/em_fields/phi": 93194.15425607779,
     "markers/kinetic_ions/var/n": 5000,
     "markers/kinetic_ions/var/sum_w": 1.0991932980090882,
-    "markers/kinetic_ions/var/sum_w_v2": 1.685043290115353
+    "markers/kinetic_ions/var/sum_w_v2": 3.3328207964696084
    }
   },
   "2": {
-   "commit": "e6f39429",
-   "date": "2026-10-30",
+   "commit": "070d2a6d",
+   "date": "2026-11-03",
    "values": {
     "time": [
      0.0,
@@ -66,7 +66,7 @@
     "feec/em_fields/phi": 93194.15425607779,
     "markers/kinetic_ions/var/n": 5000,
     "markers/kinetic_ions/var/sum_w": 1.0991932980090886,
-    "markers/kinetic_ions/var/sum_w_v2": 1.685043290115353
+    "markers/kinetic_ions/var/sum_w_v2": 3.3328207964696084
    }
   }
  }
