@@ -1645,6 +1645,11 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
 
             # surfaces not reached by any ray (beyond the data of the equilibrium): last reached value
             last = int(xp.nonzero(reached)[0][-1])
+            if last < table.size - 1:
+                logger.warning(
+                    f"{self.__class__.__name__}.absB_max_table: no ray from the axis {self.psi_axis_RZ} reaches the "
+                    f"normalized flux s > {s_tab[last]:.3f}; the maximum of |B| there is extrapolated as constant."
+                )
             table[last + 1 :] = table[last]
 
             self._absB_max_table = table * (1.0 + self.bmax_margin)

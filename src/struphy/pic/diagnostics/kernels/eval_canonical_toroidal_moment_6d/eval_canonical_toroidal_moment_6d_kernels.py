@@ -67,7 +67,12 @@ def eval_canonical_toroidal_moment_6d(
                 markers[first_diagnostics_idx + 5, ip] += epsilon * sign(v_para) * sqrt(2 * (energy - mu * B0)) * R0
         elif shift_mode == 2:
             # maximum of abs(B) on the flux surface psi = p_phi (table in the square root of the clamped normalized flux)
-            s = min(max((p_phi - psi_axis) / (psi_edge - psi_axis), 0.0), 1.0)
+            s = (p_phi - psi_axis) / (psi_edge - psi_axis)
+            # clamp to [0, 1] (a NaN goes to 0, never out of the table)
+            if s > 1.0:
+                s = 1.0
+            elif not s >= 0.0:
+                s = 0.0
             rho = sqrt(s) * (n_table - 1)
             i_tab = min(int(floor(rho)), n_table - 2)
             b_ref = bmax_table[i_tab] + (rho - i_tab) * (bmax_table[i_tab + 1] - bmax_table[i_tab])

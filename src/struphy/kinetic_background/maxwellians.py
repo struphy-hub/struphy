@@ -457,7 +457,9 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
           :meth:`~struphy.fields_background.base.AxisymmMHDequilibrium.absB_max`. A particle can only bounce
           (:math:`v_\parallel = 0`) on this surface, hence the shift vanishes for all particles that can bounce,
           :math:`\psi_c` is a function of the constants of motion :math:`P_\phi, \epsilon, \mu` and the
-          distribution is an exact equilibrium of the guiding-center motion. It has a net parallel flow.
+          distribution is an exact equilibrium of the guiding-center motion (with the constant poloidal current
+          function :math:`F = -B_0 R_0` assumed in :math:`P_\phi`, as in
+          :class:`~struphy.fields_background.equils.AdhocTorus`). It has a net parallel flow.
         * ``"B0"``: the on-axis field (Angelino et al.). The shift jumps at the bounce points of the trapped
           particles with :math:`\epsilon > \mu B_0` (the sign of :math:`v_\parallel` changes there), so the
           distribution is not an exact equilibrium (default up to Struphy 3.6).
