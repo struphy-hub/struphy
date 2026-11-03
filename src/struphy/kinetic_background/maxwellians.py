@@ -611,6 +611,33 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         else:
             self.cbufs = None
 
+        # psi_c of the current __call__, shared by the moments n and vth of that call (None outside of __call__)
+        self._psi_c_call = None
+
+    def __call__(self, *phase_space_coords):
+        r"""Evaluates the canonical Maxwellian, see :meth:`~struphy.kinetic_background.base.Maxwellian.__call__`.
+
+        :math:`\psi_c` is evaluated once from the given coordinates and shared by the moments :math:`n` and
+        :math:`v_\text{th}` of this call. It is not kept between calls: markers move and change slots (MPI sorting,
+        refilling) between calls, so a stored :math:`\psi_c` can belong to other phase-space points."""
+        if any(callable(self.params[name][0]) for name in ("n", "vth")):
+            self._psi_c_call = self.eval_psic(*self._psic_coords(*phase_space_coords))
+        try:
+            return super().__call__(*phase_space_coords)
+        finally:
+            self._psi_c_call = None
+
+    @staticmethod
+    def _psic_coords(eta1, eta2, eta3, v_parallel, mu):
+        """Arrange phase-space points as the input of :meth:`eval_psic`: one (5, n_markers) array for flat
+        (marker) evaluation, or the five 5d meshgrid arrays."""
+        if eta1.ndim == 1:
+            return [xp.stack((eta1, eta2, eta3, v_parallel, mu), axis=0)]
+        elif eta1.ndim == 5:
+            return (eta1, eta2, eta3, v_parallel, mu)
+        else:
+            raise ValueError(f"Input arrays must be 1d or 5d (from meshgrid), but got {eta1.ndim}d.")
+
     @property
     def equil(self) -> AxisymmMHDequilibrium:
         """One of :mod:`~struphy.fields_background.equils`
@@ -678,20 +705,11 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         assert isinstance(params, tuple)
         assert len(params) == 2
 
-        # flat evaluation for markers (one column per marker)
-        if eta1.ndim == 1:
-            coords = [xp.stack((eta1, eta2, eta3, v_parallel, mu), axis=0)]
-        # assuming that input comes from meshgrid.
-        elif eta1.ndim == 5:
-            coords = (eta1, eta2, eta3, v_parallel, mu)
-        else:
+        if eta1.ndim not in (1, 5):
             raise ValueError(f"Input arrays must be 1d or 5d (from meshgrid), but got {eta1.ndim}d.")
 
         # initialize output
-        if eta1.ndim == 1:
-            out = 0.0 * eta1
-        else:
-            out = 0.0 * coords[0]
+        out = 0.0 * eta1
 
         # evaluate background
         background = params[0]
@@ -704,12 +722,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                 f"Background function {background} must take one argument (psi_c), but takes {len(sig.parameters)}."
             )
 
-            cached = self._check_psi_c_cached(*coords)
-            logger.debug(f"{'Using cached psi_c' if cached else 'Evaluating psi_c'} for background evaluation.")
-
-            if not cached:
-                self.psi_c = self.eval_psic(*coords)
-            out += background(self.psi_c)
+            # inside __call__, psi_c has been evaluated at the same points; otherwise (direct call of n or vth)
+            # evaluate it here
+            psi_c = self._psi_c_call
+            if psi_c is None:
+                psi_c = self.eval_psic(*self._psic_coords(eta1, eta2, eta3, v_parallel, mu))
+            out += background(psi_c)
 
         # add perturbation
         if add_perturbation is None:
@@ -725,36 +743,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
         # uniform density on disc (n=2 eta_1)
         if name == "n" and self.params.get("uniform_on_disc", False):
-            if eta1.ndim == 1:
-                out *= 2.0 * eta1
-            else:
-                out *= 2.0 * coords[0]
+            out *= 2.0 * eta1
 
         return out
-
-    def _check_psi_c_cached(self, *coords):
-        """Check if psi_c has been cached for the given coordinates."""
-        cached = False
-        if getattr(self, "psi_c", None) is not None:
-            # markers: coords[0] is (5, n_markers) and psi_c is (n_markers,); meshgrid: all have the same 5d shape
-            shape = coords[0].shape[1:] if len(coords) == 1 else coords[0].shape
-            if self.psi_c.shape == shape and self.psi_c.size > 0:
-                # compare the cached values with a fresh evaluation at a few test points
-                size = self.psi_c.size
-                test_idx = xp.unique(xp.array([0, size // 3, 2 * size // 3, size - 1]))
-                if len(coords) == 1:
-                    test_coords = coords[0][:, test_idx]
-                else:
-                    test_coords = xp.stack([c.reshape(-1)[test_idx] for c in coords], axis=0)
-                # do not use the cache buffers here, self.psi_c may point to them
-                cached_psi_c = self.eval_psic(test_coords, use_cbufs=False)
-                cached = xp.allclose(self.psi_c.reshape(-1)[test_idx], cached_psi_c)
-        return cached
 
     def eval_psic(self, *coords, use_cbufs: bool = True):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities.
 
-        If ``use_cbufs`` is ``False``, the cache buffers are not used (and not overwritten) for marker evaluation."""
+        If ``use_cbufs`` is ``False``, the cache buffers are not used (and not overwritten) for marker evaluation.
+        Otherwise the result for markers is a view of the buffer ``cbufs["psic"]``, which the next evaluation
+        overwrites: copy it to keep it."""
 
         cbufs = self.cbufs if use_cbufs else None
 

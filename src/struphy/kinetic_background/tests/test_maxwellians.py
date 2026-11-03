@@ -1508,6 +1508,8 @@ def test_canonical_maxwellian_uniform(num_markers, shift, show_plot=False):
 
     where the second factor drops the :math:`|B_0|` prefactor for ``volume_form=False``.
     """
+    from unittest import mock
+
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
@@ -1649,15 +1651,11 @@ def test_canonical_maxwellian_uniform(num_markers, shift, show_plot=False):
     res_ana = ref_eval(n_of_psic, vth_val, eta1, eta2, eta3, v_para, mu)
     assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana=}"
 
-    # calling again with the same markers must hit the internal psi_c cache
-    # and still return the (correct) result
-    markers = xp.stack((eta1, eta2, eta3, v_para, mu), axis=0)
-    assert maxwellian_nc._check_psi_c_cached(markers)
-    res_cached = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
-    assert xp.allclose(res_cached, res_ana, atol=10e-10), f"{res_cached=},\n {res_ana=}"
+    # calling again with the same markers must return the same (correct) result
+    res_again = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    assert xp.allclose(res_again, res_ana, atol=10e-10), f"{res_again=},\n {res_ana=}"
 
-    # calling with different markers must invalidate the cache instead of
-    # silently reusing the stale psi_c from the previous call
+    # calling with different markers must not reuse psi_c from the previous call
     eta1_b = xp.random.rand(num_markers)
     eta2_b = xp.random.rand(num_markers)
     eta3_b = xp.random.rand(num_markers)
@@ -1667,6 +1665,41 @@ def test_canonical_maxwellian_uniform(num_markers, shift, show_plot=False):
     res_b = maxwellian_nc(eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
     res_b_ana = ref_eval(n_of_psic, vth_val, eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
     assert xp.allclose(res_b, res_b_ana, atol=10e-10), f"{res_b=},\n {res_b_ana=}"
+
+    # issue #842: psi_c must never be reused across calls, also not for markers that
+    # (a) swapped slots (MPI sorting, refilling) or (b) moved only slightly (coupling with fields)
+    maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    swapped = [xp.array(a) for a in (eta1, eta2, eta3, v_para, mu)]
+    for a in swapped:
+        a[[5, 7]] = a[[7, 5]]
+    res_swap = maxwellian_nc(*swapped)
+    res_swap_ana = ref_eval(n_of_psic, vth_val, *swapped)
+    assert xp.allclose(res_swap, res_swap_ana, rtol=1e-12, atol=1e-14), f"{res_swap=},\n {res_swap_ana=}"
+
+    maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    # small enough that the old 4-point allclose check accepted the stale psi_c
+    v_para_moved = v_para + 1e-7 * xp.random.randn(num_markers)
+    res_moved = maxwellian_nc(eta1, eta2, eta3, v_para_moved, mu)
+    res_moved_ana = ref_eval(n_of_psic, vth_val, eta1, eta2, eta3, v_para_moved, mu)
+    assert xp.allclose(res_moved, res_moved_ana, rtol=1e-12, atol=1e-14), f"{res_moved=},\n {res_moved_ana=}"
+
+    # a direct moment evaluation after a call with other markers uses its own points
+    maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    n_b = maxwellian_nc.n(eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
+    psic_b, _ = ref_psic_and_absB(eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
+    assert xp.allclose(n_b, n_of_psic(psic_b), rtol=1e-12, atol=1e-14)
+
+    # psi_c is evaluated exactly once per call (shared by n and vth), and not at all for constant moments
+    def vth_of_psic(psic):
+        return vth_val + 0.0 * psic
+
+    for n_bg, vth_bg, n_evals in ((n_of_psic, vth_of_psic, 1), (n_of_psic, vth_val, 1), (n_val, vth_val, 0)):
+        maxw = CanonicalMaxwellian2D(n=(n_bg, None), vth=(vth_bg, None), equil=mhd_equil)
+        with mock.patch.object(maxw, "eval_psic", wraps=maxw.eval_psic) as spy:
+            maxw(eta1, eta2, eta3, v_para, mu)
+            maxw(eta1, eta2, eta3, v_para, mu)
+        assert spy.call_count == 2 * n_evals, f"{n_bg=}, {vth_bg=}: {spy.call_count=}"
+        assert maxw._psi_c_call is None
 
     # =============================================
     # ===== Test ITPA perturbation in density =====
@@ -1731,17 +1764,13 @@ def test_canonical_maxwellian_uniform(num_markers, shift, show_plot=False):
     assert xp.allclose(res_nocache, res_ana_c, atol=10e-10), f"{res_nocache=},\n {res_ana_c=}"
     assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_cache=}"
 
-    # a cache hit must not overwrite the buffer that the cached psi_c points to
-    markers_c = xp.stack((eta1_c, eta2_c, eta3_c, v_para_c, mu_c), axis=0)
-    assert maxwellian_cache._check_psi_c_cached(markers_c)
+    # a second call reuses the buffers and must give the same result
     res_cache = maxwellian_cache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
     assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_ana_c=}"
 
     def _time_eval(maxwellian, n_reps=5):
-        """Best-of-n_reps wall time for a full psi_c evaluation. Markers are
-        redrawn on every rep so the psi_c *result* cache (see
-        `_check_psi_c_cached`) never hits and each call exercises the full
-        eval_psic computation, isolating the effect of the cbufs buffers."""
+        """Best-of-n_reps wall time for a full evaluation (psi_c is evaluated
+        once per call), isolating the effect of the cbufs buffers."""
         times = []
         for i in range(n_reps):
             e1, e2, e3, vp, m = _random_markers(seed=100 + i)
