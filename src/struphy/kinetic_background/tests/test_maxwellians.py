@@ -1669,7 +1669,8 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     assert xp.allclose(res_swap, res_swap_ana, rtol=1e-12, atol=1e-14), f"{res_swap=},\n {res_swap_ana=}"
 
     maxwellian_nc(eta1, eta2, eta3, v_para, mu)
-    v_para_moved = v_para + 1e-3 * xp.random.randn(num_markers)
+    # small enough that the old 4-point allclose check accepted the stale psi_c
+    v_para_moved = v_para + 1e-7 * xp.random.randn(num_markers)
     res_moved = maxwellian_nc(eta1, eta2, eta3, v_para_moved, mu)
     res_moved_ana = ref_eval(n_of_psic, vth_val, eta1, eta2, eta3, v_para_moved, mu)
     assert xp.allclose(res_moved, res_moved_ana, rtol=1e-12, atol=1e-14), f"{res_moved=},\n {res_moved_ana=}"

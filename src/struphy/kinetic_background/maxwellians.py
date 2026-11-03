@@ -647,7 +647,9 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     def eval_psic(self, *coords, use_cbufs: bool = True):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities.
 
-        If ``use_cbufs`` is ``False``, the cache buffers are not used (and not overwritten) for marker evaluation."""
+        If ``use_cbufs`` is ``False``, the cache buffers are not used (and not overwritten) for marker evaluation.
+        Otherwise the result for markers is a view of the buffer ``cbufs["psic"]``, which the next evaluation
+        overwrites: copy it to keep it."""
 
         cbufs = self.cbufs if use_cbufs else None
 
