@@ -1,4 +1,5 @@
 import copy
+import inspect
 import logging
 
 import cunumpy as xp
@@ -21,6 +22,16 @@ from struphy.pic.diagnostics.kernels.eval_magnetic_energy_PBb import eval_magnet
 from struphy.pic.diagnostics.kernels.eval_magnetic_moment_5d import eval_magnetic_moment_5d
 
 logger = logging.getLogger("struphy")
+
+
+def _canonical_shift_kernel_args(background, equil):
+    """Arguments ``(shift_mode, psi_axis, psi_edge, bmax_table)`` of the kernels that evaluate the shifted canonical
+    toroidal momentum: the ``shift`` of the background if it is a
+    :class:`~struphy.kinetic_background.maxwellians.CanonicalMaxwellian2D`, else its default ``shift``."""
+    if isinstance(background, maxwellians.CanonicalMaxwellian2D):
+        return background.shift_kernel_args()
+    default_shift = inspect.signature(maxwellians.CanonicalMaxwellian2D).parameters["shift"].default
+    return maxwellians.CanonicalMaxwellian2D.shift_kernel_args_for(equil, default_shift)
 
 
 class Particles6D(Particles):
@@ -201,6 +212,7 @@ class Particles6D(Particles):
             B0,
             R0,
             self._absB0_h._data,
+            *_canonical_shift_kernel_args(self.background, self.equil),
         )
 
         # send back and clear buffer
@@ -669,6 +681,7 @@ class Particles5D(Particles):
             B0,
             R0,
             self.absB0_h._data,
+            *_canonical_shift_kernel_args(self.background, self.equil),
         )
 
     def save_magnetic_energy(self, PBb):
@@ -955,6 +968,7 @@ class Particles5Dvperp(Particles):
             B0,
             R0,
             self.absB0_h._data,
+            *_canonical_shift_kernel_args(self.background, self.equil),
         )
 
     def save_magnetic_energy(self, PBb):
