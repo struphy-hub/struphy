@@ -1799,7 +1799,7 @@ def test_moment_factors_and_division():
 
     for f0, n_v in [
         (Maxwellian3D(n=(2.0, None)), 3),
-        (GyroMaxwellian2D(n=(2.0, None)), 2),
+        (GyroMaxwellian2D(n=(2.0, None), B0=2.0), 2),
         (GyroMaxwellian2Dvperp(n=(2.0, None)), 2),
     ]:
         # scalar division

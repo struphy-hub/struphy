@@ -289,9 +289,9 @@ def n_hot(psi_c):
     return args.nh * xp.exp(-args.kappa * D * xp.tanh((r - R_C) / D))
 
 
-B_min = equil.params["B0"] * R0 / (R0 + a)
 model.energetic_ions.set_markers(
-    loading_params=LoadingParameters(Np=args.Np, seed=1234, moments=(0.0, 0.0, args.vth, args.vth), B0=B_min),
+    # mu drawn with the local |B_0| (default B0="equil")
+    loading_params=LoadingParameters(Np=args.Np, seed=1234, moments=(0.0, 0.0, args.vth, args.vth)),
     # delta-f: the weights carry f - f0, with the canonical Maxwellian f0
     weights_params=WeightsParameters(control_variate=True),
     boundary_params=BoundaryParameters(bc=("remove", "periodic", "periodic")),

@@ -3,7 +3,7 @@
 import copy
 import logging
 from inspect import signature
-from typing import Callable
+from typing import Callable, Literal
 
 import cunumpy as xp
 
@@ -11,7 +11,7 @@ from struphy.fields_background.base import AxisymmMHDequilibrium, FluidEquilibri
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
-from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.base import Maxwellian, check_B0_option, eval_B0_option
 
 logger = logging.getLogger("struphy")
 
@@ -140,16 +140,17 @@ class GyroMaxwellian2D(Maxwellian):
         Moments of the Maxwellian as tuples. The first entry defines the background
         (float for constant background or callable), the second entry defines a Perturbation (can be None).
 
-    equil : FluidEquilibriumWithB
-        Fluid background.
-
     volume_form : bool
         Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
 
-    B0: float | Callable
-        Constant or callable background magnetic field strength (default = 2.0).
+    B0: float | Callable | "equil"
+        Background magnetic field strength :math:`B_0` in :math:`\mu = v_\perp^2/(2B_0)`, see :meth:`eval_B0`:
+        a constant, a callable of the stacked logical positions ``etas`` of shape ``(3, N)`` returning shape ``(N,)``,
+        or ``"equil"`` (default) for the local field strength :math:`|\mathbf B_0|(\boldsymbol \eta)` of the
+        equilibrium attached with :meth:`attach_equil` (done automatically for the background and initial
+        condition of a :class:`~struphy.pic.particles.Particles5D` species).
 
     uniform_on_disc : bool
         Whether the density n is uniform on the disc.
@@ -163,13 +164,19 @@ class GyroMaxwellian2D(Maxwellian):
         vth_para: tuple[float | Callable, Perturbation] = (1.0, None),
         vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
         volume_form: bool = True,
-        B0: float | Callable = 2.0,
+        B0: float | Callable | Literal["equil"] = "equil",
         uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
 
         self.check_maxw_params()
+
+        check_B0_option(B0)
+        # equilibrium providing |B_0| for B0="equil" (see attach_equil)
+        self._B0_equil = None
+        # last positions and B0 values of eval_B0: f0 and its velocity Jacobian are evaluated at the same markers
+        self._B0_cache = None
 
         # volume form represenation
         self._volume_form = volume_form
@@ -213,13 +220,59 @@ class GyroMaxwellian2D(Maxwellian):
         assert eta1.ndim == eta2.ndim == eta3.ndim == 1
         assert v_para.ndim == mu.ndim == 1
 
+        return self.eval_B0(xp.stack((eta1, eta2, eta3), axis=0))
+
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium whose field strength :math:`|\\mathbf B_0|` is used for ``B0="equil"``
+        (replacing an equilibrium attached before). Does nothing for a constant or callable ``B0``."""
+        if isinstance(self.params["B0"], str):
+            assert isinstance(equil, FluidEquilibriumWithB), (
+                f'GyroMaxwellian2D with B0="equil" needs an equilibrium with magnetic field, got {type(equil).__name__}.'
+            )
+            self._B0_equil = equil
+            self._B0_cache = None
+
+    def eval_B0(self, etas):
+        """Evaluate the magnetic field strength :math:`B_0` in :math:`\\mu = v_\\perp^2/(2B_0)` at flat positions.
+
+        Parameters
+        ----------
+        etas : array_like
+            Stacked logical positions of shape ``(3, N)``.
+
+        Returns
+        -------
+        out : array-like
+            :math:`B_0` at the positions, shape ``(N,)``.
+        """
         B0 = self.params["B0"]
+        if not (isinstance(B0, str) or callable(B0)):
+            return eval_B0_option(B0, etas)
 
-        if callable(B0):
-            etas = xp.stack((eta1, eta2, eta3), axis=0)
-            return B0(etas)
+        # a position-dependent B0 is often evaluated twice at the same markers (f0 and velocity_jacobian_det in
+        # the control variate); the comparison is much cheaper than an evaluation of |B_0|
+        cache = self._B0_cache
+        if cache is not None and cache[0].shape == etas.shape and xp.array_equal(cache[0], etas):
+            return cache[1]
+        out = eval_B0_option(B0, etas, self._B0_equil, owner="GyroMaxwellian2D")
+        self._B0_cache = (xp.array(etas, copy=True), out)
+        return out
 
-        return B0 + 0 * eta1
+    def eval_B0_on_args(self, etas):
+        """:meth:`eval_B0` at the positions ``eta1, eta2, eta3`` of a Maxwellian evaluation, flat (1d arrays)
+        or on a phase-space meshgrid (``3 + vdim`` dimensions, positions on the first 3 axes): there it is
+        evaluated on the spatial points only and broadcast to the velocity axes. A constant ``B0`` is returned
+        as float."""
+        B0 = self.params["B0"]
+        if not (isinstance(B0, str) or callable(B0)):
+            return float(B0)
+        if xp.ndim(etas[0]) == 1:
+            return self.eval_B0(xp.stack(etas, axis=0))
+        # spatial part of the meshgrid (velocity axes at their first point)
+        spatial = [a[(slice(None),) * 3 + (0,) * (xp.ndim(a) - 3)] for a in etas]
+        out = self.eval_B0(xp.stack([xp.ravel(a) for a in spatial], axis=0))
+        out = xp.reshape(out, xp.shape(spatial[0]) + (1,) * (xp.ndim(etas[0]) - 3))
+        return xp.broadcast_to(out, xp.shape(etas[0]))
 
     @property
     def volume_form(self) -> bool:
