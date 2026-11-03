@@ -61,7 +61,7 @@ def eval_B0_option(B0, etas, equil: FluidEquilibriumWithB = None, owner: str = "
     if isinstance(B0, str):
         if equil is None:
             raise ValueError(
-                f'{owner} has B0="equil" but no equilibrium is bound (with_equil); '
+                f'{owner} has B0="equil" but no equilibrium is attached (attach_equil); '
                 "pass a number or a callable for B0 when there is no Particles5D species."
             )
         out = equil.absB0(etas)
@@ -111,30 +111,11 @@ class KineticBackground(metaclass=ABCMeta):
         """True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         pass
 
-    def with_equil(self, equil: FluidEquilibriumWithB, memo: dict = None) -> "KineticBackground":
-        """Return the background bound to the equilibrium from which it takes the field strength
-        :math:`|\\mathbf B_0|` (e.g. for ``B0="equil"`` of
-        :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D`), without changing ``self``:
-        a copy where something is bound, ``self`` otherwise (the default).
-
-        Parameters
-        ----------
-        equil : FluidEquilibriumWithB
-            Equilibrium to bind.
-
-        memo : dict
-            Already bound backgrounds, ``id -> (original, bound)``, so that a background appearing several times
-            (e.g. as background and initial condition) is bound to a single copy. It keeps the originals alive,
-            so that their ids are not reused while the memo is.
-        """
-        memo = {} if memo is None else memo
-        if id(self) not in memo:
-            memo[id(self)] = (self, self._bind_equil(equil, memo))
-        return memo[id(self)][1]
-
-    def _bind_equil(self, equil: FluidEquilibriumWithB, memo: dict) -> "KineticBackground":
-        """The bound background of :meth:`with_equil` (not memoized here); ``self`` by default."""
-        return self
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium from which the background takes the field strength :math:`|\\mathbf B_0|`,
+        e.g. for ``B0="equil"`` of :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D`.
+        Does nothing by default."""
+        pass
 
     @abstractmethod
     def n(self, *coords):
@@ -699,15 +680,10 @@ class SumKineticBackground(KineticBackground):
         """Jacobian determinant of the velocity coordinate transformation."""
         return self._f1.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
-    def _bind_equil(self, equil: FluidEquilibriumWithB, memo: dict) -> "KineticBackground":
-        """The sum of the bound summands, see :meth:`KineticBackground.with_equil`."""
-        f1 = self._f1.with_equil(equil, memo)
-        f2 = self._f2.with_equil(equil, memo)
-        if f1 is self._f1 and f2 is self._f2:
-            return self
-        out = copy.copy(self)
-        out._f1, out._f2 = f1, f2
-        return out
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium to both summands, see :meth:`KineticBackground.attach_equil`."""
+        self._f1.attach_equil(equil)
+        self._f2.attach_equil(equil)
 
     def n(self, *coords):
         return self._f1.n(*coords) + self._f2.n(*coords)
@@ -754,14 +730,9 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         """Jacobian determinant of the velocity coordinate transformation."""
         return self._f.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
-    def _bind_equil(self, equil: FluidEquilibriumWithB, memo: dict) -> "KineticBackground":
-        """The multiple of the bound background, see :meth:`KineticBackground.with_equil`."""
-        f = self._f.with_equil(equil, memo)
-        if f is self._f:
-            return self
-        out = copy.copy(self)
-        out._f = f
-        return out
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium to the multiplied background, see :meth:`KineticBackground.attach_equil`."""
+        self._f.attach_equil(equil)
 
     def n(self, *coords):
         return self._a * self._f.n(*coords)

@@ -386,21 +386,11 @@ class Particles(metaclass=ABCMeta):
 
         # background
         if background is None:
-            # a copy, so that nothing set on the background of this species (e.g. moment factors) changes the
-            # default background, a class attribute shared by all species
+            # a copy, since the default background is a class attribute and can get an equilibrium attached
             self._background = copy.deepcopy(self.default_background)
             logger.info(f"Background set to default {self.background = }.")
         else:
             self._background = background
-
-        # initial condition
-        if initial_condition is None:
-            self._initial_condition = self.background
-        else:
-            self._initial_condition = initial_condition
-
-        # bound to the equilibrium of the species where needed, before anything uses them
-        self._bind_backgrounds()
 
         # background p-form description in [eta, v] (False means 0-form, True means volume form -> divide by det)
         if isinstance(self.background, FluidEquilibrium):
@@ -417,6 +407,12 @@ class Particles(metaclass=ABCMeta):
 
         # perturbation parameters (needed for fluid background)
         self._perturbations = perturbations
+
+        # initial condition
+        if initial_condition is None:
+            self._initial_condition = self.background
+        else:
+            self._initial_condition = initial_condition
 
         # for loading
         # if self.loading_params["moments"] is None and not isinstance(self, ParticlesSPH) and isinstance(self.bckgr_params, dict):
@@ -2838,12 +2834,6 @@ class Particles(metaclass=ABCMeta):
 
         else:
             self._sorting_boxes = None
-
-    def _bind_backgrounds(self):
-        """Replace :attr:`background` and :attr:`initial_condition` by copies bound to the equilibrium of the
-        species where they need it (see :meth:`~struphy.kinetic_background.base.KineticBackground.with_equil`),
-        without changing the given objects. Nothing to bind by default."""
-        pass
 
     def _clamp_off_pole(self, col: int = None):
         """Keep the markers off a pole at eta1=0, where the mapping is singular, by setting

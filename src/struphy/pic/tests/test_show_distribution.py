@@ -36,11 +36,9 @@ def test_gyro_maxwellian_2d(do_plot=False):
 
     import numpy as np
 
-    # the variable refers to the background bound to the equilibrium (B0="equil"), the given object is unchanged
-    bound = model.energetic_ions.var.backgrounds
-    assert bound is model.energetic_ions.var.particles.background and bound is not maxwellian_1
-    assert np.allclose(bound.eval_B0(np.full((3, 4), 0.5)), equil.absB0(np.full((3, 4), 0.5)))
-    assert maxwellian_1._B0_equil is None
+    # the background with B0="equil" has the equilibrium of the simulation attached
+    assert model.energetic_ions.var.backgrounds is maxwellian_1
+    assert np.allclose(maxwellian_1.eval_B0(np.full((3, 4), 0.5)), equil.absB0(np.full((3, 4), 0.5)))
 
     for i in range(5):
         components = [False] * 5

@@ -632,13 +632,6 @@ class PICVariable(Variable):
             equation_params=self.species.equation_params,
         )
 
-        # the particles can hold copies of the background and initial condition bound to the equilibrium
-        # (B0="equil" of GyroMaxwellian2D): refer to these, so that evaluating them after allocation works
-        if self.particles.background is not self.backgrounds:
-            self._backgrounds = self.particles.background
-        if hasattr(self, "_initial_condition") and self.particles.initial_condition is not self._initial_condition:
-            self._initial_condition = self.particles.initial_condition
-
         if self.species.sorting_params.do_sort:
             sort = True
         else:

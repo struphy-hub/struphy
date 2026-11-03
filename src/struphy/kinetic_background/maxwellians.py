@@ -150,8 +150,8 @@ class GyroMaxwellian2D(Maxwellian):
         Background magnetic field strength :math:`B_0` in :math:`\mu = v_\perp^2/(2B_0)`, see :meth:`eval_B0`:
         a constant, a callable of the stacked logical positions ``etas`` of shape ``(3, N)`` returning shape ``(N,)``,
         or ``"equil"`` (default) for the local field strength :math:`|\mathbf B_0|(\boldsymbol \eta)` of the
-        equilibrium bound with :meth:`with_equil` (done automatically, on species-local copies, for the background
-        and initial condition of a :class:`~struphy.pic.particles.Particles5D` species).
+        equilibrium attached with :meth:`attach_equil` (done automatically for the background and initial
+        condition of a :class:`~struphy.pic.particles.Particles5D` species).
 
     uniform_on_disc : bool
         Whether the density n is uniform on the disc.
@@ -174,7 +174,7 @@ class GyroMaxwellian2D(Maxwellian):
         self.check_maxw_params()
 
         check_B0_option(B0)
-        # equilibrium providing |B_0| for B0="equil" (see with_equil)
+        # equilibrium providing |B_0| for B0="equil" (see attach_equil)
         self._B0_equil = None
         # last (B0 option, equilibrium, positions, values) of eval_B0: f0 and its velocity Jacobian are evaluated
         # at the same markers
@@ -224,22 +224,28 @@ class GyroMaxwellian2D(Maxwellian):
 
         return self.eval_B0(xp.stack((eta1, eta2, eta3), axis=0))
 
-    def _bind_equil(self, equil: FluidEquilibriumWithB, memo: dict) -> "GyroMaxwellian2D":
-        """For ``B0="equil"``, a copy whose :math:`B_0` is the field strength :math:`|\\mathbf B_0|` of
-        ``equil`` (``self`` is not changed); ``self`` for a constant or callable ``B0``.
-        See :meth:`~struphy.kinetic_background.base.KineticBackground.with_equil`."""
-        if not isinstance(self.params["B0"], str):
-            return self
-        assert isinstance(equil, FluidEquilibriumWithB), (
-            f'GyroMaxwellian2D with B0="equil" needs an equilibrium with magnetic field, got {type(equil).__name__}.'
-        )
-        out = copy.copy(self)
-        # species-local: the copy shares no mutable state with self
-        out.params = dict(self.params)
-        out._moment_factors = copy.deepcopy(self._moment_factors)
-        out._B0_equil = equil
-        out._B0_cache = None
-        return out
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium whose field strength :math:`|\\mathbf B_0|` is used for ``B0="equil"``
+        (replacing an equilibrium attached before). Does nothing for a constant or callable ``B0``.
+
+        The background object itself is changed: if it is shared by particles with different equilibria (e.g.
+        two simulations set up in one script before running), the last equilibrium attached is used by all of
+        them, and a warning is logged."""
+        if isinstance(self.params["B0"], str):
+            if equil is None:
+                return
+            assert isinstance(equil, FluidEquilibriumWithB), (
+                f'GyroMaxwellian2D with B0="equil" needs an equilibrium with magnetic field, got {type(equil).__name__}.'
+            )
+            if self._B0_equil is not None and self._B0_equil is not equil:
+                logger.warning(
+                    'GyroMaxwellian2D with B0="equil" gets a different equilibrium attached: the background object '
+                    "is shared, and all particles using it take |B_0| from the new equilibrium from now on. This is "
+                    "fine if the simulation set up with the previous equilibrium is not used any more (e.g. a scan); "
+                    "otherwise use a separate background object for each simulation."
+                )
+            self._B0_equil = equil
+            self._B0_cache = None
 
     def eval_B0(self, etas):
         """Evaluate the magnetic field strength :math:`B_0` in :math:`\\mu = v_\\perp^2/(2B_0)` at flat positions.

@@ -7,9 +7,7 @@ pytestmark = pytest.mark.mpi_pic
 VTH = 0.8
 
 
-def _make_particles(
-    loading_B0, background_B0=None, loading="pseudo_random", spatial="uniform", ppc=200, background=None, equil_B0=1.0
-):
+def _make_particles(loading_B0, background_B0=None, loading="pseudo_random", spatial="uniform", ppc=200):
     """Particles5D in a hollow torus with the ad hoc tokamak equilibrium (|B_0| ~ 1/R varies by a factor ~2)."""
     from maybempi import MPI
 
@@ -25,7 +23,7 @@ def _make_particles(
     comm = MPI.COMM_WORLD
 
     domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=2.0, tor_period=1)
-    equil = equils.AdhocTorus(a=1.0, R0=2.0, B0=equil_B0)
+    equil = equils.AdhocTorus(a=1.0, R0=2.0, B0=1.0)
     equil.domain = domain
 
     grid = TensorProductGrid(num_elements=[8, 8, 4])
@@ -40,8 +38,14 @@ def _make_particles(
         moments=(0.0, 0.0, 1.0, VTH),
         B0=loading_B0,
     )
-    if background is None:
-        background = _background(loading_B0 if background_B0 is None else background_B0)
+    if background_B0 is None:
+        background_B0 = loading_B0
+    background = maxwellians.GyroMaxwellian2D(
+        n=(1.0, None),
+        vth_para=(1.0, None),
+        vth_perp=(VTH, None),
+        B0=background_B0,
+    )
 
     particles = Particles5D(
         comm_world=comm if comm.Get_size() > 1 else None,
@@ -55,24 +59,6 @@ def _make_particles(
     particles.draw_markers()
     particles.initialize_weights()
     return particles, equil, domain
-
-
-def _background(B0):
-    """Gyrotropic Maxwellian with the moments of the loading."""
-    from struphy.kinetic_background import maxwellians
-
-    return maxwellians.GyroMaxwellian2D(n=(1.0, None), vth_para=(1.0, None), vth_perp=(VTH, None), B0=B0)
-
-
-def _weights_ratio_spread(particles, domain, spatial="uniform"):
-    """Relative spread of w0 * s_eta / |det DF|, zero if f_init / s0 does not depend on the velocities."""
-    import cunumpy as xp
-
-    pos = xp.ascontiguousarray(particles.positions)
-    detj = xp.abs(domain.jacobian_det(pos))
-    s_eta = 2.0 * pos[0] if spatial == "disc" else 1.0
-    r = particles.weights0 * s_eta / detj
-    return float(xp.max(r) / xp.min(r) - 1.0)
 
 
 def _global_sum(local, comm):
@@ -125,40 +111,20 @@ def test_weights_match_sampling_density(spatial):
     """If the initial condition has the moments and the B0 of the loading, f_init / s0 does not depend on the
     velocities: the weights are w0 = |det DF| / s_eta / Np, with s_eta = 1 (uniform) or 2 eta1 (disc).
     A background with B0="equil" and a loading with constant B0 gives velocity-dependent weights."""
-    particles, _, domain = _make_particles("equil", spatial=spatial, ppc=20)
-    assert _weights_ratio_spread(particles, domain, spatial) < 1e-10
-
-    particles, _, domain = _make_particles(1.0, background_B0="equil", spatial=spatial, ppc=20)
-    assert _weights_ratio_spread(particles, domain, spatial) > 1e-2
-
-
-def test_shared_background_two_equilibria():
-    """A background object shared by two species with different equilibria is bound per species: each species
-    evaluates f0 with its own |B_0| (consistent weights), and the given object is not changed."""
     import cunumpy as xp
 
-    background = _background("equil")
-    p1, equil1, domain = _make_particles("equil", ppc=20, background=background, equil_B0=1.0)
-    p2, equil2, _ = _make_particles("equil", ppc=20, background=background, equil_B0=2.0)
+    def ratio_spread(particles, domain):
+        pos = xp.ascontiguousarray(particles.positions)
+        detj = xp.abs(domain.jacobian_det(pos))
+        s_eta = 2.0 * pos[0] if spatial == "disc" else 1.0
+        r = particles.weights0 * s_eta / detj
+        return float(xp.max(r) / xp.min(r) - 1.0)
 
-    # the given object stays unbound, the species have their own copies (initial condition = background)
-    assert background._B0_equil is None
-    for p, equil in ((p1, equil1), (p2, equil2)):
-        assert p.background is not background
-        assert p.initial_condition is p.background and p.f0 is p.background
-        assert p.background._B0_equil is equil
-        pos = xp.ascontiguousarray(p.positions)
-        assert xp.allclose(p.f0.eval_B0(pos), equil.absB0(pos))
+    particles, _, domain = _make_particles("equil", spatial=spatial, ppc=20)
+    assert ratio_spread(particles, domain) < 1e-10
 
-    # the first species is not affected by the second one
-    p1.initialize_weights()
-    assert _weights_ratio_spread(p1, domain) < 1e-10
-
-    # sums and scalar multiples are bound on copies too, keeping shared summands shared
-    f = background + 2.0 * background
-    bound = f.with_equil(equil1)
-    assert bound is not f and bound._f1._B0_equil is equil1 and bound._f2._f is bound._f1
-    assert f._f1._B0_equil is None
+    particles, _, domain = _make_particles(1.0, background_B0="equil", spatial=spatial, ppc=20)
+    assert ratio_spread(particles, domain) > 1e-2
 
 
 @pytest.mark.mpi_skip
@@ -208,6 +174,36 @@ def test_B0_option_validation():
     maxw.params["B0"] = lambda e: 5.0 + e[1]
     assert xp.allclose(maxw.eval_B0(etas), 5.0 + etas[1])
 
-    # "equil" without bound equilibrium (e.g. outside of a Particles5D species) gives a clear error
-    with pytest.raises(ValueError, match="no equilibrium is bound"):
+    # "equil" without attached equilibrium (e.g. outside of a Particles5D species) gives a clear error
+    with pytest.raises(ValueError, match="no equilibrium is attached"):
         maxwellians.GyroMaxwellian2D().eval_B0(etas)
+
+
+@pytest.mark.mpi_skip
+def test_attach_different_equil_warns():
+    """A background attached to a second, different equilibrium (shared by two simulations) logs a warning;
+    attaching the same equilibrium again does not."""
+    from unittest import mock
+
+    from struphy.fields_background import equils
+    from struphy.kinetic_background import maxwellians
+
+    equil1, equil2 = equils.AdhocTorus(), equils.AdhocTorus(B0=2.0)
+    maxw = maxwellians.GyroMaxwellian2D()
+    background = maxw + 2.0 * maxw
+    with mock.patch.object(maxwellians.logger, "warning") as warning:
+        background.attach_equil(equil1)
+        background.attach_equil(equil1)
+        warning.assert_not_called()
+        background.attach_equil(equil2)
+        # maxw appears twice in the sum: attached twice, but warned once
+        warning.assert_called_once()
+    assert maxw._B0_equil is equil2
+
+    # a constant B0 needs no equilibrium: nothing attached, no warning
+    const = maxwellians.GyroMaxwellian2D(B0=1.0)
+    with mock.patch.object(maxwellians.logger, "warning") as warning:
+        const.attach_equil(equil1)
+        const.attach_equil(equil2)
+        warning.assert_not_called()
+    assert const._B0_equil is None
