@@ -474,9 +474,16 @@ class Particles5D(Particles):
         self._tmp0 = self.derham.V0.zeros()
         self._tmp2 = self.derham.V2.zeros()
 
-        # backgrounds with B0="equil" take |B_0| from the equilibrium of this species
-        self.background.attach_equil(self.B0_equil)
-        self.initial_condition.attach_equil(self.B0_equil)
+    def _bind_backgrounds(self):
+        """Backgrounds with ``B0="equil"`` take :math:`|\\mathbf B_0|` from the equilibrium of this species
+        (:attr:`B0_equil`): bound on species-local copies, since the given objects can be shared, keeping
+        initial condition = background if it is. Without equilibrium they stay unbound (and fail clearly when
+        evaluated with ``B0="equil"``)."""
+        if self.B0_equil is None:
+            return
+        memo = {}
+        self._background = self.background.with_equil(self.B0_equil, memo)
+        self._initial_condition = self.initial_condition.with_equil(self.B0_equil, memo)
 
     @property
     def magn_bckgr(self):
@@ -487,8 +494,11 @@ class Particles5D(Particles):
     @property
     def B0_equil(self):
         """Equilibrium whose :math:`|\\mathbf B_0|` is used for ``B0="equil"`` in :attr:`loading_params`, the
-        background and the initial condition (:attr:`equil`, or the one of :attr:`projected_equil`)."""
-        return self.equil if self.equil is not None else self.projected_equil.equil
+        background and the initial condition (:attr:`equil`, or the one of :attr:`projected_equil`; None if
+        there is neither)."""
+        if self.equil is not None:
+            return self.equil
+        return None if self.projected_equil is None else self.projected_equil.equil
 
     @property
     def absB0_h(self):
@@ -534,8 +544,7 @@ class Particles5D(Particles):
                 volume_form=True,
                 B0=self.loading_params.B0,
                 uniform_on_disc=(self.spatial == "disc"),
-            )
-            self._sampling_density.attach_equil(self.B0_equil)
+            ).with_equil(self.B0_equil)
         return self._sampling_density
 
     def loading_B0(self, etas):

@@ -149,8 +149,8 @@ class GyroMaxwellian2D(Maxwellian):
         Background magnetic field strength :math:`B_0` in :math:`\mu = v_\perp^2/(2B_0)`, see :meth:`eval_B0`:
         a constant, a callable of the stacked logical positions ``etas`` of shape ``(3, N)`` returning shape ``(N,)``,
         or ``"equil"`` (default) for the local field strength :math:`|\mathbf B_0|(\boldsymbol \eta)` of the
-        equilibrium attached with :meth:`attach_equil` (done automatically for the background and initial
-        condition of a :class:`~struphy.pic.particles.Particles5D` species).
+        equilibrium bound with :meth:`with_equil` (done automatically, on species-local copies, for the background
+        and initial condition of a :class:`~struphy.pic.particles.Particles5D` species).
 
     uniform_on_disc : bool
         Whether the density n is uniform on the disc.
@@ -173,9 +173,10 @@ class GyroMaxwellian2D(Maxwellian):
         self.check_maxw_params()
 
         check_B0_option(B0)
-        # equilibrium providing |B_0| for B0="equil" (see attach_equil)
+        # equilibrium providing |B_0| for B0="equil" (see with_equil)
         self._B0_equil = None
-        # last positions and B0 values of eval_B0: f0 and its velocity Jacobian are evaluated at the same markers
+        # last (B0 option, equilibrium, positions, values) of eval_B0: f0 and its velocity Jacobian are evaluated
+        # at the same markers
         self._B0_cache = None
 
         # volume form represenation
@@ -222,15 +223,22 @@ class GyroMaxwellian2D(Maxwellian):
 
         return self.eval_B0(xp.stack((eta1, eta2, eta3), axis=0))
 
-    def attach_equil(self, equil: FluidEquilibriumWithB):
-        """Attach the equilibrium whose field strength :math:`|\\mathbf B_0|` is used for ``B0="equil"``
-        (replacing an equilibrium attached before). Does nothing for a constant or callable ``B0``."""
-        if isinstance(self.params["B0"], str):
-            assert isinstance(equil, FluidEquilibriumWithB), (
-                f'GyroMaxwellian2D with B0="equil" needs an equilibrium with magnetic field, got {type(equil).__name__}.'
-            )
-            self._B0_equil = equil
-            self._B0_cache = None
+    def _bind_equil(self, equil: FluidEquilibriumWithB, memo: dict) -> "GyroMaxwellian2D":
+        """For ``B0="equil"``, a copy whose :math:`B_0` is the field strength :math:`|\\mathbf B_0|` of
+        ``equil`` (``self`` is not changed); ``self`` for a constant or callable ``B0``.
+        See :meth:`~struphy.kinetic_background.base.KineticBackground.with_equil`."""
+        if not isinstance(self.params["B0"], str):
+            return self
+        assert isinstance(equil, FluidEquilibriumWithB), (
+            f'GyroMaxwellian2D with B0="equil" needs an equilibrium with magnetic field, got {type(equil).__name__}.'
+        )
+        out = copy.copy(self)
+        # species-local: the copy shares no mutable state with self
+        out.params = dict(self.params)
+        out._moment_factors = copy.deepcopy(self._moment_factors)
+        out._B0_equil = equil
+        out._B0_cache = None
+        return out
 
     def eval_B0(self, etas):
         """Evaluate the magnetic field strength :math:`B_0` in :math:`\\mu = v_\\perp^2/(2B_0)` at flat positions.
@@ -252,10 +260,16 @@ class GyroMaxwellian2D(Maxwellian):
         # a position-dependent B0 is often evaluated twice at the same markers (f0 and velocity_jacobian_det in
         # the control variate); the comparison is much cheaper than an evaluation of |B_0|
         cache = self._B0_cache
-        if cache is not None and cache[0].shape == etas.shape and xp.array_equal(cache[0], etas):
-            return cache[1]
+        if (
+            cache is not None
+            and cache[0] is B0
+            and cache[1] is self._B0_equil
+            and cache[2].shape == etas.shape
+            and xp.array_equal(cache[2], etas)
+        ):
+            return cache[3]
         out = eval_B0_option(B0, etas, self._B0_equil, owner="GyroMaxwellian2D")
-        self._B0_cache = (xp.array(etas, copy=True), out)
+        self._B0_cache = (B0, self._B0_equil, xp.array(etas, copy=True), out)
         return out
 
     def eval_B0_on_args(self, etas):
