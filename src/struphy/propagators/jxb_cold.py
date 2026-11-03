@@ -67,11 +67,14 @@ class JxBCold(Propagator):
 
         Parameters
         ----------
-        solver : LiteralOptions.OptsGenSolver, default="pbicgstab"
+        solver : LiteralOptions.OptsGenSolver, default="gmres"
             Iterative solver used for the linear current update. The system matrix
             :math:`\mathbb M^1_{1/n_0} + \frac{\Delta t}{2 \varepsilon} \mathbb M^1_{B_0/n_0}` is not symmetric
             (:math:`\mathbb M^1_{B_0/n_0}` is skew-symmetric), so a solver for general matrices is needed.
-            The symmetric solvers of older parameter files (``"pcg"``, ...) are replaced by ``"pbicgstab"``,
+            ``"gmres"`` (without preconditioner) converges reliably; ``"pbicgstab"`` with the mass matrix
+            preconditioner, which neglects the skew-symmetric part, has erratic iteration numbers when that part
+            dominates (:math:`\Delta t \gtrsim \varepsilon`), down to no convergence after roundoff-level changes of
+            the data. The symmetric solvers of older parameter files (``"pcg"``, ...) are replaced by ``"gmres"``,
             with a warning.
 
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
@@ -83,17 +86,15 @@ class JxBCold(Propagator):
         """
 
         # propagator options
-        solver: LiteralOptions.OptsGenSolver = "pbicgstab"
+        solver: LiteralOptions.OptsGenSolver = "gmres"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
             # the system is not symmetric: symmetric solvers (the default up to v3.6) diverge for dt > epsilon
             if self.solver in get_args(LiteralOptions.OptsSymmSolver):
-                logger.warning(
-                    f"JxBCold: the system is not symmetric, replacing solver={self.solver!r} by 'pbicgstab'."
-                )
-                self.solver = "pbicgstab"
+                logger.warning(f"JxBCold: the system is not symmetric, replacing solver={self.solver!r} by 'gmres'.")
+                self.solver = "gmres"
 
             # checks
             check_option(self.solver, LiteralOptions.OptsGenSolver)
