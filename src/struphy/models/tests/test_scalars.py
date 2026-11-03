@@ -60,19 +60,19 @@ def test_scalars_follow_a_new_allocation():
     from types import SimpleNamespace
 
     holder = SimpleNamespace(data=xp.array([1.0]))
-    a, b = _AllocatedConstant(holder), _Constant(2.0)
-    scalars = Scalars(a=a, total=a + b)
+    a, b = _AllocatedConstant(holder), _AllocatedConstant(holder)
+    scalars = Scalars(a=a, total=a + b + _Constant(0.0))
 
     scalars.update()
     assert scalars.host_value("a")[0] == 1.0
-    assert scalars.host_value("total")[0] == 3.0
+    assert scalars.host_value("total")[0] == 2.0
 
     # second run: the allocation replaces the object, the old one keeps its last value
     holder.data = xp.array([10.0])
     scalars.reset_allocation()
     scalars.update()
     assert scalars.host_value("a")[0] == 10.0
-    assert scalars.host_value("total")[0] == 12.0
+    assert scalars.host_value("total")[0] == 20.0
 
     # within a run, the object fetched at the allocation is used
     holder.data[0] = 20.0
