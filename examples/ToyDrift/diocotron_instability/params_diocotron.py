@@ -236,7 +236,7 @@ def n_init(etas, r_minus=r_minus, r_plus=r_plus):
 # Background for kinetic species
 background = maxwellians.GyroMaxwellian2D(
     n=(0.0, None),
-)  # B0=equil.absB0)
+)
 model.kinetic_ions.var.add_background(background)
 
 
@@ -249,7 +249,7 @@ eta_plus = (r_plus - domain.params["a1"]) / (domain.params["a2"] - domain.params
 perturbation = perturbations.ModesCos(amps=(1e-6,), ms=(ms,), perb_domain=((eta_minus, eta_plus), None, None))
 init = maxwellians.GyroMaxwellian2D(
     n=(n_init, perturbation),
-)  # B0=equil.absB0)
+)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

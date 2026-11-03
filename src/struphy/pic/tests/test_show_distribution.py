@@ -36,6 +36,10 @@ def test_gyro_maxwellian_2d(do_plot=False):
 
     import numpy as np
 
+    # the background with B0="equil" has the equilibrium of the simulation attached
+    assert model.energetic_ions.var.backgrounds is maxwellian_1
+    assert np.allclose(maxwellian_1.eval_B0(np.full((3, 4), 0.5)), equil.absB0(np.full((3, 4), 0.5)))
+
     for i in range(5):
         components = [False] * 5
         components[i] = True
@@ -52,7 +56,7 @@ def test_gyro_maxwellian_2d(do_plot=False):
     components = [False] * 5
     components[3] = True
     components[4] = True
-    bin_edges = (np.linspace(-5, 5, 32), np.linspace(0, 2, 32))
+    bin_edges = (np.linspace(-5, 5, 32), np.linspace(0, 5, 32))
     err = model.energetic_ions.var.particles.show_distribution_function(components, bin_edges, do_plot=do_plot)
     print(f"2d {components = }, {err = }")
     assert err < 0.05
@@ -63,7 +67,8 @@ def test_gyro_maxwellian_2d(do_plot=False):
     bin_edges = (np.linspace(0, 1, 32), np.linspace(0, 1, 32))
     err = model.energetic_ions.var.particles.show_distribution_function(components, bin_edges, do_plot=do_plot)
     print(f"2d {components = }, {err = }")
-    assert err < 0.31
+    # noise dominated (~100 markers per bin); ~0.31 with B0=2.0, ~0.32 with the local |B_0| = 1 of HomogenSlab
+    assert err < 0.33
 
     # Perturbations for (some) kinetic species
     # perturbation = perturbations.TorusModesCos()
