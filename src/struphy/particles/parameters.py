@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from typing import Callable, Literal
 
 import cunumpy as xp
 
 from struphy.io.options import LiteralOptions
+from struphy.kinetic_background.base import check_B0_option
 from struphy.utils.utils import __dataclass_repr_all_stacked__, __dataclass_repr_no_defaults__, check_option
 
 
@@ -39,8 +41,13 @@ class LoadingParameters:
         Mean velocities and temperatures defining the Gaussian velocity distribution.
         If None, automatically computed from the background distribution.
 
-    B0 : float, optional
-        Reference magnetic field strength for mu-loading in guiding-center or drift-kinetic models (default: 2.0).
+    B0 : float | Callable | "equil", default="equil"
+        Magnetic field strength :math:`B_0` used to draw the magnetic moment :math:`\\mu = v_\\perp^2/(2B_0)`
+        of guiding-center (``Particles5D``) markers from a Maxwellian in :math:`v_\\perp`.
+        ``"equil"`` takes the local field strength :math:`|\\mathbf B_0|` of the species' equilibrium at the
+        marker positions, so the markers are Maxwellian in :math:`v_\\perp` everywhere. Alternatively a constant,
+        or a callable of the stacked logical positions ``etas`` of shape ``(3, N)`` returning shape ``(N,)``
+        (e.g. ``equil.absB0``).
 
     spatial : LiteralOptions.OptsSpatialLoading, default="uniform"
         Spatial sampling method: 'uniform' samples uniformly in (eta1, eta2) coordinates,
@@ -75,7 +82,7 @@ class LoadingParameters:
     loading: LiteralOptions.OptsLoading = "pseudo_random"
     seed: int = None
     moments: tuple = None
-    B0: float = 2.0
+    B0: float | Callable | Literal["equil"] = "equil"
     spatial: LiteralOptions.OptsSpatialLoading = "uniform"
     specific_markers: tuple[tuple] = None
     set_zero_velocity: tuple[bool] = (False, False, False)
@@ -88,6 +95,7 @@ class LoadingParameters:
     def __post_init__(self):
         check_option(self.loading, LiteralOptions.OptsLoading)
         check_option(self.spatial, LiteralOptions.OptsSpatialLoading)
+        check_B0_option(self.B0)
 
     def __repr_no_defaults__(self):
         return __dataclass_repr_all_stacked__(self)
