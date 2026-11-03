@@ -1008,6 +1008,9 @@ class AdhocTorus(AxisymmMHDequilibrium):
         """Location of magnetic axis in R-Z-coordinates."""
         return [self.params["R0"], 0.0]
 
+    bmax_ray_angles = (xp.pi,)
+    """On the circular flux surfaces, :math:`|\\mathbf B| \\propto 1/R` is maximal at the inboard midplane."""
+
     # ===============================================================
     #           radial profiles for an ad hoc tokamak equilibrium
     # ===============================================================
@@ -1476,6 +1479,9 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
     def psi_axis_RZ(self):
         """Location of magnetic axis in R-Z-coordinates."""
         return [self.params["R0"], 0.0]
+
+    bmax_ray_angles = (xp.pi,)
+    """On the circular flux surfaces, :math:`|\\mathbf B| \\propto 1/R` is maximal at the inboard midplane."""
 
     # ===============================================================
     #       1d profiles for an ad hoc tokamak equilibrium
