@@ -96,7 +96,8 @@ def test_vlasov_ampere_coupling_polar():
         sim = Simulation(
             model=model,
             domain=domains.IGAPolarCylinder(num_elements=(6, 6), degree=(2, 2), a=1.0, Lz=4.0),
-            grid=grids.TensorProductGrid(num_elements=(6, 6, 2)),
+            # enough elements in eta_1 for the polar rings on the pole rank (also on 4 MPI ranks)
+            grid=grids.TensorProductGrid(num_elements=(12, 6, 4)),
             derham_opts=DerhamOptions(degree=(2, 2, 1), bcs=(("free", "dirichlet"), None, None), polar_splines=True),
         )
         sim.allocate()
