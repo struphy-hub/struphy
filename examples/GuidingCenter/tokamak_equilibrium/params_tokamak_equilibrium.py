@@ -33,13 +33,6 @@ parser.add_argument(
     "(same profiles in the flux label of the position, not an equilibrium in a torus).",
 )
 parser.add_argument(
-    "--shift",
-    default="Bmax",
-    choices=["Bmax", "B0", "none"],
-    help="Shift of the canonical toroidal momentum of the canonical Maxwellian (CanonicalMaxwellian2D(shift=...)): "
-    "Bmax and none give an exact equilibrium, B0 (on-axis field) does not for the barely trapped particles.",
-)
-parser.add_argument(
     "--algo",
     default="discrete_gradient_1st_order",
     choices=[
@@ -80,9 +73,7 @@ if args.test_run:
     args.num_elements = [8, 18, 18]
     args.ppc = 5
 
-shift = None if args.shift == "none" else args.shift
-init_label = f"{args.init} (shift={shift})" if args.init == "canonical" else args.init
-name = f"GuidingCenter {init_label} Maxwellian in an ad hoc tokamak, {args.algo}"
+name = f"GuidingCenter {args.init} Maxwellian in an ad hoc tokamak, {args.algo}"
 description = f"""
 Long-time equilibrium test of the GuidingCenter model (guiding centers in a static magnetic field) in an ad hoc
 tokamak: a canonical Maxwellian, a function of the constants of motion, must stay stationary; a gyro-Maxwellian
@@ -103,7 +94,7 @@ constants of motion are the energy v_par^2/2 + mu |B0|, the magnetic moment mu a
 toroidal momentum P_phi = psi + epsilon F v_par / |B0| (normalized form, psi the poloidal flux, F = R B_phi).
 The canonical Maxwellian
     f0 = n(psi_c) / (2 pi)^(3/2) / vth(psi_c)^3 * exp(-(v_par^2/2 + mu |B0|) / vth(psi_c)^2)
-uses psi_c = P_phi minus a shift of the order of the drift-orbit width (CanonicalMaxwellian2D, shift={shift}), which
+uses psi_c = P_phi minus a shift of the order of the drift-orbit width (CanonicalMaxwellian2D, shift), which
 keeps the profiles in psi_c close to those in the flux label of the position. With shift="Bmax" (reference field
 max |B0| on the surface psi = P_phi, where the particle could bounce) or without shift, psi_c is a function of the
 constants of motion and f0 is an exact equilibrium by Jeans' theorem. With shift="B0" (on-axis field), psi_c jumps
@@ -113,17 +104,17 @@ Setup. Full torus without hole (IGAPolarTorus, minor radius a = 1, major radius 
 axis) with an ad hoc tokamak equilibrium (AdhocTorus, circular concentric flux surfaces, B0 = 1 on axis, q(r) =
 1.71 + 0.16 r^2/a^2). With the normalized poloidal flux s in [0, 1], the profiles are n = (1 - s)^2 and vth =
 0.15 + 0.10 (1 - s), as functions of psi_c (canonical) or of the flux label s = eta1^2 of the position (gyro).
-Markers drift through the axis. Initial condition: {init_label} Maxwellian. Binned distributions in position
+Markers drift through the axis. Initial condition: {args.init} Maxwellian. Binned distributions in position
 (eta1, eta1-eta2) and velocity space (v_parallel, mu, eta1-v_parallel) up to t={args.tend} (dt={args.dt}). The
 density vanishes at the edge r=a, where markers on drift orbits leaving the plasma are removed; this small loss is
 not part of the equilibrium. Propagators push_bxe and push_parallel: {args.algo} (Butcher {args.butcher} if
 explicit), epsilon={args.epsilon}, {args.ppc} markers per cell on a grid with {args.num_elements} elements.
 
-Expected result. For the canonical Maxwellian (shift="Bmax" or "none"), the relative L2 deviation of the binned
+Expected result. For the canonical Maxwellian (shift="Bmax" or None), the relative L2 deviation of the binned
 distributions from their initial profiles stays at the level of the Monte-Carlo noise of the binning, without a
 systematic drift. With shift="B0", psi_c of about half of the bouncing markers jumps by more than 1% of the flux
 range at the bounce points (up to 40%, measured along saved orbits on an 8 x 24 x 24 grid up to t = 100), while it
-stays constant to about 1e-4 with shift="Bmax" or "none". The
+stays constant to about 1e-4 with shift="Bmax" or None. The
 gyro-Maxwellian control is expected to relax (phase mixing along the drift orbits) towards a different state,
 visible as a systematic deviation from the initial profiles. The pproc also shows the relative drift of the total
 energy en_tot and the number of lost markers.
@@ -296,7 +287,8 @@ if args.init == "canonical":
         vth=(vth_canonical, None),
         equil=equil,
         epsilon=args.epsilon,
-        shift=shift,
+        # "Bmax" (default) or None: exact equilibrium; "B0": psi_c jumps at the bounce points of barely trapped particles
+        shift="Bmax",
     )
 else:
     background = maxwellians.GyroMaxwellian2D(
