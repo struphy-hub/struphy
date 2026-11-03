@@ -81,8 +81,9 @@ class JxBCold(Propagator):
             Preconditioner built from the weighted mass matrix ``M1ninv``; only used by ``solver="pbicgstab"``.
 
         solver_params : SolverParameters, default=None
-            Iterative-solver controls. If ``None``, defaults to
-            ``SolverParameters()``.
+            Iterative-solver controls. If ``None``, defaults to ``SolverParameters(maxiter=300)``: ``"gmres"`` does
+            not restart and keeps one vector per iteration (plus a Hessenberg matrix of size ``maxiter**2``), and
+            needs about 15 to 40 iterations here.
         """
 
         # propagator options
@@ -102,7 +103,7 @@ class JxBCold(Propagator):
 
             # defaults
             if self.solver_params is None:
-                self.solver_params = SolverParameters()
+                self.solver_params = SolverParameters(maxiter=300)
 
     @property
     def options(self) -> Options:
@@ -126,15 +127,13 @@ class JxBCold(Propagator):
         self._M = self.mass_ops.M1ninv
         self._A = -1 / epsilon * self.mass_ops.M1Bninv  # no dt
 
-        # Preconditioner
-        if self.options.precond is None:
-            pc = None
-        else:
+        # Preconditioner (only pbicgstab takes one)
+        pc_kwargs = {}
+        if self.options.solver == "pbicgstab" and self.options.precond is not None:
             pc_class = getattr(preconditioner, self.options.precond)
-            pc = pc_class(self.mass_ops.M1ninv)
+            pc_kwargs["pc"] = pc_class(self.mass_ops.M1ninv)
 
-        # Instantiate linear solver (only pbicgstab takes a preconditioner)
-        pc_kwargs = {"pc": pc} if self.options.solver == "pbicgstab" else {}
+        # Instantiate linear solver
         self._solver = inverse(
             self._M,
             self.options.solver,
