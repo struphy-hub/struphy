@@ -2,8 +2,8 @@
  "case": "VariationalPerturbativeMHD_with_q-linear-crank_nicolson=True",
  "ranks": {
   "1": {
-   "commit": "e6f39429",
-   "date": "2026-10-30",
+   "commit": "68fd601c",
+   "date": "2026-11-03",
    "values": {
     "time": [
      0.0,
@@ -26,8 +26,8 @@
     "scalar/en_mag_2": [
      0.0,
      0.0,
-     -4.716504689007803e-25,
-     -4.012310647022352e-24
+     0.0,
+     0.0
     ],
     "scalar/en_thermo_1": [
      3.3751895042404834,
@@ -54,12 +54,13 @@
     "feec/diagnostics/div_u": 0.0015040477456938735,
     "feec/diagnostics/u2": 0.0015777212279017227,
     "feec/diagnostics/qt3": 3.4125223364286644e-05,
-    "feec/diagnostics/bt2": 3.789968818089887e-09
+    "feec/diagnostics/bt2": 3.789968818089888e-09,
+    "feec/diagnostics/at1": 2.095366236752398e-09
    }
   },
   "2": {
-   "commit": "e6f39429",
-   "date": "2026-10-30",
+   "commit": "68fd601c",
+   "date": "2026-11-03",
    "values": {
     "time": [
      0.0,
@@ -82,8 +83,8 @@
     "scalar/en_mag_2": [
      0.0,
      0.0,
-     -2.0179693044277659e-25,
-     -1.9128551665288765e-24
+     0.0,
+     0.0
     ],
     "scalar/en_thermo_1": [
      3.375189504240486,
@@ -110,7 +111,8 @@
     "feec/diagnostics/div_u": 0.0015040477456938787,
     "feec/diagnostics/u2": 0.0015777212279017288,
     "feec/diagnostics/qt3": 3.4125223364286746e-05,
-    "feec/diagnostics/bt2": 3.7899688180899085e-09
+    "feec/diagnostics/bt2": 3.7899688180899085e-09,
+    "feec/diagnostics/at1": 2.0953662367524093e-09
    }
   }
  }

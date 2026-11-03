@@ -68,11 +68,14 @@ class VariationalPerturbativeMHD(StruphyModel):
             self.init_variables(mass_number=mass_number)
 
     class Diagnostics(DiagnosticSpecies):
-        def __init__(self):
+        def __init__(self, crank_nicolson: bool = False):
             self.div_u = FEECVariable(space="L2")
             self.u2 = FEECVariable(space="Hdiv")
             self.pt3 = FEECVariable(space="L2")
             self.bt2 = FEECVariable(space="Hdiv")
+            if crank_nicolson:
+                # vector potential of the second-order field (one linear solve per substep only)
+                self.at1 = FEECVariable(space="Hcurl")
             self.init_variables()
 
     ## propagators
@@ -84,6 +87,7 @@ class VariationalPerturbativeMHD(StruphyModel):
             u2: FEECVariable = None,
             pt3: FEECVariable = None,
             bt2: FEECVariable = None,
+            at1: FEECVariable = None,
             rho: FEECVariable = None,
             linear: bool = False,
             with_viscosity: bool = True,
@@ -92,7 +96,7 @@ class VariationalPerturbativeMHD(StruphyModel):
         ):
             self.variat_dens = VariationalDensityEvolve()
             if crank_nicolson:
-                self.variat_lin_alfven = VariationalLinearAlfvenEvolve(bt2=bt2)
+                self.variat_lin_alfven = VariationalLinearAlfvenEvolve(at1=at1, bt2=bt2)
                 self.variat_lin_sound = VariationalLinearSoundEvolve(div_u=div_u, u2=u2, pt3=pt3)
             elif linear:
                 self.variat_pb = VariationalPBEvolve(div_u=div_u, u2=u2, pt3=pt3, bt2=bt2)
@@ -131,7 +135,7 @@ class VariationalPerturbativeMHD(StruphyModel):
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD(mass_number=mass_number, u_space=u_space)
-        self.diagnostics = self.Diagnostics()
+        self.diagnostics = self.Diagnostics(crank_nicolson=crank_nicolson)
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
@@ -142,6 +146,7 @@ class VariationalPerturbativeMHD(StruphyModel):
             u2=self.diagnostics.u2,
             pt3=self.diagnostics.pt3,
             bt2=self.diagnostics.bt2,
+            at1=self.diagnostics.at1 if crank_nicolson else None,
             rho=self.mhd.density,
             linear=linear,
             with_viscosity=with_viscosity,
@@ -176,7 +181,11 @@ class VariationalPerturbativeMHD(StruphyModel):
             self.mhd.velocity, bilinear_form_name="M2n" if u_space == "Hdiv" else "WMMnew"
         )
         magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
-        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", normalization=2.0)
+        # int B0 . B-hat, as int J0 . A-hat with one linear solve per substep
+        if crank_nicolson:
+            magnetic_energy_2 = FunctionScalarFEEC(self._compute_en_mag_2)
+        else:
+            magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", normalization=2.0)
         thermo_energy = FunctionScalarFEEC(self._compute_en_thermo)
         thermo_energy_l1 = FunctionScalarFEEC(self._compute_en_thermo_l1)
         magnetic_energy_l1 = BilinearEnergyFEEC(self.em_fields.b_field, right_variable="b2", normalization=2.0)
@@ -264,6 +273,9 @@ class VariationalPerturbativeMHD(StruphyModel):
             return self.propagators.variat_lin_sound
         return self.propagators.variat_pb
 
+    def _compute_en_mag_2(self):
+        return self.propagators.variat_lin_alfven.second_order_energy()
+
     def _compute_en_thermo(self):
         pt3 = self.diagnostics.pt3.spline.vector
         gamma = self._thermo_propagator.options.gamma
@@ -347,6 +359,17 @@ class VariationalPerturbativeMHD(StruphyModel):
         :math:`\hat p` (diagnostic ``pt3``), whose energy :math:`\int \hat p/(\gamma - 1)` is part of the conserved
         total energy ``en_tot``. So with dissipation the total energy is still conserved up to the solver
         tolerances.
+
+        **Second-order magnetic energy with one linear solve per substep** (``crank_nicolson=True``): the term
+        :math:`\int \mathbf B_0 \cdot \hat{\mathbf B}` is written as :math:`\int \mathbf J_0 \cdot \hat{\mathbf A}`,
+        with the auxiliary vector potential :math:`\hat{\mathbf A}` (``diagnostics.at1``),
+        :math:`\partial_t \hat{\mathbf A} = - \tilde{\mathbf B} \times \mathbf u`, :math:`\hat{\mathbf B} = \nabla \times
+        \hat{\mathbf A}` (``diagnostics.bt2``) and the equilibrium current :math:`\mathbf J_0 = \nabla \times
+        \mathbf B_0`. Both are the same in the continuum (:math:`\hat{\mathbf A} \times \mathbf n = 0` at the wall);
+        discretely the force :math:`\mathbf J_0 \times \tilde{\mathbf B}` then uses the projected equilibrium current
+        instead of the discrete curl of :math:`\mathbf B_0`, which vanishes tangentially at a wall and causes a
+        spurious wall instability (see
+        :class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve`).
 
         **Velocity in** :math:`H(\textnormal{div})` (``linear=True, crank_nicolson=True, u_space="Hdiv"``): the linear model can also be
         discretized with the velocity as a 2-form, as in :class:`~struphy.models.linear_mhd.LinearMHD`; this is possible
