@@ -112,7 +112,7 @@ computed, on a sixth of the torus (HollowTorus with tor_period = 6 and a hole of
 t = {args.tend}. The compressional MHD (sound wave, background current and pressure steps of LinearMHD) is included.
 The grid has 88 poloidal elements (8 per wavelength of the m = 10 harmonic), twice as many as the LinearMHD and
 ShearAlfven versions of this benchmark: the model has the magnetic field in H(div), whose shear Alfven step uses the
-commuting projection Pi^1[B0 x u] of the Lorentz drift. Its poloidal interpolation error makes the effective
+commuting projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal interpolation error makes the effective
 poloidal mode number about 2-3% too small with 44 elements, which shifts the continuum near the gap (where n q - m
 nearly cancels) so much that there is no TAE; with 88 elements the ShearAlfven H(div) run gives omega = 0.0835, i.e.
 4.07e5 rad/s (PR #887). The LinearMHD and ShearAlfven examples use the magnetic field in H(curl) instead, which has
