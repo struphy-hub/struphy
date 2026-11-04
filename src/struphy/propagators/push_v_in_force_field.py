@@ -43,6 +43,8 @@ class PushVinForceField(Propagator):
 
     i.e. :math:`\mathbf F = -\nabla(\phi + \varepsilon \mu_p |\mathbf B_0|)`, where :math:`\nabla |\mathbf B_0|`
     is the projected 1-form ``gradB1`` of the equilibrium (the same as in the guiding-center pushers).
+
+    Without force field, potential and magnetic moment the propagator does nothing.
     """
 
     class Variables:
@@ -144,8 +146,11 @@ class PushVinForceField(Propagator):
             self.force_vector = self.derham.grad.dot(self.potential_vector)
             self.force_vector *= -1.0
             self.force_vector.update_ghost_regions()
-        else:
+        elif self.magnetic_moment:
             self.force_vector = self.derham.V1.zeros()
+        else:
+            # no force: the propagator does nothing
+            return
 
         # instantiate Pusher
         args_kernel = (

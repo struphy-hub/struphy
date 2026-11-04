@@ -68,10 +68,10 @@ def make_simulation(out_folders: str, sim_folder: str) -> Simulation:
     Deterministic marker loading (``sobol_standard``), so that both backends start from the same markers:
     ``pseudo_random`` draws from ``xp.random``, whose streams differ between NumPy and CuPy. No sorting boxes, since
     ``SortingBoxes`` does not work on the CuPy backend yet (#726); the model does not need them. Full-f weights: with
-    the control variate, ``kinetic_energy`` at t=0 is computed with the full-f weights and afterwards with the delta-f
-    weights, so ``total_energy`` cannot be checked.
+    the control variate, ``en_f`` at t=0 is computed with the full-f weights and afterwards with the delta-f
+    weights, so ``en_tot`` cannot be checked.
     """
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     env = EnvironmentOptions(out_folders=out_folders, sim_folder=sim_folder, save_restart=False)
     time_opts = Time(dt=DT, Tend=round(N_STEPS * DT, 14))
@@ -132,8 +132,8 @@ def check_reference(ref: RunResult):
     """Physics sanity of the NumPy run: the comparison is only meaningful if the reference is right."""
     assert ref.markers.shape[1] == PPC * int(np.prod(NUM_ELEMENTS))
     if MPI.COMM_WORLD.Get_rank() == 0:
-        en_E = ref.scalars["electric_energy"]
-        en_tot = ref.scalars["total_energy"]
+        en_E = ref.scalars["en_E"]
+        en_tot = ref.scalars["en_tot"]
         assert en_tot.size == N_STEPS + 1
         # energy moves between field and particles ...
         assert abs(en_E[-1] - en_E[0]) > 1e-2 * abs(en_E[0]), en_E

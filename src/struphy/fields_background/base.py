@@ -1628,6 +1628,91 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
 
         return gradBx, gradBy, gradBz
 
+    bmax_ray_angles = None
+    """Poloidal angles (measured from the outboard midplane) of the rays from the magnetic axis on which
+    :meth:`absB_max` searches the maximum of :math:`|\\mathbf B|` on a flux surface. ``None`` means 128 equidistant
+    angles; equilibria with a known location of the maximum can restrict the search to it."""
+
+    bmax_table_size = 257
+    """Number of equidistant points in :math:`\\rho = \\sqrt{s} \\in [0, 1]` (square root of the normalized flux) of
+    :attr:`absB_max_table`."""
+
+    bmax_margin = 1e-3
+    """Relative margin added to :attr:`absB_max_table`, such that it is an upper bound of :math:`|\\mathbf B|` on the
+    flux surfaces also after interpolation in the table and for the spline projection of :math:`|\\mathbf B|`."""
+
+    def absB_RZ(self, R, Z):
+        r"""Magnitude of the magnetic field in the poloidal plane,
+        :math:`|\mathbf B| = \sqrt{(\partial_R \psi)^2 + (\partial_Z \psi)^2 + g_{tor}^2}\,/R`."""
+        return xp.sqrt(self.psi(R, Z, dR=1) ** 2 + self.psi(R, Z, dZ=1) ** 2 + self.g_tor(R, Z) ** 2) / R
+
+    @property
+    def absB_max_table(self):
+        r"""Maximum of :math:`|\mathbf B|` on the flux surfaces (times :math:`1 +` :attr:`bmax_margin`), tabulated at
+        :attr:`bmax_table_size` equidistant values of :math:`\rho = \sqrt{s} \in [0, 1]`, with the normalized flux
+        :math:`s = (\psi - \psi_\text{axis})/(\psi_\text{edge} - \psi_\text{axis})`, see :attr:`psi_range`
+        (computed once). The maximum is a smooth function of :math:`\rho` (the normalized minor radius on circular
+        surfaces), but not of :math:`s` at the axis.
+
+        The maximum is searched on rays from the magnetic axis (:attr:`bmax_ray_angles`): along each ray,
+        :math:`|\mathbf B|` is interpolated at the tabulated :math:`s` until :math:`s` stops increasing
+        (plasma boundary or end of the data of the equilibrium)."""
+        if getattr(self, "_absB_max_table", None) is None:
+            R_ax, Z_ax = self.psi_axis_RZ
+            psi_ax, psi_edge = self.psi_range
+
+            angles = self.bmax_ray_angles
+            if angles is None:
+                angles = xp.linspace(0.0, 2 * xp.pi, 128, endpoint=False)
+            angles = xp.asarray(angles, dtype=float)
+
+            # rays from the axis, not crossing R = 0
+            rho = xp.linspace(0.0, 0.999 * R_ax, 2001)
+            R = R_ax + rho[None, :] * xp.cos(angles)[:, None]
+            Z = Z_ax + rho[None, :] * xp.sin(angles)[:, None]
+            s = (self.psi(R, Z) - psi_ax) / (psi_edge - psi_ax)
+            absB = self.absB_RZ(R, Z)
+
+            s_tab = xp.linspace(0.0, 1.0, self.bmax_table_size) ** 2
+            # on the axis (s = 0), the surface is a point
+            table = xp.full(s_tab.shape, float(self.absB_RZ(xp.array([R_ax]), xp.array([Z_ax]))[0]))
+            reached = xp.zeros(s_tab.shape, dtype=bool)
+            reached[0] = True
+            for s_ray, absB_ray in zip(s, absB):
+                # cut the ray where s stops increasing
+                not_increasing = xp.nonzero(xp.diff(s_ray) <= 0.0)[0]
+                end = int(not_increasing[0]) + 1 if not_increasing.size > 0 else s_ray.size
+                if end < 2:
+                    continue
+                # (tolerance for rays that end exactly at the boundary s = 1 up to round-off)
+                on_ray = s_tab <= s_ray[end - 1] + 1e-9
+                table[on_ray] = xp.maximum(table[on_ray], xp.interp(s_tab[on_ray], s_ray[:end], absB_ray[:end]))
+                reached |= on_ray
+
+            # surfaces not reached by any ray (beyond the data of the equilibrium): last reached value
+            last = int(xp.nonzero(reached)[0][-1])
+            if last < table.size - 1:
+                logger.warning(
+                    f"{self.__class__.__name__}.absB_max_table: no ray from the axis {self.psi_axis_RZ} reaches the "
+                    f"normalized flux s > {s_tab[last]:.3f}; the maximum of |B| there is extrapolated as constant."
+                )
+            table[last + 1 :] = table[last]
+
+            self._absB_max_table = table * (1.0 + self.bmax_margin)
+
+        return self._absB_max_table
+
+    def absB_max(self, psi):
+        r"""Maximum of :math:`|\mathbf B|` on the flux surface :math:`\psi` (linear interpolation in
+        :attr:`absB_max_table` in :math:`\rho = \sqrt{s}`). Outside of :attr:`psi_range`, the value at the axis or at
+        the boundary is taken."""
+        psi = xp.asarray(psi, dtype=float)
+        psi_ax, psi_edge = self.psi_range
+        table = self.absB_max_table
+        rho_tab = xp.linspace(0.0, 1.0, table.size)
+        rho = xp.sqrt(xp.clip((psi - psi_ax) / (psi_edge - psi_ax), 0.0, 1.0))
+        return xp.interp(rho.ravel(), rho_tab, table).reshape(rho.shape)
+
     @staticmethod
     def inverse_map(x, y, z):
         """Inverse cylindrical mapping."""

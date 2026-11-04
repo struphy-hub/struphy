@@ -100,9 +100,6 @@ class CuPyJSONEncoder(json.JSONEncoder):
             return obj.tolist()
         if isinstance(obj, (np.integer, np.floating)):
             return float(obj) if isinstance(obj, np.floating) else int(obj)
-        # callables (e.g. LoadingParameters.B0 = equil.absB0) are recorded by name
-        if callable(obj):
-            return f"<callable {getattr(obj, '__qualname__', type(obj).__name__)}>"
         return super().default(obj)
 
 
@@ -264,6 +261,10 @@ class Simulation(SimulationBase):
             # allocate helper fields and perform initial solves if needed
             with ProfileManager.profile_region("model post allocate", functions=[self.model.post_allocate]):
                 self.model.post_allocate()
+
+            # the scalars fetch the newly allocated objects at their next update (a second run allocates again)
+            if self.model.scalars is not None:
+                self.model.scalars.reset_allocation()
 
         logger.debug("... Done.")
 
@@ -893,7 +894,7 @@ class Simulation(SimulationBase):
                 # update time and index (round time to 10 decimals for a clean time grid!)
                 self.time_state["value"][0] = round(float(self.time_state["value"][0]) + dt, 14)
                 self.time_state["value_sec"][0] = round(
-                    float(self.time_state["value_sec"][0]) + dt * self.model.units.t, 14
+                    float(self.time_state["value_sec"][0]) + dt * float(self.model.units.t), 14
                 )
                 self.time_state["index"][0] += 1
 
@@ -949,7 +950,7 @@ class Simulation(SimulationBase):
                         + "physical time [s]:".ljust(25)
                         + "{0:4.2e} / {1:4.2e}".format(
                             float(self.time_state["value_sec"][0]),
-                            Tend * self.model.units.t,
+                            Tend * float(self.model.units.t),
                         ).rjust(25)
                     )
                     message += "\n" + "wall clock time [s]:".ljust(25) + "{0:8.4f}".format(run_time_now * 60).rjust(25)
@@ -970,8 +971,8 @@ class Simulation(SimulationBase):
 
             logger.info("Struphy run finished.")
 
-            if self.clone_config is not None:
-                self.clone_config.free()
+            # the clone communicators are not freed here: the model (FEEC operators on sub_comm, particle
+            # reductions on inter_comm) is still used after the run, e.g. for diagnostics
 
         return self.output
 
@@ -1386,13 +1387,13 @@ class Simulation(SimulationBase):
 
     def _prepare_time_step(self):
         """Call :meth:`~struphy.propagators.base.Propagator.prepare_time_step` of each propagator with the time step
-        it receives from :meth:`~struphy.models.base.StruphyModel.integrate` (``dt / 2`` for all but the last
-        propagator with Strang splitting)."""
-        dt = self.time_opts.dt
-        props = self.model.prop_list
-        for n, prop in enumerate(props):
-            half = self.time_opts.split_algo == "Strang" and n < len(props) - 1
-            prop.prepare_time_step(dt / 2 if half else dt)
+        it receives from :meth:`~struphy.models.base.StruphyModel.integrate` (e.g. ``dt / 2`` for all but the last
+        propagator with Strang splitting, see :meth:`~struphy.models.base.StruphyModel.propagator_calls`)."""
+        steps = {}
+        for name, h in self.model.propagator_calls(self.time_opts.dt, self.time_opts.split_algo):
+            steps.setdefault(name, h)
+        for name, h in steps.items():
+            getattr(self.model.propagators, name).prepare_time_step(h)
 
     @profile
     def _allocate_propagators(self):
@@ -1952,7 +1953,8 @@ class Simulation(SimulationBase):
             for species_name, species in model_species.items()
         }
         for species_name, variables in definitions.items():
-            species = self.model.species.get(species_name)
+            # runs written before a species was renamed keep the old name in their metadata
+            species = self.model.species.get(self.model._renamed_species.get(species_name, species_name))
             if species is None:
                 continue
             for variable_name, entry in variables.items():

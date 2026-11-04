@@ -10,7 +10,13 @@ from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.mass import L2Projector
-from struphy.feec.variational_utilities import InternalEnergyEvaluator, NewtonConvergence, dot_normalized, inv_norm2
+from struphy.feec.variational_utilities import (
+    InternalEnergyEvaluator,
+    LinearPressureHeating,
+    NewtonConvergence,
+    dot_normalized,
+    inv_norm2,
+)
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -107,8 +113,11 @@ class VariationalResistivity(Propagator):
         pt3 : FEECVariable, default=None
             For ``model="linear_q"`` and ``"perturbative_q"``: the auxiliary variable :math:`\hat q` (``"L2"`` space),
             which receives the resistive heating with the energy density :math:`2 q_0 \hat q / (\gamma - 1)`, i.e.
-            :math:`\partial_t \hat q = (\gamma - 1)/(2 q_0)\, \eta |\nabla \times \mathbf B|^2`. If ``None``, the
-            thermodynamic equation is skipped. For the other models the heating goes into the variable ``s``.
+            :math:`\partial_t \hat q = (\gamma - 1)/(2 q_0)\, \eta |\nabla \times \mathbf B|^2`. For
+            ``model="linear_p"``: the auxiliary pressure :math:`\hat p` (``"L2"`` space), with the energy density
+            :math:`\hat p / (\gamma - 1)`, heated by :class:`~struphy.feec.variational_utilities.LinearPressureHeating`.
+            If ``None``, the thermodynamic equation is skipped. For the other models the heating goes into the variable
+            ``s``.
         """
         self.variables = self.Variables()
         self.rho = rho
@@ -209,6 +218,14 @@ class VariationalResistivity(Propagator):
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
         self._initialize_projectors_and_mass()
 
+        # linear p model: the heating goes into the auxiliary pressure, whose energy is linear
+        self._heating = None
+        if self._model == "linear_p" and self.pt3 is not None:
+            assert not self._linearize_current, "linearize_current is not compatible with the heating of linear_p."
+            self._heating = LinearPressureHeating(
+                self.derham, self.mass_ops, self.domain, self._gamma, tol=self._lin_solver.tol
+            )
+
         # bunch of temporaries to avoid allocating in the loop
         s = self.variables.s.spline.vector
         b = self.variables.b.spline.vector
@@ -271,7 +288,16 @@ class VariationalResistivity(Propagator):
         if self._info:
             logger.info(f"information on the linear solver : {self.inv_lop._info}")
 
-        if self._model == "linear_p" or (self._model == "linear_q" and self._fast):
+        if self._model == "linear_p":
+            # the dissipated magnetic energy goes into the auxiliary pressure
+            if self._heating is not None:
+                energy_change = self._get_energy_change(bn, bn1, total_resistivity)
+                self._heating(energy_change, self.pt3.spline.vector)
+                self.pt3.spline.vector.update_ghost_regions()
+            self.update_feec_variables(s=sn, b=bn1)
+            return
+
+        if self._model == "linear_q" and self._fast:
             self.update_feec_variables(s=sn, b=bn1)
             return
 

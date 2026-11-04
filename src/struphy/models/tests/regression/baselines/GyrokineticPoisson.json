@@ -1,0 +1,33 @@
+{
+ "case": "GyrokineticPoisson",
+ "ranks": {
+  "1": {
+   "commit": "f5a6427f",
+   "date": "2026-11-02",
+   "values": {
+    "time": [
+     0.0,
+     0.01,
+     0.02,
+     0.03
+    ],
+    "feec/em_fields/phi": 0.00416557948105607,
+    "feec/em_fields/source": 23.250806437627062
+   }
+  },
+  "2": {
+   "commit": "f5a6427f",
+   "date": "2026-11-02",
+   "values": {
+    "time": [
+     0.0,
+     0.01,
+     0.02,
+     0.03
+    ],
+    "feec/em_fields/phi": 0.004165579481056072,
+    "feec/em_fields/source": 23.250806437627066
+   }
+  }
+ }
+}

@@ -118,7 +118,6 @@ Example with optional model arguments:
     model = VlasovAmpereOneSpecies(
         alpha=1.0,
         epsilon=-1.0,
-        with_B0=False,
     )
 
 Example with explicit normalization units:
@@ -522,7 +521,7 @@ and it stays available as ``sim.output``:
 
     out = sim.run()
 
-    out.evaluate("scalars", variables="total_energy")  # scalar time series, straight from the raw output
+    out.evaluate("scalars", variables="en_tot")  # scalar time series, straight from the raw output
     out.evaluate("em_fields/e_field")  # evaluated FEEC field (post-processed on first access)
     out.domain, out.model.units      # reconstructed from saved metadata
 

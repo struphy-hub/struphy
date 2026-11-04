@@ -17,6 +17,8 @@ General contributor information is in `CONTRIBUTING.md` and `doc/sections/dev_gu
 - Never push to `main`/`devel`, never force-push a shared branch. Merge `devel` into a feature branch instead of rebasing it.
 - Keep unrelated work out of an open PR: put it on a separate (possibly stacked) branch.
 - Fetch before pushing. GitHub "Update branch" creates merge commits on the remote.
+- In PR descriptions (GitHub Markdown), escape `*` and `_` in formulas as `\*` and `\_` (e.g. `M\_2`, `dt\*\*2`),
+  otherwise GitHub renders them as italics/bold; or put the formula in backticks.
 
 ## Adding a model or propagator
 
@@ -77,6 +79,9 @@ They list the required structure, documentation, registration and tests; CI chec
   mpirun -n 2 python -m pytest -p no:xdist --with-mpi src/struphy/feec/tests/...
   ```
   `-p no:xdist` is required: with pytest-xdist loaded, `mpi`-marked tests are skipped.
+- The model tests in `src/struphy/models/tests/regression/` compare every model against stored baselines (1 and 2
+  ranks). A change that intentionally changes results must update the baselines in the same PR, see
+  `src/struphy/models/AGENTS.md`.
 - Keep local runs small (e.g. ≤ 32³ cells). Never use the full-size profiling cases as tests.
 
 ## Performance pitfalls

@@ -24,7 +24,7 @@ from params_maxwellian_uniform_field import exact, parser  # noqa: E402
 
 def main(path_out=DEFAULT_OUTPUT):
     out = Output(path_out)
-    save_equilibrium_diagnostics(out, "kinetic_ions", exact=exact, scalars=("kinetic_energy",))
+    save_equilibrium_diagnostics(out, "kinetic_ions", exact=exact, scalars=("en_f",))
 
 
 if __name__ == "__main__":

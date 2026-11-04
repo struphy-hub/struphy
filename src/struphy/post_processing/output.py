@@ -892,6 +892,11 @@ class Output:
         value = self.metadata[key]
         return cls.from_dict(tuples(value)) if value is not None else None
 
+    def _model_species_name(self, name: str) -> str:
+        """Current name of a species saved under ``name`` (runs written before a species was renamed keep the old
+        name in their data file)."""
+        return getattr(self.model, "_renamed_species", {}).get(name, name)
+
     @cached_property
     def model(self):
         """Model reconstructed from saved metadata, including initial conditions."""
@@ -900,7 +905,8 @@ class Output:
 
         model = self._restore("model", StruphyModel)
         for species_name, variables in self.initial_conditions.items():
-            species = model.species.get(species_name)
+            # runs written before a species was renamed keep the old name in their metadata
+            species = model.species.get(model._renamed_species.get(species_name, species_name))
             if species is None:
                 continue
             for variable_name, definition in variables.items():
@@ -998,6 +1004,11 @@ class Output:
         """Number of ranks that wrote the raw output (not the current communicator)."""
         return int(self.metadata["mpi_ranks"])
 
+    @cached_property
+    def num_clones(self) -> int:
+        """Number of domain clones of the saved run."""
+        return int(self.metadata.get("env", {}).get("num_clones", 1))
+
     @property
     def is_processed(self) -> bool:
         """Whether complete post-processing of the current raw output exists."""
@@ -1087,7 +1098,7 @@ class Output:
     def _processes_in_parallel(self) -> bool:
         """Whether processing by default uses every rank: those of a job as large as the saved run."""
         size = self.comm.Get_size()
-        return size > 1 and size == self.mpi_ranks
+        return size > 1 and size == self.mpi_ranks and self.num_clones == 1
 
     def _process(self, *, parallel: bool, **options):
         """Run one processing pass on this rank (serial) or with every rank (parallel)."""
@@ -1118,6 +1129,10 @@ class Output:
         self._pproc_rank = self._pproc_comm.Get_rank()
         if parallel and self._pproc_comm.Get_size() != self.mpi_ranks:
             raise ValueError("Parallel post-processing requires the same number of MPI ranks as the saved run.")
+        if parallel and self.num_clones > 1:
+            raise ValueError(
+                "Parallel post-processing of a run with domain clones is not supported, use parallel=False."
+            )
         self._pproc_ranks = range(self._pproc_rank, self._pproc_rank + 1) if parallel else range(self.mpi_ranks)
         self._pproc_derham = None
         if self.grid is not None and self.derham_opts is not None:
@@ -1239,7 +1254,8 @@ class Output:
                 self._pproc_kinetic_kinds = []
                 for name in file["kinetic"].keys():
                     self._pproc_kinetic_species += [name]
-                    self._pproc_kinetic_kinds += [next(iter(self.model.species[name].variables.values())).space]
+                    species = self.model.species[self._model_species_name(name)]
+                    self._pproc_kinetic_kinds += [next(iter(species.variables.values())).space]
                     self._pproc_exist_particles[name] = {
                         key: key in file["kinetic"][name] for key in ("markers", "f", "n_sph")
                     }
@@ -1841,7 +1857,7 @@ class Output:
         """
 
         species = path_kinetic_species.split("/")[-1]
-        species_obj: ParticleSpecies = self.model.particle_species[species]
+        species_obj: ParticleSpecies = self.model.particle_species[self._model_species_name(species)]
 
         # open hdf5 files and get names and number of saved markers of kinetic species
         with h5py.File(os.path.join(self.path_out, "data/data_proc0.hdf5"), "r") as file_0:

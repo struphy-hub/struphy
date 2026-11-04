@@ -54,6 +54,51 @@ Linear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.magnetosonic_cross_b0
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.sound_wave_linear
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_pressure_gradient
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.sound_wave_linear_with_q
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_q_gradient
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.sound_wave_nonlinear_with_q
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.shear_alfven_nonlinear
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.momentum_advection
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_current
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.magnetosonic_uniform
     :members:
     :exclude-members: options, allocate
@@ -71,6 +116,11 @@ Linear MHD solvers
 
 Nonlinear MHD solvers
 ^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.propagators.variational_alfven_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
 
 .. automodule:: struphy.propagators.variational_density_evolve
     :members:
@@ -102,7 +152,27 @@ Nonlinear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.variational_linear_base
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_linear_alfven_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_linear_sound_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.variational_resistivity
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_sound_evolve
     :members:
     :exclude-members: options, allocate
     :show-inheritance:

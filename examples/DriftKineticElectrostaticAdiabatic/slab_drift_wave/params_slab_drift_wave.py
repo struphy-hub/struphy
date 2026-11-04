@@ -183,12 +183,14 @@ model.kinetic_ions.set_markers(
 # Propagator options
 # ------------------
 
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True)
+model.propagators.push_bxe.options = model.propagators.push_bxe.Options(algo="explicit", evaluate_e_field=True)
 # no flux-surface average: the electrons respond to all modes, as in the full-orbit example (with "cylindrical",
 # the modes with k_z = 0 have no electron response; their ion convective cells, omega ~ 3, made the explicit push
 # unstable at dt = 0.25)
 model.propagators.gc_poisson.options = model.propagators.gc_poisson.Options(which_geometry=None)
-model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", evaluate_e_field=True)
+model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
+    algo="explicit", evaluate_e_field=True
+)
 
 # ------------------
 # Initial conditions

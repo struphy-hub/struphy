@@ -92,7 +92,7 @@ class PushGuidingCenterBxEstar(Propagator):
             Electric potential in ``"H1"`` space contributing to :math:`E^*`.
             If ``None``, an empty ``FEECVariable(space="H1")`` is created internally.
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation in ``"Hcurl"`` space contributing to :math:`B^*`.
+            Magnetic perturbation in ``"Hdiv"`` space contributing to :math:`B^*`.
             If ``None``, the perturbation is ignored.
         e_field : FEECVariable, default=None
             Electric field in ``"Hcurl"`` space, used in :math:`E^* = E - \varepsilon \mu \nabla |B|` instead of

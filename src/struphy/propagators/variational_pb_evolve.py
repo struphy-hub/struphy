@@ -17,6 +17,7 @@ from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
     NewtonConvergence,
     Pressure_transport_operator,
+    alfven_schur_preconditioner,
     dot_normalized,
     inv_norm2,
 )
@@ -170,7 +171,7 @@ class VariationalPBEvolve(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VariationalPBEvolve`.
+        r"""Configuration options for :class:`VariationalPBEvolve`.
 
         Parameters
         ----------
@@ -189,9 +190,22 @@ class VariationalPBEvolve(Propagator):
             Nonlinear iteration controls. The iteration stops when the norm of the residual is below ``tol`` times the
             norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or when it
             stagnates (with a warning).
+        schur_precond : {"MassMatrixPreconditioner", "StiffnessPreconditioner"}, default="MassMatrixPreconditioner"
+            Preconditioner of the Schur system of the Newton step: the mass-matrix preconditioner of the velocity
+            block, or the Kronecker (fast diagonalization) preconditioner of the whole shear-Alfven Schur operator
+            :math:`\mathbb M^v[\rho_0] + \frac{\Delta t^2}{4} \mathbb T_0^\top \mathbb M^2 \mathbb T_0`
+            (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, built from the equilibrium for
+            each time step in :meth:`prepare_time_step`). The latter needs ``model="linear"``, ``solver="pcg"``,
+            tensor-product splines and the global commuting projectors; otherwise the mass-matrix preconditioner is
+            used (with a warning).
+        exb_correction : bool, default=True
+            For ``schur_precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
+            :math:`\mathbf E \times \mathbf B` flows :math:`\mathbf B_0 \times \nabla \phi` (the incompressible shear
+            Alfven modes with small parallel wave number, which block Jacobi does not reduce).
         """
 
         # specific literals
+        OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
         OptsModel = Literal["full_p", "linear", "perturbative"]
         # propagator options
         model: OptsModel = "full_p"
@@ -200,12 +214,15 @@ class VariationalPBEvolve(Propagator):
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
+        schur_precond: OptsSchurPrecond = "MassMatrixPreconditioner"
+        exb_correction: bool = True
 
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.schur_precond, self.OptsSchurPrecond)
 
             # defaults
             if self.solver_params is None:
@@ -263,6 +280,10 @@ class VariationalPBEvolve(Propagator):
         # Projector
         self._initialize_projectors_and_mass()
 
+        # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
+        self._schur_pc = alfven_schur_preconditioner(self, [] if self._model == "linear" else ['model="linear"'])
+        self._schur_pc_dt = None
+
         # bunch of temporaries to avoid allocating in the loop
         u = self.variables.u.spline.vector
         p = self.variables.p.spline.vector
@@ -300,7 +321,16 @@ class VariationalPBEvolve(Propagator):
         if self._linearize:
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
+    def prepare_time_step(self, dt: float):
+        """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
+        ``schur_precond="StiffnessPreconditioner"``): built in the setup, rebuilt when dt changes."""
+        if self._schur_pc is not None and dt != self._schur_pc_dt:
+            self._inv_Jacobian.precond = self._schur_pc.build(dt)
+            self._schur_pc_dt = dt
+
     def __call__(self, dt):
+        # preconditioner for the current time step (no-op unless dt changed since the setup)
+        self.prepare_time_step(dt)
         # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
         self._Mrho_pc.refresh()
 

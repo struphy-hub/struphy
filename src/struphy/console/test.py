@@ -65,6 +65,7 @@ def struphy_test(
             f"{LIBPATH}/models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py",
             f"{LIBPATH}/models/tests/test_gpu_VlasovAmpereOneSpecies.py",
             f"{LIBPATH}/models/tests/test_scalars.py",
+            f"{LIBPATH}/models/tests/test_splitting_order.py",
         ]
 
         if mpi > 1:
@@ -94,7 +95,7 @@ def struphy_test(
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
         list_of_tests = [
-            f"{LIBPATH}/models/tests/default_params/",
+            f"{LIBPATH}/models/tests/regression/",
         ]
 
         if mpi > 1:

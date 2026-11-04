@@ -36,37 +36,48 @@ def test_nested_sum_follows_its_summands():
     assert scalars.dct["total"].value[0] == 60.0
 
 
-class _DriftKineticMarkers:
-    """Particles5D-like markers: weight in row 5, mu * |B_0| in row 8, plus holes and ghosts."""
+class _AllocatedConstant(Scalar):
+    """A scalar that reads its value from an object of `holder` created by the allocation, as BilinearEnergyFEEC
+    reads the spline vector of a variable."""
 
-    def __init__(self, Np):
-        self.Np = Np
-        self.markers = xp.zeros((10, Np + 4), dtype=float)
-        self.markers[5, :Np] = 2.0 / Np  # density 2; the weights carry the 1/Np of the Monte-Carlo estimate
-        self.markers[8, :Np] = 3.0
-        self.markers[5:9, Np:] = 1.0  # holes and ghosts, which must not be counted
-        self.valid_mks = xp.zeros(Np + 4, dtype=bool)
-        self.valid_mks[:Np] = True
+    def __init__(self, holder):
+        super().__init__()
+        self.holder = holder
 
-    @property
-    def markers_wo_holes_and_ghost(self):
-        return self.markers[:, self.valid_mks]
+    def allocate(self):
+        self.data = self.holder.data
 
-    def save_magnetic_background_energy(self):
-        pass
+    def _local_update(self):
+        self.local_value[0] = self.data[0]
+
+    def _mpi_sum(self):
+        self.value[0] = self.local_value[0]
 
 
-def test_drift_kinetic_magnetic_energy_is_weighted():
-    """The magnetic energy sum_p w_p mu_p |B_0(eta_p)| must not depend on Np, since the weights include 1/Np."""
+def test_scalars_follow_a_new_allocation():
+    """A second Simulation.run() allocates new objects; the scalars (and the summands of sums) must use those,
+    not the ones of the first run (issue #852)."""
     from types import SimpleNamespace
 
-    from struphy.models.drift_kinetic_electrostatic_adiabatic import DriftKineticElectrostaticAdiabatic
+    holder = SimpleNamespace(data=xp.array([1.0]))
+    a, b = _AllocatedConstant(holder), _AllocatedConstant(holder)
+    scalars = Scalars(a=a, total=a + b + _Constant(0.0))
 
-    for Np in (4, 400):
-        particles = _DriftKineticMarkers(Np)
-        model = SimpleNamespace(kinetic_ions=SimpleNamespace(var=SimpleNamespace(particles=particles)))
-        energy = DriftKineticElectrostaticAdiabatic._compute_en_particle_magnetic(model)
-        assert xp.isclose(energy, 6.0), f"magnetic energy = {energy} for Np = {Np}, expected 6.0"
+    scalars.update()
+    assert scalars.host_value("a")[0] == 1.0
+    assert scalars.host_value("total")[0] == 2.0
+
+    # second run: the allocation replaces the object, the old one keeps its last value
+    holder.data = xp.array([10.0])
+    scalars.reset_allocation()
+    scalars.update()
+    assert scalars.host_value("a")[0] == 10.0
+    assert scalars.host_value("total")[0] == 20.0
+
+    # within a run, the object fetched at the allocation is used
+    holder.data[0] = 20.0
+    scalars.update()
+    assert scalars.host_value("a")[0] == 20.0
 
 
 class _MovingParticles:

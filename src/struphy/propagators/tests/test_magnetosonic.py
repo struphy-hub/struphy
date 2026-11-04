@@ -5,11 +5,22 @@ from feectools.linalg.solvers import inverse
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, perturbations
 from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.io.options import DerhamOptions
-from struphy.models import LinearMHD, LinearMHDCurlCurl
+from struphy.models import LinearMHD
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.topology import grids
+
+
+def _magnetosonic(model):
+    """The magnetosonic step of the variables of an allocated LinearMHD model (which uses the split sound wave and
+    background steps instead)."""
+    mag_sonic = Magnetosonic(b_field=model.em_fields.b_field)
+    mag_sonic.variables.n = model.mhd.density
+    mag_sonic.variables.u = model.mhd.velocity
+    mag_sonic.variables.p = model.mhd.pressure
+    mag_sonic.allocate()
+    return mag_sonic
 
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
@@ -34,15 +45,25 @@ def test_magnetosonic_uses_shared_b_field(tmp_path, algo, with_equil_background)
     )
     sim.allocate()
 
-    b = model.em_fields.b_field.spline.vector
+    # the shared b_field (with its initial condition) before Magnetosonic is allocated: it must neither be
+    # re-allocated nor re-initialized by the allocation
+    spline = model.em_fields.b_field.spline
+    b = spline.vector
+    b_init = b.toarray().copy()
+    assert xp.max(xp.abs(b_init)) > 0.0
+    mag_sonic = _magnetosonic(model)
+    assert model.em_fields.b_field.spline is spline
+    assert model.em_fields.b_field.spline.vector is b
+    assert xp.array_equal(b.toarray(), b_init)
+
     shear_alf = model.propagators.shear_alf
-    assert model.propagators.mag_sonic._b is b
+    assert mag_sonic._b is b
     assert shear_alf.variables.b.spline.vector is b
     if algo == "explicit":
         assert any(v is b for v in shear_alf._ode_solver.vector_field)
 
     b0 = b.toarray().copy()
-    for prop in model.prop_list:
+    for prop in (shear_alf, mag_sonic):
         prop(0.05)
     assert xp.max(xp.abs(model.em_fields.b_field.spline.vector.toarray() - b0)) > 0.0
 
@@ -58,7 +79,7 @@ def test_b_field_space():
 def _lorentz_force_difference(tmp_path, num_elements):
     """L2 norms of the equilibrium force J0 x B0 (projected onto Hdiv) computed with M2J from the 2-form B0 and of its
     difference to M21J applied to the 1-form B0, in a torus with J0 != 0."""
-    model = LinearMHDCurlCurl()
+    model = LinearMHD(b_space="Hcurl")
     model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond="MassMatrixPreconditioner")
     sim = Simulation(
         model=model,
@@ -73,7 +94,7 @@ def _lorentz_force_difference(tmp_path, num_elements):
 
     mass_ops = Propagator.mass_ops
     equil = Propagator.projected_equil
-    assert model.propagators.mag_sonic._MJ is mass_ops.M21J
+    assert _magnetosonic(model)._MJ is mass_ops.M21J
 
     M2_inv = inverse(mass_ops.M2, "pcg", pc=MassMatrixPreconditioner(mass_ops.M2), tol=1e-12, maxiter=1000)
     f2 = M2_inv.dot(mass_ops.M2J.dot(equil.b2))

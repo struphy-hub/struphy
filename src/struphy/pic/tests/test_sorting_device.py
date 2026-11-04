@@ -11,6 +11,8 @@ CUDA-aware path (the probe of :func:`cunumpy.mpi.mpi_is_cuda_aware` succeeds) is
 default. The staged path is forced with :func:`cunumpy.mpi.set_mpi_cuda_aware`.
 """
 
+import contextlib
+import os
 import sys
 from contextlib import contextmanager
 
@@ -89,12 +91,31 @@ def _shift_positions(markers: np.ndarray, valid: np.ndarray, step: int) -> np.nd
     return new
 
 
-def check_mpi_sort_markers_device(cuda_aware: bool | None, bc: str = "periodic", count_reads: bool = True):
+def check_mpi_sort_markers_device(
+    cuda_aware: bool | None, bc: str = "periodic", count_reads: bool = True, device_sort: bool = False
+):
     """Sort the same markers on NumPy and CuPy across all ranks and compare the marker arrays.
 
     ``cuda_aware=None`` uses the probe (:func:`cunumpy.mpi.mpi_is_cuda_aware`); ``True``/``False``
-    force the device-buffer or the host-staged exchange.
+    force the device-buffer or the host-staged exchange. With ``device_sort`` the CuPy markers are sorted with the
+    destination kernel (:meth:`Particles._mpi_sort_device`, launches emulated on the fake CuPy), which reads the
+    counts per destination (one copy to the host per sort).
     """
+    if device_sort:
+        import os
+
+        from cunumpy.kernel_testing import emulated_launches
+
+        from struphy.pic.tests.cuda_emulation import EMULATION_OPTIONS
+
+        os.environ["STRUPHY_DEVICE_SORT"] = "1"
+        try:
+            with emulated_launches(options=EMULATION_OPTIONS):
+                check_mpi_sort_markers_device(cuda_aware, bc, count_reads=False)
+        finally:
+            del os.environ["STRUPHY_DEVICE_SORT"]
+        return
+
     comm = MPI.COMM_WORLD
     rank, size = comm.Get_rank(), comm.Get_size()
 
@@ -138,19 +159,23 @@ def check_mpi_sort_markers_device(cuda_aware: bool | None, bc: str = "periodic",
             with on_device():
                 dev.markers[:] = xp.to_cupy(new)
                 dev.update_holes()
-                with xp.profiling.count_transfers() as transfers, _count_host_reads() as reads:
+                reads_ctx = _count_host_reads() if count_reads else contextlib.nullcontext([])
+                with xp.profiling.count_transfers() as transfers, reads_ctx as reads:
                     dev.mpi_sort_markers()
 
+            # the destination kernel reads its counts per destination (8 bytes per rank) once per sort
+            with on_device():
+                counts_read = 1 if dev._use_device_sort() else 0
             if cuda_aware:
-                assert transfers.total == 0, transfers.report()
+                assert transfers.total == counts_read, transfers.report()
             else:
                 # exchange stages each non-empty send and receive buffer separately
                 n_dest = sum(1 for i in range(size) if i != rank and dev._send_list[i].shape[1] > 0)
                 n_sources = sum(1 for i in range(size) if i != rank and ref._recvbufs[i].shape[1] > 0)
-                assert transfers.to_host == n_dest, transfers.report()
+                assert transfers.to_host == n_dest + counts_read, transfers.report()
                 assert transfers.to_device == n_sources, transfers.report()
                 sent_bytes = sum(e.nbytes for e in transfers.events if e.kind == "to_host")
-                assert sent_bytes == n_send * ref.n_cols * 8
+                assert sent_bytes == n_send * ref.n_cols * 8 + counts_read * (size + 2) * 8
                 received_bytes = sum(e.nbytes for e in transfers.events if e.kind == "to_device")
                 assert received_bytes == n_recv * ref.n_cols * 8
 
@@ -179,6 +204,15 @@ def check_mpi_sort_markers_device(cuda_aware: bool | None, bc: str = "periodic",
 def test_mpi_sort_markers_fake_cupy(cuda_aware, bc):
     """On the fake CuPy: the exchange gives the NumPy result, without host/device copies when MPI is CUDA-aware."""
     check_mpi_sort_markers_device(cuda_aware, bc=bc)
+
+
+@requires_fake_cupy
+@pytest.mark.mpi
+@pytest.mark.parametrize("cuda_aware", [True, False])
+@pytest.mark.parametrize("bc", ["periodic", "remove"])
+def test_mpi_sort_markers_device_kernel_fake_cupy(cuda_aware, bc):
+    """The destination kernel (Particles._mpi_sort_device) against the NumPy sort, launches emulated."""
+    check_mpi_sort_markers_device(cuda_aware, bc=bc, device_sort=True)
 
 
 @requires_cupy

@@ -52,7 +52,7 @@ electron plasma wave that is damped without collisions, by the resonant electron
 _physics = """
 Physics. With alpha = 1 and epsilon = -1 (electrons, time in units of the inverse plasma frequency 1/omega_p,
 with vth = 1 lengths are in Debye lengths) and no background magnetic field
-(with_B0=False) the model solves
+(equil = None) the model solves
     df/dt + v . grad_x f - E . grad_v f = 0,
     dE/dt = int v f d^3v       (Ampere's law; the current density of the electrons is -int v f d^3v),
 where the initial field follows from Poisson's equation div E = n0 - n with n = int f d^3v and the ion density
@@ -107,7 +107,7 @@ else:
         + """
 Setup. Periodic box of length L = 12.56 (about 4 pi, so k = 2 pi / L = 0.5), 32 cells and cubic splines in x.
 Maxwellian electrons with vth = 1 and the density n = 1 + 1e-3 cos(k x). Control-variate (delta-f) weights with
-1000 markers per cell; time step dt = 0.05 up to t = 20 (Lie-Trotter splitting).
+1000 markers per cell (seed 1234); time step dt = 0.05 up to t = 20 (Lie-Trotter splitting).
 """
         + _expected
         + """The pproc compares the electric energy with the analytical curve
@@ -164,7 +164,7 @@ if profiling:
 base_units = BaseUnits()
 
 # Model instance
-model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
 # List all variables and decide whether to save their data
 model.em_fields.e_field.save_data = True
@@ -260,13 +260,12 @@ sim = Simulation(
 ppc = 50 if args.test_run and not profiling else 1000
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters()
+loading_params = LoadingParameters(ppc=ppc, seed=1234)
 if profiling:
-    loading_params = LoadingParameters(ppc=ppc, seed=1234)
     # sorting boxes are off: SortingBoxes does not work on the CuPy backend yet (struphy-hub/struphy#726)
     sorting_params = SortingParameters()
     saving_params = SavingParameters(n_markers=0)  # profile the physics, not the marker output
 else:
-    loading_params = LoadingParameters(ppc=ppc)
     sorting_params = SortingParameters(boxes_per_dim=(16, 1, 1), do_sort=True)
     binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
     saving_params = SavingParameters(binning_plots=(binplot,))
@@ -285,8 +284,7 @@ model.kinetic_ions.set_markers(
 # ------------------
 
 model.propagators.push_eta.options = model.propagators.push_eta.Options()
-if model.with_B0:
-    model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
+model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 
 model.propagators.coupling_va.options = model.propagators.coupling_va.Options()
 model.initial_poisson.options = model.initial_poisson.Options(stab_mat="M0")

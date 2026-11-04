@@ -128,7 +128,7 @@ def _scalars(particles):
 
     var = _Variable()
     kinetic = KineticEnergyPIC(var, normalization=2.0)
-    # a device reduction, as LinearVlasovAmpereOneSpecies._compute_en_w returns
+    # a device reduction, as LinearVlasovAmpereOneSpecies._compute_en_f returns
     weights = FunctionScalarPIC(lambda: xp.sum(particles.weights**2), var)
     lost = LostMarkersPIC(var)
     return Scalars(en_kin=kinetic, en_w=weights, lost=lost, en_tot=kinetic + weights)

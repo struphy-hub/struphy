@@ -47,8 +47,13 @@ extensions = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
-    "sphinx_collections",
 ]
+
+_skip_tutorials = os.environ.get("STRUPHY_DOCS_SKIP_TUTORIALS") == "1"
+if not _skip_tutorials:
+    extensions.append("sphinx_collections")
+else:
+    tags.add("skip_tutorials")  # noqa: F821 - injected by Sphinx
 
 
 def _struphy_is_compiled():
@@ -72,14 +77,15 @@ napoleon_use_ivar = True
 napoleon_attr_annotations = False
 
 # Set path to outside sources for sphinxcontrib-collections.
-collections = {
-    "notebooks": {
-        "driver": "copy_folder",
-        "source": "../tutorials/",
-        "target": "tutorials/",
-        "ignore": ["*.py", ".sh"],
+if not _skip_tutorials:
+    collections = {
+        "notebooks": {
+            "driver": "copy_folder",
+            "source": "../tutorials/",
+            "target": "tutorials/",
+            "ignore": ["*.py", ".sh"],
+        }
     }
-}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -88,6 +94,8 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+if _skip_tutorials:
+    exclude_patterns.extend(["sections/tutorials.rst", "sections/dev_guide.rst"])
 
 # mock imports
 # autodoc_mock_imports = ["mpi4py"]
@@ -191,3 +199,29 @@ myst_enable_extensions = [
 ]
 
 myst_dmath_allow_labels = True
+
+
+def _append_propagator_links(app, what, name, obj, options, lines):
+    """Append the propagators of a model in splitting order to the docstring of ``doc_discretization``.
+
+    The list is generated from the model's ``Propagators`` (see ``StruphyModel.propagators_links``), so that inherited
+    models show their own propagators. Docstrings that already list the propagators (a numbered list starting with
+    ``1. :class:`~struphy.propagators.``) are left as they are.
+    """
+    if not name.endswith(".doc_discretization"):
+        return
+    model = getattr(obj, "__self__", None)
+    if model is None or not hasattr(model, "propagators_links"):
+        return
+    if any(line.strip().startswith("1. :class:`~struphy.propagators.") for line in lines):
+        return
+    try:
+        links = model.propagators_links()
+    except Exception as e:  # the docs must build also if a Propagators class cannot be instantiated
+        print(f"WARNING: could not list the propagators of {model.__name__}: {e}")
+        return
+    lines += [""] + links.splitlines() + [""]
+
+
+def setup(app):
+    app.connect("autodoc-process-docstring", _append_propagator_links)

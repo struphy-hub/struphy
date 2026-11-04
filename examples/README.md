@@ -58,7 +58,8 @@ with `pip install "struphy[pproc]"`.
 | `DriftKineticElectrostaticAdiabatic` | `cyclone` (Cyclone base case ITG), `itg_cylindre` (ITG in a cylinder), `slab_drift_wave` |
 | `GuidingCenter` | `screw_pinch_equilibrium`, `tokamak_equilibrium` |
 | `GyrokineticPoisson` | `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
-| `LinearMHD` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes) |
+| `LinearEuler` | `standing_wave_colella` (standing sound wave in the curvilinear Colella domain) |
+| `LinearMHD` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes), `slab_pulse_2d` |
 | `LinearMHDDriftkineticCC` | `lowmode_tae` (toroidal Alfvén eigenmode driven by energetic ions) |
 | `Poisson` | `gaussian_cube`, `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
 | `ShearAlfven` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes) |

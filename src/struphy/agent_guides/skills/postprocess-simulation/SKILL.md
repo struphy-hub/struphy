@@ -43,7 +43,7 @@ In Python: `out.info()`, `out.keys()`, `out.info("species/variable")` (particle 
 
 ```python
 out.scalars                                    # xarray.Dataset of all scalar time series, read from raw data
-out.evaluate("scalars", variables="total_energy")
+out.evaluate("scalars", variables="en_tot")
 
 phi = out.evaluate("em_fields/phi", t=-1)      # raw FEEC field on the grid's cell centres, last snapshot
 line = out.evaluate("em_fields/phi", eta1=np.linspace(0, 1, 100), eta2=0.5, eta3=0.5, t=-1)

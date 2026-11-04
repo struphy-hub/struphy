@@ -7,10 +7,15 @@ radial components. The measured TAE frequency is compared with the analytical on
 the MHD kinetic energy; both are saved, and a frequency off by more than 10% or a non-positive growth rate fails with
 an ``AssertionError`` after the figures are saved (not with ``--test-run``). Figures are written into
 ``<path_out>/results``. The energy and harmonics plots use plasma-plots (``pip install "struphy[pproc]"``).
+With ``--save-results`` (passed by ``submit_lowmode_tae_cpu_vs_gpu.py`` after each profiling run, ``--setup profiling``)
+the scope-profiler HTML report and a summary of the cost per step are written into ``<path_out>/results`` instead; the
+profiling packaging uploads them with the run.
 """
 
 import argparse
+import json
 import os
+import statistics
 import sys
 from pathlib import Path
 
@@ -37,7 +42,16 @@ FIELDS = [
 ]
 # (m, n) harmonics of the radial (eta1) components
 HARMONICS = [("u_r", "mhd/velocity"), ("b_r", "em_fields/b_field")]
-ENERGIES = ("en_U", "en_B", "en_p", "en_fv", "en_fB")  # energy scalars shown next to en_tot
+ENERGIES = ("en_U", "en_B", "en_thermal", "en_fv", "en_fB")  # energy scalars shown next to en_tot
+
+
+def energy_parts(run):
+    """The energy scalars of ENERGIES saved by the run (runs before the LinearEuler family saved en_p instead of
+    en_thermal)."""
+    if "en_thermal" in run.scalars:
+        return ENERGIES
+    return tuple("en_p" if name == "en_thermal" else name for name in ENERGIES)
+
 
 # the TAE: toroidal mode number n (the logical mode N_LOGICAL along eta3 times tor_period of the domain) in the gap
 # between the poloidal mode numbers M and M + 1, see the description of the params file
@@ -137,6 +151,47 @@ def finish(figs, results_dir, save_figs):
             plt.close(fig)
 
 
+def save_profiling_results(path_out):
+    """Write the scope-profiler HTML report and a summary of the cost per step into ``<path_out>/results``."""
+    from scope_profiler import create_html_report
+
+    out = Output(path_out)
+    results = out.profile.results  # the scope-profiler results of the run, all ranks merged
+    results_dir = Path(out.path_out) / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    # the full scope-profiler report: call tree, charts, per-rank statistics
+    create_html_report(results, results_dir / "report.html")
+
+    # cost per step from the `model.integrate` region (the maximum over the ranks per step); the first step includes
+    # one-time work (CUDA module loads, allocations of work arrays), so the median leaves it out
+    integrate = results["model.integrate"]
+    per_rank = [integrate[rank].durations for rank in integrate.ranks]
+    n_calls = min(len(durations) for durations in per_rank)
+    step_times = np.max([durations[:n_calls] for durations in per_rank], axis=0)
+    step_median = float(statistics.median(step_times[1:] if len(step_times) > 1 else step_times))
+    summary = {
+        "backend": os.environ.get("CUNUMPY_BACKEND", "numpy"),
+        "mpi_ranks": results.num_ranks,
+        "num_elements": list(args.num_elements),
+        "n_markers": args.Np,
+        "filter": args.filter,
+        "steps": len(step_times),
+        "dt": args.dt,
+        "step_times": step_times.tolist(),
+        "step_median": step_median,
+        "ns_per_marker_step": 1e9 * step_median / args.Np,
+    }
+    (results_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    print(
+        f"\nstep: median {1e3 * step_median:.3f} ms (first step {1e3 * step_times[0]:.3f} ms), "
+        f"{summary['ns_per_marker_step']:.1f} ns per marker and step ({args.Np:,} markers)"
+    )
+    # the propagators and kernels of the run; on the CuPy backend with GPU columns
+    results.print_summary(include=["^prop: ", "^kernel: "], sort="total", title="propagators and kernels")
+
+
 def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     run = Output(path_out)
     snapshots = run.standard_snapshots()
@@ -159,7 +214,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     np.save(os.path.join(results_dir, "gamma_tae.npy"), gamma)
 
     finish(
-        {"energies": run.plot.energies(parts=ENERGIES).fig, "growth": growth_figure(run, gamma)},
+        {"energies": run.plot.energies(parts=energy_parts(run)).fig, "growth": growth_figure(run, gamma)},
         results_dir,
         save_figs,
     )
@@ -233,5 +288,15 @@ if __name__ == "__main__":
         help="Simulation output folder (default: the output folder of the run flags, sim_data beside this script)",
     )
     pproc_parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
+    pproc_parser.add_argument(
+        "--save-results",
+        action="store_true",
+        help="Write the profiling results (scope-profiler report, cost summary) instead of the plots.",
+    )
     pproc_args = pproc_parser.parse_args(other_flags)
-    main(pproc_args.path_out, save_figs=not pproc_args.show)
+    if pproc_args.save_results and args.setup != "profiling":
+        pproc_parser.error("--save-results needs the run's --setup profiling")
+    if pproc_args.save_results:
+        save_profiling_results(pproc_args.path_out)
+    else:
+        main(pproc_args.path_out, save_figs=not pproc_args.show)

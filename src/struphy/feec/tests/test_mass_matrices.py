@@ -328,6 +328,7 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
 
     from struphy import domains, equils
     from struphy.feec.mass import L2Projector, WeightedMassOperators
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import LocalRotationMatrix
     from struphy.geometry.base import Domain
@@ -476,9 +477,11 @@ def test_rotation(case, num_elements, degree, bcs, map_and_equil, eps, matrix_fr
         stab = mass_ops.M2stab_for_rot
         M = mass_ops.M2B
 
-    # stabilization and solver
+    # stabilization and solver, left-preconditioned with the stabilizing mass matrix
+    # (unpreconditioned GMRES took about 50 s for the curved domains)
     M += eps * stab
-    Minv = inverse(M, solver, tol=1e-7, maxiter=1000, verbose=False)
+    pc = MassMatrixPreconditioner(stab)
+    Minv = inverse(pc @ M, solver, tol=1e-7, maxiter=1000, verbose=False) @ pc
 
     if case == "1-form":
         result = derham.create_spline_function("result", "Hcurl")

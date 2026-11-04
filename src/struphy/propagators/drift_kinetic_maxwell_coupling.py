@@ -53,9 +53,11 @@ class DriftKineticMaxwellCoupling(Propagator):
 
     .. math::
 
-        \mathbf B^* = \mathbf B_0 + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad
-        B^*_\parallel = \mathbf b_0 \cdot (\mathbf B_0 + \tilde{\mathbf B}) + \varepsilon v_\parallel
-        (\nabla \times \mathbf b_0) \cdot \mathbf b_0\,.
+        \mathbf B^* = \mathbf B_0 + \tilde{\mathbf B} + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad
+        B^*_\parallel = \mathbf b_0 \cdot \mathbf B^*\,,
+
+    with the total magnetic field in the first term (parallel streaming along the perturbed field lines) and the
+    curvature term of the equilibrium.
 
     The current is the guiding-center current :math:`\iint f^\textnormal{vol} \dot{\mathbf X}` without the
     magnetic drifts (which move the positions): parallel streaming, including the curvature drift in
@@ -371,8 +373,10 @@ class DriftKineticMaxwellCoupling(Propagator):
 
         self._info = self.options.solver_params.info
 
-        # magnetic background: B* (2-form, equilibrium) and B*_parallel with the perturbation b (frozen in a step)
-        self._b2 = self.projected_equil.b2
+        # magnetic field: B* (2-form) and B*_parallel with the total field B0 + b (b frozen in a step)
+        self._b2_eq = self.projected_equil.b2
+        self._b2 = self._b2_eq.space.zeros()
+        self._E2T = self.derham.extraction_ops["2"].transpose()
         self._curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._unit_b1 = self.projected_equil.unit_b1
         self._absB0 = self.projected_equil.absB0
@@ -382,7 +386,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         self._PB = getattr(self.basis_ops, "PB")
         self._B_dot_b = self.derham.V0.zeros()
         self._B_dot_b_pol = self._PB.codomain.zeros()
-        self._update_b_dot_b()
+        self._update_b_star()
 
         args_fields = (
             self._b2[0]._data,
@@ -530,9 +534,15 @@ class DriftKineticMaxwellCoupling(Propagator):
             pushes_eta=False,
         )
 
-    def _update_b_dot_b(self):
-        """Parallel magnetic field b0 . (B0 + b) in the tensor-product space V0 (used in B*_parallel)."""
-        B_dot_b_pol = self._PB.dot(self.variables.b.spline.vector, out=self._B_dot_b_pol)
+    def _update_b_star(self):
+        """Total magnetic field B0 + b (2-form, in B*) and parallel field b0 . (B0 + b) (0-form, in B*_parallel) in the
+        tensor-product spaces."""
+        b = self.variables.b.spline.vector
+        b2 = self._E2T.dot(b, out=self._b2)
+        b2 += self._b2_eq
+        b2.update_ghost_regions()
+
+        B_dot_b_pol = self._PB.dot(b, out=self._B_dot_b_pol)
         B_dot_b = self._E0T.dot(B_dot_b_pol, out=self._B_dot_b)
         B_dot_b += self._absB0
         B_dot_b.update_ghost_regions()
@@ -627,7 +637,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         bn = self.variables.b.spline.vector
 
         # B*_parallel with b^n, then A_par, S (or their fillings per marker) and j
-        self._update_b_dot_b()
+        self._update_b_star()
         self._accumulate()
 
         # rhs = M_E e^n + dt/2 (c1 C^T M2 b^n - c2 j)

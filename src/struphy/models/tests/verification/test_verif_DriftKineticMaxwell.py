@@ -105,7 +105,7 @@ def _alfven_signal(lam, exb_current, dt, n_steps):
     signal = [b.inner(m2_b_init)]
     for _ in range(n_steps):
         props.coupling(dt)
-        props.push_para(dt)
+        props.push_parallel(dt)
         props.push_bxe(dt)
         signal.append(b.inner(m2_b_init))
     return dt * np.arange(n_steps + 1), np.array(signal) / signal[0], prop.energy() / energy_0 - 1.0

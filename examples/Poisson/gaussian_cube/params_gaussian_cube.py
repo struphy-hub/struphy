@@ -37,9 +37,40 @@ parser.add_argument(
     action="store_true",
     help="Small resolution (num_elements = [16, 16, 16]), for the tests (test_examples.py).",
 )
+parser.add_argument(
+    "--steps",
+    type=int,
+    default=1,
+    help="Number of time steps, i.e. Poisson solves with the same matrices (assembled once in the setup).",
+)
+parser.add_argument(
+    "--solver",
+    default="pcg",
+    choices=["pcg", "pcg_sr"],
+    help="CG variant: 'pcg_sr' does one global reduction per iteration instead of two (for many ranks/GPUs).",
+)
+parser.add_argument(
+    "--gpu-timing",
+    action="store_true",
+    help="Setup of the CPU vs GPU cases: one thread per rank, CUDA-event device times per region on the CuPy "
+    "backend instead of the line profiler, and a run label naming the backend and the rank count.",
+)
+parser.add_argument(
+    "--no-output",
+    action="store_true",
+    help="Write only the profiling data: no field or restart data (the pproc script then does nothing).",
+)
 args, _ = parser.parse_known_args()
 if args.test_run:
     args.num_elements = [16, 16, 16]
+
+if args.gpu_timing:
+    # One thread per MPI rank on both backends: OMP_NUM_THREADS=1, and the same for OpenBLAS/MKL, which would
+    # otherwise start one thread per core in every rank. Set before NumPy is imported (OpenBLAS reads it when loaded).
+    import os
+
+    for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        os.environ[_var] = "1"
 
 precond = None if args.precond == "None" else args.precond
 
@@ -123,8 +154,8 @@ base_units = BaseUnits()
 model = Poisson(base_units=base_units)
 
 # List all variables and decide whether to save their data
-model.em_fields.phi.save_data = True
-model.em_fields.source.save_data = True
+model.em_fields.phi.save_data = not args.no_output
+model.em_fields.source.save_data = not args.no_output
 
 # --------------------------
 # Instance of the simulation
@@ -135,10 +166,14 @@ env = EnvironmentOptions(
     out_folders=args.out_folder,
     sim_folder=args.sim_folder,
     restart=False,
+    save_step=args.steps,  # save the first and the last snapshot only
+    save_restart=not args.no_output,
 )
 
-# Time stepping
-time_opts = Time()
+# Time stepping: with --steps > 1 every step solves the Poisson problem again (from x0 = 0, recycle=False) with the
+# matrices assembled once in the setup, as in a time-dependent simulation; the solution is the same at every step.
+dt = 0.01
+time_opts = Time() if args.steps == 1 else Time(dt=dt, Tend=round(args.steps * dt, 14))
 
 # Geometry
 Lx = 2.0
@@ -155,10 +190,33 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_m
 # Derham options
 derham_opts = DerhamOptions(degree=(1, 2, 3), bcs=(("dirichlet", "dirichlet"), None, None))
 
-# Profilinig options
-profiling_opts = ProfilingOptions(
-    use_line_profiler=True,
-)
+# Profiling options
+if args.gpu_timing:
+    # CUDA-event device times per region on the CuPy backend (not on cunumpy's fake CuPy, whose CUDA events have no
+    # elapsed time). No line profiler: it would distort the CPU/GPU comparison.
+    import cunumpy as xp
+    from cunumpy.kernel_testing import fake_cupy_active
+    from maybempi import MPI, SerialMPI
+
+    gpu_timing = xp.get_backend() == "cupy" and not fake_cupy_active()
+
+    # scope-profiler run label, the name of the run in the reports and comparison plots, e.g.
+    # "CPU: 28 MPI ranks" and "GPU: 4 MPI ranks, 4 GPUs"
+    num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+    profiling_label = (
+        f"{'GPU' if xp.get_backend() == 'cupy' else 'CPU'}: "
+        f"{num_ranks} MPI rank{'s' if num_ranks != 1 else ''}"
+        + (f", {num_ranks} GPU{'s' if num_ranks != 1 else ''}" if xp.get_backend() == "cupy" else "")
+    )
+    profiling_opts = ProfilingOptions(
+        label=profiling_label,
+        use_gpu_timing=gpu_timing,
+        gpu_timing_backend="cupy",
+    )
+else:
+    profiling_opts = ProfilingOptions(
+        use_line_profiler=True,
+    )
 
 # Simulation object
 sim = Simulation(
@@ -184,7 +242,7 @@ from struphy.linear_algebra.solver import SolverParameters
 solver_params = SolverParameters(tol=1e-8, maxiter=3000, info=True, recycle=False)
 model.propagators.poisson.options = model.propagators.poisson.Options(
     stab_eps=0.0,
-    solver="pcg",
+    solver=args.solver,
     precond=precond,
     solver_params=solver_params,
 )
@@ -236,4 +294,4 @@ model.em_fields.source.add_perturbation(rhs_perturbation)
 
 if __name__ == "__main__":
     # post-processing and plots: pproc_gaussian_cube.py
-    sim.run(profiling_activated=True, one_time_step=True)
+    sim.run(profiling_activated=True, one_time_step=args.steps == 1)

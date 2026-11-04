@@ -1,32 +1,19 @@
-import copy
 import logging
 
-import cunumpy as xp
-from maybempi import MPI
-
 from struphy import BaseUnits
-from struphy.io.options import LiteralOptions
-from struphy.models.base import StruphyModel
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, KineticEnergyPIC, Scalars
-from struphy.models.species import (
-    FieldSpecies,
-    ParticleSpecies,
-)
-from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.kernels.charge_density_0form import charge_density_0form
-from struphy.pic.accumulation.particles_to_grid import ParticlesToGrid
-from struphy.propagators.base import Propagator
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
+from struphy.models.variables import FEECVariable
+from struphy.models.vlasov_ampere_one_species import VlasovAmpereOneSpecies
 from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
-from struphy.propagators.poisson_solve import PoissonSolve
-from struphy.propagators.push_eta import PushEta
-from struphy.propagators.push_vxb import PushVxB
-from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
 
 logger = logging.getLogger("struphy")
 
 
-class VlasovMaxwellOneSpecies(StruphyModel):
+class VlasovMaxwellOneSpecies(VlasovAmpereOneSpecies):
     """Vlasov-Maxwell equations for one kinetic species.
+
+    Extends :class:`~struphy.models.VlasovAmpereOneSpecies` by the magnetic field (Faraday's law and the curl of
+    the magnetic field in Ampère's law).
 
     Parameters
     ----------
@@ -44,46 +31,36 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         Whether to track the Gauss-law error as a scalar quantity (default: False)
     """
 
-    @classmethod
-    def model_type(cls) -> LiteralOptions.ModelTypes:
-        return "Kinetic"
+    ## additional species variables
 
-    ## species
-
-    class EMFields(FieldSpecies):
+    class EMFields(VlasovAmpereOneSpecies.EMFields):
         def __init__(self):
-            self.e_field = FEECVariable(space="Hcurl")
+            # declared before the parent's variables, whose init_variables() then includes it
             self.b_field = FEECVariable(space="Hdiv")
-            self.phi = FEECVariable(space="H1")
-            self.init_variables()
+            super().__init__()
 
-    class KineticIons(ParticleSpecies):
-        def __init__(
-            self,
-            charge_number: int = 1,
-            mass_number: float = 1.0,
-            alpha: float = None,
-            epsilon: float = None,
-        ):
-            self.var = PICVariable(space="Particles6D")
-            self.init_variables(
-                charge_number=charge_number,
-                mass_number=mass_number,
-                alpha=alpha,
-                epsilon=epsilon,
-            )
+    ## additional propagators
 
-    ## propagators
+    class Propagators(VlasovAmpereOneSpecies.Propagators):
+        """Propagators of :class:`~struphy.models.VlasovAmpereOneSpecies` plus ``maxwell`` (Faraday's law and the
+        curl of the magnetic field in Ampère's law).
 
-    class Propagators:
-        def __init__(
-            self,
-            b2_var: FEECVariable = None,
-        ):
+        Parameters
+        ----------
+        **kwargs
+            Passed to :class:`VlasovAmpereOneSpecies.Propagators <struphy.models.VlasovAmpereOneSpecies.Propagators>`
+            (and from there to :class:`Vlasov.Propagators <struphy.models.Vlasov.Propagators>`).
+        """
+
+        splitting_order = ("maxwell", "push_eta", "push_vxb", "coupling_va")
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
             self.maxwell = MaxwellWeakAmpere()
-            self.push_eta = PushEta()
-            self.push_vxb = PushVxB(b2_var=b2_var)
-            self.coupling_va = VlasovAmpereCoupling()
+
+    # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
+    em_fields: EMFields
+    propagators: Propagators
 
     ## abstract methods
 
@@ -96,188 +73,45 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         epsilon: float = None,
         measure_gauss_law: bool = False,
     ):
-
         # 0. store input parameters
-        self.params = copy.deepcopy(locals())
-
-        # 1. instantiate all species
-        self.em_fields = self.EMFields()
-        self.kinetic_ions = self.KineticIons(
-            charge_number,
-            mass_number,
-            alpha,
-            epsilon,
-        )
-
-        # 2. derive units (must be done after instantiating species to access charge and mass numbers)
-        self.setup_equation_params(base_units=base_units)
-
-        # 3. instantiate all propagators
-        self.propagators = self.Propagators(b2_var=self.em_fields.b_field)
-
-        # 4. assign variables to propagators
-        self._link_propagator_variables()
-
-        # 5. define scalars to be tracked during simulation
-        electric_energy = BilinearEnergyFEEC(self.em_fields.e_field)
-        magnetic_energy = BilinearEnergyFEEC(self.em_fields.b_field)
-        particle_energy = KineticEnergyPIC(
-            self.kinetic_ions.var,
-            normalization=self.kinetic_ions.equation_params.alpha**2,
-        )
-        scalars_dict = {
-            "en_E": electric_energy,
-            "en_B": magnetic_energy,
-            "en_f": particle_energy,
-            "en_tot": electric_energy + magnetic_energy + particle_energy,
-        }
-        if measure_gauss_law:
-            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
-            scalars_dict["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
-        self.scalars = Scalars(**scalars_dict)
-
-        # initial Poisson (not a propagator used in time stepping)
-        alpha = self.kinetic_ions.equation_params.alpha
-        epsilon = self.kinetic_ions.equation_params.epsilon
-        particles_to_grid = ParticlesToGrid(
-            self.kinetic_ions.var,
-            "H1",
-            charge_density_0form,
-        )
-
-        self.initial_poisson = PoissonSolve(
-            rho=particles_to_grid,
-            rho_coeffs=alpha**2 / epsilon,
-            delta_f_source=True,
-        )
-        self.initial_poisson.variables.phi = self.em_fields.phi
+        self._store_params(locals())
 
         # property to measure violation of gauss law from control variate
         self.measure_gauss_law = measure_gauss_law
 
-    def _link_propagator_variables(self):
-        """Assign the species variables to the propagators (overridden by models with other propagators).
+        # 1.-5. and initial Poisson, see VlasovAmpereOneSpecies
+        super().__init__(base_units, charge_number, mass_number, alpha, epsilon)
 
-        :meta private:
-        """
+    def _propagator_args(self):
+        """:meta private:"""
+        # the Lorentz force of the total magnetic field B0 + B
+        return {**super()._propagator_args(), "b2_var": self.em_fields.b_field}
+
+    def _link_propagator_variables(self):
+        """:meta private:"""
+        super()._link_propagator_variables()
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
-        self.propagators.push_eta.variables.var = self.kinetic_ions.var
-        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
-        self.propagators.coupling_va.variables.e = self.em_fields.e_field
-        self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
 
-    @property
-    def bulk_species(self):
-        return self.kinetic_ions
-
-    @property
-    def velocity_scale(self):
-        return "light"
+    def _create_scalars(self):
+        """:meta private:"""
+        scalars = super()._create_scalars()
+        scalars.pop("en_tot")
+        scalars["en_B"] = BilinearEnergyFEEC(self.em_fields.b_field)
+        scalars["en_tot"] = scalars["en_E"] + scalars["en_B"] + scalars["en_f"]
+        if self.measure_gauss_law:
+            # the MPI reduction (max over ranks) is done in calculate_gauss_error, not by summing the scalar
+            scalars["gauss_error"] = FunctionScalarFEEC(self.calculate_gauss_error)
+        return scalars
 
     def post_allocate(self):
-        """Solve initial Poisson equation.
+        """Solve initial Poisson equation and prepare the Gauss-law diagnostic.
 
         :meta private:
         """
-        self._tmp = xp.empty(1, dtype=float)
-
+        super().post_allocate()
         if self.measure_gauss_law:
-            self.op = Propagator.derham.grad.T @ Propagator.mass_ops.M1
-
-        logger.info("\nINITIAL POISSON SOLVE:")
-
-        # The right-hand side is the charge of f - f0, deposited with the delta-f weights also for full-f markers
-        # (delta_f_source=True, the full-f weights are restored after the deposit): much less noise than the full-f
-        # weights minus the background n0.
-        self.initial_poisson.allocate()
-
-        # keep the AccumulatorVector built by the propagator for the Gauss-law diagnostic below
-        self.charge_accum = self.initial_poisson.sources[0]
-
-        # Solve with dt=1. and compute electric field
-        logger.info("Solving initial Poisson problem...")
-        self.initial_poisson(1.0)
-
-        phi = self.initial_poisson.variables.phi.spline.vector
-        Propagator.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
-        # The pushers evaluate e at the markers, including in the ghost cells: grad.dot does not fill them,
-        # so without this sync the first time step pushes with a wrong field (and breaks energy conservation).
-        self.em_fields.e_field.spline.vector.update_ghost_regions()
-        logger.info("... Done.")
-
-        # Full-f markers: the time stepping conserves the charge of the full-f weights, while the initial solve used
-        # the delta-f weights. The Gauss-law diagnostic therefore deposits the full-f weights and subtracts the
-        # constant offset alpha^2/eps (rho_full - rho_delta_f) at t=0 (the initial f0 deposit minus n0).
-        # On restart, post_allocate runs before the markers are restored, so the offset belongs to freshly loaded
-        # t=0 markers: consistent with the restored run only for reproducible loading (fixed seed, same decomposition).
-        self._gauss_offset = None
-        particles = self.kinetic_ions.var.particles
-        if self.measure_gauss_law and not particles.control_variate:
-            self.charge_accum()
-            rho_full = self.charge_accum.vectors[0].copy()
-            particles.update_weights()
-            self.charge_accum()
-            particles.weights = particles.weights0.copy()
-            rho_full -= self.charge_accum.vectors[0]
-            self._gauss_offset = self.initial_poisson.coeffs[0] * rho_full
-
-    def calculate_gauss_error(self):
-        r"""Maximum norm of the weak Gauss-law residual
-
-        .. math::
-
-            \mathbb G^\top \mathbb M^1 \mathbf e + \frac{\alpha^2}{\varepsilon} \boldsymbol \rho\,,
-
-        where :math:`\boldsymbol \rho` is the charge density of :math:`f - f_0`: with the control variate deposited
-        with the delta-f weights, as in the initial Poisson solve; for full-f markers deposited with the full-f
-        weights (whose charge the time stepping conserves) minus the constant offset
-        :math:`\boldsymbol \rho_\textnormal{full}(0) - \boldsymbol \rho_{\delta f}(0)` of the initial solve, which used
-        the delta-f weights. Since :math:`\mathbf e = -\mathbb G \boldsymbol \phi` it vanishes at :math:`t=0`, up to
-        the net charge (the kernel of the periodic Poisson problem)."""
-        particles = self.kinetic_ions.var.particles
-        if particles.control_variate:
-            particles.update_weights()
-        self.charge_accum()
-        rho = self.charge_accum.vectors[0]
-
-        e = self.em_fields.e_field.spline.vector
-        residual = self.op.dot(e)
-        residual += self.initial_poisson.coeffs[0] * rho
-        if self._gauss_offset is not None:
-            residual -= self._gauss_offset
-
-        # maximum residual over the local MPI rank, then over all ranks of the domain decomposition
-        # (all clones hold the same accumulated charge density)
-        self._tmp[0] = xp.max(xp.abs(residual.toarray()))
-        if Propagator.derham.comm is not None:
-            Propagator.derham.comm.Allreduce(MPI.IN_PLACE, self._tmp, op=MPI.MAX)
-
-        return self._tmp[0]
-
-    ## default parameters
-    def generate_default_parameter_file(self, path=None, prompt=True):
-        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        # the options of the initial Poisson solve go after those of the last propagator
-        last_prop = list(self.propagators.__dict__)[-1]
-        model_name = type(self).__name__
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if f"{last_prop}.Options" in line:
-                    new_file += [line]
-                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
-                elif "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                elif f"{model_name}()" in line:
-                    new_file += [f"\nmodel = {model_name}(measure_gauss_law=True)\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
+            self._setup_gauss_law()
 
     @classmethod
     def doc_pde(cls):
@@ -340,33 +174,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         - Particle kinetic energy: ``en_f``
         - Total energy: ``en_tot``
         - Optional Gauss-law diagnostic: ``gauss_error``"""
-
-    @classmethod
-    def doc_discretization(cls):
-        """Time integration is performed by the following propagators (in sequence):
-
-        1. :class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`
-        2. :class:`~struphy.propagators.push_eta.PushEta`
-        3. :class:`~struphy.propagators.push_vxb.PushVxB`
-        4. :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`
-        """
-        doc = rf"""**1. propagators.maxwell.Maxwell:**
-
-{MaxwellWeakAmpere.__doc__}
-
-**2. PushEta:**
-
-{PushEta.__doc__}
-
-**3. PushVxB:**
-
-{PushVxB.__doc__}
-
-**4. VlasovAmpereCoupling:**
-
-{VlasovAmpereCoupling.__doc__}
-"""
-        return doc
 
     @classmethod
     def doc_long_description(cls):

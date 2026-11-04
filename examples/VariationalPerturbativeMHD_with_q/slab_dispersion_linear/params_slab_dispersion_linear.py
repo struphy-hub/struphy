@@ -95,8 +95,10 @@ Lz = 60.0
 # ---------------------
 
 base_units = BaseUnits()
+# split_sound=False: u, B and q together in VariationalQBEvolve (second order in time with the default implicit
+# weights, the results below)
 model = VariationalPerturbativeMHD_with_q(
-    base_units=base_units, linear=True, with_viscosity=False, with_resistivity=False
+    base_units=base_units, linear=True, with_viscosity=False, with_resistivity=False, split_sound=False
 )
 
 model.em_fields.b_field.save_data = True

@@ -209,8 +209,10 @@ model.kinetic_ions.set_markers(
 # ------------------
 
 model.propagators.gc_poisson.options.solver_params = implicit_diffusion.SolverParameters(maxiter=3000, tol=1e-14)
-model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(algo="explicit", evaluate_e_field=True)
-model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(algo="explicit", evaluate_e_field=True)
+model.propagators.push_bxe.options = model.propagators.push_bxe.Options(algo="explicit", evaluate_e_field=True)
+model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
+    algo="explicit", evaluate_e_field=True
+)
 
 # ------------------
 # Initial conditions
@@ -316,13 +318,13 @@ background = maxwellians.GyroMaxwellian2D(
     n=(n_init, None),
     vth_para=(vth_i, None),
     vth_perp=(vth_i, None),
-)  # B0=equil.absB0)
+)
 model.kinetic_ions.var.add_background(background)
 init = maxwellians.GyroMaxwellian2D(
     n=(n_init, perturbation),
     vth_para=(vth_i, None),
     vth_perp=(vth_i, None),
-)  # B0=equil.absB0)
+)
 model.kinetic_ions.var.add_initial_condition(init)
 
 if __name__ == "__main__":

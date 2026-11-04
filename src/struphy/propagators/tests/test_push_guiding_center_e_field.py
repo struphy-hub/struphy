@@ -47,7 +47,7 @@ def test_e_field_equals_minus_grad_phi(name, e_algo):
     from struphy import models, propagators
 
     dt = 0.1
-    attr = {"PushGuidingCenterBxEstar": "push_gc_bxe", "PushGuidingCenterParallel": "push_gc_para"}[name]
+    attr = {"PushGuidingCenterBxEstar": "push_bxe", "PushGuidingCenterParallel": "push_parallel"}[name]
 
     # reference: the phi path in the electrostatic drift-kinetic model (phi from its initial Poisson solve);
     # pushed before the second model is allocated (the Derham objects of propagators are class attributes)

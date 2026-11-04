@@ -41,7 +41,7 @@ def test_vlasov_ampere_coupling_matrix_free():
     from struphy.models import VlasovAmpereOneSpecies
 
     def run(matrix_free: bool):
-        model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+        model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
         model.kinetic_ions.set_markers(loading_params=LoadingParameters(Np=1000, seed=1234))
         model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D())
         model.em_fields.e_field.add_perturbation(
@@ -112,7 +112,7 @@ def test_efield_weights_coupling_matrix_free():
     from struphy.models import LinearVlasovAmpereOneSpecies
 
     def run(matrix_free: bool):
-        model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False, with_E0=False)
+        model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
         model.kinetic_ions.set_markers(loading_params=LoadingParameters(Np=1000, seed=1234))
         # delta-f: the initial e-field is the Poisson solution of the density perturbation
         model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(1.0, None)))
@@ -157,11 +157,16 @@ def _linear_mhd_vlasov_sim(model, u_space: str):
 
 
 def _set_u_space(model, u_space: str):
-    """The model fixes u in Hdiv; the other spaces test the remaining kernel branches."""
+    """The model fixes u in Hdiv; the other spaces test the remaining kernel branches. The sound wave and background
+    steps (u in Hdiv only) are removed from the model for these tests, which step only the current coupling."""
     model.mhd.velocity._space = u_space
     props = model.propagators
-    for prop in (props.couple_dens, props.shear_alf, props.couple_curr, props.mag_sonic):
+    for prop in (props.couple_dens, props.shear_alf, props.couple_curr):
         prop.options = prop.Options(u_space=u_space)
+    if u_space != "Hdiv":
+        for name in ("bg_current", "sound", "bg_pressure"):
+            delattr(props, name)
+        model.__dict__.pop("_prop_list", None)
 
 
 @pytest.mark.parametrize("u_space", ["Hdiv", "Hcurl", "H1vec"])
@@ -205,7 +210,7 @@ def test_pressure_coupling_6d_matrix_free(use_perp_model: bool):
     from struphy.models import LinearMHDVlasovPC
 
     def run(matrix_free: bool):
-        model = LinearMHDVlasovPC(turn_off=("PushEtaPC", "PushVxB", "ShearAlfven", "Magnetosonic"))
+        model = LinearMHDVlasovPC()
         prop = model.propagators.pc6d
         prop.options = prop.Options(
             use_perp_model=use_perp_model, matrix_free=matrix_free, solver_params=_solver_params()
@@ -233,7 +238,7 @@ def test_marker_operator_dot(space_id: str, kind: str):
     from struphy.pic.accumulation.kernels.marker_operator_symm_dot import marker_operator_symm_dot
     from struphy.pic.accumulation.particles_to_grid import MarkerOperator
 
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
     model.kinetic_ions.set_markers(loading_params=LoadingParameters(Np=200, seed=1234))
     model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D())
     Simulation(

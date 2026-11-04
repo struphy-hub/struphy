@@ -83,9 +83,10 @@ jobs:
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-clones
-        # init .testmondata with non-MPI call
+        # init .testmondata with non-MPI call; then only the PIC verification tests marked "clones"
+        # (they pass --nclones to EnvironmentOptions(num_clones=...)), 2 clones of 2 ranks each
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd /struphy_fortran_/src/struphy
           mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell
-          mpirun --oversubscribe -n 4 pytest -x --testmon --with-mpi --nclones 2 models/tests/verification/
+          mpirun --oversubscribe -n 4 pytest -xv -m clones --testmon --with-mpi --nclones 2 models/tests/verification/

@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING
 _LAZY_IMPORTS = {
     "AdiabaticPhi": "struphy.propagators.adiabatic_phi",
     "AdiabaticPoissonSolve": "struphy.propagators.adiabatic_poisson_solve",
+    "BackgroundCurrent": "struphy.propagators.background_current",
+    "BackgroundPressureGradient": "struphy.propagators.background_pressure_gradient",
+    "BackgroundQGradient": "struphy.propagators.background_q_gradient",
     "CurlCurlSolve": "struphy.propagators.curl_curl_solve",
     "CurrentCoupling5DCurlb": "struphy.propagators.current_coupling_5d_curlb",
     "CurrentCoupling5DDensity": "struphy.propagators.current_coupling_5d_density",
@@ -23,6 +26,7 @@ _LAZY_IMPORTS = {
     "MagnetosonicCrossB0": "struphy.propagators.magnetosonic_cross_b0",
     "MagnetosonicUniform": "struphy.propagators.magnetosonic_uniform",
     "MaxwellWeakAmpere": "struphy.propagators.maxwell_weak_ampere",
+    "MomentumAdvection": "struphy.propagators.momentum_advection",
     "OhmCold": "struphy.propagators.ohm_cold",
     "PoissonSolve": "struphy.propagators.poisson_solve",
     "PressureCoupling6D": "struphy.propagators.pressure_coupling_6d",
@@ -38,18 +42,26 @@ _LAZY_IMPORTS = {
     "PushVxB": "struphy.propagators.push_vxb",
     "ShearAlfvenB1": "struphy.propagators.shear_alfven_b1",
     "ShearAlfvenCurlCurlPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
-    "ShearAlfvenCurlCurlwithProjPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
     "ShearAlfvenCurrentCoupling5D": "struphy.propagators.shear_alfven_current_coupling_5d",
+    "ShearAlfvenNonlinear": "struphy.propagators.shear_alfven_nonlinear",
     "ShearAlfvenPropagator": "struphy.propagators.shear_alfven_propagator",
+    "SoundWaveLinear": "struphy.propagators.sound_wave_linear",
+    "SoundWaveLinearWithQ": "struphy.propagators.sound_wave_linear_with_q",
+    "SoundWaveNonlinearWithQ": "struphy.propagators.sound_wave_nonlinear_with_q",
     "TimeDependentSource": "struphy.propagators.time_dependent_source",
     "TwoFluidQuasiNeutralFull": "struphy.propagators.two_fluid_quasi_neutral_full",
+    "VariationalAlfvenEvolve": "struphy.propagators.variational_alfven_evolve",
     "VariationalDensityEvolve": "struphy.propagators.variational_density_evolve",
     "VariationalEntropyEvolve": "struphy.propagators.variational_entropy_evolve",
+    "VariationalLinearAlfvenEvolve": "struphy.propagators.variational_linear_alfven_evolve",
+    "VariationalLinearEvolve": "struphy.propagators.variational_linear_base",
+    "VariationalLinearSoundEvolve": "struphy.propagators.variational_linear_sound_evolve",
     "VariationalMagFieldEvolve": "struphy.propagators.variational_mag_field_evolve",
     "VariationalMomentumAdvection": "struphy.propagators.variational_momentum_advection",
     "VariationalPBEvolve": "struphy.propagators.variational_pb_evolve",
     "VariationalQBEvolve": "struphy.propagators.variational_qb_evolve",
     "VariationalResistivity": "struphy.propagators.variational_resistivity",
+    "VariationalSoundEvolve": "struphy.propagators.variational_sound_evolve",
     "VariationalViscosity": "struphy.propagators.variational_viscosity",
     "VlasovAmpereCoupling": "struphy.propagators.vlasov_ampere_coupling",
     "VlasovMaxwellCoupling": "struphy.propagators.vlasov_maxwell_coupling",
@@ -58,6 +70,9 @@ _LAZY_IMPORTS = {
 if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.adiabatic_phi import AdiabaticPhi
     from struphy.propagators.adiabatic_poisson_solve import AdiabaticPoissonSolve
+    from struphy.propagators.background_current import BackgroundCurrent
+    from struphy.propagators.background_pressure_gradient import BackgroundPressureGradient
+    from struphy.propagators.background_q_gradient import BackgroundQGradient
     from struphy.propagators.curl_curl_solve import CurlCurlSolve
     from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
     from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
@@ -76,6 +91,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.magnetosonic_cross_b0 import MagnetosonicCrossB0
     from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform
     from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
+    from struphy.propagators.momentum_advection import MomentumAdvection
     from struphy.propagators.ohm_cold import OhmCold
     from struphy.propagators.poisson_solve import PoissonSolve
     from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
@@ -90,21 +106,27 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
     from struphy.propagators.push_vxb import PushVxB
     from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
-    from struphy.propagators.shear_alfven_curl_curl_propagator import (
-        ShearAlfvenCurlCurlPropagator,
-        ShearAlfvenCurlCurlwithProjPropagator,
-    )
+    from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
     from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
+    from struphy.propagators.shear_alfven_nonlinear import ShearAlfvenNonlinear
     from struphy.propagators.shear_alfven_propagator import ShearAlfvenPropagator
+    from struphy.propagators.sound_wave_linear import SoundWaveLinear
+    from struphy.propagators.sound_wave_linear_with_q import SoundWaveLinearWithQ
+    from struphy.propagators.sound_wave_nonlinear_with_q import SoundWaveNonlinearWithQ
     from struphy.propagators.time_dependent_source import TimeDependentSource
     from struphy.propagators.two_fluid_quasi_neutral_full import TwoFluidQuasiNeutralFull
+    from struphy.propagators.variational_alfven_evolve import VariationalAlfvenEvolve
     from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
     from struphy.propagators.variational_entropy_evolve import VariationalEntropyEvolve
+    from struphy.propagators.variational_linear_alfven_evolve import VariationalLinearAlfvenEvolve
+    from struphy.propagators.variational_linear_base import VariationalLinearEvolve
+    from struphy.propagators.variational_linear_sound_evolve import VariationalLinearSoundEvolve
     from struphy.propagators.variational_mag_field_evolve import VariationalMagFieldEvolve
     from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
     from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
     from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
     from struphy.propagators.variational_resistivity import VariationalResistivity
+    from struphy.propagators.variational_sound_evolve import VariationalSoundEvolve
     from struphy.propagators.variational_viscosity import VariationalViscosity
     from struphy.propagators.vlasov_ampere_coupling import VlasovAmpereCoupling
     from struphy.propagators.vlasov_maxwell_coupling import VlasovMaxwellCoupling
@@ -112,6 +134,9 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
 __all__ = [
     "AdiabaticPhi",
     "AdiabaticPoissonSolve",
+    "BackgroundCurrent",
+    "BackgroundPressureGradient",
+    "BackgroundQGradient",
     "CurlCurlSolve",
     "CurrentCoupling5DCurlb",
     "CurrentCoupling5DDensity",
@@ -130,6 +155,7 @@ __all__ = [
     "MagnetosonicCrossB0",
     "MagnetosonicUniform",
     "MaxwellWeakAmpere",
+    "MomentumAdvection",
     "OhmCold",
     "PoissonSolve",
     "PressureCoupling6D",
@@ -145,18 +171,26 @@ __all__ = [
     "PushVxB",
     "ShearAlfvenB1",
     "ShearAlfvenCurlCurlPropagator",
-    "ShearAlfvenCurlCurlwithProjPropagator",
     "ShearAlfvenCurrentCoupling5D",
+    "ShearAlfvenNonlinear",
     "ShearAlfvenPropagator",
+    "SoundWaveLinear",
+    "SoundWaveLinearWithQ",
+    "SoundWaveNonlinearWithQ",
     "TimeDependentSource",
     "TwoFluidQuasiNeutralFull",
+    "VariationalAlfvenEvolve",
     "VariationalDensityEvolve",
     "VariationalEntropyEvolve",
+    "VariationalLinearAlfvenEvolve",
+    "VariationalLinearEvolve",
+    "VariationalLinearSoundEvolve",
     "VariationalMagFieldEvolve",
     "VariationalMomentumAdvection",
     "VariationalPBEvolve",
     "VariationalQBEvolve",
     "VariationalResistivity",
+    "VariationalSoundEvolve",
     "VariationalViscosity",
     "VlasovAmpereCoupling",
     "VlasovMaxwellCoupling",

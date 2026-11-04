@@ -40,7 +40,7 @@ reductions, plotting, and interoperability with other scientific Python packages
 ```python
 rho = out.evaluate("diagnostics/rho_xyz")
 scalars = out.evaluate("scalars")
-electric_energy = out.evaluate("scalars", variables="electric_energy")
+en_E = out.evaluate("scalars", variables="en_E")
 
 # Last saved time and one vector component, selected by integer position
 electric_field = out.evaluate("em_fields/E", t=-1, component=2)
@@ -49,7 +49,7 @@ electric_field = out.evaluate("em_fields/E", t=-1, component=2)
 midplane = out.evaluate("diagnostics/rho_xyz", eta3=0.5, method="nearest", drop=True)
 
 # Select a time range
-history = out.evaluate("scalars", variables="electric_energy", t=slice(100, None)).electric_energy
+history = out.evaluate("scalars", variables="en_E", t=slice(100, None)).en_E
 ```
 
 Integer `t` values select saved snapshot positions; a floating-point `t` selects a saved time
@@ -104,9 +104,9 @@ dimension except `t`.
 ```python
 from scipy.signal import find_peaks
 
-electric_energy = out.evaluate("scalars", variables="electric_energy").electric_energy
-peaks, _ = find_peaks(electric_energy.values)
-damping_rate, _ = np.polyfit(electric_energy.t[peaks], np.log(electric_energy[peaks]), 1)
+en_E = out.evaluate("scalars", variables="en_E").en_E
+peaks, _ = find_peaks(en_E.values)
+damping_rate, _ = np.polyfit(en_E.t[peaks], np.log(en_E[peaks]), 1)
 
 rho = out.evaluate("diagnostics/rho")
 rho_squared = (rho**2).mean([dim for dim in rho.dims if dim != "t"])
@@ -211,7 +211,7 @@ For anything not covered here, `out.profile.results` is the full `scope_profiler
 Use the native xarray plotting methods after making the intended selection.
 
 ```python
-out.evaluate("scalars", variables="electric_energy").electric_energy.plot.line(x="t")
+out.evaluate("scalars", variables="en_E").en_E.plot.line(x="t")
 
 out.evaluate("diagnostics/rho_xyz", t=-1, eta3=0.5, method="nearest").plot(x="eta1", y="eta2")
 ```

@@ -26,7 +26,8 @@ def test_linear_q_viscosity_resistivity(fast, tmp_path):
     model = VariationalPerturbativeMHD_with_q(linear=True)
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="linear_q")
-    props.variat_qb.options = props.variat_qb.Options(model="linear_q")
+    props.variat_alfven.options = props.variat_alfven.Options(model="linear")
+    props.variat_sound.options = props.variat_sound.Options(model="linear_q")
     props.variat_viscous.options = props.variat_viscous.Options(model="linear_q", mu=0.1, fast=fast)
     props.variat_resist.options = props.variat_resist.Options(model="linear_q", eta=0.1, fast=fast)
     model.mhd.density.add_background(FieldsBackground())

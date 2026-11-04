@@ -33,13 +33,31 @@ class Scalar(metaclass=ABCMeta):
     Parameters
     ----------
     variables : Variable or Scalar
-        The variable(s) associated with the scalar, or scalars for summation."""
+        The variable(s) associated with the scalar, or scalars for summation.
+
+    Notes
+    -----
+    Objects created by :meth:`Simulation.allocate <struphy.simulation.sim.Simulation.allocate>` (spline vectors,
+    mass operators, the projected equilibrium, particles, ...) must not be fetched in ``__init__`` (the scalars are
+    created before the allocation) and must not be cached in :meth:`_local_update`: each
+    :meth:`Simulation.run <struphy.simulation.sim.Simulation.run>` allocates them again, and a cached object would
+    keep the values of the first run. Fetch them in :meth:`allocate` instead, which :meth:`update` calls once after
+    each allocation (see :meth:`Scalars.reset_allocation`).
+    """
 
     def __init__(self, *variables: Union[Variable, "Scalar"]):
         self.variables = variables
         self.local_value = xp.empty(1, dtype=float)
         self.value = xp.empty(1, dtype=float)
         self.uptodate = False
+        self.allocated = False
+
+    def allocate(self):
+        """Fetch the objects created by the allocation of the simulation that :meth:`_local_update` needs.
+
+        Called by :meth:`update` before the first update after each allocation. Does nothing by default.
+        """
+        pass
 
     @abstractmethod
     def _local_update(self):
@@ -53,6 +71,9 @@ class Scalar(metaclass=ABCMeta):
 
     def update(self):
         """Update the scalar quantity by performing local update and then summing over MPI processes."""
+        if not self.allocated:
+            self.allocate()
+            self.allocated = True
         if not self.uptodate:
             self._local_update()
             self._mpi_sum()
@@ -99,6 +120,9 @@ class PICScalar(Scalar):
             "Subclasses of PICScalar must implement _local_update to compute self.local_value[0]."
         )
 
+    def allocate(self):
+        self.clone_config = self.variables[0].particles.clone_config
+
     def _mpi_sum(self):
         self.value[0] = self.local_value[0]
 
@@ -111,9 +135,6 @@ class PICScalar(Scalar):
             )
 
         # sum between clones
-        if not hasattr(self, "clone_config"):
-            self.clone_config = self.variables[0].particles.clone_config
-
         if self.clone_config is not None:
             self.clone_config.inter_comm.Allreduce(
                 MPI.IN_PLACE,
@@ -179,6 +200,15 @@ class Scalars:
     def dct(self) -> dict[str, Scalar]:
         return self._dct
 
+    def reset_allocation(self):
+        """Make every scalar (including the summands of sums) fetch the allocated objects again at its next update.
+
+        Called by :meth:`Simulation.allocate <struphy.simulation.sim.Simulation.allocate>`, which creates new spline
+        vectors, mass operators, particles, ... at each run.
+        """
+        for scalar in self.dct.values():
+            _reset_allocation(scalar)
+
     def update(self):
         for scalar in self.dct.values():
             scalar.update()
@@ -199,6 +229,14 @@ class Scalars:
         """
         i = self._index[name]
         return self._host_values[i : i + 1]
+
+
+def _reset_allocation(scalar: Scalar):
+    scalar.allocated = False
+    scalar.uptodate = False
+    for variable in scalar.variables:
+        if isinstance(variable, Scalar):
+            _reset_allocation(variable)
 
 
 def _mark_outdated(scalar: Scalar):
@@ -247,18 +285,17 @@ class BilinearEnergyFEEC(Scalar):
         self.bilinear_form_name = bilinear_form_name
         self.normalization = normalization
 
-    def _local_update(self):
-        if not hasattr(self, "left_vec"):
-            self.left_vec = self.variables[0].spline.vector
-            if isinstance(self.variables[1], str):
-                self.right_vec = getattr(Propagator.projected_equil, self.variables[1])
-            else:
-                self.right_vec = self.variables[1].spline.vector
-            self.vec_space = self.left_vec.space
-        if not hasattr(self, "bilinear_form"):
-            self.bilinear_form: WeightedMassOperator = getattr(Propagator.mass_ops, self.bilinear_form_name)
-            assert self.bilinear_form.codomain == self.vec_space, "bilinear_form codomain must match variable space"
+    def allocate(self):
+        self.left_vec = self.variables[0].spline.vector
+        if isinstance(self.variables[1], str):
+            self.right_vec = getattr(Propagator.projected_equil, self.variables[1])
+        else:
+            self.right_vec = self.variables[1].spline.vector
+        self.vec_space = self.left_vec.space
+        self.bilinear_form: WeightedMassOperator = getattr(Propagator.mass_ops, self.bilinear_form_name)
+        assert self.bilinear_form.codomain == self.vec_space, "bilinear_form codomain must match variable space"
 
+    def _local_update(self):
         value = self.normalization * 0.5 * self.bilinear_form.dot_inner(self.right_vec, self.left_vec)
         self.local_value[0] = value
 
@@ -288,16 +325,16 @@ class VolumeFormEnergyFEEC(Scalar):
         super().__init__(feec_variable)
         self.normalization = normalization
 
-    def _local_update(self):
-        if not hasattr(self, "vec"):
-            self.vec = self.variables[0].spline.vector
-            if isinstance(self.vec, PolarVector):
-                self.ones = Propagator.derham.V3pol.zeros()
-                self.ones.tp[:] = 1.0
-            else:
-                self.ones = Propagator.derham.V3.zeros()
-                self.ones[:] = 1.0
+    def allocate(self):
+        self.vec = self.variables[0].spline.vector
+        if isinstance(self.vec, PolarVector):
+            self.ones = Propagator.derham.V3pol.zeros()
+            self.ones.tp[:] = 1.0
+        else:
+            self.ones = Propagator.derham.V3.zeros()
+            self.ones[:] = 1.0
 
+    def _local_update(self):
         self.local_value[0] = self.normalization * self.vec.inner(self.ones)
 
     def _mpi_sum(self):
@@ -341,7 +378,7 @@ class KineticEnergyPIC(PICScalar):
 
     For :class:`~struphy.pic.particles.Particles5D` the velocity coordinates are :math:`(v_\parallel, \mu)`,
     so only the parallel kinetic energy :math:`v_i^2 = v_{\parallel,i}^2` is summed; the magnetic-moment
-    part :math:`\mu_i |B_0|` is tracked by a separate scalar in the models (e.g. ``en_fB``).
+    part :math:`\mu_i |B_0|` is tracked by a separate scalar in the models (e.g. ``en_mu``).
     """
 
     def _local_update(self):

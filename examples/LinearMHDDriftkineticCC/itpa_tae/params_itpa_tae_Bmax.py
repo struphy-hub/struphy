@@ -33,7 +33,7 @@ if args.test_run:
 name = "ITPA TAE (LinearMHDDriftkineticCC), Fourier filter, B_max canonical Maxwellian"
 description = """
 ITPA benchmark TAE (n = 6, m = 10, 11, Koenies et al., Nucl. Fusion 58, 126027 (2018)) driven by energetic deuterons.
-Toroidal Fourier filter, canonical Maxwellian with correction_B="Bmax" (exact equilibrium), MagnetosonicCrossB0 propagator.
+Toroidal Fourier filter, canonical Maxwellian with shift="Bmax" (exact equilibrium), MagnetosonicCrossB0 propagator.
 Markers that leave through the inner or outer wall are refilled at the opposite poloidal angle on the same field line.
 """
 
@@ -143,7 +143,7 @@ sim = Simulation(
 vth = 0.89740839
 
 # mu drawn with the local |B| at each marker (v_perp Maxwellian at the marker position)
-loading_params = LoadingParameters(ppc=args.ppc, moments=(0.0, 0.0, vth, vth), seed=1234, B0=equil.absB0)
+loading_params = LoadingParameters(ppc=args.ppc, moments=(0.0, 0.0, vth, vth), seed=1234)
 weights_params = WeightsParameters(control_variate=True)
 boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"), bc_refill=("inner", "outer"))
 sorting_params = SortingParameters()
@@ -171,9 +171,7 @@ filter_params = FilterParameters(use_filter="fourier_in_tor")
 props = model.propagators
 props.push_bxe.options = props.push_bxe.Options(algo="explicit")
 props.push_parallel.options = props.push_parallel.Options(algo="explicit")
-props.shearalfen_cc5d.options = props.shearalfen_cc5d.Options(
-    ep_scale=ep_scale, filter_params=filter_params, nonlinear=True
-)
+props.shear_alf.options = props.shear_alf.Options(ep_scale=ep_scale, filter_params=filter_params, nonlinear=True)
 props.magnetosonic.options = props.magnetosonic.Options()
 props.cc5d_density.options = props.cc5d_density.Options(ep_scale=ep_scale, filter_params=filter_params)
 props.cc5d_gradb.options = props.cc5d_gradb.Options(ep_scale=ep_scale, algo="explicit", filter_params=filter_params)
@@ -209,7 +207,7 @@ model.mhd.velocity.add_perturbation(
     )
 )
 
-itpa = perturbations.ITPA_density(n0=0.00720652, c=(0.50626, 0.18156, 0.13012, 0.54286))
+itpa = perturbations.ITPA_density(n0=0.00720652, c=(0.51643, 0.13619, 0.10274, 0.56458))
 psi_axis, psi_edge = equil.psi_range
 
 
@@ -229,7 +227,7 @@ model.energetic_ions.var.add_background(
         equil=equil,
         volume_form=True,
         epsilon=model.energetic_ions.equation_params.epsilon,
-        correction_B="Bmax",
+        shift="Bmax",
         cache_size=cache_size,
     )
 )

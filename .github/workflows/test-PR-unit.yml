@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - devel
+  # keeps the testmon data of devel (restored by new PRs) up to date
+  push:
+    branches:
+      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
