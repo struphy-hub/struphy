@@ -380,8 +380,8 @@ class VariationalPerturbativeMHD(StruphyModel):
         viscous term is then discretized with the divergence and the curl of :math:`\mathbf u`,
         :math:`\int \mu (\nabla \cdot \mathbf u\, \nabla \cdot \mathbf v + \nabla \times \mathbf u \cdot \nabla \times \mathbf v)`,
         which equals :math:`\int \mu \nabla \mathbf u : \nabla \mathbf v` up to boundary terms.
-        With Dirichlet boundary conditions the tangential trace of the curl argument is zero, which acts as a weak
-        no-slip penalty (of order :math:`\mu/h`) on the tangential velocity at the wall.
+        The curl is the weak curl, as the current of the resistivity, so the wall condition is perfect slip,
+        :math:`(\nabla \times \mathbf u) \times \mathbf n = 0`, and the tangential velocity at the wall stays free.
         """
 
     @classmethod
