@@ -156,10 +156,26 @@ def test_vlasov_maxwell_coupling_matrix_free(lam: float):
     _compare(run)
 
 
-def test_efield_weights_coupling_matrix_free():
-    """EfieldWeightsCoupling: e-field and weights after two steps (in a curved domain)."""
+@pytest.mark.parametrize("polar", [False, True])
+def test_efield_weights_coupling_matrix_free(polar: bool):
+    """EfieldWeightsCoupling: e-field and weights after two steps (in a curved domain, or in a cylinder with polar
+    splines)."""
     from struphy import DerhamOptions, LoadingParameters, Simulation, domains, grids, maxwellians, perturbations
     from struphy.models import LinearVlasovAmpereOneSpecies
+
+    if polar:
+        # enough elements in eta_1 for the polar rings on the pole rank (also on 4 MPI ranks)
+        geometry = {
+            "domain": domains.IGAPolarCylinder(num_elements=(12, 6), degree=(2, 2), a=1.0, Lz=4.0),
+            "grid": grids.TensorProductGrid(num_elements=(12, 6, 2)),
+            "derham_opts": DerhamOptions(degree=(2, 2, 1), bcs=(("free", "dirichlet"), None, None), polar_splines=True),
+        }
+    else:
+        geometry = {
+            "domain": domains.Colella(alpha=0.1),
+            "grid": grids.TensorProductGrid(num_elements=(6, 4, 2)),
+            "derham_opts": DerhamOptions(degree=(2, 2, 1)),
+        }
 
     def run(matrix_free: bool):
         model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
@@ -170,12 +186,9 @@ def test_efield_weights_coupling_matrix_free():
         model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, perturbation)))
         prop = model.propagators.coupling_Eweights
         prop.options = prop.Options(matrix_free=matrix_free, solver_params=_solver_params())
-        Simulation(
-            model=model,
-            domain=domains.Colella(alpha=0.1),
-            grid=grids.TensorProductGrid(num_elements=(6, 4, 2)),
-            derham_opts=DerhamOptions(degree=(2, 2, 1)),
-        ).allocate()
+        sim = Simulation(model=model, **geometry)
+        sim.allocate()
+        assert sim.derham.polar_splines == polar
         particles = model.kinetic_ions.var.particles
         return _steps(
             prop, lambda: (model.em_fields.e_field.spline.vector.toarray(), particles.markers[6, particles.valid_mks])

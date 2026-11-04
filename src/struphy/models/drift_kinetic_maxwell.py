@@ -307,7 +307,6 @@ class DriftKineticMaxwell(GuidingCenter):
     def doc_cannot_be_used_for(cls):
         r"""This model is not suitable for:
 
-        - polar splines (not supported yet by the coupling propagator)
         - the quasi-neutral limit with control-variate (delta-f) weights or with vacuum regions
         - finite Larmor radius effects beyond the linearized long-wavelength polarization
         - exact energy conservation in inhomogeneous :math:`|B_0|` (the grad-:math:`B` drift current is missing)"""
