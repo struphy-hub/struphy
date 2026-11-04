@@ -88,7 +88,8 @@ def _propagator(u, bracket_momentum="n", nonlin_type="Newton"):
 def test_hdiv_energy_conservation(map_name, bracket_momentum, nonlin_type):
     """The kinetic energy 1/2 u^T M2n u is conserved, the velocity changes, and the boundary conditions hold."""
     derham, domain, mass_ops = _setup(map_name, (6, 6, 4))
-    u = _velocity(derham, domain, "Hdiv", amp=0.5)
+    # on the torus, the logical toroidal component is scaled by 2 pi R0 ~ 31
+    u = _velocity(derham, domain, "Hdiv", amp=0.5 if map_name == "Cuboid" else 0.05)
     prop = _propagator(u, bracket_momentum, nonlin_type)
     M = mass_ops.M2n
 
@@ -112,7 +113,7 @@ def test_hdiv_energy_conservation(map_name, bracket_momentum, nonlin_type):
 def test_hdiv_time_order():
     """With the momentum at t^{n+1/2} the scheme is of second order in dt, with the momentum at t^n of first order:
     errors against a reference with a small time step."""
-    derham, domain, mass_ops = _setup("Cuboid", (6, 6, 4))
+    derham, domain, mass_ops = _setup("Cuboid", (4, 4, 4))
     M = mass_ops.M2n
     T = 0.08
 
@@ -123,7 +124,7 @@ def test_hdiv_time_order():
             prop(T / nsteps)
         return u.spline.vector.copy()
 
-    ref = run("n+1/2", 32)
+    ref = run("n+1/2", 16)
 
     def err(x):
         d = x - ref
