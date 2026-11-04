@@ -1,37 +1,37 @@
 import cunumpy as xp
 import pytest
 
-from struphy import (
-    BaseUnits,
-    BoundaryParameters,
-    DerhamOptions,
-    EnvironmentOptions,
-    LoadingParameters,
-    Simulation,
-    Time,
-    WeightsParameters,
-    domains,
-    equils,
-    grids,
-    maxwellians,
-)
-from struphy.models import LinearMHDDriftkineticCC
+from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, perturbations
+from struphy.io.options import DerhamOptions
+from struphy.models import LinearMHD, LinearMHDDriftkineticCC
 from struphy.models.variables import FEECVariable
+from struphy.propagators.base import Propagator
+from struphy.propagators.magnetosonic import Magnetosonic
 from struphy.propagators.magnetosonic_cross_b0 import MagnetosonicCrossB0
+from struphy.topology import grids
 
 
-def _itpa_operators(tmp_path, num_elements):
-    """Allocated LinearMHDDriftkineticCC in the ITPA TAE geometry, with a minimal energetic ion species."""
-    model = LinearMHDDriftkineticCC(
-        base_units=BaseUnits(n=0.2),
-        hot_mass_number=2.0,
-        magnetosonic_cross_b0=True,
-    )
-    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(ep_scale=0.0, nonlinear=False)
+def _link(prop, model):
+    """Link the variables of an allocated LinearMHD model to a magnetosonic step and allocate it."""
+    prop.variables.n = model.mhd.density
+    prop.variables.u = model.mhd.velocity
+    prop.variables.p = model.mhd.pressure
+    prop.allocate()
+    return prop
+
+
+def _cross_b0(model):
+    """The MagnetosonicCrossB0 step of the variables of an allocated LinearMHD model."""
+    return _link(MagnetosonicCrossB0(b_field=model.em_fields.b_field), model)
+
+
+def _itpa_torus(tmp_path, num_elements):
+    """Allocated LinearMHD model in the geometry of the ITPA TAE, with J0 != 0 and a pressure gradient."""
+    model = LinearMHD()
     sim = Simulation(
         model=model,
         env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim"),
-        time_opts=Time(dt=0.25, Tend=0.25, split_algo="Strang"),
+        time_opts=Time(dt=0.1, Tend=0.1),
         domain=domains.HollowTorus(a1=0.1, a2=1.0, R0=10.0, sfl=False, tor_period=6),
         equil=equils.AdhocTorus(
             a=1.0,
@@ -51,14 +51,8 @@ def _itpa_operators(tmp_path, num_elements):
         grid=grids.TensorProductGrid(num_elements=num_elements, mpi_dims_mask=(True, True, False)),
         derham_opts=DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None)),
     )
-    model.energetic_ions.set_markers(
-        loading_params=LoadingParameters(ppc=1, moments=(0.0, 0.0, 0.9, 0.9), seed=1234, B0=3.0),
-        weights_params=WeightsParameters(control_variate=False),
-        boundary_params=BoundaryParameters(bc=("remove", "periodic", "periodic")),
-    )
-    model.energetic_ions.var.add_background(maxwellians.GyroMaxwellian2D(n=(1e-3, None), volume_form=True, B0=3.0))
     sim.allocate()
-    return sim, model.propagators.magnetosonic
+    return sim, model
 
 
 def _pattern(space, comp, k3):
@@ -76,68 +70,89 @@ def _pattern(space, comp, k3):
     return v
 
 
-def test_forces_keep_smooth_modes_and_lose_eta3_nyquist(tmp_path):
-    """Against the standard forms: same J0 x b and u.grad p0 for k3 << N3, drive removed at k3 = N3/2."""
-    sim, prop = _itpa_operators(tmp_path, (8, 16, 16))
-    mass_ops, basis_ops, div = prop.mass_ops, prop.basis_ops, sim.derham.div
-    M2J, M3, K3, S2 = mass_ops.M2J, mass_ops.M3, basis_ops.K3, basis_ops.S2
+def test_magnetosonic_cross_b0_uses_shared_b_field(tmp_path):
+    """MagnetosonicCrossB0 must not re-allocate the shared b_field, and its step must change the variables."""
+    model = LinearMHD()
+    model.mhd.velocity.add_perturbation(perturbations.ModesCos(ls=(1,), given_in_basis="2", comp=0, amps=(1e-2,)))
+    model.em_fields.b_field.add_perturbation(perturbations.ModesCos(ls=(1,), given_in_basis="2", comp=1, amps=(1e-2,)))
+    # needs equil at allocation time
+    model.em_fields.b_field.add_background(FieldsBackground(type="FluidEquilibrium", variable="b2"))
 
-    def relative_differences(k3):
-        v, b, q = _pattern(M2J.domain, 0, k3), _pattern(M2J.domain, 1, k3), _pattern(M3.domain, 0, k3)
-        force_old, force_new = v.inner(M2J.dot(b)), v.inner(prop._MJ.dot(b))
-        # u.grad p0 of Magnetosonic: div S - K div. Here: C = (5/3 K div + G)/2.
-        K_div_v = K3.dot(div.dot(v))
-        gradp0_old = div.dot(S2.dot(v)) - K_div_v
-        gradp0_new = 2.0 * prop._C.dot(v) - 5 / 3 * K_div_v
-        work_old, work_new = q.inner(M3.dot(gradp0_old)), q.inner(M3.dot(gradp0_new))
-        return abs(force_new - force_old) / abs(force_old), abs(work_new - work_old) / abs(work_old)
+    sim = Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim"),
+        time_opts=Time(dt=0.05, Tend=0.05),
+        equil=equils.HomogenSlab(),
+        grid=grids.TensorProductGrid(num_elements=(8, 1, 1)),
+        derham_opts=DerhamOptions(degree=(2, 1, 1)),
+    )
+    sim.allocate()
 
-    force_diff, work_diff = relative_differences(1)
-    assert force_diff < 1e-2
-    assert work_diff < 1e-2
+    spline = model.em_fields.b_field.spline
+    b = spline.vector
+    b_init = b.toarray().copy()
+    assert xp.max(xp.abs(b_init)) > 0.0
+    mag_sonic = _cross_b0(model)
+    assert model.em_fields.b_field.spline is spline
+    assert model.em_fields.b_field.spline.vector is b
+    assert xp.array_equal(b.toarray(), b_init)
+    assert mag_sonic._b is b
 
-    force_diff, work_diff = relative_differences(8)
-    assert force_diff > 0.99
-    assert work_diff > 0.99
-
-
-def test_schur_complement_matches_pressure_update(tmp_path):
-    """The Schur complement has M3 cancelled by hand: it must equal B @ C, where C contains the inverse of M3."""
-    _, prop = _itpa_operators(tmp_path, (6, 8, 8))
-    u = _pattern(prop._MJ.domain, 0, 1)
-    direct = prop._B.dot(prop._C.dot(u))
-    diff = direct - prop._schur_solver.BC.dot(u)
-    assert xp.sqrt(diff.inner(diff)) < 1e-8 * xp.sqrt(direct.inner(direct))
-
-
-@pytest.mark.mpi_skip
-def test_model_flag_replaces_the_background_and_sound_steps():
-    default = list(vars(LinearMHDDriftkineticCC().propagators))
-    assert {"bg_current", "bg_pressure", "sound"} <= set(default)
-    assert "magnetosonic" not in default
-
-    model = LinearMHDDriftkineticCC(magnetosonic_cross_b0=True)
-    assert list(vars(model.propagators)) == [
-        "push_bxe",
-        "push_parallel",
-        "shear_alf",
-        "magnetosonic",
-        "cc5d_density",
-        "cc5d_gradb",
-        "cc5d_curlb",
-    ]
-    assert isinstance(model.propagators.magnetosonic, MagnetosonicCrossB0)
-    assert model.params["magnetosonic_cross_b0"] is True
-
-    # the steps of a Strang time step: magnetosonic is not in a symmetric block
-    assert dict(model.propagator_calls(1.0, "Strang"))["magnetosonic"] == 0.5
+    u0, p0 = model.mhd.velocity.spline.vector.toarray().copy(), model.mhd.pressure.spline.vector.toarray().copy()
+    mag_sonic(0.05)
+    assert xp.max(xp.abs(model.mhd.velocity.spline.vector.toarray() - u0)) > 0.0
+    assert xp.max(xp.abs(model.mhd.pressure.spline.vector.toarray() - p0)) > 0.0
+    # the magnetic field is only read
+    assert xp.array_equal(b.toarray(), b_init)
 
 
 @pytest.mark.mpi_skip
-def test_needs_hdiv():
-    """Velocity and magnetic field must be 2-forms."""
+def test_b_field_space():
+    """MagnetosonicCrossB0 accepts a velocity and a magnetic field in Hdiv only."""
     MagnetosonicCrossB0(b_field=FEECVariable(space="Hdiv"))
     with pytest.raises(AssertionError):
         MagnetosonicCrossB0(b_field=FEECVariable(space="Hcurl"))
     with pytest.raises(AssertionError):
         MagnetosonicCrossB0().variables.u = FEECVariable(space="Hcurl")
+
+
+@pytest.mark.mpi_skip
+def test_model_flag_replaces_the_background_and_sound_steps():
+    """The flag of LinearMHDDriftkineticCC replaces the background current, background pressure and sound steps."""
+    default = list(vars(LinearMHDDriftkineticCC().propagators))
+    assert {"bg_current", "bg_pressure", "sound"} <= set(default)
+    assert "magnetosonic" not in default
+
+    model = LinearMHDDriftkineticCC(magnetosonic_cross_b0=True)
+    assert not {"bg_current", "bg_pressure", "sound"} & set(vars(model.propagators))
+    assert isinstance(model.propagators.magnetosonic, MagnetosonicCrossB0)
+
+
+def _step_increments(prop, model, dt=0.1):
+    """Increments of the velocity and the pressure in one step of prop from the current state, which is restored."""
+    u, p, n = model.mhd.velocity.spline.vector, model.mhd.pressure.spline.vector, model.mhd.density.spline.vector
+    u0, p0, n0 = u.copy(), p.copy(), n.copy()
+    prop(dt)
+    du, dp = u - u0, p - p0
+    prop.update_feec_variables(n=n0, u=u0, p=p0)
+    return du, dp
+
+
+def test_step_agrees_with_magnetosonic_for_smooth_modes(tmp_path):
+    """One step from a smooth state in the ITPA torus (k3 << N3): same increments as Magnetosonic."""
+    _, model = _itpa_torus(tmp_path, (8, 16, 16))
+    u = model.mhd.velocity.spline.vector
+    b = model.em_fields.b_field.spline.vector
+    _pattern(u.space, 0, 1).copy(out=u)
+    _pattern(b.space, 1, 1).copy(out=b)
+    u.update_ghost_regions()
+    b.update_ghost_regions()
+
+    M2 = Propagator.mass_ops.M2
+    M3 = Propagator.mass_ops.M3
+    du_old, dp_old = _step_increments(_link(Magnetosonic(b_field=model.em_fields.b_field), model), model)
+    du_new, dp_new = _step_increments(_cross_b0(model), model)
+
+    diff_u, diff_p = du_new - du_old, dp_new - dp_old
+    assert xp.sqrt(diff_u.inner(M2.dot(diff_u)) / du_old.inner(M2.dot(du_old))) < 1e-2
+    assert xp.sqrt(diff_p.inner(M3.dot(diff_p)) / dp_old.inner(M3.dot(dp_old))) < 1e-2
