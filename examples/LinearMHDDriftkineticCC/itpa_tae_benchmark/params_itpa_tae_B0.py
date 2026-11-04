@@ -194,6 +194,7 @@ import cunumpy as xp
 
 from struphy import (
     BaseUnits,
+    BinningPlot,
     BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
@@ -242,6 +243,7 @@ description = description.replace("{vth:.3g}", f"{vth:.3g}")
 model.em_fields.b_field.save_data = True
 model.mhd.velocity.save_data = True
 model.mhd.pressure.save_data = True
+model.energetic_ions.var.save_data = True
 
 # --------------------------
 # Instance of the simulation
@@ -304,6 +306,10 @@ def n_hot(psi_c):
     return args.nh_scale * itpa_density(xp.sign(s) * xp.sqrt(xp.abs(s)))
 
 
+# binned distributions for the density profile and the resonance plots of the pproc script
+binplot_r = BinningPlot(slice="e1", n_bins=64, ranges=(0.0, 1.0))
+binplot_r_vpar = BinningPlot(slice="e1_v1", n_bins=(64, 64), ranges=((0.0, 1.0), (-5 * vth, 5 * vth)))
+
 model.energetic_ions.set_markers(
     # mu drawn with the local |B_0| (default B0="equil")
     loading_params=LoadingParameters(Np=args.Np, seed=1234, moments=(0.0, 0.0, vth, vth)),
@@ -312,7 +318,7 @@ model.energetic_ions.set_markers(
     # refill: the markers leaving through the walls are refilled on the same flux surface instead of removed
     boundary_params=BoundaryParameters(bc=(args.marker_bc, "periodic", "periodic")),
     sorting_params=SortingParameters(do_sort=True, sorting_frequency=10),
-    saving_params=SavingParameters(n_markers=0),
+    saving_params=SavingParameters(n_markers=0, binning_plots=(binplot_r, binplot_r_vpar)),
     # the discrete-gradient pushers sort at mid-points in each iteration
     bufsize=2.0,
 )

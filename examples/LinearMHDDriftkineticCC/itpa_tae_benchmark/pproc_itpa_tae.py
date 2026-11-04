@@ -1,10 +1,10 @@
 """Post-process and plot the ITPA TAE driven by energetic ions (LinearMHDDriftkineticCC).
 
 Run as ``python pproc_itpa_tae_B0.py`` or ``python pproc_itpa_tae_Bmax.py``, with the arguments
-``[path_out] [flags of the params file] [--compare OTHER] [--show]``. The standard
+``[path_out] [flags of the params file] [--compare OTHER] [--fit-window T0 T1] [--show]``. The standard
 plots of the examples (slices in the physical planes and 3D views of the fields) are made at the first, middle and
-last saved time, together with the energy budget (MHD, magnetic and energetic-ion energies) and the (m, n) harmonics
-of the radial components. The measured TAE frequency is compared with the analytical one and with the ideal MHD
+last saved time, together with the energy budget (MHD, magnetic and energetic-ion energies), the (m, n) harmonics
+of the radial components, the energetic-ion density and delta f(r, v_par). The measured TAE frequency is compared with the analytical one and with the ideal MHD
 frequency of the ITPA benchmark (Koenies et al. 2018), and the growth rate is fitted to the MHD kinetic energy; both
 are saved. A frequency off by more than 10% or, with a filter, a non-positive growth rate fails with an
 ``AssertionError`` after the figures are saved (not with ``--test-run``). With ``--compare OTHER`` (e.g. the output
@@ -60,17 +60,27 @@ TAE_RTOL = 0.1
 # ideal MHD frequency of the TAE in the ITPA benchmark: 4.01e5 rad/s (CAS3D) and 4.13e5 rad/s (GYGLES), the mean of the
 # two, asserted with the same relative tolerance
 OMEGA_ITPA = 4.07e5
-# the growth rate is fitted to the second half of the run (after the initial transient)
-FIT_START = 0.5
+# linear phase of the TAE for the frequency and the growth rate: after the initial transient, before the saturation
+FIT_WINDOW = (100.0, 400.0)
+# time of the delta f(r, v_par) plot, in the saturated phase
+SATURATION = 600.0
+# energetic-ion density of the benchmark, in units of the bulk density 2e19 m^-3
+ITPA_N0 = 1.44131e17 / 2e19
+ITPA_C = (0.49123, 0.298228, 0.198739, 0.521298)
 
 
-def tae_frequency(run, basis):
+def nearest_times(times, targets):
+    """Sorted indices of the saved times closest to the target times, without duplicates."""
+    return sorted({int(np.argmin(np.abs(times - target))) for target in targets})
+
+
+def tae_frequency(run, basis, fit_window):
     """Measured and expected frequency of the TAE.
 
     Expected: omega_TAE = n / (2m + 1) * v_A(r_c) / R0 at the radius r_c of the gap, q(r_c) = (2m + 1) / (2n), for the
     q profile q0 + (q1 - q0) r^2/a^2 of the AdhocTorus; v_A = |B| / sqrt(n) (in units of the Alfven velocity) with the
     flux-surface averages of |B| and of the number density. Measured: the dominant frequency of the (M_TAE, n)
-    harmonic of the radial velocity on the flux surface r_c over the second half of the run (the growing TAE), projected
+    harmonic of the radial velocity on the flux surface r_c in the time window fit_window (the growing TAE), projected
     on its phase at the start of the fit so that a standing or a propagating mode gives the same frequency.
     """
     equil, params = run.equil, run.domain.params
@@ -89,8 +99,8 @@ def tae_frequency(run, basis):
     u_r = run.evaluate("mhd/velocity", representation=basis, eta1=eta1, eta2=eta2, eta3=eta3, component=0)
     modes = u_r.squeeze("eta1", drop=True).plasma.analysis.mode_spectrum()
     coefficient = modes.sel(m=M_TAE, n=N_LOGICAL)
-    coefficient = coefficient.isel(t=slice(int(FIT_START * coefficient.sizes["t"]), None))
-    initial = complex(coefficient.isel(t=0))
+    coefficient = coefficient.sel(t=slice(*fit_window))
+    initial = complex(coefficient.isel(t=0)) if coefficient.sizes["t"] > 0 else 0.0
     phase = initial / abs(initial) if abs(initial) > 0 else 1.0
     signal = (coefficient * np.conj(phase)).real
     # a frequency needs a time series (not e.g. the few saved steps of a test)
@@ -104,22 +114,22 @@ def tae_frequency(run, basis):
     return measured, expected
 
 
-def growth_rate(run):
+def growth_rate(run, fit_window):
     """Growth rate of the TAE: half the slope of ln(en_U) (the MHD kinetic energy grows like exp(2 gamma t)),
-    fitted by least squares to the second half of the run."""
+    fitted by least squares in the time window fit_window."""
     en_u = run.scalars["en_U"]
     t = np.asarray(en_u["t"])
     values = np.asarray(en_u)
-    fit = (t >= t[0] + FIT_START * (t[-1] - t[0])) & (values > 0)
+    fit = (t >= fit_window[0]) & (t <= fit_window[1]) & (values > 0)
     if fit.sum() < 3:
         return float("nan")
     slope = np.polyfit(t[fit], np.log(values[fit]), 1)[0]
     gamma = 0.5 * slope
-    print(f"TAE growth rate gamma = {gamma:.4g} (fit of en_U for t >= {t[fit][0]:.4g})")
+    print(f"TAE growth rate gamma = {gamma:.4g} (fit of en_U for {t[fit][0]:.4g} <= t <= {t[fit][-1]:.4g})")
     return float(gamma)
 
 
-def growth_figure(run, gamma):
+def growth_figure(run, gamma, fit_window):
     """The MHD kinetic energy on a log scale with the fitted exponential growth."""
     en_u = run.scalars["en_U"]
     t = np.asarray(en_u["t"])
@@ -127,12 +137,86 @@ def growth_figure(run, gamma):
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.semilogy(t, values, label="en_U")
     if np.isfinite(gamma):
-        t_fit = t[t >= t[0] + FIT_START * (t[-1] - t[0])]
+        t_fit = t[(t >= fit_window[0]) & (t <= fit_window[1])]
         ref = values[np.searchsorted(t, t_fit[0])] * np.exp(2 * gamma * (t_fit - t_fit[0]))
         ax.semilogy(t_fit, ref, "--", label=f"exp(2 gamma t), gamma = {gamma:.3g}")
     ax.set_xlabel("t")
     ax.set_ylabel("MHD kinetic energy")
     ax.legend()
+    fig.tight_layout()
+    return fig
+
+
+def density_profile_figure(run):
+    """Energetic-ion density and -d ln n / dr at several times against the benchmark profile."""
+    f = run.evaluate("energetic_ions/e1_density/f")
+    t = f["t"].values
+    r = minor_radius(run)(f["eta1"].values)
+
+    n0, (c0, c1, c2, c3) = ITPA_N0 * args.nh_scale, ITPA_C
+    tanh = np.tanh((r - c0) / c2)
+    target = n0 * c3 * np.exp(-c2 / c1 * tanh)
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(11, 4))
+    ax0.plot(r, target, "k--", lw=1, label="ITPA")
+    ax1.plot(r, (1 - tanh**2) / c1, "k--", lw=1, label="ITPA")
+    for n in nearest_times(t, (0.0, 300.0, 600.0, t[-1])):
+        n_r = f.isel(t=n).values
+        # 3-bin smoothing against the marker noise, which the derivative amplifies
+        smooth = np.convolve(n_r, np.ones(3) / 3, mode="same")
+        ax0.plot(r, n_r, label=f"t = {t[n]:.4g}")
+        ax1.plot(r[1:-1], -np.gradient(np.log(smooth), r)[1:-1], label=f"t = {t[n]:.4g}")
+        if n == 0:
+            inner = (r > 0.15) & (r < 0.95)
+            gradient = (r > 0.2) & (r < 0.8)
+            print(
+                f"Energetic-ion density at t = {t[n]:.4g}: max |n / n_ITPA - 1| = "
+                f"{np.abs(n_r / target - 1)[inner].max():.3f} for 0.15 < r < 0.95, peak -d ln n / dr = "
+                f"{(-np.gradient(np.log(smooth), r))[gradient].max():.3f} (ITPA {(1 / c1):.3f})"
+            )
+
+    ax0.set_ylabel("n")
+    ax0.set_title("energetic-ion density")
+    ax1.set_ylabel(r"$-d\ln n / dr$")
+    ax1.set_title("density gradient")
+    ax1.set_xlim(0.2, 0.8)
+    ax1.set_ylim(0.0, 4.0)
+    for ax in (ax0, ax1):
+        ax.set_xlabel("r")
+        ax.grid(True, ls="--", alpha=0.5)
+        ax.legend()
+    fig.tight_layout()
+    return fig
+
+
+def resonance_figure(run):
+    """delta f(r, v_par) at saturation and delta f(v_par) at the gap."""
+    df = run.evaluate("energetic_ions/e1_v1_density/delta_f")
+    t, v = df["t"].values, df["v1"].values
+    r = minor_radius(run)(df["eta1"].values)
+    # v_A = |B| / sqrt(n) in units of the Alfven velocity, with the bulk density 1
+    v_res = run.equil.params["B0"] / 3
+
+    fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(11, 4))
+    n = nearest_times(t, (SATURATION,))[0]
+    vmax = np.abs(df.isel(t=n).values).max() or 1.0
+    mesh = ax0.pcolormesh(v, r, df.isel(t=n).values, cmap="RdBu_r", vmin=-vmax, vmax=vmax, shading="auto")
+    fig.colorbar(mesh, ax=ax0)
+    ax0.set_ylabel("r")
+    ax0.set_title(rf"$\delta f(r, v_\parallel)$ at t = {t[n]:.4g}")
+
+    gap = (r >= 0.45) & (r <= 0.55)
+    for n in nearest_times(t, (200.0, 400.0, 600.0, t[-1])):
+        ax1.plot(v, df.isel(t=n).values[gap].sum(axis=0), label=f"t = {t[n]:.4g}")
+    ax1.axhline(0.0, color="k", lw=0.5)
+    ax1.set_title(r"$\delta f(v_\parallel)$, r = 0.45 - 0.55")
+    ax1.grid(True, ls="--", alpha=0.5)
+    ax1.legend()
+
+    for ax in (ax0, ax1):
+        ax.axvline(-v_res, color="k", ls=":", lw=0.8)
+        ax.axvline(v_res, color="k", ls=":", lw=0.8)
+        ax.set_xlabel(r"$v_\parallel$ (dotted: $\pm v_A/3$)")
     fig.tight_layout()
     return fig
 
@@ -186,7 +270,7 @@ def finish(figs, results_dir, save_figs):
             plt.close(fig)
 
 
-def main(path_out=None, save_figs=True, compare=None):
+def main(path_out=None, save_figs=True, compare=None, fit_window=FIT_WINDOW):
     path_out = DEFAULT_OUTPUT if path_out is None else path_out
     run = Output(path_out)
     snapshots = run.standard_snapshots()
@@ -201,8 +285,8 @@ def main(path_out=None, save_figs=True, compare=None):
     bases = {f"{s}/{v}": run.field_basis(f"{s}/{v}") if vector else None for _, _, s, v, vector in FIELDS}
 
     # frequency and growth rate of the TAE, compared with the expectations at the end (after the figures)
-    measured, expected = tae_frequency(run, bases["mhd/velocity"])
-    gamma = growth_rate(run)
+    measured, expected = tae_frequency(run, bases["mhd/velocity"], fit_window)
+    gamma = growth_rate(run, fit_window)
     # in SI units (time unit of the run in seconds)
     t_unit = float(run.units.t)
     measured_si, gamma_si = measured / t_unit, gamma / t_unit
@@ -214,7 +298,12 @@ def main(path_out=None, save_figs=True, compare=None):
     np.save(os.path.join(results_dir, "gamma_tae.npy"), gamma)
     np.save(os.path.join(results_dir, "gamma_tae_si.npy"), gamma_si)
 
-    figs = {"energies": run.plot.energies(parts=ENERGIES).fig, "growth": growth_figure(run, gamma)}
+    figs = {"energies": run.plot.energies(parts=ENERGIES).fig, "growth": growth_figure(run, gamma, fit_window)}
+    # the binned distributions are not in the runs of older params files
+    if "energetic_ions/e1_density/f" in run.keys():
+        figs["density_profile"] = density_profile_figure(run)
+    if "energetic_ions/e1_v1_density/delta_f" in run.keys():
+        figs["resonance"] = resonance_figure(run)
     if compare is not None:
         other = Output(compare)
         # labelled by the folder names, or by the full paths if the names are equal
@@ -305,6 +394,19 @@ def cli():
         default=None,
         help="Output folder of a second run to overlay in filter_comparison.png.",
     )
+    pproc_parser.add_argument(
+        "--fit-window",
+        type=float,
+        nargs=2,
+        default=FIT_WINDOW,
+        metavar=("T0", "T1"),
+        help="Time window of the frequency and growth rate fits (default: %(default)s).",
+    )
     pproc_parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
     pproc_args = pproc_parser.parse_args(other_flags)
-    main(pproc_args.path_out, save_figs=not pproc_args.show, compare=pproc_args.compare)
+    main(
+        pproc_args.path_out,
+        save_figs=not pproc_args.show,
+        compare=pproc_args.compare,
+        fit_window=tuple(pproc_args.fit_window),
+    )
