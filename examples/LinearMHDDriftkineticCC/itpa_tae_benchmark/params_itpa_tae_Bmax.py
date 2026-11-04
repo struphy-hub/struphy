@@ -51,8 +51,8 @@ parser.add_argument(
     default=1.0,
     help="Factor on the energetic-ion density profile of the benchmark (the growth rate is proportional to it).",
 )
-parser.add_argument("--dt", type=float, default=1.0, help="Time step.")
-parser.add_argument("--tend", type=float, default=1200.0, help="End time.")
+parser.add_argument("--dt", type=float, default=0.25, help="Time step.")
+parser.add_argument("--tend", type=float, default=700.0, help="End time.")
 parser.add_argument(
     "--filter",
     default="fourier",

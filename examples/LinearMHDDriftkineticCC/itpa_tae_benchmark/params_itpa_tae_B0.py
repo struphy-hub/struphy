@@ -51,8 +51,8 @@ parser.add_argument(
     default=1.0,
     help="Factor on the energetic-ion density profile of the benchmark (the growth rate is proportional to it).",
 )
-parser.add_argument("--dt", type=float, default=1.0, help="Time step.")
-parser.add_argument("--tend", type=float, default=1200.0, help="End time.")
+parser.add_argument("--dt", type=float, default=0.25, help="Time step.")
+parser.add_argument("--tend", type=float, default=700.0, help="End time.")
 parser.add_argument(
     "--filter",
     default="fourier",
@@ -150,7 +150,7 @@ units), represented by {args.Np} markers with delta-f weights (control variate).
     n0 = 1.44131e17 m^-3, (c0, c1, c2, c3) = {C_FIT},
 (times --nh-scale = {args.nh_scale}). The equilibrium is the canonical Maxwellian with shift="B0" (see
 CanonicalMaxwellian2D). This shift is not a constant of motion for a part of the trapped particles,
-so this distribution is not an exact equilibrium.
+so this distribution is not an exact equilibrium and drives delta-f in the steep gradient without any wave.
 The coefficients are fitted at 400 keV, so that the density in the radius of the position matches the benchmark profile
     n_h(s) = n0 c3 exp(-(c2/c1) tanh((sqrt(s) - c0) / c2)), c0 = 0.49123, c1 = 0.298228, c2 = 0.198739, c3 = 0.521298:
 for another temperature, refit them. The benchmark used a distribution of the flux label of the position; with a
@@ -349,7 +349,8 @@ if args.magnetosonic_cross_b0:
 
 # energetic ions: canonical Maxwellian (equilibrium, the control variate of delta-f)
 model.energetic_ions.var.add_background(
-    # shift="B0" is not a constant of motion for a part of the trapped particles: not an exact equilibrium
+    # shift="B0" is not a constant of motion for a part of the trapped particles and would drive delta-f in the steep
+    # gradient without any wave: not an exact equilibrium
     maxwellians.CanonicalMaxwellian2D(n=(n_hot, None), vth=(vth, None), equil=equil, epsilon=epsilon, shift="B0")
 )
 
