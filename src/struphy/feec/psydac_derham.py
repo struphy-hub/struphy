@@ -576,11 +576,12 @@ class Derham:
         for an aligned multigrid level. Must match ``grid.num_elements`` and the periodicity from ``options.bcs``,
         and be built on ``comm``. If None (default), it is computed from ``comm`` and ``grid.mpi_dims_mask``.
 
-    multiplicity : int, default=1
-        Multiplicity of the interior knots of the 0-form space. With multiplicity :math:`m`, ``V0`` is the space of
-        splines of degree :math:`p` and regularity :math:`C^{p-m}`. Values :math:`m > 1` build an auxiliary sequence
-        without commuting projectors, e.g. the space :math:`W = S_p^{p-2}` that contains all components of the 2-forms,
-        see :class:`~struphy.feec.variational_utilities.HdivBracketOperator`.
+    multiplicity : int | tuple[int, int, int], default=1
+        Multiplicity of the interior knots of the 0-form space (one value or one per direction). With multiplicity
+        :math:`m`, ``V0`` is the space of splines of degree :math:`p` and regularity :math:`C^{p-m}`. Values
+        :math:`m > 1` build an auxiliary sequence without commuting projectors, e.g. the space
+        :math:`W = S_p^{p-2}` that contains all components of the 2-forms, see
+        :class:`~struphy.feec.variational_utilities.DoubleKnotSpace`.
 
     Notes
     -----
@@ -600,10 +601,15 @@ class Derham:
         domain: Domain = None,
         *,
         domain_decomposition: DomainDecomposition | None = None,
-        multiplicity: int = 1,
+        multiplicity: int | tuple = 1,
     ):
-        assert isinstance(multiplicity, int) and multiplicity >= 1, f"{multiplicity = } must be a positive integer."
-        assert multiplicity == 1 or (not options.polar_splines and not options.local_projectors), (
+        if isinstance(multiplicity, int):
+            multiplicity = (multiplicity,) * 3
+        multiplicity = tuple(int(m) for m in multiplicity)
+        assert len(multiplicity) == 3 and all(m >= 1 for m in multiplicity), (
+            f"{multiplicity = } must be positive integers."
+        )
+        assert multiplicity == (1, 1, 1) or (not options.polar_splines and not options.local_projectors), (
             "multiplicity > 1 is not available with polar splines or local projectors."
         )
         self._multiplicity = multiplicity
@@ -689,7 +695,7 @@ class Derham:
         # Other derived properties
         self._mpi_dims_mask = mpi_dims_mask
         # the commuting projectors are skipped for an auxiliary sequence with multiple knots (not needed there)
-        with_projectors = multiplicity == 1
+        with_projectors = multiplicity == (1, 1, 1)
         self._with_projectors = with_projectors
         self._with_local_projectors = local_projectors
 
@@ -966,8 +972,8 @@ class Derham:
         return self._options
 
     @property
-    def multiplicity(self) -> int:
-        """Multiplicity of the interior knots of the 0-form space (1 for the standard sequence)."""
+    def multiplicity(self) -> tuple[int, int, int]:
+        """Multiplicity of the interior knots of the 0-form space in each direction (1 for the standard sequence)."""
         return self._multiplicity
 
     @property
@@ -1875,7 +1881,7 @@ class Derham:
         ncells = num_elements
         periodic = spl_kind
         degree_i = degree
-        multiplicity_i = (self.multiplicity,) * 3
+        multiplicity_i = self.multiplicity
 
         # unit cube
         min_coords = (0.0, 0.0, 0.0)

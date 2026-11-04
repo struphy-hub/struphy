@@ -402,6 +402,10 @@ class DoubleKnotSpace:
       (restricted to the coefficients owned by the process) and :math:`D` the ratio of the diagonals of
       :math:`\mathbb M^W[\sqrt g]` and :math:`\mathbb K`.
 
+    In a periodic direction with a single element (a reduced direction of a 2D or 1D run, where all functions are
+    constant), :math:`W` is the space of the main sequence in that direction (simple knots), which contains the
+    constants; the degree :math:`p \geq 2` is needed only in the other directions.
+
     Parameters
     ----------
     derham : Derham
@@ -413,6 +417,11 @@ class DoubleKnotSpace:
 
     def __init__(self, derham: Derham, domain):
         assert not derham.polar_splines, "DoubleKnotSpace is not available for polar splines."
+        reduced = tuple(n == 1 and periodic for n, periodic in zip(derham.num_elements, derham.spl_kind))
+        assert all(r or p >= 2 for r, p in zip(reduced, derham.degree)), (
+            f"The space W of double knots needs degree >= 2 (except in periodic directions with one element), "
+            f"got {derham.degree}."
+        )
         bcs_W = tuple(None if bc is None else ("free", "free") for bc in derham.options.bcs)
         options_W = DerhamOptions(degree=derham.degree, bcs=bcs_W, nquads=derham.nquads)
         self._derham_W = Derham(
@@ -421,7 +430,7 @@ class DoubleKnotSpace:
             comm=derham.comm,
             domain=domain,
             domain_decomposition=derham.domain_decomposition,
-            multiplicity=2,
+            multiplicity=tuple(1 if r else 2 for r in reduced),
         )
         derW = self._derham_W
         self._space = derW.V0
@@ -461,7 +470,8 @@ class DoubleKnotSpace:
 
         # Stencil data layout: ghost regions of width pads * shifts; the kernels expect width pads
         self._ghost = [pd * sh for pd, sh in zip(V.pads, V.shifts)]
-        self._eval_slice = tuple(slice(pd * (sh - 1), -pd * (sh - 1)) for pd, sh in zip(V.pads, V.shifts))
+        n_data = V.zeros()._data.shape
+        self._eval_slice = tuple(slice(pd * (sh - 1), n - pd * (sh - 1)) for pd, sh, n in zip(V.pads, V.shifts, n_data))
         self._owned = tuple(slice(g, g + e - s + 1) for g, s, e in zip(self._ghost, V.starts, V.ends))
         self._starts = [int(s) for s in V.starts]
         self._kind = xp.zeros(3, dtype=int)
@@ -582,13 +592,17 @@ class _DoubleKnotMass(LinearOperator):
         self._p = p
         self._ghost = W._ghost
 
+        # a periodic direction with fewer basis functions than the band width (e.g. a reduced direction with one
+        # element): one color per column, and each column is stored once (at its first offset in the band)
         colors = []
         for d in range(3):
             width = 2 * p[d] + 1
-            assert nb[d] >= width, f"Too few basis functions ({nb[d]}) in direction {d} for the band width {width}."
-            if periodic[d]:
+            if periodic[d] and nb[d] < width:
+                colors += [nb[d]]
+            elif periodic[d]:
                 colors += [next(c for c in range(width, nb[d] + 1) if nb[d] % c == 0)]
             else:
+                assert nb[d] >= width, f"Too few basis functions ({nb[d]}) in direction {d} for the band width {width}."
                 colors += [width]
 
         rows = [np.arange(s, e + 1) for s, e in zip(starts, ends)]
@@ -615,7 +629,7 @@ class _DoubleKnotMass(LinearOperator):
                             hit = (j % nb[d]) % colors[d] == c[d]
                         else:
                             hit = (j >= 0) & (j < nb[d]) & (j % colors[d] == c[d])
-                        assert np.all(hit.sum(axis=1) <= 1)
+                        assert np.all(hit.sum(axis=1) <= 1) or nb[d] < 2 * p[d] + 1
                         has = hit.any(axis=1)
                         sel += [np.nonzero(has)[0]]
                         offsets += [np.argmax(hit[has], axis=1)]
@@ -701,7 +715,8 @@ class _DoubleKnotMassPreconditioner(LinearOperator):
             for e in range(spans.size):
                 idx = (spans[e] - p + np.arange(p + 1)) % nb
                 b = bases[e, :, 0, :]
-                M[np.ix_(idx, idx)] += (b * wts[e]) @ b.T
+                # add.at: the indices repeat in a periodic direction with fewer basis functions than p + 1
+                np.add.at(M, (idx[:, None], idx[None, :]), (b * wts[e]) @ b.T)
             s, e_ = int(V.starts[d]), int(V.ends[d])
             M_loc = M[s : e_ + 1, s : e_ + 1]
             self._inv_1d += [np.linalg.inv(M_loc)]
@@ -818,7 +833,6 @@ class HdivBracketOperator(LinearOperator):
         from struphy.feec.preconditioner import MassMatrixPreconditioner
 
         assert not derham.polar_splines, "HdivBracketOperator is not available for polar splines."
-        assert all(p >= 2 for p in derham.degree), f"HdivBracketOperator needs degree >= 2, got {derham.degree}."
 
         self._derham = derham
         self._domain = derham.V2pol
@@ -2297,36 +2311,50 @@ class KineticEnergyEvaluator:
 
     divdiv_alpha : float
         Coefficient of the div-div term of the kinetic energy, see :func:`kinetic_metric`.
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` (contravariant components :math:`\hat{\mathbf u}`) or ``"Hdiv"`` (2-form
+        :math:`\hat{\mathbf u}^2 = \sqrt g\, \hat{\mathbf u}`, no div-div term): the metric weights :math:`G` and
+        :math:`G \sqrt g` below become :math:`G/g` and :math:`G/\sqrt g`.
     """
 
-    def __init__(self, derham, domain, mass_ops, basis_ops=None, divdiv_alpha: float = 0.0):
+    def __init__(self, derham, domain, mass_ops, basis_ops=None, divdiv_alpha: float = 0.0, u_space: str = "H1vec"):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        assert u_space == "H1vec" or divdiv_alpha == 0.0, 'u_space="Hdiv" needs divdiv_alpha=0.'
         integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
             integration_grid,
         )
+        bn, bd = self.integration_grid_bn, self.integration_grid_bd
+        if u_space == "Hdiv":
+            self._u_bases = [[bn[0], bd[1], bd[2]], [bd[0], bn[1], bd[2]], [bd[0], bd[1], bn[2]]]
+        else:
+            self._u_bases = [bn] * 3
 
         # tmps
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        self.uf = derham.create_spline_function("uf", "H1vec")
-        self.uf1 = derham.create_spline_function("uf1", "H1vec")
+        self.uf = derham.create_spline_function("uf", u_space)
+        self.uf1 = derham.create_spline_function("uf1", u_space)
 
         self._uf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._Guf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
-        metric = domain.metric(
-            *integration_grid,
-        ) * domain.jacobian_det(*integration_grid)
-        self._proj_u2_metric_term = deepcopy(metric)
+        # |u|^2 = u^T G u (H1vec) or u^T G u / g (Hdiv); get_u2_grid values are integrated with the 3-form weight
+        # 1/sqrt(g), hence the factor sqrt(g)
+        sqrt_g = domain.jacobian_det(*integration_grid)
+        if u_space == "Hdiv":
+            self._proj_u2_metric_term = deepcopy(domain.metric(*integration_grid) / sqrt_g)
+            self._mass_u_metric_term = deepcopy(domain.metric(*integration_grid) / sqrt_g**2)
+        else:
+            self._proj_u2_metric_term = deepcopy(domain.metric(*integration_grid) * sqrt_g)
+            self._mass_u_metric_term = deepcopy(domain.metric(*integration_grid))
 
-        metric = domain.metric(*integration_grid)
-        self._mass_u_metric_term = deepcopy(metric)
-
-        self._M_un = mass_ops.create_weighted_mass("H1vec", "L2")
-        self._M_un1 = mass_ops.create_weighted_mass("L2", "H1vec")
+        self._M_un = mass_ops.create_weighted_mass(u_space, "L2")
+        self._M_un1 = mass_ops.create_weighted_mass("L2", u_space)
 
         # div-div term alpha int rho (div u)^2 dx of the kinetic energy, with sqrt(g) div u = D Uv u (a 3-form)
         assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
@@ -2429,18 +2457,12 @@ class KineticEnergyEvaluator:
 
         uf_values = self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf_values,
         )
         uf1_values = self.uf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf1_values,
         )
 
@@ -2462,10 +2484,7 @@ class KineticEnergyEvaluator:
 
         uf_values = self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf_values,
         )
 
@@ -2487,10 +2506,7 @@ class KineticEnergyEvaluator:
 
         uf1_values = self.uf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf1_values,
         )
 

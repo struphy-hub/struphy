@@ -100,6 +100,30 @@ def test_variational_mhd_with_p_default_options(tmp_path):
 
 @pytest.mark.models
 @pytest.mark.fluid
+def test_variational_perturbative_hdiv(tmp_path, update_baselines: bool, test_profiling: bool = True):
+    """The nonlinear VariationalPerturbativeMHD with the velocity in H(div): the default parameter file keeps the
+    flag and sets a degree >= 2 (needed by the momentum advection), and the generic model test passes."""
+    from struphy.io.setup import import_parameters_py
+    from struphy.models import VariationalPerturbativeMHD
+
+    model = VariationalPerturbativeMHD(u_space="Hdiv")
+    path = os.path.join(tmp_path, "params_VariationalPerturbativeMHD_hdiv.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params = import_parameters_py(path)
+    assert params.model.params["u_space"] == "Hdiv"
+    assert params.model.mhd.velocity.space == "Hdiv"
+    assert params.derham_opts.degree[:2] == (2, 2)
+
+    ut.call_test(
+        model=model,
+        test_profiling=test_profiling,
+        case="VariationalPerturbativeMHD-u_space=Hdiv",
+        update_baselines=update_baselines,
+    )
+
+
+@pytest.mark.models
+@pytest.mark.fluid
 @pytest.mark.parametrize("perturbative_model", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
 @pytest.mark.parametrize("crank_nicolson", [False, True])
 def test_variational_perturbative_linear(
