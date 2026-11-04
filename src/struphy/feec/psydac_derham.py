@@ -576,6 +576,12 @@ class Derham:
         for an aligned multigrid level. Must match ``grid.num_elements`` and the periodicity from ``options.bcs``,
         and be built on ``comm``. If None (default), it is computed from ``comm`` and ``grid.mpi_dims_mask``.
 
+    multiplicity : int, default=1
+        Multiplicity of the interior knots of the 0-form space. With multiplicity :math:`m`, ``V0`` is the space of
+        splines of degree :math:`p` and regularity :math:`C^{p-m}`. Values :math:`m > 1` build an auxiliary sequence
+        without commuting projectors, e.g. the space :math:`W = S_p^{p-2}` that contains all components of the 2-forms,
+        see :class:`~struphy.feec.variational_utilities.HdivBracketOperator`.
+
     Notes
     -----
     The underlying base sequence is
@@ -594,7 +600,13 @@ class Derham:
         domain: Domain = None,
         *,
         domain_decomposition: DomainDecomposition | None = None,
+        multiplicity: int = 1,
     ):
+        assert isinstance(multiplicity, int) and multiplicity >= 1, f"{multiplicity = } must be a positive integer."
+        assert multiplicity == 1 or (not options.polar_splines and not options.local_projectors), (
+            "multiplicity > 1 is not available with polar splines or local projectors."
+        )
+        self._multiplicity = multiplicity
 
         # inputs
         self._grid = grid
@@ -676,7 +688,8 @@ class Derham:
 
         # Other derived properties
         self._mpi_dims_mask = mpi_dims_mask
-        with_projectors = True  # projectors are always built in the current implementation, but this flag can be used to skip their construction if not needed
+        # the commuting projectors are skipped for an auxiliary sequence with multiple knots (not needed there)
+        with_projectors = multiplicity == 1
         self._with_projectors = with_projectors
         self._with_local_projectors = local_projectors
 
@@ -951,6 +964,11 @@ class Derham:
     def options(self) -> DerhamOptions:
         """The DerhamOptions object containing the input options for the Derham sequence construction."""
         return self._options
+
+    @property
+    def multiplicity(self) -> int:
+        """Multiplicity of the interior knots of the 0-form space (1 for the standard sequence)."""
+        return self._multiplicity
 
     @property
     def comm(self):
@@ -1857,7 +1875,7 @@ class Derham:
         ncells = num_elements
         periodic = spl_kind
         degree_i = degree
-        multiplicity_i = (1, 1, 1)
+        multiplicity_i = (self.multiplicity,) * 3
 
         # unit cube
         min_coords = (0.0, 0.0, 0.0)
