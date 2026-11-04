@@ -134,7 +134,8 @@ class VlasovAmpereCoupling(Propagator):
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Symmetric iterative solver used by :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Preconditioner for electric-field mass matrix block.
+            Preconditioner for electric-field mass matrix block (with polar splines, ``"MassMatrixPreconditioner"``
+            is replaced by ``"PolarMassMatrixPreconditioner"``).
         solver_params : SolverParameters, default=None
             Solver controls.
         matrix_free : bool, default=False
@@ -221,20 +222,32 @@ class VlasovAmpereCoupling(Propagator):
             )
             self._A_particles = self._accum.operators[0]
 
-        # Create buffers to store temporarily e and its sum with old e
-        self._e_tmp = self.derham.V1.zeros()
-        self._e_scale = self.derham.V1.zeros()
-        self._e_sum = self.derham.V1.zeros()
+        # Create buffers to store temporarily e and its sum with old e (in the space of e, polar with polar splines)
+        e_space = self.variables.e.spline.vector.space
+        self._e_tmp = e_space.zeros()
+        self._e_scale = e_space.zeros()
+        self._e_sum = e_space.zeros()
+
+        # the mid-point field on the tensor-product space, read by the pusher kernel: E1^T e_sum (identity map
+        # without polar splines, then e_sum itself is used)
+        self._E1T = self.derham.extraction_ops["1"].transpose()
+        if self.derham.polar_splines:
+            self._e_sum_tp = self.derham.V1.zeros()
+        else:
+            self._e_sum_tp = self._e_sum
 
         # ================================
         # ========= Schur Solver =========
         # ================================
 
-        # Preconditioner
-        if self.options.precond is None:
+        # Preconditioner (the polar version of the mass matrix preconditioner with polar splines)
+        precond = self.options.precond
+        if precond == "MassMatrixPreconditioner" and self.derham.polar_splines:
+            precond = "PolarMassMatrixPreconditioner"
+        if precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.options.precond)
+            pc_class = getattr(preconditioner, precond)
             pc = pc_class(self.mass_ops.M1)
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -253,9 +266,9 @@ class VlasovAmpereCoupling(Propagator):
         # Instantiate particle pusher
         args_kernel = (
             self.derham.args_derham,
-            self._e_sum.blocks[0]._data,
-            self._e_sum.blocks[1]._data,
-            self._e_sum.blocks[2]._data,
+            self._e_sum_tp.blocks[0]._data,
+            self._e_sum_tp.blocks[1]._data,
+            self._e_sum_tp.blocks[2]._data,
             self._c2,
         )
 
@@ -296,8 +309,11 @@ class VlasovAmpereCoupling(Propagator):
         self._e_sum += self.variables.e.spline.vector
         self._e_sum += self._e_tmp
         self._e_sum *= 0.5
+        # on the tensor-product space (polar splines)
+        if self._e_sum_tp is not self._e_sum:
+            self._E1T.dot(self._e_sum, out=self._e_sum_tp)
         # the pusher kernel reads the ghost regions directly (the solver output may leave them stale)
-        self._e_sum.update_ghost_regions()
+        self._e_sum_tp.update_ghost_regions()
 
         # Update velocities
         self._pusher(dt)

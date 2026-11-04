@@ -92,16 +92,8 @@ def test_slab_waves_1d(b_space: str, projected: bool):
 def _schur_call_relative(self, xn, Byn, dt, out=None):
     """SchurSolver.__call__ with the solve for the normalized right-hand side (relative tolerance), such that the
     columns of the one-step map (unit vectors and their images) are all solved to the same relative accuracy."""
-    self._schur *= 0.0
-    self._schur += self._BC
-    self._schur *= -(dt**2)
-    self._schur += self._A
-    self._rhs_m *= 0.0
-    self._rhs_m += self._BC
-    self._rhs_m *= dt**2
-    self._rhs_m += self._A
-    self._solver.linop = self._schur
-    rhs = self._rhs_m.dot(xn, out=self._rhs)
+    _, rhs_m = self.update_operators(dt)
+    rhs = rhs_m.dot(xn, out=self._rhs)
     rhs /= 2 * dt
     rhs -= Byn
     rhs *= 2 * dt
