@@ -111,14 +111,37 @@ def test_stiffness_preconditioner_dt_change():
 
 
 def test_polar_stiffness_preconditioner():
-    """With polar splines, the default preconditioner is a PolarStiffnessPreconditioner. (No solve: the implicit step
-    with polar splines currently fails in SchurSolver with any preconditioner.)"""
+    """With polar splines, the default preconditioner is a PolarStiffnessPreconditioner."""
     from struphy.feec.preconditioner import PolarStiffnessPreconditioner
 
     derham, dom = _setup("IGAPolarCylinder")
     prop = _propagator(derham, dom)
     prop.prepare_time_step(1.0)
     assert isinstance(prop._schur_solver.precond, PolarStiffnessPreconditioner)
+
+
+def test_polar_implicit_step():
+    """Implicit step with polar splines (issue #820): exact energy conservation and the same solution with every
+    preconditioner (and without)."""
+    derham, dom = _setup("IGAPolarCylinder")
+    dt = 0.2
+    solver_params = SolverParameters(tol=1e-12, maxiter=3000)
+
+    solution = {}
+    for precond in ("StiffnessPreconditioner", "PolarMassMatrixPreconditioner", None):
+        prop = _propagator(derham, dom, precond=precond, solver_params=solver_params)
+        e0 = prop.variables.e.spline.vector.copy()
+        energy_0 = _energy(prop)
+        prop(dt)
+        assert abs(_energy(prop) - energy_0) < 1e-8 * energy_0
+        diff = prop.variables.e.spline.vector - e0
+        assert diff.inner(diff) > 1e-6 * e0.inner(e0)
+        solution[precond] = prop.variables.e.spline.vector.copy()
+
+    ref = solution["StiffnessPreconditioner"]
+    for precond in ("PolarMassMatrixPreconditioner", None):
+        diff = solution[precond] - ref
+        assert diff.inner(diff) ** 0.5 < 1e-8 * ref.inner(ref) ** 0.5
 
 
 def test_explicit_default_precond():
