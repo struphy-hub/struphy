@@ -26,6 +26,7 @@ from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
 from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
 from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
 from struphy.propagators.magnetosonic import Magnetosonic
+from struphy.propagators.magnetosonic_cross_b0 import MagnetosonicCrossB0
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
@@ -56,6 +57,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
     turn_off: tuple[str, ...]
         Names of coupling terms to turn off (default: (None,))
+    magnetosonic_cross_b0: bool
+        Use :class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0` instead of
+        :class:`~struphy.propagators.magnetosonic.Magnetosonic` for the propagator ``magnetosonic``
+        (default: False)
     """
 
     @classmethod
@@ -97,6 +102,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             turn_off: tuple[str, ...] = (None,),
             b_field: FEECVariable = None,
             energetic_ions_var: PICVariable = None,
+            magnetosonic_cross_b0: bool = False,
         ):
             if "PushGuidingCenterBxEstar" not in turn_off:
                 self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
@@ -105,7 +111,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
             if "ShearAlfvenCurrentCoupling5D" not in turn_off:
                 self.shearalfen_cc5d = ShearAlfvenCurrentCoupling5D(energetic_ions=energetic_ions_var)
             if "Magnetosonic" not in turn_off:
-                self.magnetosonic = Magnetosonic(b_field=b_field)
+                magnetosonic_class = MagnetosonicCrossB0 if magnetosonic_cross_b0 else Magnetosonic
+                self.magnetosonic = magnetosonic_class(b_field=b_field)
             if "CurrentCoupling5DDensity" not in turn_off:
                 self.cc5d_density = CurrentCoupling5DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
             if "CurrentCoupling5DGradB" not in turn_off:
@@ -121,6 +128,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         hot_mass_number: float = 1.0,
         hot_epsilon: float = None,
         turn_off: tuple[str, ...] = (None,),
+        magnetosonic_cross_b0: bool = False,
     ):
 
         # 0. store input parameters
@@ -143,6 +151,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             turn_off,
             b_field=self.em_fields.b_field,
             energetic_ions_var=self.energetic_ions.var,
+            magnetosonic_cross_b0=magnetosonic_cross_b0,
         )
 
         # 4. assign variables to propagators
@@ -328,7 +337,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         1. :class:`~struphy.propagators.push_guiding_center_bx_estar.PushGuidingCenterBxEstar`
         2. :class:`~struphy.propagators.push_guiding_center_parallel.PushGuidingCenterParallel`
         3. :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
-        4. :class:`~struphy.propagators.magnetosonic.Magnetosonic`
+        4. :class:`~struphy.propagators.magnetosonic.Magnetosonic`, or
+           :class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0` with ``magnetosonic_cross_b0=True``
         5. :class:`~struphy.propagators.current_coupling_5d_density.CurrentCoupling5DDensity`
         6. :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
         7. :class:`~struphy.propagators.current_coupling_5d_curlb.CurrentCoupling5DCurlb`
@@ -354,6 +364,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
 **4. magnetosonic.Magnetosonic:**
 
 {Magnetosonic.__doc__}
+
+**4 (with magnetosonic_cross_b0=True). magnetosonic_cross_b0.MagnetosonicCrossB0:**
+
+{MagnetosonicCrossB0.__doc__}
 
 **5. current_coupling_5d_density.CurrentCoupling5DDensity:**
 

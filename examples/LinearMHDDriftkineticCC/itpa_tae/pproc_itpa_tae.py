@@ -1,7 +1,7 @@
 """Plot the ITPA TAE runs (LinearMHDDriftkineticCC).
 
-Run as ``python pproc_itpa_tae.py [path_out] [--show]``; the default ``path_out`` is ``sim_fourier/`` beside this
-file (the output of params_itpa_tae_fourier.py), use ``sim_hybrid`` for params_itpa_tae_hybrid.py.
+Run as ``python pproc_itpa_tae.py [path_out] [--show]``; the default ``path_out`` is ``sim_Bmax/`` beside this
+file (the output of params_itpa_tae_Bmax.py), use ``sim_B0`` for params_itpa_tae_B0.py.
 
 Five figures are saved in ``<path_out>/diagnostics``:
 - ``energy.png``: |B~|^2 and |U~|^2 with an exponential fit of |B~|^2 in the linear phase,
@@ -22,7 +22,7 @@ from maybempi import MPI
 from struphy import Output
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_OUTPUT = SCRIPT_DIR / "sim_fourier"
+DEFAULT_OUTPUT = SCRIPT_DIR / "sim_Bmax"
 
 # linear growth phase (used for the fit; its end is the time of the harmonics and poloidal plots)
 FIT_WINDOW = (100.0, 400.0)
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         "path_out",
         nargs="?",
         default=DEFAULT_OUTPUT,
-        help="simulation output folder (default: sim_fourier beside this script)",
+        help="simulation output folder (default: sim_Bmax beside this script)",
     )
     pproc_parser.add_argument("--show", action="store_true", help="show the figures instead of saving them")
     pproc_args = pproc_parser.parse_args()

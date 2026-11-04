@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
 
-import cunumpy as xp
 from feectools.linalg.basic import IdentityOperator
 from line_profiler import profile
 from maybempi import MPI
@@ -124,24 +123,16 @@ class Magnetosonic(Propagator):
         solver_params : SolverParameters, default=None
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
-
-        with_jxb : bool, default=True
-            Whether to include the equilibrium current term J0 x B in the momentum equation.
         """
 
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        with_jxb: bool = True
-        jxb_parallel_projection: bool = False
 
         def __post_init__(self):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
-            if self.jxb_parallel_projection:
-                assert self.with_jxb, "jxb_parallel_projection needs with_jxb=True."
-                assert self.u_space == "Hdiv", 'jxb_parallel_projection needs u_space="Hdiv".'
             check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
@@ -194,10 +185,7 @@ class Magnetosonic(Propagator):
         # the factor 1/2 of Crank-Nicolson multiplies the whole pressure operator div(p0 u) + 2/3 p0 div u
         self._C = 1 / 2.0 * (self.derham.div @ _S + 2 / 3 * _K @ self.derham.div @ _U)
 
-        if self.options.jxb_parallel_projection:
-            assert self.b_field.space == "Hdiv", 'jxb_parallel_projection needs b_field in "Hdiv".'
-            self._MJ = self._jxb_operator_parallel_projection()
-        elif self.b_field.space == "Hcurl":
+        if self.b_field.space == "Hcurl":
             if u_space != "Hdiv":
                 raise NotImplementedError('A magnetic field in Hcurl requires u_space="Hdiv".')
             self._MJ = self.mass_ops.M21J
@@ -247,10 +235,9 @@ class Magnetosonic(Propagator):
 
         # solve for new u coeffs (no tmps created here)
         byn1 = self._B.dot(pn, out=self._byn1)
-        if self.options.with_jxb:
-            byn2 = self._MJ.dot(self._b, out=self._byn2)
-            byn2 *= 1 / 2
-            byn1 -= byn2
+        byn2 = self._MJ.dot(self._b, out=self._byn2)
+        byn2 *= 1 / 2
+        byn1 -= byn2
 
         un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
 
@@ -274,30 +261,3 @@ class Magnetosonic(Propagator):
             logger.info(f"Maxdiff up for Magnetosonic: {diffs['u']}")
             logger.info(f"Maxdiff p3 for Magnetosonic: {diffs['p']}")
             logger.info("")
-
-    def _jxb_operator_parallel_projection(self):
-        from struphy.feec.utilities import LocalRotationMatrix
-
-        eq = self.mass_ops.eq_mhd
-        j_funs = (eq.j2_1, eq.j2_2, eq.j2_3)
-        b_funs = (eq.b2_1, eq.b2_2, eq.b2_3)
-
-        def c_par(e1, e2, e3):
-            G = self.domain.metric(e1, e2, e3, change_out_order=True, squeeze_out=False)
-            j = xp.stack([fun(e1, e2, e3) for fun in j_funs], axis=-1)
-            b = xp.stack([fun(e1, e2, e3) for fun in b_funs], axis=-1)
-            Gb = xp.einsum("...ij,...j->...i", G, b)
-            return xp.einsum("...i,...i->...", j, Gb) / xp.einsum("...i,...i->...", b, Gb)
-
-        diag = [[c_par if m == n else None for n in range(3)] for m in range(3)]
-        M21_c = self.mass_ops.create_weighted_mass("Hdiv", "Hcurl", weights=diag, name="M21Jpar", assemble=True)
-
-        j_perp = [
-            (lambda e1, e2, e3, k=k: j_funs[k](e1, e2, e3) - c_par(e1, e2, e3) * b_funs[k](e1, e2, e3))
-            for k in range(3)
-        ]
-        M2J_perp = self.mass_ops.create_weighted_mass(
-            "Hdiv", "Hdiv", weights=(LocalRotationMatrix(*j_perp), "1/sqrt_g"), name="M2Jperp", assemble=True
-        )
-
-        return -1.0 * self.basis_ops.T2.T @ M21_c + M2J_perp

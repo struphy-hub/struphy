@@ -1,5 +1,5 @@
 """ITPA benchmark TAE (n = 6, m = 10, 11) driven by drift-kinetic energetic deuterons (LinearMHDDriftkineticCC):
-toroidal Fourier filter and the canonical Maxwellian with the B_max correction (exact equilibrium)."""
+toroidal Fourier filter and the canonical Maxwellian with the on-axis B0 correction."""
 
 import argparse
 from pathlib import Path
@@ -10,7 +10,7 @@ parser.add_argument(
     default=str(Path(__file__).resolve().parent),
     help="Folder in which the output folder is created (default: beside this file).",
 )
-parser.add_argument("--sim-folder", default="sim_fourier", help="Name of the output folder.")
+parser.add_argument("--sim-folder", default="sim_B0", help="Name of the output folder.")
 parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 96, 16], help="Number of elements per direction.")
 parser.add_argument("--ppc", type=int, default=100, help="Markers per cell of the energetic ions.")
 parser.add_argument("--dt", type=float, default=0.25, help="Time step.")
@@ -30,10 +30,10 @@ if args.test_run:
 # Description of the simulation
 # -----------------------------
 
-name = "ITPA TAE (LinearMHDDriftkineticCC), Fourier filter, B_max canonical Maxwellian"
+name = "ITPA TAE (LinearMHDDriftkineticCC), Fourier filter, B0 canonical Maxwellian"
 description = """
 ITPA benchmark TAE (n = 6, m = 10, 11, Koenies et al., Nucl. Fusion 58, 126027 (2018)) driven by energetic deuterons.
-Toroidal Fourier filter, canonical Maxwellian with correction_B="Bmax" (exact equilibrium), J0 x b term off.
+Toroidal Fourier filter, canonical Maxwellian with correction_B="B0", MagnetosonicCrossB0 propagator.
 Markers that leave through the inner or outer wall are refilled at the opposite poloidal angle on the same field line.
 """
 
@@ -70,7 +70,7 @@ from struphy.models import LinearMHDDriftkineticCC
 from struphy.pic.accumulation.filter import FilterParameters
 
 base_units = BaseUnits(n=0.2)
-model = LinearMHDDriftkineticCC(base_units=base_units, hot_mass_number=2.0)
+model = LinearMHDDriftkineticCC(base_units=base_units, hot_mass_number=2.0, magnetosonic_cross_b0=True)
 
 # Variables to save
 model.em_fields.b_field.save_data = True
@@ -174,7 +174,7 @@ props.push_parallel.options = props.push_parallel.Options(algo="explicit")
 props.shearalfen_cc5d.options = props.shearalfen_cc5d.Options(
     ep_scale=ep_scale, filter_params=filter_params, nonlinear=True
 )
-props.magnetosonic.options = props.magnetosonic.Options(with_jxb=False)
+props.magnetosonic.options = props.magnetosonic.Options()
 props.cc5d_density.options = props.cc5d_density.Options(ep_scale=ep_scale, filter_params=filter_params)
 props.cc5d_gradb.options = props.cc5d_gradb.Options(ep_scale=ep_scale, algo="explicit", filter_params=filter_params)
 props.cc5d_curlb.options = props.cc5d_curlb.Options(ep_scale=ep_scale, filter_params=filter_params)
@@ -209,7 +209,7 @@ model.mhd.velocity.add_perturbation(
     )
 )
 
-itpa = perturbations.ITPA_density(n0=0.00720652, c=(0.50626, 0.18156, 0.13012, 0.54286))
+itpa = perturbations.ITPA_density(n0=0.00720652, c=(0.47685, 0.20088, 0.13150, 0.51475))
 psi_axis, psi_edge = equil.psi_range
 
 
@@ -229,7 +229,7 @@ model.energetic_ions.var.add_background(
         equil=equil,
         volume_form=True,
         epsilon=model.energetic_ions.equation_params.epsilon,
-        correction_B="Bmax",
+        correction_B="B0",
         cache_size=cache_size,
     )
 )
