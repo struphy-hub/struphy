@@ -107,5 +107,37 @@ def test_full_step_energy(u_space: str):
     assert err < ENERGY_TOL, f"relative energy error {err:.3e}"
 
 
+@pytest.mark.parametrize("nx", [8, 16])
+def test_hdiv_viscosity_perfect_slip(nx: int):
+    """Velocity in H(div) with ideal walls at x = 0, 1 of the unit cube: the viscous quadratic form of the slip flow
+    u = (0, 1 + x, 0) converges to its exact value int |div u|^2 + |curl u|^2 = 1. The tangential velocity at the wall
+    is free (perfect slip); a curl that removed it would give a penalty growing like 1/h (93 and 188 here)."""
+    from struphy import DerhamOptions, Simulation, domains, equils, grids
+    from struphy.models import VariationalPerturbativeMHD
+    from struphy.propagators.base import Propagator
+
+    model = VariationalPerturbativeMHD(linear=True, crank_nicolson=True, u_space="Hdiv")
+    variants = model.propagator_variants
+    props = model.propagators
+    props.variat_dens.options = props.variat_dens.Options(model=variants["variat_dens"])
+    props.variat_lin_sound.options = props.variat_lin_sound.Options(model=variants["variat_lin_sound"])
+    props.variat_viscous.options = props.variat_viscous.Options(model=variants["variat_viscous"], mu=1e-2)
+    props.variat_resist.options = props.variat_resist.Options(model=variants["variat_resist"])
+    Simulation(
+        model=model,
+        domain=domains.Cuboid(),
+        equil=equils.HomogenSlab(),
+        grid=grids.TensorProductGrid(num_elements=(nx, 4, 4)),
+        derham_opts=DerhamOptions(degree=(2, 2, 2), bcs=(("dirichlet", "dirichlet"), None, None)),
+    ).allocate()
+
+    u = Propagator.derham.projectors["2"](
+        [lambda e1, e2, e3: 0 * e1, lambda e1, e2, e3: 1.0 + e1, lambda e1, e2, e3: 0 * e1]
+    )
+    form = u.inner(model.propagators.variat_viscous.phy_stiffness.dot(u))
+    # the weak curl is the L2 projection of curl u onto V1_0, with an error of about 0.3 / nx in the form
+    assert abs(form - 1.0) < 0.6 / nx, f"viscous form {form:.6f} of the slip flow, exact 1"
+
+
 if __name__ == "__main__":
     test_dissipation_heats_p_hat("variat_viscous", "Hdiv", False)
