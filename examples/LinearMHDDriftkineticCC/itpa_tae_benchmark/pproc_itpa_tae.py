@@ -1,6 +1,7 @@
 """Post-process and plot the ITPA TAE driven by energetic ions (LinearMHDDriftkineticCC).
 
-Run as ``python pproc_itpa_tae.py [path_out] [flags of params_itpa_tae.py] [--compare OTHER] [--show]``. The standard
+Run as ``python pproc_itpa_tae_B0.py`` or ``python pproc_itpa_tae_Bmax.py``, with the arguments
+``[path_out] [flags of the params file] [--compare OTHER] [--show]``. The standard
 plots of the examples (slices in the physical planes and 3D views of the fields) are made at the first, middle and
 last saved time, together with the energy budget (MHD, magnetic and energetic-ion energies) and the (m, n) harmonics
 of the radial components. The measured TAE frequency is compared with the analytical one and with the ideal MHD
@@ -26,11 +27,18 @@ from struphy.post_processing.slices import plot_physical_slices
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
-# The flags of the run (parsed from the same command line), for the default output folder.
-sys.path.insert(0, str(SCRIPT_DIR))
-from params_itpa_tae import args, parser  # noqa: E402
+# The flags of the run (parsed from the same command line by the params file), for the default output folder.
+args = None
+parser = None
+DEFAULT_OUTPUT = None
 
-DEFAULT_OUTPUT = Path(args.out_folder) / args.sim_folder
+
+def configure(params):
+    """Use the flags of the params file ``params`` (a module, see pproc_itpa_tae_B0.py and pproc_itpa_tae_Bmax.py)."""
+    global args, parser, DEFAULT_OUTPUT
+    args, parser = params.args, params.parser
+    DEFAULT_OUTPUT = Path(args.out_folder) / args.sim_folder
+
 
 # standard plots: (key, label, species, variable, vector) per field
 FIELDS = [
@@ -178,7 +186,8 @@ def finish(figs, results_dir, save_figs):
             plt.close(fig)
 
 
-def main(path_out=DEFAULT_OUTPUT, save_figs=True, compare=None):
+def main(path_out=None, save_figs=True, compare=None):
+    path_out = DEFAULT_OUTPUT if path_out is None else path_out
     run = Output(path_out)
     snapshots = run.standard_snapshots()
     # VTK files (for the 3D views) of the standard snapshots only
@@ -280,20 +289,21 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, compare=None):
             assert gamma > 0.0, f"The TAE does not grow (gamma = {gamma:.4g})."
 
 
-if __name__ == "__main__":
-    # the flags of the run are parsed by params_itpa_tae.py, the rest here
+def cli():
+    """Parse the command line and post-process."""
+    # the flags of the run are parsed by the params file, the rest here
     _, other_flags = parser.parse_known_args()
     pproc_parser = argparse.ArgumentParser(description="Post-process and plot a saved simulation run.")
     pproc_parser.add_argument(
         "path_out",
         nargs="?",
         default=DEFAULT_OUTPUT,
-        help="Simulation output folder (default: the output folder of the run flags, sim_data beside this script)",
+        help="Simulation output folder (default: the output folder of the run flags, beside this script)",
     )
     pproc_parser.add_argument(
         "--compare",
         default=None,
-        help="Output folder of a second run (e.g. with --filter none) to overlay in filter_comparison.png.",
+        help="Output folder of a second run to overlay in filter_comparison.png.",
     )
     pproc_parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
     pproc_args = pproc_parser.parse_args(other_flags)
