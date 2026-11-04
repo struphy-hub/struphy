@@ -67,6 +67,17 @@ def test_double_knot_space(map_name, bcs):
     for j in range(3):
         assert xp.allclose(W.evaluate(ones, derivative=j), 0.0, atol=1e-10)
 
+    # the stored mass matrix equals the matrix-free one (also in the ghost regions, i.e. across MPI ranks)
+    g = W.space.zeros()
+    rng = np.random.default_rng(5 + MPI.COMM_WORLD.Get_rank())
+    g._data[W._owned] = xp.asarray(rng.standard_normal(g._data[W._owned].shape))
+    g.update_ghost_regions()
+    Mg = W.mass.dot(g)
+    Mg_free = W.mass_matrix_free.dot(g)
+    diff = Mg - Mg_free
+    assert (diff.inner(diff) / Mg_free.inner(Mg_free)) ** 0.5 < 1e-13
+    assert xp.allclose(Mg._data, Mg_free._data, rtol=0.0, atol=1e-13 * float(xp.max(xp.abs(Mg_free._data))))
+
     # solve with M^W[sqrt g]
     f = W.space.zeros()
     rng = np.random.default_rng(3 + MPI.COMM_WORLD.Get_rank())

@@ -14,6 +14,7 @@ from struphy.feec.basis_projection_ops import (
     BasisProjectionOperatorLocal,
     CoordinateProjector,
 )
+from struphy.feec.kernels.banded_matvec_3d import banded_matvec_3d
 from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
 from struphy.feec.psydac_derham import Derham
 from struphy.io.options import DerhamOptions
@@ -385,13 +386,17 @@ class DoubleKnotSpace:
     all components of the 2-forms (and of all the other forms) of the sequence with simple knots.
 
     The coefficients of :math:`W` are stored with Stencil shifts 2 (two coefficients per element), which the
-    Stencil matrix kernels of feectools do not support. Hence all operations are matrix-free, with the quadrature of
-    the mass matrices of the main sequence (same grid, decomposition and quadrature points):
+    Stencil matrix kernels of feectools do not support. Hence the operations use the quadrature of the mass matrices
+    of the main sequence (same grid, decomposition and quadrature points), and the mass matrix is stored by this
+    class:
 
     * :meth:`evaluate`: values of :math:`f = \sum_a f_a w_a` or of :math:`\partial_j f` at the local quadrature points,
     * :meth:`integrate`: :math:`\int w_a\, g\, \textnormal d\boldsymbol\eta` or :math:`\int \partial_j w_a\, g\, \textnormal d\boldsymbol\eta`,
     * :attr:`mass`: the weighted mass matrix :math:`\mathbb M^W[\sqrt g]_{ab} = \int w_a w_b \sqrt g\, \textnormal d\boldsymbol\eta`
-      (a :class:`~feectools.linalg.basic.LinearOperator`),
+      (a :class:`~feectools.linalg.basic.LinearOperator`). It is banded, :math:`|a_d - b_d| \leq p_d` in each
+      direction, and stored per owned row; its entries are extracted once from the matrix-free product
+      (:attr:`mass_matrix_free`) with colored probe vectors, and its product is the kernel
+      :func:`~struphy.feec.kernels.banded_matvec_3d.banded_matvec_3d_kernels.banded_matvec_3d`,
     * :attr:`mass_pc`: a preconditioner of :attr:`mass`, :math:`D^{-1/2} \mathbb K^{-1} D^{-1/2}` with
       :math:`\mathbb K = \mathbb M_1 \otimes \mathbb M_2 \otimes \mathbb M_3` the unweighted 1d mass matrices
       (restricted to the coefficients owned by the process) and :math:`D` the ratio of the diagonals of
@@ -467,7 +472,8 @@ class DoubleKnotSpace:
         self._sqrt_g = domain.jacobian_det(*pts)
         assert self._sqrt_g.shape == self._shape
 
-        self._mass = _DoubleKnotMass(self)
+        self._mass_matrix_free = _DoubleKnotMassMatrixFree(self)
+        self._mass = _DoubleKnotMass(self, self._mass_matrix_free)
         self._mass_pc = _DoubleKnotMassPreconditioner(self, derW)
 
     @property
@@ -494,6 +500,11 @@ class DoubleKnotSpace:
     def mass(self) -> LinearOperator:
         r"""The weighted mass matrix :math:`\mathbb M^W[\sqrt g]` (matrix-free)."""
         return self._mass
+
+    @property
+    def mass_matrix_free(self) -> LinearOperator:
+        r"""The weighted mass matrix :math:`\mathbb M^W[\sqrt g]`, applied matrix-free (quadrature)."""
+        return self._mass_matrix_free
 
     @property
     def mass_pc(self) -> LinearOperator:
@@ -550,6 +561,96 @@ class DoubleKnotSpace:
 
 
 class _DoubleKnotMass(LinearOperator):
+    r"""The weighted mass matrix :math:`\mathbb M^W[\sqrt g]` of a :class:`DoubleKnotSpace`, stored per owned row
+    (band :math:`|a_d - b_d| \leq p_d`) and applied with the kernel
+    :func:`~struphy.feec.kernels.banded_matvec_3d.banded_matvec_3d_kernels.banded_matvec_3d`.
+
+    The entries are extracted from the matrix-free product with colored probe vectors: in each direction, the
+    columns :math:`b_d \equiv c_d \pmod{C_d}` are set to one, with :math:`C_d \geq 2 p_d + 1` (a divisor of the number
+    of basis functions in periodic directions), so that each row has at most one such column in its band. This
+    takes :math:`C_1 C_2 C_3` matrix-free products, once (collective on all MPI ranks).
+    """
+
+    def __init__(self, W: DoubleKnotSpace, matrix_free: LinearOperator):
+        self._W = W
+        V = W.space
+        p = W._degree
+        nb = [int(n) for n in V.npts]
+        periodic = V.periods
+        starts = [int(s) for s in V.starts]
+        ends = [int(e) for e in V.ends]
+        self._p = p
+        self._ghost = W._ghost
+
+        colors = []
+        for d in range(3):
+            width = 2 * p[d] + 1
+            assert nb[d] >= width, f"Too few basis functions ({nb[d]}) in direction {d} for the band width {width}."
+            if periodic[d]:
+                colors += [next(c for c in range(width, nb[d] + 1) if nb[d] % c == 0)]
+            else:
+                colors += [width]
+
+        rows = [np.arange(s, e + 1) for s, e in zip(starts, ends)]
+        mat = np.zeros(tuple(r.size for r in rows) + tuple(2 * pd + 1 for pd in p))
+        x = V.zeros()
+        y = V.zeros()
+        for c1 in range(colors[0]):
+            for c2 in range(colors[1]):
+                for c3 in range(colors[2]):
+                    c = (c1, c2, c3)
+                    masks = [(r % C == cd).astype(float) for r, C, cd in zip(rows, colors, c)]
+                    x._data[:] = 0.0
+                    x._data[W._owned] = xp.asarray(np.einsum("i,j,k->ijk", *masks))
+                    x.update_ghost_regions()
+                    matrix_free.dot(x, out=y)
+                    y_own = xp.to_numpy(y._data[W._owned])
+
+                    # offset k_d of the probed column j = i + k - p in the band of each row i (-1 if none)
+                    sel, offsets = [], []
+                    for d in range(3):
+                        k = np.arange(2 * p[d] + 1)
+                        j = rows[d][:, None] + k[None, :] - p[d]
+                        if periodic[d]:
+                            hit = (j % nb[d]) % colors[d] == c[d]
+                        else:
+                            hit = (j >= 0) & (j < nb[d]) & (j % colors[d] == c[d])
+                        assert np.all(hit.sum(axis=1) <= 1)
+                        has = hit.any(axis=1)
+                        sel += [np.nonzero(has)[0]]
+                        offsets += [np.argmax(hit[has], axis=1)]
+                    I1, I2, I3 = np.ix_(*sel)
+                    K1, K2, K3 = np.ix_(*offsets)
+                    mat[I1, I2, I3, K1, K2, K3] = y_own[I1, I2, I3]
+
+        self._mat = xp.asarray(mat)
+
+    @property
+    def domain(self):
+        return self._W.space
+
+    @property
+    def codomain(self):
+        return self._W.space
+
+    @property
+    def dtype(self):
+        return float
+
+    def transpose(self, conjugate=False):
+        return self
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._W.space.zeros()
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
+        banded_matvec_3d(*self._p, *self._ghost, self._mat, v._data, out._data)
+        out.update_ghost_regions()
+        return out
+
+
+class _DoubleKnotMassMatrixFree(LinearOperator):
     r"""The weighted mass matrix :math:`\mathbb M^W[\sqrt g]` of a :class:`DoubleKnotSpace`, matrix-free."""
 
     def __init__(self, W: DoubleKnotSpace):
