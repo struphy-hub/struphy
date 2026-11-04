@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 
 # Command line options
-# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid (default 24 88 8, see PR #887).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
@@ -24,7 +24,14 @@ parser.add_argument(
     help="Folder in which the output folder is created (default: beside this file).",
 )
 parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
-parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 44, 8], help="Number of elements per direction.")
+parser.add_argument(
+    "--num-elements",
+    type=int,
+    nargs=3,
+    default=[24, 88, 8],
+    help="Number of elements per direction (default 24 88 8: the H(div) shear Alfven step needs about 8 elements per "
+    "poloidal wavelength of the m = 10 harmonic for the right TAE frequency, see the description).",
+)
 parser.add_argument("--Np", type=int, default=1_000_000, help="Number of markers of the energetic ions.")
 parser.add_argument(
     "--T-hot", type=float, default=400.0, help="Temperature of the energetic deuterons in keV (benchmark: 0-800 keV)."
@@ -103,6 +110,13 @@ beta 0.0018 (units x = 1 m, B = 1 T, n = 2e19 m^-3, so v_unit = 4.88e6 m/s and t
 computed, on a sixth of the torus (HollowTorus with tor_period = 6 and a hole of radius 0.1; the logical mode number
 -1 along eta3 is the physical n = 6), grid {args.num_elements} with cubic splines, time step {args.dt} up to
 t = {args.tend}. The compressional MHD (sound wave, background current and pressure steps of LinearMHD) is included.
+The grid has 88 poloidal elements (8 per wavelength of the m = 10 harmonic), twice as many as the LinearMHD and
+ShearAlfven versions of this benchmark: the model has the magnetic field in H(div), whose shear Alfven step uses the
+commuting projection Pi^1[B0 x u] of the Lorentz drift. Its poloidal interpolation error makes the effective
+poloidal mode number about 2-3% too small with 44 elements, which shifts the continuum near the gap (where n q - m
+nearly cancels) so much that there is no TAE; with 88 elements the ShearAlfven H(div) run gives omega = 0.0835, i.e.
+4.07e5 rad/s (PR #887). The LinearMHD and ShearAlfven examples use the magnetic field in H(curl) instead, which has
+no such error.
 Energetic deuterons with the temperature T_h = {args.T_hot} keV (thermal speed sqrt(T_h/m_D) = {{vth:.3g}} v_unit,
 about 0.3 v_A at 400 keV, gyro-radius about 3 cm in 3 T; the normalized cyclotron period epsilon follows from the
 units), represented by {args.Np} markers with delta-f weights (control variate). The density profile of the
@@ -118,9 +132,9 @@ its growth rate is about a factor of two smaller (NOVA-K, Sec. IV.D.1 of the pap
 removed (--marker-bc remove) or refilled on the same flux surface (--marker-bc refill): {args.marker_bc}. Filter of
 the accumulated moments: {args.filter}.
 
-Cost. With the defaults (24 x 44 x 8 elements, 1e6 markers, dt = 1), a time step takes about 30 s on 4 MPI ranks
-(about 10 h up to t = 1200), mostly in the guiding-center pushers and the current coupling, which scale with the
-number of markers per rank: the run is meant for a cluster with many more ranks.
+Cost. With the defaults (24 x 88 x 8 elements, 1e6 markers, dt = 1), a time step takes about 26-30 s on 4 MPI ranks
+(about 9-10 h up to t = 1200; 24 x 44 x 8 is not faster), mostly in the guiding-center pushers and the current
+coupling, which scale with the number of markers per rank: the run is meant for a cluster with many more ranks.
 The TAE is seeded by a small m = 10, 11 velocity perturbation localized at the gap (as in the LinearMHD example).
 
 Expected result. After the initial transient, the TAE (the (m, n) = (10, 6) and (11, 6) harmonics of the radial
