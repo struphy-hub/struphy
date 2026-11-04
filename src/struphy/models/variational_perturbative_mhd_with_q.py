@@ -408,9 +408,9 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         :math:`\partial_t \hat{\mathbf A} = - \tilde{\mathbf B} \times \mathbf u`, :math:`\hat{\mathbf B} = \nabla \times
         \hat{\mathbf A}` (``diagnostics.bt2``) and the equilibrium current :math:`\mathbf J_0 = \nabla \times
         \mathbf B_0`. Both are the same in the continuum (:math:`\hat{\mathbf A} \times \mathbf n = 0` at the wall);
-        discretely the force :math:`\mathbf J_0 \times \tilde{\mathbf B}` then uses the projected equilibrium current
-        instead of the discrete curl of :math:`\mathbf B_0`, which vanishes tangentially at a wall and causes a
-        spurious wall instability (see
+        discretely the force :math:`\mathbf J_0 \times \tilde{\mathbf B}` then uses the current of the dual complex,
+        the curl of the 1-form :math:`\star \mathbf B_0` without wall conditions, instead of the weak curl of
+        :math:`\mathbf B_0`, which vanishes tangentially at a wall and causes a spurious wall instability (see
         :class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve`).
 
         **Velocity in** :math:`H(\textnormal{div})` (``linear=True, crank_nicolson=True, u_space="Hdiv"``): the linear model can also be

@@ -48,8 +48,8 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
 
     Discretization: the equilibrium term with :math:`\mathbb T[\bar{\mathbf B}] = \mathbb C \hat\Pi^1[\hat{\bar{\mathbf
     B}} \times \vec{\boldsymbol\Lambda}^v]` (:class:`~struphy.feec.variational_utilities.Hdiv0_transport_operator`),
-    and the second-order term with the projected equilibrium current :math:`\mathbf j_0` (``projected_equil.j1``,
-    including its tangential components at the boundary) and the weighted mass matrix :math:`\mathbb W` of
+    and the second-order term with the equilibrium current :math:`\mathbf j_0` of the dual complex (no boundary
+    conditions, see :meth:`equilibrium_current`) and the weighted mass matrix :math:`\mathbb W` of
     :math:`\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)`:
 
     .. math::
@@ -73,11 +73,17 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
     (both forms are evaluated at the same quadrature points). The second-order field :math:`\hat{\mathbf b} =
     \mathbb C \hat{\mathbf a}` (``bt2``) is a diagnostic.
 
-    Why not the discrete curl of :math:`\mathbf B_0`: writing the energy as :math:`\mathbf b_0^\top \mathbb M^2
-    \hat{\mathbf b}`, with :math:`\hat{\mathbf a}` subject to the boundary conditions, makes the current of the force
-    the weak curl :math:`\mathbb M_1^{-1} \mathbb C^\top \mathbb M_2 \mathbf b_0`. Its tangential components vanish at
-    a wall where those of :math:`\mathbf J_0` do not, a boundary layer one element wide that does not shrink in
-    amplitude and causes a spurious instability localized at the wall. Both energies are the same in the continuum.
+    Why the current of the dual complex: the magnetic energy is :math:`\frac12 \int \beta \wedge \star \beta` for the
+    2-form :math:`\beta`, and its second-order term is :math:`\int d\hat\alpha \wedge H_0 = \int \hat\alpha \wedge
+    dH_0` with :math:`H_0 = \star \beta_0` (metric-free integration by parts, the boundary term vanishes with
+    :math:`\hat{\mathbf A} \times \mathbf n = 0`). The current :math:`J_0 = dH_0` is the exterior derivative of the
+    Hodge dual of the field, a quantity of the dual complex (:math:`H`, :math:`J`), which has no wall conditions. The
+    vector potential, the electric field and the magnetic field live in the primal complex with the wall conditions.
+    Writing the energy as :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}`, with :math:`\hat{\mathbf a}` subject to
+    the boundary conditions, instead makes the current the weak curl :math:`\mathbb M_1^{-1} \mathbb C^\top \mathbb M_2
+    \mathbf b_0`, the codifferential of the primal complex: its tangential components vanish at a wall where those of
+    :math:`\mathbf J_0` do not, a boundary layer one element wide that does not shrink in amplitude and causes a
+    spurious instability localized at the wall. Both energies are the same in the continuum.
 
     The option ``weights`` sets :math:`\mathbf b^w`. With ``"midpoint"`` (default), :math:`\mathbf b^w =
     \mathbf b^{n+\frac12}`: one linear solve
@@ -286,8 +292,13 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         or :math:`\hat{\mathbf u}` (H1vec), both forms are integrals of :math:`\hat{\mathbf j}_0^\top G^{-1}
         (\hat{\mathbf B}^2 \times \tilde{\mathbf u}) \sqrt g` at the same quadrature points, so that
         :math:`\mathbf j_0 \cdot \mathbf y(\mathbf b \times \mathbf u) = \mathbf u^\top \mathbb W \mathbf b` exactly."""
-        # projected equilibrium current, with its boundary degrees of freedom (no boundary conditions)
-        j0 = self.projected_equil.j1
+        # equilibrium current through the dual complex (no boundary conditions): h0 = *_h b0 in V1, J0 = curl h0 in
+        # V2 and its representation j0 in V1, all over the full spaces
+        M1 = self.mass_ops.M1
+        M1_free = M1.without_boundary_ops()
+        pc = MassMatrixPreconditioner(M1, apply_bc=False)
+        self._inv_M1 = inverse(M1_free, "pcg", pc=pc, tol=1e-14, maxiter=3000, recycle=True)
+        j0 = self.equilibrium_current(self.projected_equil.b2)
 
         # spline evaluation at the quadrature points
         grid = [pts.flatten() for pts in self.derham.V3splines.quad_grid_pts[0]]
@@ -312,11 +323,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         self._R.assemble([[None, c[2], -c[1]], [-c[2], None, c[0]], [c[1], -c[0], None]])
 
         if self._at1 is not None or self._bt2 is not None:
-            # V1 mass matrix without boundary conditions, its inverse and the linear form j0^T M1 of the energy
-            M1 = self.mass_ops.M1
-            M1_free = M1.without_boundary_ops()
-            pc = MassMatrixPreconditioner(M1, apply_bc=False)
-            self._inv_M1 = inverse(M1_free, "pcg", pc=pc, tol=1e-14, maxiter=3000, recycle=True)
+            # the linear form j0^T M1 of the energy
             self._M1j0 = M1_free.dot(j0)
             self._bf = self.derham.create_spline_function("b_aux", "Hdiv")
             self._uf = self.derham.create_spline_function("u_aux", self._u_space)
@@ -326,6 +333,26 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             self._get_dofs_1 = L2Projector("Hcurl", self.mass_ops).get_dofs
             self._tmp_y = self.derham.V1pol.zeros()
             self._tmp_a = self.derham.V1pol.zeros()
+
+    def equilibrium_current(self, b0):
+        r"""The equilibrium current :math:`\mathbf j_0 \in V^1_h` of the second-order term, through the dual complex:
+
+        .. math::
+
+            \mathbb M^1_{\textnormal{free}}\, \mathbf h_0 = \mathbb K \mathbf b_0 \,, \qquad
+            \mathbf J_0 = \mathbb C\, \mathbf h_0 \,, \qquad
+            \mathbb M^1_{\textnormal{free}}\, \mathbf j_0 = \mathbb K \mathbf J_0 \,,
+
+        with the metric-free pairing :math:`\mathbb K_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^1_i \cdot
+        \vec{\boldsymbol\Lambda}^2_j \,\textrm d \boldsymbol\eta` of 1-forms and 2-forms, all operators over the full
+        spaces (without boundary conditions). :math:`\mathbf h_0` is the field as a 1-form (Hodge star of the 2-form
+        :math:`\mathbf b_0`) and :math:`\mathbf J_0` its curl, exactly divergence free. Collective: call on all
+        ranks."""
+        K = self.mass_ops.create_weighted_mass("Hdiv", "Hcurl", weights=("Identity",), assemble=True)
+        K = K.without_boundary_ops()
+        h0 = self._inv_M1.dot(K.dot(b0)).copy()
+        J0 = self.derham.curl_bcfree.dot(h0)
+        return self._inv_M1.dot(K.dot(J0)).copy()
 
     def second_order_energy(self) -> float:
         r"""The second-order magnetic energy :math:`\int \mathbf J_0 \cdot \hat{\mathbf A} \approx \mathbf j_0^\top
