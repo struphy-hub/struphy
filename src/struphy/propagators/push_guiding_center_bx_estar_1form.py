@@ -64,7 +64,7 @@ class PushGuidingCenterBxEstar1form(PushGuidingCenterBxEstar):
       ``e_field`` is passed).
     """
 
-    _b_tilde_space = "Hcurl"
+    _b_form = "1"
     _pb_name = "PB1form"
 
     def __init__(

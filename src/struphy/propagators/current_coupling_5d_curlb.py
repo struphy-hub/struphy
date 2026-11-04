@@ -203,6 +203,10 @@ class CurrentCoupling5DCurlb(Propagator):
 
     @profile
     def allocate(self):
+        # extraction of b_tilde to the tensor-product space read by the kernels (polar splines)
+        self._EbT_tilde = self.derham.extraction_ops[self._b_form].transpose()
+        self._b_tilde_tp = self._EbT_tilde.codomain.zeros()
+
         # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
         self._ep_scale = self.options.ep_scale
         if self._ep_scale is None:
@@ -335,10 +339,13 @@ class CurrentCoupling5DCurlb(Propagator):
             solver_params=self.options.solver_params,
         )
 
-    def _b_tilde_coeffs(self):
-        """FE coefficients of ``b_tilde`` in the tensor-product space read by the kernels (for the 2-form the spline
-        vector itself)."""
-        return self.b_tilde.spline.vector
+    def _b_tilde_coeffs(self, update_ghosts: bool = False):
+        """FE coefficients of ``b_tilde`` extracted to the tensor-product space read by the kernels (in
+        ``self._b_tilde_tp``), with ghost regions if ``update_ghosts`` (for kernels reading them directly)."""
+        b_tilde = self._EbT_tilde.dot(self.b_tilde.spline.vector, out=self._b_tilde_tp)
+        if update_ghosts:
+            b_tilde.update_ghost_regions()
+        return b_tilde
 
     def __call__(self, dt):
         # current FE coeffs

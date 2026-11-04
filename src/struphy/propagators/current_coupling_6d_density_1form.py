@@ -96,14 +96,3 @@ class CurrentCoupling6DDensity1form(CurrentCoupling6DDensity):
         """
         assert b_tilde is None or b_tilde.space == "Hcurl", "b_tilde must be in Hcurl."
         super().__init__(energetic_ions=energetic_ions, b_tilde=b_tilde)
-
-    def _sum_b_full(self):
-        """Sum up the total magnetic field b_eq + E1^T b_tilde in the tensor-product space (in ``self._b_full2``) and
-        update its ghost regions; the projected equilibrium is already a tensor-product vector."""
-        self._b_eq.copy(out=self._b_full2)
-
-        if self.b_tilde is not None:
-            self._b_full2 += self._EbT.dot(self.b_tilde.spline.vector, out=self._b_full1)
-
-        # update ghost regions because of non-local access in accumulation kernel!
-        self._b_full2.update_ghost_regions()

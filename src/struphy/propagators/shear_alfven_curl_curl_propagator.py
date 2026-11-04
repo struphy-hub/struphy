@@ -375,12 +375,12 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
         self._b_tmp2 = self.variables.b.spline.vector.space.zeros()
 
     def _lorentz_mass(self):
-        """The antisymmetric mass matrix of the Lorentz force, :math:`\mathbb M^2_{B_0}` (``M2B``) of the equilibrium
+        r"""The antisymmetric mass matrix of the Lorentz force, :math:`\mathbb M^2_{B_0}` (``M2B``) of the equilibrium
         field (overridden for a time-dependent field)."""
         return self.mass_ops.M2B
 
     def _gyro_mass(self):
-        """The mass matrix :math:`\mathbb M^2_\perp` (``M2gyro``) of the curl-curl term without projection, of the
+        r"""The mass matrix :math:`\mathbb M^2_\perp` (``M2gyro``) of the curl-curl term without projection, of the
         equilibrium field (overridden for a time-dependent field)."""
         return self.mass_ops.M2gyro
 

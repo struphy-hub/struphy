@@ -121,19 +121,4 @@ class CurrentCoupling5DGradB1form(CurrentCoupling5DGradB):
             Magnetic perturbation 1-form (``"Hcurl"`` space) entering the grad-B
             coupling term. If ``None``, only the equilibrium field is used.
         """
-        assert b_tilde is None or b_tilde.space == "Hcurl", "b_tilde must be in Hcurl."
         super().__init__(b_tilde=b_tilde)
-
-    def allocate(self):
-        # extraction of the 1-form b_tilde to the tensor-product space read by the kernels (built in each
-        # allocation: a new allocation of the model may come with a new Derham object)
-        self._E1T = self.derham.extraction_ops["1"].transpose()
-        self._b_tilde_tp = self.derham.V1.zeros()
-        super().allocate()
-
-    def _b_tilde_coeffs(self) -> BlockVector:
-        """Tensor-product FE coefficients (extracted, ghost regions updated) of the 1-form ``b_tilde``; the same
-        vector is returned on each call (the discrete-gradient kernels keep a reference to it)."""
-        b_tilde = self._E1T.dot(self.b_tilde.spline.vector, out=self._b_tilde_tp)
-        b_tilde.update_ghost_regions()
-        return b_tilde

@@ -347,16 +347,13 @@ class CurrentCoupling6DDensity(Propagator):
             logger.info("")
 
     def _sum_b_full(self):
-        """Sum up the total magnetic field b_eq + b_tilde in the tensor-product space (in ``self._b_full2``) and update
-        its ghost regions."""
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        self._b_eq.copy(out=self._b_full1)
+        """Sum up the total magnetic field b_eq + E^T b_tilde in the tensor-product space (in ``self._b_full2``) and
+        update its ghost regions; the projected equilibrium is already a tensor-product vector, only b_tilde is
+        extracted (polar splines)."""
+        self._b_eq.copy(out=self._b_full2)
 
         if self.b_tilde is not None:
-            self._b_full1 += self.b_tilde.spline.vector
-
-        # extract coefficients to tensor product space (in-place)
-        self._EbT.dot(self._b_full1, out=self._b_full2)
+            self._b_full2 += self._EbT.dot(self.b_tilde.spline.vector, out=self._b_full1)
 
         # update ghost regions because of non-local access in accumulation kernel!
         self._b_full2.update_ghost_regions()

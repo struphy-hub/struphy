@@ -211,8 +211,10 @@ class ShearAlfvenCurlCurlCurrentCoupling5D(ShearAlfvenCurlCurlPropagator):
         g = self.domain.metric(*pts)
         self._g_inv = [[g_inv[a, c] for c in range(3)] for a in range(3)]
         self._g = [[g[a, c] for c in range(3)] for a in range(3)]
-        sqrt_g = abs(self.domain.jacobian_det(*pts))
-        self._gyro_scale = 1.0 / (eq.n0(*PTS) * sqrt_g)
+        det_df = self.domain.jacobian_det(*pts)
+        # M2B has the weight R(B^2)/|det DF| = sign(det DF) R(G^{-1} B^1) (1/sqrt_g is 1/|det DF|)
+        self._sign_det = xp.sign(det_df)
+        self._gyro_scale = 1.0 / (eq.n0(*PTS) * abs(det_df))
 
         self._bf = self.derham.create_spline_function("b_tot", "Hcurl")
         self._M2B_tot = self.mass_ops.create_weighted_mass("Hdiv", "Hdiv", name="M2B_tot")
@@ -225,15 +227,17 @@ class ShearAlfvenCurlCurlCurrentCoupling5D(ShearAlfvenCurlCurlPropagator):
     def _update_total_field_masses(self):
         """Assemble the mass matrices of the total field :math:`\\mathbf B_0 + \\tilde{\\mathbf B}` (1-form
         components :math:`\\hat{\\mathbf B}^1`): ``M2B`` with the rotation matrix of the contravariant components
-        :math:`c = G^{-1} \\hat{\\mathbf B}^1` (:math:`\\hat{\\mathbf B}^2 / \\sqrt g = c`), and ``M2gyro`` with
+        :math:`c = G^{-1} \\hat{\\mathbf B}^1` (:math:`\\hat{\\mathbf B}^2 / |\\det DF| =
+        \\textnormal{sign}(\\det DF) \\, c`), and ``M2gyro`` with
         :math:`(|\\mathbf B|^2 G - \\hat{\\mathbf B}^1 (\\hat{\\mathbf B}^1)^\\top) / (n_0 \\sqrt g)`."""
         self.variables.b.spline.vector.copy(out=self._bf.vector)
         b_v = self._bf.eval_tp_fixed_loc(self._spans, self._bases_1form)
         b1 = [self._b0_1[a] + b_v[a] for a in range(3)]
         c = [sum(self._g_inv[a][e] * b1[e] for e in range(3)) for a in range(3)]
+        b_sq = sum(b1[a] * c[a] for a in range(3))
+        c = [self._sign_det * ca for ca in c]
         self._M2B_tot.assemble([[None, -c[2], c[1]], [c[2], None, -c[0]], [-c[1], c[0], None]])
         if self._M2gyro_tot is not None:
-            b_sq = sum(b1[a] * c[a] for a in range(3))
             self._M2gyro_tot.assemble(
                 [[(b_sq * self._g[a][e] - b1[a] * b1[e]) * self._gyro_scale for e in range(3)] for a in range(3)]
             )

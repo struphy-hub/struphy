@@ -7,6 +7,7 @@ from struphy.io.options import LiteralOptions
 from struphy.models.linear_mhd import LinearMHD
 from struphy.models.scalars import FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC
 from struphy.models.species import ParticleSpecies
+from struphy.models.utils import magnetic_discretization_doc
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
@@ -339,8 +340,10 @@ class LinearMHDDriftkineticCC(LinearMHD):
         reference discretization for the guiding-center pushers: ``algo="discrete_gradient_2nd_order"`` (implicit
         mid-point) for ``push_bxe`` and ``algo="discrete_gradient_1st_order_newton"`` (Itoh-Abe with Newton
         iterations) for ``push_parallel``. The explicit Runge-Kutta methods (``algo="explicit"``) are cheaper but not
-        energy conserving."""
-        return cls.propagators_doc()
+        energy conserving. The propagators are listed for ``b_space="Hdiv"``, followed by those that differ with
+        ``b_space="Hcurl"`` (the curl-curl shear-Alfvén step coupled to the magnetization, and the 1-form couplings and
+        guiding-center pushers):"""
+        return magnetic_discretization_doc(cls)
 
     @classmethod
     def doc_long_description(cls):

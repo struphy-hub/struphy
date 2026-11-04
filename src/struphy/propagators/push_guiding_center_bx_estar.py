@@ -81,7 +81,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
     # space of the magnetic perturbation ("Hdiv": 2-form, "Hcurl": 1-form, see PushGuidingCenterBxEstar1form) and the
     # basis operator of its parallel component (the kernels see the perturbation only through this component)
-    _b_tilde_space = "Hdiv"
+    _b_form = "2"
     _pb_name = "PB"
 
     def __init__(
@@ -108,7 +108,8 @@ class PushGuidingCenterBxEstar(Propagator):
         assert phi is None or e_field is None, "Pass either the potential phi or the electric field e_field, not both."
         if e_field is not None:
             assert isinstance(e_field, FEECVariable) and e_field.space == "Hcurl", "e_field must be in Hcurl."
-        assert b_tilde is None or b_tilde.space == self._b_tilde_space, f"b_tilde must be in {self._b_tilde_space}."
+        b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
+        assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.e_field = e_field
         self.variables = self.Variables()
         self.phi = phi if phi is not None else FEECVariable(space="H1")
