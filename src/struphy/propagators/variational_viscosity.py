@@ -91,17 +91,31 @@ class VariationalViscosity(Propagator):
 
         \int_\Omega \mu \left( \nabla \cdot \mathbf u\, \nabla \cdot \mathbf v + \nabla \times \mathbf u \cdot \nabla \times \mathbf v \right) \textrm d \mathbf x \,,
         \qquad
-        \mathbb K = \mathbb D^\top \mathbb M_3 \mathbb D + (\mathbb C \mathcal S^{21})^\top \mathbb M_2\, \mathbb C \mathcal S^{21} \,,
+        \mathbb K = \mathbb D^\top \mathbb M^3 \mathbb D + \mathbb M^2 \mathbb C (\mathbb M^1)^{-1} \mathbb C^\top \mathbb M^2 \,,
 
-    which equals :math:`\int \mu \nabla \mathbf u : \nabla \mathbf v` up to boundary terms. The curl is taken of the
-    1-form :math:`\mathcal S^{21} \mathbf u = \hat\Pi^1[G \hat{\mathbf u}^2 / \sqrt g]`. With Dirichlet boundary
-    conditions its tangential trace is zero, which acts as a weak no-slip penalty (of order :math:`\mu/h`) on the
-    tangential velocity at the wall. The velocity mass matrix is :math:`\mathbb M^2_n` (as in the ideal propagators of
-    the linear model):
+    which equals :math:`\int \mu \nabla \mathbf u : \nabla \mathbf v` up to boundary terms. The vorticity is the weak
+    curl :math:`\boldsymbol\sigma = (\mathbb M^1)^{-1} \mathbb C^\top \mathbb M^2 \mathbf u \in V^1_h`,
 
     .. math::
 
-        (\mathbb M^2_n + \Delta t\, \mu\, \mathbb K)\, \mathbf u^{n+1} = \mathbb M^2_n \mathbf u^n \,.
+        \int_\Omega \boldsymbol\sigma \cdot \boldsymbol\tau \,\textrm d \mathbf x = \int_\Omega \mathbf u \cdot \nabla \times
+        \boldsymbol\tau \,\textrm d \mathbf x \qquad \forall\, \boldsymbol\tau \in V^1_h \,,
+
+    the same operator as the current in
+    :class:`~struphy.propagators.variational_resistivity.VariationalResistivity`. With the wall condition of
+    :math:`V^1_h` (zero tangential trace) this is the Hodge Laplacian of the de Rham complex: the essential condition
+    is :math:`\mathbf u \cdot \mathbf n = 0` and the natural one is perfect slip, :math:`(\nabla \times \mathbf u)
+    \times \mathbf n = 0`. The tangential velocity at the wall is free, as in the ideal model, and the viscous term
+    converges to :math:`\int \mu |\nabla \times \mathbf u|^2` as the grid is refined. (The strong curl of the
+    interpolated 1-form :math:`\hat\Pi^1[G \hat{\mathbf u}^2/\sqrt g]` would remove its tangential trace at the wall
+    instead, a penalty of order :math:`\mu/h` on the slip.) The heating uses the same :math:`\boldsymbol\sigma`, so the
+    thermal energy increases by the dissipated kinetic energy up to the tolerance of the inner :math:`\mathbb M^1`
+    solve. The velocity mass matrix is :math:`\mathbb M^2_{\rho_0}` (``M2n``, as in the ideal propagators of the
+    linear model):
+
+    .. math::
+
+        (\mathbb M^2_{\rho_0} + \Delta t\, \mu\, \mathbb K)\, \mathbf u^{n+1} = \mathbb M^2_{\rho_0} \mathbf u^n \,.
 
     The artificial viscosity :math:`\mu_a`, the damping ``alpha`` and the div-div regularization are not available
     in this case.
@@ -709,15 +723,17 @@ class VariationalViscosity(Propagator):
             self.integration_grid_2form = [[bn[0], bd[1], bd[2]], [bd[0], bn[1], bd[2]], [bd[0], bd[1], bn[2]]]
             sqrt_g = self.domain.jacobian_det(*integration_grid)
             self._inv_sqrt_g = 1.0 / sqrt_g
-            self._G_over_sqrt_g = self.domain.metric(*integration_grid) / sqrt_g
+            self.integration_grid_1form = [[bd[0], bn[1], bn[2]], [bn[0], bd[1], bn[2]], [bn[0], bn[1], bd[2]]]
+            # 1-form inner product G^{-1} sqrt(g) of the weak curl
+            self._Ginv_sqrt_g = self.domain.metric_inv(*integration_grid) * sqrt_g
             self.du1f = self.derham.create_spline_function("du1", "L2")
             self.du12f = self.derham.create_spline_function("du12", "L2")
-            self.cu1f = self.derham.create_spline_function("cu1", "Hdiv")
-            self.cu12f = self.derham.create_spline_function("cu12", "Hdiv")
+            self.cu1f = self.derham.create_spline_function("cu1", "Hcurl")
+            self.cu12f = self.derham.create_spline_function("cu12", "Hcurl")
             self._tmp_du1 = self.derham.V3pol.zeros()
             self._tmp_du12 = self.derham.V3pol.zeros()
-            self._tmp_cu1 = self.derham.V2pol.zeros()
-            self._tmp_cu12 = self.derham.V2pol.zeros()
+            self._tmp_cu1 = self.derham.V1pol.zeros()
+            self._tmp_cu12 = self.derham.V1pol.zeros()
             self._du1_values = xp.zeros(grid_shape, dtype=float)
             self._du12_values = xp.zeros(grid_shape, dtype=float)
             self._cu1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
@@ -793,14 +809,25 @@ class VariationalViscosity(Propagator):
         self.evol_op = self.inv_lop @ self.r_op
 
     def _init_hdiv_operators(self):
-        r"""Velocity in Hdiv: the stiffness :math:`\mathbb D^\top \mathbb M^3 \mathbb D + (\mathbb C \mathcal S^{21})^\top
-        \mathbb M^2 \,\mathbb C \mathcal S^{21}` (div and curl of :math:`\mathbf u`, the curl of the 1-form
-        :math:`\mathcal S^{21} \mathbf u = \hat \Pi^1[G \hat{\mathbf u}^2/\sqrt g]`), with the velocity mass matrix
-        :math:`\mathbb M^2_n` of the linear model, and the implicit step."""
+        r"""Velocity in Hdiv: the stiffness :math:`\mathbb D^\top \mathbb M^3 \mathbb D + \mathbb M^2 \mathbb C
+        (\mathbb M^1)^{-1} \mathbb C^\top \mathbb M^2` (div and weak curl :math:`\boldsymbol \sigma = (\mathbb M^1)^{-1}
+        \mathbb C^\top \mathbb M^2 \mathbf u` of :math:`\mathbf u`, perfect slip at the wall), with the velocity mass
+        matrix :math:`\mathbb M^2_n` of the linear model, and the implicit step."""
         self._div = self.derham.div
-        self._curl_S21 = self.derham.curl @ self.basis_ops.S21
+        M1, M2 = self.mass_ops.M1, self.mass_ops.M2
+        # weak curl of the velocity in V1_0 (as the current in VariationalResistivity); a tight inner tolerance keeps
+        # the heating equal to the dissipated energy
+        self._inv_M1 = inverse(
+            M1,
+            "pcg",
+            pc=MassMatrixPreconditioner(M1, dim_reduce=None),
+            tol=1e-14,
+            maxiter=3000,
+            verbose=False,
+        )
+        self._weak_curl = self._inv_M1 @ self.derham.curl.T @ M2
         self.phy_stiffness = (
-            self._div.T @ self.mass_ops.M3 @ self._div + self._curl_S21.T @ self.mass_ops.M2 @ self._curl_S21
+            self._div.T @ self.mass_ops.M3 @ self._div + M2 @ self.derham.curl @ self._inv_M1 @ self.derham.curl.T @ M2
         )
         self._scaled_stiffness = 0.00001 * self.phy_stiffness
 
@@ -975,26 +1002,27 @@ class VariationalViscosity(Propagator):
         return gu_sq_v
 
     def _get_energy_change_hdiv(self, un, un1, dt):
-        """Velocity in Hdiv: the dissipated energy density dt mu (div u^{n+1} div u^{n+1/2} + curl S21 u^{n+1} . G curl
-        S21 u^{n+1/2}) / sqrt(g) at the quadrature points, whose integral is dt mu u^{n+1} . K u^{n+1/2}."""
+        """Velocity in Hdiv: the dissipated energy density dt mu (div u^{n+1} div u^{n+1/2} + sigma^{n+1} . G^{-1}
+        sigma^{n+1/2}) / sqrt(g) at the quadrature points (sigma the weak curl, a 1-form), whose integral is
+        dt mu u^{n+1} . K u^{n+1/2}."""
         un12 = un.copy(out=self._tmp_un12)
         un12 += un1
         un12 /= 2.0
 
         self.du1f.vector = self._div.dot(un1, out=self._tmp_du1)
         self.du12f.vector = self._div.dot(un12, out=self._tmp_du12)
-        self.cu1f.vector = self._curl_S21.dot(un1, out=self._tmp_cu1)
-        self.cu12f.vector = self._curl_S21.dot(un12, out=self._tmp_cu12)
+        self.cu1f.vector = self._weak_curl.dot(un1, out=self._tmp_cu1)
+        self.cu12f.vector = self._weak_curl.dot(un12, out=self._tmp_cu12)
 
         du1_v = self.du1f.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd, out=self._du1_values)
         du12_v = self.du12f.eval_tp_fixed_loc(
             self.integration_grid_spans, self.integration_grid_bd, out=self._du12_values
         )
         cu1_v = self.cu1f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_2form, out=self._cu1_values
+            self.integration_grid_spans, self.integration_grid_1form, out=self._cu1_values
         )
         cu12_v = self.cu12f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_2form, out=self._cu12_values
+            self.integration_grid_spans, self.integration_grid_1form, out=self._cu12_values
         )
 
         e = self._gu_sq_values
@@ -1002,6 +1030,6 @@ class VariationalViscosity(Propagator):
         e += du1_v * du12_v * self._inv_sqrt_g
         for i in range(3):
             for j in range(3):
-                e += cu1_v[i] * self._G_over_sqrt_g[i, j] * cu12_v[j]
+                e += cu1_v[i] * self._Ginv_sqrt_g[i, j] * cu12_v[j]
         e *= dt * self._mu
         return e
