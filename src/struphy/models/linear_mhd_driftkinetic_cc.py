@@ -12,6 +12,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
 from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
 from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
+from struphy.propagators.magnetosonic_cross_b0 import MagnetosonicCrossB0
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
@@ -46,6 +47,10 @@ class LinearMHDDriftkineticCC(LinearMHD):
         Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
     hot_epsilon: float, optional
         Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
+    magnetosonic_cross_b0: bool
+        Replace the propagators ``bg_current``, ``bg_pressure`` and ``sound`` by one propagator ``magnetosonic``
+        (:class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`), a different discretization of the
+        same equations (default: False).
     """
 
     # propagators renamed when the model joined the LinearEuler family (options of old run metadata)
@@ -115,6 +120,35 @@ class LinearMHDDriftkineticCC(LinearMHD):
             self.cc5d_gradb = CurrentCoupling5DGradB(b_tilde=b_field)
             self.cc5d_curlb = CurrentCoupling5DCurlb(b_tilde=b_field)
 
+    class PropagatorsCrossB0(Propagators):
+        """:class:`Propagators` with ``bg_current``, ``bg_pressure`` and ``sound`` replaced by ``magnetosonic``
+        (:class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`), used with
+        ``magnetosonic_cross_b0=True``.
+
+        Parameters
+        ----------
+        b_field : FEECVariable, optional
+            Magnetic field perturbation, also used by ``magnetosonic`` (default: None).
+        **kwargs
+            Passed to :class:`Propagators`.
+        """
+
+        splitting_order = (
+            "push_bxe",
+            "push_parallel",
+            "shear_alf",
+            "magnetosonic",
+            "cc5d_density",
+            "cc5d_gradb",
+            "cc5d_curlb",
+        )
+        strang_groups = ()
+
+        def __init__(self, b_field: FEECVariable = None, **kwargs):
+            super().__init__(b_field=b_field, **kwargs)
+            del self.bg_current, self.bg_pressure, self.sound
+            self.magnetosonic = MagnetosonicCrossB0(b_field=b_field)
+
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     energetic_ions: EnergeticIons
     propagators: Propagators
@@ -128,9 +162,13 @@ class LinearMHDDriftkineticCC(LinearMHD):
         hot_charge_number: int = 1,
         hot_mass_number: float = 1.0,
         hot_epsilon: float = None,
+        magnetosonic_cross_b0: bool = False,
     ):
         # 0. store input parameters
         self._store_params(locals())
+
+        if magnetosonic_cross_b0:
+            self.Propagators = self.PropagatorsCrossB0
 
         # 1.-5. see LinearMHD (magnetic field in H(div))
         super().__init__(base_units, mass_number=mhd_mass_number)
@@ -150,8 +188,16 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
     def _link_propagator_variables(self):
         """:meta private:"""
-        # shear_alf (u, b) is linked by LinearMHD
-        super()._link_propagator_variables()
+        if self.params["magnetosonic_cross_b0"]:
+            # LinearMHD would link bg_current, bg_pressure and sound, which are replaced here
+            self.propagators.shear_alf.variables.u = self.mhd.velocity
+            self.propagators.shear_alf.variables.b = self.em_fields.b_field
+            self.propagators.magnetosonic.variables.n = self.mhd.density
+            self.propagators.magnetosonic.variables.u = self.mhd.velocity
+            self.propagators.magnetosonic.variables.p = self.mhd.pressure
+        else:
+            # shear_alf (u, b) is linked by LinearMHD
+            super()._link_propagator_variables()
         self.propagators.cc5d_density.variables.u = self.mhd.velocity
         self.propagators.cc5d_gradb.variables.u = self.mhd.velocity
         self.propagators.cc5d_gradb.variables.energetic_ions = self.energetic_ions.var
@@ -302,7 +348,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
         reference discretization for the guiding-center pushers: ``algo="discrete_gradient_2nd_order"`` (implicit
         mid-point) for ``push_bxe`` and ``algo="discrete_gradient_1st_order_newton"`` (Itoh-Abe with Newton
         iterations) for ``push_parallel``. The explicit Runge-Kutta methods (``algo="explicit"``) are cheaper but not
-        energy conserving."""
+        energy conserving. With ``magnetosonic_cross_b0=True``, ``bg_current``, ``bg_pressure`` and ``sound`` are replaced
+        by :class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`."""
         return cls.propagators_doc()
 
     @classmethod
