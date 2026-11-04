@@ -10,10 +10,16 @@ from struphy.models.species import ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
+from struphy.propagators.current_coupling_5d_curlb_1form import CurrentCoupling5DCurlb1form
 from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
+from struphy.propagators.current_coupling_5d_density_1form import CurrentCoupling5DDensity1form
 from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
+from struphy.propagators.current_coupling_5d_gradb_1form import CurrentCoupling5DGradB1form
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+from struphy.propagators.push_guiding_center_bx_estar_1form import PushGuidingCenterBxEstar1form
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
+from struphy.propagators.push_guiding_center_parallel_1form import PushGuidingCenterParallel1form
+from struphy.propagators.shear_alfven_curl_curl_current_coupling_5d import ShearAlfvenCurlCurlCurrentCoupling5D
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 logger = logging.getLogger("struphy")
@@ -28,11 +34,12 @@ PUSH_PARALLEL_ALGO = "discrete_gradient_1st_order_newton"
 class LinearMHDDriftkineticCC(LinearMHD):
     """Hybrid linear ideal MHD coupled with energetic ions (5D drift-kinetic) via the current-coupling scheme.
 
-    Extends :class:`~struphy.models.LinearMHD` (magnetic field in H(div)) by energetic ions in the guiding-center
-    approximation, whose current and magnetization enter the MHD momentum equation. The shear-Alfvén step
-    ``shear_alf`` of LinearMHD is replaced by
-    :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`, which includes the
-    coupling to the guiding-center density.
+    Extends :class:`~struphy.models.LinearMHD` by energetic ions in the guiding-center approximation, whose current
+    and magnetization enter the MHD momentum equation. The shear-Alfvén step ``shear_alf`` of LinearMHD is replaced by
+    :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`
+    (``b_space="Hdiv"``) or
+    :class:`~struphy.propagators.shear_alfven_curl_curl_current_coupling_5d.ShearAlfvenCurlCurlCurrentCoupling5D`
+    (``b_space="Hcurl"``), which include the coupling to the magnetization of the guiding centers.
 
     Parameters
     ----------
@@ -46,6 +53,15 @@ class LinearMHDDriftkineticCC(LinearMHD):
         Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
     hot_epsilon: float, optional
         Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
+    b_space: {"Hdiv", "Hcurl"}
+        Space of the magnetic field, as in :class:`~struphy.models.LinearMHD` (default: "Hdiv"). With ``"Hcurl"``, the
+        coupled shear-Alfvén step is the curl-curl step
+        :class:`~struphy.propagators.shear_alfven_curl_curl_current_coupling_5d.ShearAlfvenCurlCurlCurrentCoupling5D`
+        (no basis projection of the Lorentz force), and the guiding-center pushers and the current coupling use the
+        1-form field (the ``...1form`` propagators).
+    projected: bool
+        Projected curl-curl term in the coupled shear-Alfvén step, only with ``b_space="Hcurl"`` (exactly energy
+        conserving step), as in :class:`~struphy.models.LinearMHD` (default: False).
     """
 
     # propagators renamed when the model joined the LinearEuler family (options of old run metadata)
@@ -84,6 +100,11 @@ class LinearMHDDriftkineticCC(LinearMHD):
             Magnetic field perturbation, added to the equilibrium field in the pushers and couplings (default: None).
         energetic_ions_var : PICVariable, optional
             Markers of the energetic ions, deposited by ``shear_alf`` and ``cc5d_density`` (default: None).
+        b_space : str
+            Space of the magnetic field, ``"Hdiv"`` (2-form propagators) or ``"Hcurl"`` (curl-curl step and 1-form
+            propagators) (default: ``"Hdiv"``).
+        projected : bool
+            Projected curl-curl term of the coupled shear-Alfvén step, only with ``b_space="Hcurl"`` (default: False).
         **kwargs
             Passed to :class:`LinearMHD.Propagators <struphy.models.LinearMHD.Propagators>`.
         """
@@ -104,16 +125,29 @@ class LinearMHDDriftkineticCC(LinearMHD):
             self,
             b_field: FEECVariable = None,
             energetic_ions_var: PICVariable = None,
+            b_space: str = "Hdiv",
+            projected: bool = False,
             **kwargs,
         ):
-            super().__init__(b_field=b_field, **kwargs)
-            self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
-            self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
-            # replaces the shear-Alfven step of LinearMHD
-            self.shear_alf = ShearAlfvenCurrentCoupling5D(energetic_ions=energetic_ions_var)
-            self.cc5d_density = CurrentCoupling5DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
-            self.cc5d_gradb = CurrentCoupling5DGradB(b_tilde=b_field)
-            self.cc5d_curlb = CurrentCoupling5DCurlb(b_tilde=b_field)
+            super().__init__(b_field=b_field, b_space=b_space, projected=projected, **kwargs)
+            if b_space == "Hdiv":
+                self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
+                self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
+                # replaces the shear-Alfven step of LinearMHD
+                self.shear_alf = ShearAlfvenCurrentCoupling5D(energetic_ions=energetic_ions_var)
+                self.cc5d_density = CurrentCoupling5DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
+                self.cc5d_gradb = CurrentCoupling5DGradB(b_tilde=b_field)
+                self.cc5d_curlb = CurrentCoupling5DCurlb(b_tilde=b_field)
+            else:
+                self.push_bxe = PushGuidingCenterBxEstar1form(b_tilde=b_field)
+                self.push_parallel = PushGuidingCenterParallel1form(b_tilde=b_field)
+                # replaces the curl-curl shear-Alfven step of LinearMHD
+                self.shear_alf = ShearAlfvenCurlCurlCurrentCoupling5D(
+                    energetic_ions=energetic_ions_var, projected=projected
+                )
+                self.cc5d_density = CurrentCoupling5DDensity1form(energetic_ions=energetic_ions_var, b_tilde=b_field)
+                self.cc5d_gradb = CurrentCoupling5DGradB1form(b_tilde=b_field)
+                self.cc5d_curlb = CurrentCoupling5DCurlb1form(b_tilde=b_field)
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     energetic_ions: EnergeticIons
@@ -128,12 +162,14 @@ class LinearMHDDriftkineticCC(LinearMHD):
         hot_charge_number: int = 1,
         hot_mass_number: float = 1.0,
         hot_epsilon: float = None,
+        b_space: LinearMHD.OptsBSpace = "Hdiv",
+        projected: bool = False,
     ):
         # 0. store input parameters
         self._store_params(locals())
 
-        # 1.-5. see LinearMHD (magnetic field in H(div))
-        super().__init__(base_units, mass_number=mhd_mass_number)
+        # 1.-5. see LinearMHD
+        super().__init__(base_units, mass_number=mhd_mass_number, b_space=b_space, projected=projected)
 
     def _create_species(self):
         """:meta private:"""
@@ -195,7 +231,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
         """:meta private:"""
         super().post_allocate()
 
-        self._PB = getattr(Propagator.basis_ops, "PB")
+        # parallel component of the magnetic field perturbation (2-form or 1-form), a 0-form
+        self._PB = Propagator.basis_ops.PB if self._b_space == "Hdiv" else Propagator.basis_ops.PB1form
         self._PBb = self._PB.codomain.zeros()
 
     def _compute_en_fB(self):

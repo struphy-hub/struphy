@@ -10,10 +10,15 @@ _LAZY_IMPORTS = {
     "BackgroundQGradient": "struphy.propagators.background_q_gradient",
     "CurlCurlSolve": "struphy.propagators.curl_curl_solve",
     "CurrentCoupling5DCurlb": "struphy.propagators.current_coupling_5d_curlb",
+    "CurrentCoupling5DCurlb1form": "struphy.propagators.current_coupling_5d_curlb_1form",
     "CurrentCoupling5DDensity": "struphy.propagators.current_coupling_5d_density",
+    "CurrentCoupling5DDensity1form": "struphy.propagators.current_coupling_5d_density_1form",
     "CurrentCoupling5DGradB": "struphy.propagators.current_coupling_5d_gradb",
+    "CurrentCoupling5DGradB1form": "struphy.propagators.current_coupling_5d_gradb_1form",
     "CurrentCoupling6DCurrent": "struphy.propagators.current_coupling_6d_current",
+    "CurrentCoupling6DCurrent1form": "struphy.propagators.current_coupling_6d_current_1form",
     "CurrentCoupling6DDensity": "struphy.propagators.current_coupling_6d_density",
+    "CurrentCoupling6DDensity1form": "struphy.propagators.current_coupling_6d_density_1form",
     "DriftKineticMaxwellCoupling": "struphy.propagators.drift_kinetic_maxwell_coupling",
     "EfieldWeightsCoupling": "struphy.propagators.efield_weights_coupling",
     "FaradayExtended": "struphy.propagators.faraday_extended",
@@ -33,13 +38,17 @@ _LAZY_IMPORTS = {
     "PushEta": "struphy.propagators.push_eta",
     "PushEtaPC": "struphy.propagators.push_eta_pc",
     "PushGuidingCenterBxEstar": "struphy.propagators.push_guiding_center_bx_estar",
+    "PushGuidingCenterBxEstar1form": "struphy.propagators.push_guiding_center_bx_estar_1form",
     "PushGuidingCenterParallel": "struphy.propagators.push_guiding_center_parallel",
+    "PushGuidingCenterParallel1form": "struphy.propagators.push_guiding_center_parallel_1form",
     "PushRandomDiffusion": "struphy.propagators.push_random_diffusion",
     "PushVinForceField": "struphy.propagators.push_v_in_force_field",
     "PushVinSPHpressure": "struphy.propagators.push_v_in_sph_pressure",
     "PushVinViscousPotential": "struphy.propagators.push_v_in_viscous_potential",
     "PushVxB": "struphy.propagators.push_vxb",
+    "PushVxB1form": "struphy.propagators.push_vxb_1form",
     "ShearAlfvenB1": "struphy.propagators.shear_alfven_b1",
+    "ShearAlfvenCurlCurlCurrentCoupling5D": "struphy.propagators.shear_alfven_curl_curl_current_coupling_5d",
     "ShearAlfvenCurlCurlPropagator": "struphy.propagators.shear_alfven_curl_curl_propagator",
     "ShearAlfvenCurrentCoupling5D": "struphy.propagators.shear_alfven_current_coupling_5d",
     "ShearAlfvenNonlinear": "struphy.propagators.shear_alfven_nonlinear",
@@ -74,10 +83,15 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.background_q_gradient import BackgroundQGradient
     from struphy.propagators.curl_curl_solve import CurlCurlSolve
     from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
+    from struphy.propagators.current_coupling_5d_curlb_1form import CurrentCoupling5DCurlb1form
     from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
+    from struphy.propagators.current_coupling_5d_density_1form import CurrentCoupling5DDensity1form
     from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
+    from struphy.propagators.current_coupling_5d_gradb_1form import CurrentCoupling5DGradB1form
     from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
+    from struphy.propagators.current_coupling_6d_current_1form import CurrentCoupling6DCurrent1form
     from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
+    from struphy.propagators.current_coupling_6d_density_1form import CurrentCoupling6DDensity1form
     from struphy.propagators.drift_kinetic_maxwell_coupling import DriftKineticMaxwellCoupling
     from struphy.propagators.efield_weights_coupling import EfieldWeightsCoupling
     from struphy.propagators.faraday_extended import FaradayExtended
@@ -97,13 +111,17 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.push_eta import PushEta
     from struphy.propagators.push_eta_pc import PushEtaPC
     from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
+    from struphy.propagators.push_guiding_center_bx_estar_1form import PushGuidingCenterBxEstar1form
     from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
+    from struphy.propagators.push_guiding_center_parallel_1form import PushGuidingCenterParallel1form
     from struphy.propagators.push_random_diffusion import PushRandomDiffusion
     from struphy.propagators.push_v_in_force_field import PushVinForceField
     from struphy.propagators.push_v_in_sph_pressure import PushVinSPHpressure
     from struphy.propagators.push_v_in_viscous_potential import PushVinViscousPotential
     from struphy.propagators.push_vxb import PushVxB
+    from struphy.propagators.push_vxb_1form import PushVxB1form
     from struphy.propagators.shear_alfven_b1 import ShearAlfvenB1
+    from struphy.propagators.shear_alfven_curl_curl_current_coupling_5d import ShearAlfvenCurlCurlCurrentCoupling5D
     from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
     from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
     from struphy.propagators.shear_alfven_nonlinear import ShearAlfvenNonlinear
@@ -137,10 +155,15 @@ __all__ = [
     "BackgroundQGradient",
     "CurlCurlSolve",
     "CurrentCoupling5DCurlb",
+    "CurrentCoupling5DCurlb1form",
     "CurrentCoupling5DDensity",
+    "CurrentCoupling5DDensity1form",
     "CurrentCoupling5DGradB",
+    "CurrentCoupling5DGradB1form",
     "CurrentCoupling6DCurrent",
+    "CurrentCoupling6DCurrent1form",
     "CurrentCoupling6DDensity",
+    "CurrentCoupling6DDensity1form",
     "DriftKineticMaxwellCoupling",
     "EfieldWeightsCoupling",
     "FaradayExtended",
@@ -160,13 +183,17 @@ __all__ = [
     "PushEta",
     "PushEtaPC",
     "PushGuidingCenterBxEstar",
+    "PushGuidingCenterBxEstar1form",
     "PushGuidingCenterParallel",
+    "PushGuidingCenterParallel1form",
     "PushRandomDiffusion",
     "PushVinForceField",
     "PushVinSPHpressure",
     "PushVinViscousPotential",
     "PushVxB",
+    "PushVxB1form",
     "ShearAlfvenB1",
+    "ShearAlfvenCurlCurlCurrentCoupling5D",
     "ShearAlfvenCurlCurlPropagator",
     "ShearAlfvenCurrentCoupling5D",
     "ShearAlfvenNonlinear",

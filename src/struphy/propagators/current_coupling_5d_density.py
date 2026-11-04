@@ -61,6 +61,11 @@ class CurrentCoupling5DDensity(Propagator):
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
 
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # CurrentCoupling5DDensity1form) and the accumulation kernels (assembled and matrix-free)
+    _b_form = "2"
+    _kernels = {"assembled": cc_lin_mhd_5d_D, "matrix_free": cc_lin_mhd_5d_D_mf}
+
     def __init__(
         self,
         energetic_ions: PICVariable = None,
@@ -73,9 +78,11 @@ class CurrentCoupling5DDensity(Propagator):
             Energetic-ion particle distribution (``"Particles5D"`` space) providing
             the density source term.
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the coupling term.
+            Magnetic perturbation 2-form (``"Hdiv"`` space) entering the coupling term.
             If ``None``, only the equilibrium field is used.
         """
+        b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
+        assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.variables = self.Variables()
         self.energetic_ions = energetic_ions
         self.b_tilde = b_tilde
@@ -170,16 +177,16 @@ class CurrentCoupling5DDensity(Propagator):
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
         self._A = getattr(self.mass_ops, id_M)
 
-        # magnetic equilibrium field
+        # magnetic equilibrium field (the field in the space of _b_form)
         unit_b1 = self.projected_equil.unit_b1
         curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._b2 = self.projected_equil.b2
+        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
 
         # scaling factor
         epsilon = self.energetic_ions.species.equation_params.epsilon
 
         # temporary vectors to avoid memory allocation
-        self._b_full = self._b2.space.zeros()
+        self._b_full = self._b_eq.space.zeros()
         self._rhs_v = self.variables.u.spline.vector.space.zeros()
         self._u_new = self.variables.u.spline.vector.space.zeros()
 
@@ -205,7 +212,7 @@ class CurrentCoupling5DDensity(Propagator):
             assert particles.n_cols_aux >= 4, "matrix_free needs 4 free (auxiliary) marker columns."
             self._args_accum_kernel += (column,)
             # the kernel that stores the filling matrices (called in __call__, kept for kernels())
-            self._store_kernel = cc_lin_mhd_5d_D_mf
+            self._store_kernel = self._kernels["matrix_free"]
             self._A_particles = MarkerOperator(
                 particles,
                 self.options.u_space,
@@ -219,7 +226,7 @@ class CurrentCoupling5DDensity(Propagator):
             self._ACC = Accumulator(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_5d_D,
+                self._kernels["assembled"],
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=False,
@@ -245,15 +252,20 @@ class CurrentCoupling5DDensity(Propagator):
             verbose=self.options.solver_params.verbose,
         )
 
+    def _b_tilde_coeffs(self):
+        """FE coefficients of ``b_tilde`` in the tensor-product space read by the kernels (for the 2-form the spline
+        vector itself)."""
+        return self.b_tilde.spline.vector
+
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        b_full = self._b2.copy(out=self._b_full)
+        # sum up total magnetic field b_full = b_eq + b_tilde (in-place)
+        b_full = self._b_eq.copy(out=self._b_full)
 
         if self.b_tilde is not None:
-            b_full += self.b_tilde.spline.vector
+            b_full += self._b_tilde_coeffs()
         b_full.update_ghost_regions()
 
         if self.options.matrix_free:

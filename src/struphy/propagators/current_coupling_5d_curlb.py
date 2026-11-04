@@ -97,14 +97,27 @@ class CurrentCoupling5DCurlb(Propagator):
             assert "Particles5D" in new.space
             self._energetic_ions = new
 
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # CurrentCoupling5DCurlb1form), the accumulation kernels (assembled and matrix-free) and the pusher kernels (per
+    # u_space)
+    _b_form = "2"
+    _kernels = {
+        "assembled": cc_lin_mhd_5d_curlb,
+        "matrix_free": cc_lin_mhd_5d_curlb_mf,
+        "push_Hdiv": push_gc_cc_J1_Hdiv,
+        "push_H1vec": push_gc_cc_J1_H1vec,
+    }
+
     def __init__(self, b_tilde: FEECVariable = None):
         """
         Parameters
         ----------
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the curl-B
+            Magnetic perturbation 2-form (``"Hdiv"`` space) entering the curl-B
             coupling term. If ``None``, only the equilibrium field is used.
         """
+        b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
+        assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.variables = self.Variables()
         self.b_tilde = b_tilde
 
@@ -212,16 +225,16 @@ class CurrentCoupling5DCurlb(Propagator):
             pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(getattr(self.mass_ops, id_M))
 
-        # magnetic equilibrium field
+        # magnetic equilibrium field (the field in the space of _b_form)
         unit_b1 = self.projected_equil.unit_b1
         curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._b2 = self.projected_equil.b2
+        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
 
         # scaling factor
         epsilon = self.variables.energetic_ions.species.equation_params.epsilon
 
         # temporary vectors to avoid memory allocation
-        self._b_full = self._b2.space.zeros()
+        self._b_full = self._b_eq.space.zeros()
         self._u_new = self.variables.u.spline.vector.space.zeros()
         self._u_avg = self.variables.u.spline.vector.space.zeros()
 
@@ -248,7 +261,7 @@ class CurrentCoupling5DCurlb(Propagator):
             self._ACC = AccumulatorVector(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_5d_curlb_mf,
+                self._kernels["matrix_free"],
                 self.mass_ops,
                 self.domain.args_domain,
                 filter_params=self.options.filter_params,
@@ -267,7 +280,7 @@ class CurrentCoupling5DCurlb(Propagator):
             self._ACC = Accumulator(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_5d_curlb,
+                self._kernels["assembled"],
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=True,
@@ -278,9 +291,9 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # define Pusher
         if self.options.u_space == "Hdiv":
-            pusher_kernel = push_gc_cc_J1_Hdiv
+            pusher_kernel = self._kernels["push_Hdiv"]
         elif self.options.u_space == "H1vec":
-            pusher_kernel = push_gc_cc_J1_H1vec
+            pusher_kernel = self._kernels["push_H1vec"]
         else:
             raise ValueError(
                 f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
@@ -322,15 +335,20 @@ class CurrentCoupling5DCurlb(Propagator):
             solver_params=self.options.solver_params,
         )
 
+    def _b_tilde_coeffs(self):
+        """FE coefficients of ``b_tilde`` in the tensor-product space read by the kernels (for the 2-form the spline
+        vector itself)."""
+        return self.b_tilde.spline.vector
+
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        b_full = self._b2.copy(out=self._b_full)
+        # sum up total magnetic field b_full = b_eq + b_tilde (in-place)
+        b_full = self._b_eq.copy(out=self._b_full)
 
         if self.b_tilde is not None:
-            b_full += self.b_tilde.spline.vector
+            b_full += self._b_tilde_coeffs()
         b_full.update_ghost_regions()
 
         self._ACC(
