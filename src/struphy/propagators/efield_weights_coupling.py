@@ -237,6 +237,11 @@ class EfieldWeightsCoupling(Propagator):
         self._e_scale = e.space.zeros()
         self._e_sum = e.space.zeros()
 
+        # the field on the tensor-product space, read by the pusher kernel: E1^T e_sum (e_sum itself without polar
+        # splines)
+        self._E1T = self.derham.extraction_ops["1"].transpose()
+        self._e_sum_tp = self.derham.V1.zeros() if self.derham.polar_splines else self._e_sum
+
         # marker storage
         self._f0_values = xp.zeros(particles.n_markers_max, dtype=float)
         self._old_weights = xp.empty(particles.n_markers_max, dtype=float)
@@ -245,11 +250,14 @@ class EfieldWeightsCoupling(Propagator):
         # ========= Schur Solver =========
         # ================================
 
-        # Preconditioner
-        if self.options.precond is None:
+        # Preconditioner (the polar version of the mass matrix preconditioner with polar splines)
+        precond = self.options.precond
+        if precond == "MassMatrixPreconditioner" and self.derham.polar_splines:
+            precond = "PolarMassMatrixPreconditioner"
+        if precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, self.options.precond)
+            pc_class = getattr(preconditioner, precond)
             pc = pc_class(self.mass_ops.M1)
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -268,9 +276,9 @@ class EfieldWeightsCoupling(Propagator):
         # Instantiate particle pusher
         args_kernel = (
             self.derham.args_derham,
-            self._e_sum.blocks[0]._data,
-            self._e_sum.blocks[1]._data,
-            self._e_sum.blocks[2]._data,
+            self._e_sum_tp.blocks[0]._data,
+            self._e_sum_tp.blocks[1]._data,
+            self._e_sum_tp.blocks[2]._data,
             self._f0_values,
             self._kappa,
             self._vth,
@@ -327,7 +335,9 @@ class EfieldWeightsCoupling(Propagator):
         self._e_sum *= 0.0
         self._e_sum += en
         self._e_sum += self._e_tmp
-        self._e_sum.update_ghost_regions()
+        if self._e_sum_tp is not self._e_sum:
+            self._E1T.dot(self._e_sum, out=self._e_sum_tp)
+        self._e_sum_tp.update_ghost_regions()
 
         # Update weights
         self._pusher(dt)

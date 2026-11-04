@@ -8,9 +8,11 @@ from struphy import set_logging_level
 set_logging_level(logging.WARNING)
 
 
-def _model(control_variate=False, domain=None, **options):
+def _model(control_variate=False, domain=None, polar=False, **options):
     """Allocated DriftKineticMaxwell model (slab with a tilted homogeneous B0, full-f guiding centers with epsilon=0.5,
-    lam=2, kappa=2, a parallel flow and a B perturbation) with the given options of its coupling propagator."""
+    lam=2, kappa=2, a parallel flow and a B perturbation) with the given options of its coupling propagator. With
+    ``polar=True`` in a cylinder with polar splines (enough elements in eta_1 for the polar rings on the pole rank,
+    also on 4 MPI ranks)."""
     from struphy import (
         DerhamOptions,
         LoadingParameters,
@@ -43,13 +45,21 @@ def _model(control_variate=False, domain=None, **options):
     prop = model.propagators.coupling
     prop.options = prop.Options(solver_params=SolverParameters(tol=1e-13, maxiter=3000), **options)
 
-    Simulation(
-        model=model,
-        domain=domains.Cuboid(r1=4.0, r2=2.0, r3=4.0) if domain is None else domain,
-        equil=equils.HomogenSlab(B0x=0.3, B0z=1.0),
-        grid=grids.TensorProductGrid(num_elements=(6, 2, 6)),
-        derham_opts=DerhamOptions(degree=(2, 1, 2)),
-    ).allocate()
+    if polar:
+        geometry = {
+            "domain": domains.IGAPolarCylinder(num_elements=(12, 6), degree=(2, 2), a=1.0, Lz=4.0),
+            "grid": grids.TensorProductGrid(num_elements=(12, 6, 2)),
+            "derham_opts": DerhamOptions(degree=(2, 2, 1), bcs=(("free", "dirichlet"), None, None), polar_splines=True),
+        }
+    else:
+        geometry = {
+            "domain": domains.Cuboid(r1=4.0, r2=2.0, r3=4.0) if domain is None else domain,
+            "grid": grids.TensorProductGrid(num_elements=(6, 2, 6)),
+            "derham_opts": DerhamOptions(degree=(2, 1, 2)),
+        }
+    sim = Simulation(model=model, equil=equils.HomogenSlab(B0x=0.3, B0z=1.0), **geometry)
+    sim.allocate()
+    assert sim.derham.polar_splines == polar
     return model
 
 
@@ -106,6 +116,37 @@ def test_energy_conservation_mapped():
         prop(0.5)
         assert prop._solver._info["success"]
     assert abs(prop.energy() - energy_0) < 1e-11 * energy_0
+
+
+@pytest.mark.parametrize("lam", [1.0, 0.0])
+@pytest.mark.parametrize("precond", ["StiffnessPreconditioner", "MassMatrixPreconditioner"])
+def test_polar_energy_conservation(lam, precond):
+    """With polar splines: the coupling step conserves its energy (with the E x B current; the mass matrix
+    preconditioner falls back to the polar one), and the matrix-free particle matrices give the same step as the
+    assembled ones."""
+    from struphy.feec.preconditioner import PolarMassMatrixPreconditioner
+
+    states = []
+    for matrix_free in (False, True):
+        model = _model(lam=lam, precond=precond, matrix_free=matrix_free, initial_projection=False, polar=True)
+        prop = model.propagators.coupling
+        if precond == "MassMatrixPreconditioner":
+            assert isinstance(prop._mass_pc, PolarMassMatrixPreconditioner)
+        b = model.em_fields.b_field.spline.vector
+        energy_0 = prop.energy()
+        energy_b_0 = 0.5 * b.inner(prop._M2.dot(b))
+        # the largest energy exchanged with the B field
+        exchanged = 0.0
+        for _ in range(2):
+            prop(0.5)
+            assert prop._solver._info["success"]
+            exchanged = max(exchanged, abs(0.5 * b.inner(prop._M2.dot(b)) - energy_b_0))
+            assert abs(prop.energy() - energy_0) < 1e-9 * max(exchanged, 1e-3 * energy_b_0)
+        assert exchanged > 0.1 * energy_b_0
+        e, b, v = _state(model)
+        states.append((e.toarray(), b.toarray(), v))
+    for x0, x1 in zip(*states):
+        assert xp.max(xp.abs(x1 - x0)) < 1e-8 * xp.max(xp.abs(x0))
 
 
 @pytest.mark.parametrize("lam", [1.0, 0.0])

@@ -2284,6 +2284,12 @@ class WeightedMassOperator(LinearOperator):
         """The boundary operators ``(B_V, B_W)`` applied on the domain and codomain side."""
         return self._V_boundary_op, self._W_boundary_op
 
+    @property
+    def transposed(self) -> bool:
+        """Whether the operator is the transpose of the mass matrix of ``(V, W)``, i.e. maps W to V (the boundary and
+        extraction operators of V act on the codomain side)."""
+        return self._transposed
+
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
@@ -2668,6 +2674,17 @@ class WeightedMassOperator(LinearOperator):
         self._creation_info = None
         return self
 
+    def _check_matrix_space(self, M: LinearOperator):
+        """Raise if the operator ``M`` (not a WeightedMassOperator) cannot be added to the (block) stencil matrix, i.e.
+        if it does not act on the tensor-product spaces of the matrix (e.g. on polar splines, where the extraction
+        operators map to other spaces)."""
+        if M.domain != self._mat.domain or M.codomain != self._mat.codomain:
+            raise NotImplementedError(
+                f"Cannot add a {type(M).__name__} to the matrix of the weighted mass operator {self.name}: it does not "
+                "act on the tensor-product spline spaces of the matrix (polar splines?). Use a lazy sum instead, e.g. "
+                "struphy.linear_algebra.schur_solver.SchurOperator."
+            )
+
     def __iadd__(self, M):
         assert M.domain is self.domain
         assert M.codomain is self.codomain
@@ -2679,6 +2696,7 @@ class WeightedMassOperator(LinearOperator):
             return self
 
         elif isinstance(M, LinearOperator):
+            self._check_matrix_space(M)
             self._creation_info = None
             self._mat += M
             self._matrix_changed(by_arithmetic=True)
@@ -2698,6 +2716,7 @@ class WeightedMassOperator(LinearOperator):
             return self
 
         elif isinstance(M, LinearOperator):
+            self._check_matrix_space(M)
             self._creation_info = None
             self._mat -= M
             self._matrix_changed(by_arithmetic=True)
