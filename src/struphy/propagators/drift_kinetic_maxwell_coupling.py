@@ -21,6 +21,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.pushing.kernels.push_vpar_with_efield import push_vpar_with_efield
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import extracted_ones
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -257,7 +258,8 @@ class DriftKineticMaxwellCoupling(Propagator):
               ``derivative="curl"`` for the stabilized curl-curl approximation of the Schur operator (see the class
               docstring), rebuilt when the time step changes.
             - ``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``: preconditioner of
-              :math:`\mathbb M_1`.
+              :math:`\mathbb M_1` (with polar splines, ``"MassMatrixPreconditioner"`` is replaced by
+              ``"PolarMassMatrixPreconditioner"``).
             - ``None``: no preconditioner.
 
         solver_params : SolverParameters, default=None
@@ -356,8 +358,6 @@ class DriftKineticMaxwellCoupling(Propagator):
         self._exb = self.options.exb_current
         assert self._c2 * self._c3 > 0.0, f"c2 * c3 must be > 0, got c2={self._c2}, c3={self._c3}."
         assert self._lam2 + self._chi > 0.0, f"lam**2 + chi must be > 0, got lam**2={self._lam2}, chi={self._chi}."
-
-        assert not self.derham.polar_splines, "DriftKineticMaxwellCoupling does not support polar splines yet."
 
         particles = self.variables.ions.particles
         if particles.control_variate:
@@ -471,9 +471,7 @@ class DriftKineticMaxwellCoupling(Propagator):
         # reference density for the stiffness preconditioner: density average of the parallel particle matrix
         if self.options.n_ref is None:
             self._accumulate()
-            ones = self.derham.V1.zeros()
-            for block in ones.blocks:
-                block._data[:] = 1.0
+            ones = extracted_ones(self.derham, "1")
             A_par = self._A_par if self._matrix_free else self._A_lam
             ones_A = ones.inner(A_par.dot(ones))
             ones_M = ones.inner(self.mass_ops.M1para.dot(ones))
@@ -489,6 +487,8 @@ class DriftKineticMaxwellCoupling(Propagator):
 
         # preconditioner (the stiffness preconditioner depends on dt and is built in prepare_time_step)
         self._precond = self.options.precond
+        if self._precond == "MassMatrixPreconditioner" and self.derham.polar_splines:
+            self._precond = "PolarMassMatrixPreconditioner"
         if self._precond in (None, "StiffnessPreconditioner"):
             self._mass_pc = None
         else:
@@ -503,22 +503,29 @@ class DriftKineticMaxwellCoupling(Propagator):
         self._schur_dt = None
         self._projected = False
 
-        # buffers (the pusher reads e_mid)
-        self._e_mid = self.derham.V1.zeros()
-        self._e_new = self.derham.V1.zeros()
-        self._e_rhs = self.derham.V1.zeros()
-        self._e_tmp = self.derham.V1.zeros()
-        self._b_new = self.derham.V2.zeros()
-        self._b_tmp = self.derham.V2.zeros()
+        # buffers in the spaces of e and b (polar with polar splines)
+        e_space = self.variables.e.spline.vector.space
+        b_space = self.variables.b.spline.vector.space
+        self._e_mid = e_space.zeros()
+        self._e_new = e_space.zeros()
+        self._e_rhs = e_space.zeros()
+        self._e_tmp = e_space.zeros()
+        self._b_new = b_space.zeros()
+        self._b_tmp = b_space.zeros()
+
+        # the mid-point field on the tensor-product space, read by the pusher kernel: E1^T e_mid (e_mid itself
+        # without polar splines)
+        self._E1T = self.derham.extraction_ops["1"].transpose()
+        self._e_mid_tp = self.derham.V1.zeros() if self.derham.polar_splines else self._e_mid
 
         # particle pusher: v^{n+1} = v^n + dt * c3 * a_p . Lambda^1 e_mid
         args_kernel = (
             (
                 self.derham.args_derham,
                 epsilon,
-                self._e_mid.blocks[0]._data,
-                self._e_mid.blocks[1]._data,
-                self._e_mid.blocks[2]._data,
+                self._e_mid_tp.blocks[0]._data,
+                self._e_mid_tp.blocks[1]._data,
+                self._e_mid_tp.blocks[2]._data,
             )
             + args_fields
             + args_b_par
@@ -652,6 +659,9 @@ class DriftKineticMaxwellCoupling(Propagator):
 
         e_mid = self._solver.dot(rhs, out=self._e_mid)
         e_mid.update_ghost_regions()
+        if self._e_mid_tp is not e_mid:
+            self._E1T.dot(e_mid, out=self._e_mid_tp)
+            self._e_mid_tp.update_ghost_regions()
         return e_mid, self._solver._info
 
     def _project_onto_constraint(self, dt: float):
