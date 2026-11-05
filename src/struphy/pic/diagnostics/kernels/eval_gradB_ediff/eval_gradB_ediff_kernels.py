@@ -22,6 +22,7 @@ def eval_gradB_ediff(
     grad_PB_b2: "float[:,:,:]",
     grad_PB_b3: "float[:,:,:]",
     idx: int,
+    periodic: "bool[:]",
 ):
     r"""TODO"""
 
@@ -52,7 +53,14 @@ def eval_gradB_ediff(
 
         # marker positions, mid point
         eta_mid[:] = (markers[0:3, ip] + markers[first_pusher_idx : first_pusher_idx + 3, ip]) / 2.0
-        eta_mid[:] = mod(eta_mid[:], 1.0)
+
+        for i in range(3):
+            if periodic[i]:
+                eta_mid[i] = mod(eta_mid[i], 1.0)
+            else:
+                eta_mid[i] = mod(eta_mid[i], 2.0)
+                if eta_mid[i] > 1.0:
+                    eta_mid[i] = 2.0 - eta_mid[i]
 
         eta_diff = markers[0:3, ip] - markers[first_pusher_idx : first_pusher_idx + 3, ip]
 

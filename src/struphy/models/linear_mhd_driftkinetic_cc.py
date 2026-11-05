@@ -1,6 +1,7 @@
 import logging
 
 import cunumpy as xp
+from scope_profiler import ProfileManager
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -8,6 +9,7 @@ from struphy.models.linear_mhd import LinearMHD
 from struphy.models.scalars import FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.particles import Particles5D
 from struphy.propagators.base import Propagator
 from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
 from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
@@ -51,6 +53,9 @@ class LinearMHDDriftkineticCC(LinearMHD):
         Replace the propagators ``bg_current``, ``bg_pressure`` and ``sound`` by one propagator ``magnetosonic``
         (:class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`), a different discretization of the
         same equations (default: False).
+    energy_budget: bool
+        Save the scalars ``en_refill`` and ``en_weight``: the cumulative energy from refilling markers and from the
+        control variate weight update (default: False). Adds two marker columns, so a restart must use the same value.
     """
 
     # propagators renamed when the model joined the LinearEuler family (options of old run metadata)
@@ -163,6 +168,7 @@ class LinearMHDDriftkineticCC(LinearMHD):
         hot_mass_number: float = 1.0,
         hot_epsilon: float = None,
         magnetosonic_cross_b0: bool = False,
+        energy_budget: bool = False,
     ):
         # 0. store input parameters
         self._store_params(locals())
@@ -181,6 +187,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
             self.params["hot_mass_number"],
             self.params["hot_epsilon"],
         )
+        if self.params["energy_budget"]:
+            self.energetic_ions.n_cols_diagnostics = Particles5D.default_n_cols["diagnostics"] + 2
 
     def _propagator_args(self):
         """:meta private:"""
@@ -218,6 +226,9 @@ class LinearMHDDriftkineticCC(LinearMHD):
         scalars["en_fB"] = en_fB
         scalars["en_tot"] = en_tot + en_fv + en_fB
         scalars["n_lost_particles"] = LostMarkersPIC(self.energetic_ions.var)
+        if self.params["energy_budget"]:
+            scalars["en_refill"] = FunctionScalarPIC(self._compute_en_refill, self.energetic_ions.var)
+            scalars["en_weight"] = FunctionScalarPIC(self._compute_en_weight, self.energetic_ions.var)
         return scalars
 
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -244,11 +255,56 @@ class LinearMHDDriftkineticCC(LinearMHD):
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
+        # the coupling of shear_alf deposits with this filter, so the marker energy sees the same filter on b_par
+        accfilter = self.propagators.shear_alf._ACC.accfilter
+        self._b_par_filter = accfilter if accfilter.params.use_filter == "fourier_in_tor" else None
+        self.propagators.push_bxe.b_par_filter = self._b_par_filter
+        self.propagators.push_parallel.b_par_filter = self._b_par_filter
+        self.propagators.cc5d_gradb.b_par_filter = self._b_par_filter
+
+        if self.params["energy_budget"]:
+            self.energetic_ions.var.particles.enable_energy_budget()
+
+    def _b_par(self):
+        """The parallel magnetic perturbation seen by the markers in their energy."""
+        PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
+        if self._b_par_filter is not None:
+            self._b_par_filter(PBb)
+        return PBb
+
+    def integrate(self, dt, split_algo="LieTrotter"):
+        """See :meth:`~struphy.models.base.StruphyModel.integrate`. With ``energy_budget`` the energy of the markers
+        is saved before each propagator that moves them."""
+        if not self.params["energy_budget"]:
+            super().integrate(dt, split_algo=split_algo)
+            return
+
+        particles = self.energetic_ions.var.particles
+        for name, h in self.propagator_calls(dt, split_algo):
+            propagator = getattr(self.propagators, name)
+            moves_markers = name in ("push_bxe", "push_parallel", "cc5d_gradb", "cc5d_curlb")
+            if moves_markers:
+                particles.budget_begin_push(self._b_par())
+            with ProfileManager.profile_region("prop: " + type(propagator).__name__, functions=[propagator.__call__]):
+                propagator(h)
+            if moves_markers:
+                particles.budget_count_refilled()
+
+    def _compute_en_refill(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        return self.energetic_ions.var.particles.refill_energy[0] * Ah / Ab
+
+    def _compute_en_weight(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        return self.energetic_ions.var.particles.weight_energy[0] * Ah / Ab
+
     def _compute_en_fB(self):
         Ab = self.mhd.mass_number
         Ah = self.energetic_ions.var.species.mass_number
         particles = self.energetic_ions.var.particles
-        self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
+        self._PBb = self._b_par()
         particles.save_magnetic_energy(self._PBb)
 
         return (
@@ -339,7 +395,10 @@ class LinearMHDDriftkineticCC(LinearMHD):
         - Parallel energetic-particle energy: ``en_fv``
         - Magnetic-moment energetic-particle energy: ``en_fB``
         - Total energy: ``en_tot = en_U + en_thermal + en_B + en_fv + en_fB``
-        - Lost particles: ``n_lost_particles``"""
+        - Lost particles: ``n_lost_particles``
+        - With ``energy_budget=True``, cumulative energy from refilling markers ``en_refill`` and from the control
+          variate weight update ``en_weight``. With the energy-conserving propagators (sonic steps excluded),
+          ``en_tot - en_refill - en_weight`` is constant in time."""
 
     @classmethod
     def doc_discretization(cls):

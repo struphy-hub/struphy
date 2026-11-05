@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import cunumpy as xp
+from feectools.linalg.basic import LinearOperator
 from scipy.fft import irfft, rfft
 
 from struphy.feec.psydac_derham import Derham
@@ -183,3 +184,56 @@ class AccumFilter:
                     comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_num_elements)
 
             comp.update_ghost_regions()
+
+
+class FilteredOperator(LinearOperator):
+    r"""The linear operator :math:`\mathbb F \mathbb A \mathbb F`, with the symmetric filter :math:`\mathbb F`.
+
+    A particle matrix must be filtered like this if the vector deposited by the same markers and the field they see
+    are filtered: the matrix then is the derivative of the filtered deposition in the direction of the filtered field.
+
+    Parameters
+    ----------
+    operator : LinearOperator
+        The operator :math:`\mathbb A`.
+
+    accfilter : AccumFilter
+        The filter :math:`\mathbb F`.
+    """
+
+    def __init__(self, operator: LinearOperator, accfilter: AccumFilter):
+        self._operator = operator
+        self._accfilter = accfilter
+        self._tmp = operator.domain.zeros()
+
+    @property
+    def domain(self):
+        return self._operator.domain
+
+    @property
+    def codomain(self):
+        return self._operator.codomain
+
+    @property
+    def dtype(self):
+        return self._operator.dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return FilteredOperator(self._operator.transpose(conjugate=conjugate), self._accfilter)
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self.codomain.zeros()
+        tmp = v.copy(out=self._tmp)
+        tmp.update_ghost_regions()
+        self._accfilter(tmp)
+        self._operator.dot(tmp, out=out)
+        out.update_ghost_regions()
+        self._accfilter(out)
+        return out

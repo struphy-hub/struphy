@@ -193,6 +193,10 @@ class PushGuidingCenterParallel(Propagator):
         self._options = new
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
+    b_par_filter = None
+    """Filter of the parallel magnetic perturbation in the marker energy, set by a model whose coupling term to the
+    magnetic field deposits with this filter (:class:`~struphy.pic.accumulation.filter.AccumFilter`, or None)."""
+
     @profile
     def allocate(self):
         # scaling factor
@@ -543,6 +547,8 @@ class PushGuidingCenterParallel(Propagator):
         """Total magnetic field (2-form), parallel magnetic field and its gradient (equilibrium plus perturbation) in the
         tensor-product spaces."""
         B_dot_b_pol = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b_pol)
+        if self.b_par_filter is not None:
+            self.b_par_filter(B_dot_b_pol)
         B_dot_b = self._E0T.dot(B_dot_b_pol, out=self._B_dot_b)
         B_dot_b.update_ghost_regions()
 

@@ -52,6 +52,7 @@ def push_gc_cc_J2_dg_Hdiv(
     ud3: "float[:,:,:]",
     const: float,
     alpha: float,
+    periodic: "bool[:]",
 ):
     r"""TODO"""
 
@@ -91,7 +92,14 @@ def push_gc_cc_J2_dg_Hdiv(
         # marker positions, mid point
         eta_old[:] = markers[0:3, ip]
         eta_mid[:] = (markers[0:3, ip] + markers[first_pusher_idx : first_pusher_idx + 3, ip]) / 2.0
-        eta_mid[:] = mod(eta_mid[:], 1.0)
+
+        for i in range(3):
+            if periodic[i]:
+                eta_mid[i] = mod(eta_mid[i], 1.0)
+            else:
+                eta_mid[i] = mod(eta_mid[i], 2.0)
+                if eta_mid[i] > 1.0:
+                    eta_mid[i] = 2.0 - eta_mid[i]
 
         v = markers[3, ip]
 
