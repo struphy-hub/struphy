@@ -1,5 +1,6 @@
-"""Tests of the 6D coupling steps of the hybrid perturbative models (PerturbativeMHDWithQVlasovCC/PC) with the inertia of
-the total density (``rho_field`` of CurrentCoupling6DDensity, CurrentCoupling6DCurrent and PressureCoupling6D)."""
+"""Tests of the coupling steps of the hybrid perturbative models (PerturbativeMHDWithQVlasovCC/PC,
+PerturbativeMHDWithQDriftkineticCC) with the inertia of the total density (``rho_field`` of CurrentCoupling6DDensity,
+CurrentCoupling6DCurrent, PressureCoupling6D, ShearAlfvenCurrentCoupling5D and CurrentCoupling5DDensity/GradB/Curlb)."""
 
 import cunumpy as xp
 import pytest
@@ -17,18 +18,24 @@ from struphy import (
     maxwellians,
     perturbations,
 )
-from struphy.linear_algebra.solver import SolverParameters
+from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
 from struphy.models import (
+    LinearMHDDriftkineticCC,
     LinearMHDVlasovCC,
     LinearMHDVlasovPC,
     LinearMHDWithQ,
+    PerturbativeMHDWithQDriftkineticCC,
     PerturbativeMHDWithQVlasovCC,
     PerturbativeMHDWithQVlasovPC,
 )
 from struphy.propagators.base import Propagator
+from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
+from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDensity
+from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
 from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
 from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
 from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
+from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 from struphy.propagators.utils import VelocityMass
 
 TOL = SolverParameters(tol=1e-14, maxiter=5000)
@@ -46,12 +53,23 @@ def test_rho_field_wiring():
     assert LinearMHDVlasovCC().propagators.couple_dens.rho_field is None
     assert LinearMHDVlasovCC().propagators.couple_curr.rho_field is None
     assert LinearMHDVlasovPC().propagators.pc6d.rho_field is None
+    model = PerturbativeMHDWithQDriftkineticCC()
+    for step in ("shear_alf", "cc5d_density", "cc5d_gradb", "cc5d_curlb"):
+        assert getattr(model.propagators, step).rho_field is model.mhd.density
+        assert getattr(LinearMHDDriftkineticCC().propagators, step).rho_field is None
+    # the shear-Alfven step with the total field replaces nonlin_alf
+    assert model.propagators.shear_alf.nonlinear is True
+    assert not hasattr(model.propagators, "nonlin_alf")
 
     u = LinearMHDWithQ().mhd.velocity
     for make in (
         lambda: CurrentCoupling6DDensity(rho_field=u),
         lambda: CurrentCoupling6DCurrent(rho_field=u),
         lambda: PressureCoupling6D(rho_field=u),
+        lambda: ShearAlfvenCurrentCoupling5D(rho_field=u),
+        lambda: CurrentCoupling5DDensity(rho_field=u),
+        lambda: CurrentCoupling5DGradB(rho_field=u),
+        lambda: CurrentCoupling5DCurlb(rho_field=u),
     ):
         with pytest.raises(AssertionError):
             make()
@@ -139,3 +157,114 @@ def test_energy_conservation_total_density(tmp_path, model_class, step, with_ion
     if with_ions:
         assert exchange > 1e-6
     assert xp.max(xp.abs(model.mhd.density.spline.vector.toarray() - n0)) == 0.0
+
+
+def _allocate_dk(tmp_path, model, name, nonlinear=True, torus=False):
+    """PerturbativeMHDWithQDriftkineticCC with finite-amplitude perturbations of density, velocity and magnetic field,
+    guiding centers with a Maxwellian, tight tolerances and the energy-conserving algorithms. In a periodic box with a
+    homogeneous, tilted B0 (curl B0 = 0: en_tot of the model is exactly the energy of the shear-Alfven step), or in a
+    torus (``torus=True``: curvature and gradient of B0, so that the current-coupling steps do not vanish)."""
+    from struphy import BoundaryParameters
+
+    model.energetic_ions.set_markers(
+        loading_params=LoadingParameters(Np=2000, seed=1234),
+        boundary_params=BoundaryParameters(bc=("reflect", "periodic", "periodic")) if torus else None,
+    )
+    model.energetic_ions.var.add_background(maxwellians.GyroMaxwellian2D(n=(0.1, None), u_para=(0.5, None)))
+    m = model.mhd
+    if torus:
+        m.velocity.add_perturbation(
+            perturbations.TorusModesSin(ms=(1,), ns=(-1,), amps=(1e-2,), comp=0, given_in_basis="2")
+        )
+        m.density.add_perturbation(perturbations.TorusModesCos(ms=(1,), ns=(0,), amps=(0.3,), given_in_basis="0"))
+        model.em_fields.b_field.add_perturbation(
+            perturbations.TorusModesSin(ms=(1,), ns=(-1,), amps=(1e-2,), comp=1, given_in_basis="2")
+        )
+    else:
+        m.velocity.add_perturbation(
+            perturbations.ModesSin(ls=(1,), ms=(1,), amps=(0.1,), comp=0, given_in_basis="physical")
+        )
+        m.density.add_perturbation(perturbations.ModesCos(ls=(1,), ns=(1,), amps=(0.3,), given_in_basis="physical"))
+        model.em_fields.b_field.add_perturbation(
+            perturbations.ModesSin(ls=(1,), ns=(1,), amps=(0.2,), comp=1, given_in_basis="physical")
+        )
+    props = model.propagators
+    props.shear_alf.options = props.shear_alf.Options(nonlinear=nonlinear, solver_params=TOL)
+    props.cc5d_density.options = props.cc5d_density.Options(solver_params=TOL)
+    props.cc5d_gradb.options = props.cc5d_gradb.Options(
+        algo="discrete_gradient",
+        solver_params=TOL,
+        dg_solver_params=DiscreteGradientSolverParameters(tol=1e-13, maxiter=100),
+    )
+    props.cc5d_curlb.options = props.cc5d_curlb.Options(solver_params=TOL)
+    if torus:
+        geometry = dict(
+            domain=domains.HollowTorus(a1=0.1, a2=1.0, R0=3.0, tor_period=1),
+            equil=equils.AdhocTorus(a=1.0, R0=3.0, B0=1.0, q0=1.25, q1=2.25),
+            grid=grids.TensorProductGrid(num_elements=(6, 6, 4)),
+            derham_opts=DerhamOptions(degree=(2, 2, 2), bcs=(("dirichlet", "dirichlet"), None, None)),
+        )
+    else:
+        geometry = dict(
+            domain=domains.Cuboid(),
+            equil=equils.HomogenSlab(B0x=0.2, B0z=1.0, beta=1.0, n0=1.0),
+            grid=grids.TensorProductGrid(num_elements=(6, 4, 4)),
+            derham_opts=DerhamOptions(degree=(2, 2, 1)),
+        )
+    Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder=name),
+        time_opts=Time(dt=0.05, Tend=0.05),
+        **geometry,
+    ).allocate()
+
+
+def _en_tot(model):
+    model.update_scalar_quantities()
+    return float(model.scalars.host_value("en_tot")[0])
+
+
+@pytest.mark.parametrize("step", ["shear_alf", "cc5d_density", "cc5d_gradb", "cc5d_curlb"])
+def test_energy_conservation_total_density_5d(tmp_path, step):
+    """The 5D coupling steps with the inertia of the total density conserve the energy of the model (kinetic energy
+    with the total density, magnetic energy, energies of the guiding centers), while the same energy with the inertia
+    rho0 alone changes (the total-density inertia is really used), and the density does not change. The shear-Alfven
+    step is tested in a homogeneous slab (in a torus the B0 . b term of en_tot is not conserved by it alone), the
+    current coupling in a torus (where it does not vanish; it does not change b)."""
+    model = PerturbativeMHDWithQDriftkineticCC()
+    _allocate_dk(tmp_path, model, f"dk_{step}", torus=step != "shear_alf")
+    n0 = model.mhd.density.spline.vector.toarray().copy()
+    rho = model.mhd.density
+
+    def energies():
+        """en_tot, and en_tot with the kinetic energy of the inertia rho0 instead of rho0 + rho~."""
+        en_tot = _en_tot(model)
+        return en_tot, en_tot - _u_energy(model, rho) + _u_energy(model, None)
+
+    (e0, e0_rho0), k0_rho0 = energies(), _u_energy(model, None)
+    for _ in range(3):
+        getattr(model.propagators, step)(0.1)
+    (e1, e1_rho0), k1_rho0 = energies(), _u_energy(model, None)
+    change = abs(e1 - e0) / e0
+    change_rho0 = abs(e1_rho0 - e0_rho0) / e0_rho0
+    # cc5d_density only rotates u (by the small factor 1 - B_par / B*_par): no exchange with the guiding centers, its
+    # effect is visible in the kinetic energy of the inertia rho0 alone
+    change_k_rho0 = abs(k1_rho0 - k0_rho0) / k0_rho0
+    print(
+        f"{step}: relative change of en_tot {change:.2e}, with rho0 inertia {change_rho0:.2e} (kinetic {change_k_rho0:.2e})"
+    )
+    # (discrete gradient: Picard iteration to 1e-13)
+    tol = 1e-8 if step == "cc5d_gradb" else 1e-10
+    assert change < tol
+    if step == "cc5d_density":
+        assert change_k_rho0 > 1e-10
+    else:
+        assert change_rho0 > 100 * tol
+    assert xp.max(xp.abs(model.mhd.density.spline.vector.toarray() - n0)) == 0.0
+
+
+def test_shear_alfven_cc5d_fixed_nonlinear(tmp_path):
+    """The model fixes nonlinear=True of its shear-Alfven step: Options(nonlinear=False) is rejected in allocate."""
+    model = PerturbativeMHDWithQDriftkineticCC()
+    with pytest.raises(AssertionError, match="fixes nonlinear"):
+        _allocate_dk(tmp_path, model, "dk_fixed", nonlinear=False)

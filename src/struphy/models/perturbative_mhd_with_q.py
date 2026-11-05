@@ -87,8 +87,10 @@ class PerturbativeMHDWithQ(LinearMHDWithQ):
 
         self.propagators.mom_adv.variables.n = self.mhd.density
         self.propagators.mom_adv.variables.u = self.mhd.velocity
-        self.propagators.nonlin_alf.variables.u = self.mhd.velocity
-        self.propagators.nonlin_alf.variables.b = self.em_fields.b_field
+        # (children whose shear-Alfven step contains the nonlinear terms have no nonlin_alf)
+        if hasattr(self.propagators, "nonlin_alf"):
+            self.propagators.nonlin_alf.variables.u = self.mhd.velocity
+            self.propagators.nonlin_alf.variables.b = self.em_fields.b_field
 
     def _create_scalars(self):
         """:meta private:"""

@@ -147,6 +147,7 @@ thermodynamic variable (pressure perturbation :math:`\tilde p = 2 q_0 \tilde q`)
 
       * :class:`~struphy.models.PerturbativeMHDWithQVlasovCC`
       * :class:`~struphy.models.PerturbativeMHDWithQVlasovPC`
+      * :class:`~struphy.models.PerturbativeMHDWithQDriftkineticCC`
 
   * :class:`~struphy.models.PerturbativeEulerWithQ`
 
@@ -180,6 +181,11 @@ of the LinearEuler family, with the inertia of the total density.
     :show-inheritance:
 
 .. autoclass:: struphy.models.PerturbativeMHDWithQVlasovPC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQDriftkineticCC
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
