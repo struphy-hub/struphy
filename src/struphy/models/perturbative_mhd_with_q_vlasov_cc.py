@@ -224,7 +224,8 @@ class PerturbativeMHDWithQVlasovCC(PerturbativeMHDWithQ):
         energetic ions (distribution function :math:`f_\textnormal{h}`, mass number :math:`A_\textnormal{h}`); the
         terms in blue couple them to the MHD equations. Dropping the terms quadratic in the MHD perturbations
         (:math:`\rho_0 + \tilde \rho \to \rho_0` etc., keeping :math:`\mathbf B_0 + \tilde{\mathbf B}` in the coupling)
-        gives :class:`~struphy.models.LinearMHDVlasovCC` (with :math:`\tilde p = 2 q_0 \tilde q`).
+        gives the equations of :class:`~struphy.models.LinearMHDVlasovCC` (with :math:`\tilde p = 2 q_0 \tilde q`;
+        that model pushes the energetic ions with :math:`\mathbf B_0` only, unless ``push_vxb.b2_var`` is set).
 
         **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0`, :math:`\mathbf B \cdot \mathbf n = 0`
         and reflecting or periodic boundaries of the energetic ions):

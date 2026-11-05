@@ -71,9 +71,9 @@ def _allocate(tmp_path, model, name):
     b = model.em_fields.b_field
     b.add_perturbation(perturbations.ModesCos(ms=(1,), amps=(0.2,), comp=0, given_in_basis="physical"))
     props = model.propagators
-    for name in ("couple_dens", "couple_curr", "pc6d"):
-        if hasattr(props, name):
-            prop = getattr(props, name)
+    for step in ("couple_dens", "couple_curr", "pc6d"):
+        if hasattr(props, step):
+            prop = getattr(props, step)
             prop.options = prop.Options(solver_params=TOL)
     Simulation(
         model=model,

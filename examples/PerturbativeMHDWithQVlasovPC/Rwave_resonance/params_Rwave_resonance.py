@@ -27,14 +27,27 @@ args, _ = parser.parse_known_args()
 
 name = "PerturbativeMHDWithQVlasovPC R-wave resonance"
 description = """
-Resonance between the R wave (k = 0.8 along z) and the gyromotion of full-orbit energetic ions in a homogeneous slab, pressure-coupling scheme, with the nonlinear MHD equations of PerturbativeMHDWithQVlasovPC
-(perturbations of the static equilibrium, square root of the pressure q = sqrt(p) as thermodynamic variable, inertia of
-the total density in the coupling). The energetic ions, a shifted Maxwellian (u_par = 2.5 v_A, density 0.02 of the
-bulk), resonate with the wave at v_par = (omega + Omega_c) / k and drive it unstable.
-Then the magnetic energy is expected to grow exponentially and saturates by flattening f(v_par) at the vicinity of the
-resonance velocity. The setup is that of the example of LinearMHDVlasovPC: in the linear phase the growth rate is the
-same, at saturation the nonlinear MHD terms (inertia of the density perturbation, nonlinear Lorentz force, induction
-and sound wave terms, advection) act on the wave.
+R-wave resonance with full-orbit energetic ions (pressure-coupling scheme), with the nonlinear MHD equations of
+PerturbativeMHDWithQVlasovPC: the perturbations of a static equilibrium, the square root of the pressure q = sqrt(p) as
+thermodynamic variable, the inertia of the total density in the coupling steps.
+
+Physics. The R wave (k = 0.8 along B0 = e_z) is driven unstable by energetic ions (a shifted Maxwellian with
+u_par = 2.5 v_A, density 0.02 of the bulk) that resonate with it at v_par = (omega + Omega_c) / k. The magnetic energy
+grows exponentially and saturates when f(v_par) is flattened near the resonance velocity. In the linear phase the
+growth rate is that of LinearMHDVlasovPC; at saturation the nonlinear MHD terms (inertia of the density perturbation,
+nonlinear Lorentz force, induction and sound wave terms, advection) act on the wave in addition.
+
+Setup. The setup of the example of LinearMHDVlasovPC: homogeneous slab, Cuboid of size 1 x 1 x 2 pi / k (lengths in
+v_A / Omega_ci, the base units), 2 x 2 x 16 cells, splines of degree (1, 1, 3), dt = 0.32 / Omega_ci up to
+t = 200 / Omega_ci, Strang splitting, 4000 markers per cell, Fourier filter along z in pc6d.
+
+Expected result. The pproc script plots the magnetic energy with an exponential fit in the linear phase and f(v_par)
+at t = 0 and at saturation. The linear growth rate is expected to agree with that of the LinearMHDVlasovPC example;
+the saturation level may differ by the nonlinear MHD terms.
+
+References:
+- F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with
+  particles-in-cell", J. Comput. Phys. 433, 110143 (2021).
 """
 
 import numpy as np
