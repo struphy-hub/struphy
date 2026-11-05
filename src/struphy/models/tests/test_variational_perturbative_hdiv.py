@@ -9,7 +9,7 @@ from struphy import DerhamOptions, Simulation, Time, domains, equils, grids, per
 from struphy.models import VariationalPerturbativeMHD
 
 
-def _model(u_space, map_name, num_elements=(8, 8, 1), degree=2, mu=0.0, eta=0.0, dt=0.05):
+def _model(u_space, map_name, num_elements=(8, 8, 1), degree=2, mu=0.0, eta=0.0, dt=0.05, weights=None, amp=1e-2):
     """The nonlinear model with a velocity perturbation (normal to the wall on the torus, where it vanishes),
     allocated (no output)."""
     model = VariationalPerturbativeMHD(u_space=u_space)
@@ -31,12 +31,12 @@ def _model(u_space, map_name, num_elements=(8, 8, 1), degree=2, mu=0.0, eta=0.0,
             p2=0.05,
             beta=0.0018,
         )
-        pert = perturbations.TorusModesCos(ms=(1,), ns=(-1,), amps=(1e-2,), comp=0)
+        pert = perturbations.TorusModesCos(ms=(1,), ns=(-1,), amps=(amp,), comp=0)
         bcs = (("dirichlet", "dirichlet"), None, None)
     else:
         domain = domains.Cuboid()
         equil = equils.HomogenSlab(B0x=0.3, B0y=0.0, B0z=1.0, beta=0.5, n0=1.0)
-        pert = perturbations.ModesCos(ls=(1,), ms=(1,), amps=(1e-2,), comp=0)
+        pert = perturbations.ModesCos(ls=(1,), ms=(1,), amps=(amp,), comp=0)
         bcs = (None, None, None)
     sim = Simulation(
         model=model,
@@ -48,7 +48,7 @@ def _model(u_space, map_name, num_elements=(8, 8, 1), degree=2, mu=0.0, eta=0.0,
     )
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="perturbative")
-    props.variat_pb.options = props.variat_pb.Options(model="perturbative")
+    props.variat_pb.options = props.variat_pb.Options(model="perturbative", weights=weights)
     props.variat_viscous.options = props.variat_viscous.Options(model="full_p", mu=mu)
     props.variat_resist.options = props.variat_resist.Options(model="full_p", eta=eta)
     model.mhd.velocity.add_perturbation(pert)
@@ -124,3 +124,29 @@ if __name__ == "__main__":
     test_hdiv_energy_conservation("HollowTorus")
     test_hdiv_viscous_heating()
     test_hdiv_agrees_with_h1vec()
+
+
+@pytest.mark.models
+@pytest.mark.fluid
+@pytest.mark.parametrize("u_space", ["Hdiv", "H1vec"])
+def test_pb_midpoint_weights_large_dt(u_space):
+    """A sound wave at a large time step (dt omega_s ~ 3): with the weights of the perturbation at t^n the pressure
+    force is explicit and the wave grows (by a factor 8 in 10 steps here); with midpoint weights (default) the sound waves are
+    implicit and the amplitude stays bounded, with the energy conserved."""
+    dt = 0.5
+    growth = {}
+    for weights in ("frozen", "midpoint"):
+        model, _ = _model(u_space, "Cuboid", num_elements=(8, 8, 1), degree=2, dt=dt, weights=weights, amp=1e-5)
+        s0 = _scalars(model, ["en_U", "en_tot"])
+        en_U = [s0["en_U"]]
+        for _ in range(10):
+            model.propagators.variat_pb(dt)
+            en_U += [_scalars(model, ["en_U"])["en_U"]]
+        s1 = _scalars(model, ["en_tot"])
+        growth[weights] = np.sqrt(max(en_U) / s0["en_U"])
+        if weights == "midpoint":
+            assert abs(s1["en_tot"] - s0["en_tot"]) < 1e-8 * s0["en_U"], f"{s0 = }, {s1 = }"
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        print(f"{u_space = }, {growth = }")
+    assert growth["frozen"] > 4.0, f"{growth = }"
+    assert growth["midpoint"] < 1.5, f"{growth = }"

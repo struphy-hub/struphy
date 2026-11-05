@@ -4,12 +4,11 @@ from typing import Literal
 
 from line_profiler import profile
 
-from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import Pressure_transport_operator, dot_normalized
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
-from struphy.polar.basic import PolarVector
+from struphy.propagators.utils import WeakPressureTerm
 from struphy.propagators.variational_linear_base import VariationalLinearEvolve
 from struphy.utils.utils import check_option
 
@@ -304,15 +303,11 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         else:
             # weak form of the second-order term: the force int p div v, i.e. R p = -(D U^v)^T M3 p (U^v the identity
             # for a velocity in Hdiv), as in Magnetosonic
-            self._div_u = self.derham.div if self._u_space == "Hdiv" else self.derham.div @ self.basis_ops.Uv
-            # (the sign inside the composition: the Schur solver rescales an outer ScaledLinearOperator with dt)
-            self._R = self._div_u.T @ (-1.0 * self.mass_ops.M3)
-            # 1 / l3(1), for the lumped L2 projection of the auxiliary update
-            l3 = L2Projector("L2", self.mass_ops).get_dofs(self.domain.jacobian_det)
-            self._inv_l3 = l3.space.zeros()
-            for a, inv in zip(_coeff_arrays(l3), _coeff_arrays(self._inv_l3)):
-                nonzero = a != 0.0
-                inv[nonzero] = 1.0 / a[nonzero]
+            self._pressure_term = WeakPressureTerm(
+                self.derham, self.domain, self.mass_ops, self.basis_ops, self._u_space, self._gamma
+            )
+            self._div_u = self._pressure_term.div_u
+            self._R = self._pressure_term.R
 
         self._midpoint = self.options.weights == "midpoint"
 
@@ -422,6 +417,9 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         if self._pt3 is not None:
             if self._model == "linear_q":
                 s_advection = self._Ss.dot(un12, out=self._tmp_fs)
+                s_advection *= dt
+                self._pt3 -= s_advection
+                self._pt3.update_ghost_regions()
             else:
                 if self._midpoint:
                     sw = sn.copy(out=self._tmp_sn12)
@@ -429,23 +427,8 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
                     sw *= 0.5
                 else:
                     sw = sn
-                # (gamma - 1) (D U^v u^{n+1/2}) * (M3 p^w) / l3(1): lumped L2 projection of (gamma - 1) p div u; the
-                # energy l3(1) . p-hat / (gamma - 1) changes by exactly -dt (D U^v u)^T M3 p, the work of the force
-                s_advection = self._div_u.dot(un12, out=self._tmp_fs)
-                M3p = self.mass_ops.M3.dot(sw, out=self._tmp_M3s)
-                for a, m, inv in zip(_coeff_arrays(s_advection), _coeff_arrays(M3p), _coeff_arrays(self._inv_l3)):
-                    a *= m
-                    a *= inv
-                s_advection *= self._gamma - 1.0
-            s_advection *= dt
-            self._pt3 -= s_advection
-            self._pt3.update_ghost_regions()
+                # lumped L2 projection of (gamma - 1) p^w div u: the energy changes by the work of the force, see
+                # WeakPressureTerm
+                self._pressure_term.advance(dt, un12, sw, self._pt3)
 
         self.update_feec_variables(u=un1, s=sn1)
-
-
-def _coeff_arrays(v) -> list:
-    """The coefficient arrays of a scalar Stencil- or PolarVector, for elementwise operations."""
-    if isinstance(v, PolarVector):
-        return [*v.pol, v.tp._data]
-    return [v._data]

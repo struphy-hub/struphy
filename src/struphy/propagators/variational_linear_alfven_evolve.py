@@ -2,16 +2,14 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-import cunumpy as xp
-from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
-from struphy.feec.mass import L2Projector
 from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import Hdiv0_transport_operator, alfven_schur_preconditioner
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
+from struphy.propagators.utils import EquilibriumCurrentTerm
 from struphy.propagators.variational_linear_base import VariationalLinearEvolve
 from struphy.utils.utils import check_option
 
@@ -286,73 +284,21 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
 
     def _init_second_order_term(self):
         r"""The matrix :math:`\mathbb W` of :math:`\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)` (``-self._R``) and
-        the evaluation of :math:`\mathbf B \times \mathbf u` at the quadrature points for the auxiliary field.
-
-        With :math:`\mathbf u = DF \tilde{\mathbf u}`, :math:`\tilde{\mathbf u} = \hat{\mathbf u}^2 / \sqrt g` (Hdiv)
-        or :math:`\hat{\mathbf u}` (H1vec), both forms are integrals of :math:`\hat{\mathbf j}_0^\top G^{-1}
-        (\hat{\mathbf B}^2 \times \tilde{\mathbf u}) \sqrt g` at the same quadrature points, so that
-        :math:`\mathbf j_0 \cdot \mathbf y(\mathbf b \times \mathbf u) = \mathbf u^\top \mathbb W \mathbf b` exactly."""
-        # equilibrium current through the dual complex (no boundary conditions): h0 = *_h b0 in V1, J0 = curl h0 in
-        # V2 and its representation j0 in V1, all over the full spaces
-        M1 = self.mass_ops.M1
-        M1_free = M1.without_boundary_ops()
-        pc = MassMatrixPreconditioner(M1, apply_bc=False)
-        self._inv_M1 = inverse(M1_free, "pcg", pc=pc, tol=1e-14, maxiter=3000, recycle=True)
-        j0 = self.equilibrium_current(self.projected_equil.b2)
-
-        # spline evaluation at the quadrature points
-        grid = [pts.flatten() for pts in self.derham.V3splines.quad_grid_pts[0]]
-        self._spans, bn, bd = self.derham.prepare_eval_tp_fixed(grid)
-        self._bases_1form = [[bd[0], bn[1], bn[2]], [bn[0], bd[1], bn[2]], [bn[0], bn[1], bd[2]]]
-        self._bases_2form = [[bn[0], bd[1], bd[2]], [bd[0], bn[1], bd[2]], [bd[0], bd[1], bn[2]]]
-        self._bases_u = self._bases_2form if self._u_space == "Hdiv" else [[bn[0], bn[1], bn[2]]] * 3
-        sqrt_g = self.domain.jacobian_det(*grid)
-        # u-tilde / u-hat
-        self._u_scale = 1.0 / sqrt_g if self._u_space == "Hdiv" else None
-
-        j0f = self.derham.create_spline_function("j0", "Hcurl")
-        j0f.vector = j0
-        j0_v = j0f.eval_tp_fixed_loc(self._spans, self._bases_1form)
-        # c = G^{-1} j0 sqrt(g) times the factor of u-tilde: weights of W, u . (c x b) = u^T [c]_x b
-        g_inv = self.domain.metric_inv(*grid)
-        c = [sum(g_inv[a, e] * j0_v[e] for e in range(3)) for a in range(3)]
-        if self._u_space == "H1vec":
-            c = [ca * sqrt_g for ca in c]
-        # R = -W, with the weights -[c]_x
-        self._R = self.mass_ops.create_weighted_mass("Hdiv", self._u_space)
-        self._R.assemble([[None, c[2], -c[1]], [-c[2], None, c[0]], [c[1], -c[0], None]])
-
-        if self._at1 is not None or self._bt2 is not None:
-            # the linear form j0^T M1 of the energy
-            self._M1j0 = M1_free.dot(j0)
-            self._bf = self.derham.create_spline_function("b_aux", "Hdiv")
-            self._uf = self.derham.create_spline_function("u_aux", self._u_space)
-            self._b_values = [xp.zeros_like(sqrt_g) for _ in range(3)]
-            self._u_values = [xp.zeros_like(sqrt_g) for _ in range(3)]
-            self._bxu_values = [xp.zeros_like(sqrt_g) for _ in range(3)]
-            self._get_dofs_1 = L2Projector("Hcurl", self.mass_ops).get_dofs
-            self._tmp_y = self.derham.V1pol.zeros()
-            self._tmp_a = self.derham.V1pol.zeros()
+        the auxiliary vector potential, see :class:`~struphy.propagators.utils.EquilibriumCurrentTerm`."""
+        self._current_term = EquilibriumCurrentTerm(
+            self.derham,
+            self.domain,
+            self.mass_ops,
+            self.projected_equil,
+            self._u_space,
+            aux=self._at1 is not None or self._bt2 is not None,
+        )
+        self._R = self._current_term.R
 
     def equilibrium_current(self, b0):
-        r"""The equilibrium current :math:`\mathbf j_0 \in V^1_h` of the second-order term, through the dual complex:
-
-        .. math::
-
-            \mathbb M^1_{\textnormal{free}}\, \mathbf h_0 = \mathbb K \mathbf b_0 \,, \qquad
-            \mathbf J_0 = \mathbb C\, \mathbf h_0 \,, \qquad
-            \mathbb M^1_{\textnormal{free}}\, \mathbf j_0 = \mathbb K \mathbf J_0 \,,
-
-        with the metric-free pairing :math:`\mathbb K_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^1_i \cdot
-        \vec{\boldsymbol\Lambda}^2_j \,\textrm d \boldsymbol\eta` of 1-forms and 2-forms, all operators over the full
-        spaces (without boundary conditions). :math:`\mathbf h_0` is the field as a 1-form (Hodge star of the 2-form
-        :math:`\mathbf b_0`) and :math:`\mathbf J_0` its curl, exactly divergence free. Collective: call on all
-        ranks."""
-        K = self.mass_ops.create_weighted_mass("Hdiv", "Hcurl", weights=("Identity",), assemble=True)
-        K = K.without_boundary_ops()
-        h0 = self._inv_M1.dot(K.dot(b0)).copy()
-        J0 = self.derham.curl_bcfree.dot(h0)
-        return self._inv_M1.dot(K.dot(J0)).copy()
+        """The equilibrium current of the dual complex, see
+        :meth:`~struphy.propagators.utils.EquilibriumCurrentTerm.equilibrium_current`. Collective."""
+        return self._current_term.equilibrium_current(b0)
 
     def second_order_energy(self) -> float:
         r"""The second-order magnetic energy :math:`\int \mathbf J_0 \cdot \hat{\mathbf A} \approx \mathbf j_0^\top
@@ -360,37 +306,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         Collective: call on all ranks."""
         if self._at1 is None:
             return 0.0
-        return self._M1j0.inner(self._at1)
-
-    def _advance_aux(self, dt, un12, bw):
-        r""":math:`\hat{\mathbf a} \leftarrow \hat{\mathbf a} - \Delta t\, (\mathbb M^1_{\textnormal{free}})^{-1}
-        \mathbf y(\mathbf b^w \times \mathbf u^{n+1/2})`, with :math:`\mathbf y(\mathbf w)_k = \int \mathbf w \cdot
-        \vec{\boldsymbol\Lambda}^1_k` over all basis functions: the energy :math:`\mathbf j_0^\top
-        \mathbb M^1_{\textnormal{free}} \hat{\mathbf a}` changes by :math:`-\Delta t\, \mathbf j_0 \cdot \mathbf y =
-        -\Delta t\, (\mathbf u^{n+1/2})^\top \mathbb W \mathbf b^w`; and the diagnostic
-        :math:`\hat{\mathbf b} \leftarrow \hat{\mathbf b} + \mathbb C\, \delta \hat{\mathbf a}`."""
-        self._bf.vector = bw
-        self._uf.vector = un12
-        b_v = self._bf.eval_tp_fixed_loc(self._spans, self._bases_2form, out=self._b_values)
-        u_v = self._uf.eval_tp_fixed_loc(self._spans, self._bases_u, out=self._u_values)
-        if self._u_scale is not None:
-            for ui in u_v:
-                ui *= self._u_scale
-        bxu = self._bxu_values
-        for i in range(3):
-            j, k = (i + 1) % 3, (i + 2) % 3
-            bxu[i][:] = b_v[j] * u_v[k]
-            bxu[i] -= b_v[k] * u_v[j]
-        y = self._get_dofs_1(bxu, dofs=self._tmp_y, apply_bc=False)
-        a = self._inv_M1.dot(y, out=self._tmp_a)
-        a *= dt
-        if self._at1 is not None:
-            self._at1 -= a
-            self._at1.update_ghost_regions()
-        if self._bt2 is not None:
-            ca = self.derham.curl.dot(a, out=self._tmp_fb)
-            self._bt2 -= ca
-            self._bt2.update_ghost_regions()
+        return self._current_term.energy(self._at1)
 
     def prepare_time_step(self, dt: float):
         """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
@@ -435,6 +351,6 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
-            self._advance_aux(dt, un12, bw)
+            self._current_term.advance(dt, un12, bw, at1=self._at1, bt2=self._bt2)
 
         self.update_feec_variables(u=un1, b=bn1)

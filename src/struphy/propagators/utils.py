@@ -2,17 +2,22 @@
 
 Operators of a velocity 2-form weighted with the total density :math:`\\rho = \\rho_0 + \\tilde \\rho` of the
 perturbative models (density 3-form evolving in time), on the quadrature grid of the mass matrices
-(:class:`HdivDensityOperators`, :class:`VelocityMass`)."""
+(:class:`HdivDensityOperators`, :class:`VelocityMass`), and the second-order magnetic term of the linear and perturbative
+variational models with the equilibrium current of the dual complex (:class:`EquilibriumCurrentTerm`) and their
+second-order pressure term in weak form (:class:`WeakPressureTerm`)."""
 
 import logging
 
 import cunumpy as xp
 from feectools.linalg.basic import Vector
+from feectools.linalg.solvers import inverse
 from maybempi import MPI
 
 from struphy.feec.mass import L2Projector, WeightedMassOperators
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+from struphy.polar.basic import PolarVector
 
 logger = logging.getLogger("struphy")
 
@@ -232,6 +237,238 @@ class VelocityMass:
         self._n3.copy(out=self._rho)
         self._rho += self._rho_field.spline.vector
         self._ops.update_M_rho(self._rho)
+
+
+class EquilibriumCurrentTerm:
+    r"""Second-order magnetic term of the linear and perturbative variational models, written with the equilibrium
+    current: :math:`\int \mathbf B_0 \cdot \hat{\mathbf B} = \int \mathbf J_0 \cdot \hat{\mathbf A}`, with the
+    auxiliary second-order field :math:`\hat{\mathbf B} = \nabla \times \hat{\mathbf A}` advanced by
+    :math:`\partial_t \hat{\mathbf A} = - \mathbf B^w \times \mathbf u` (``B^w`` the perturbation, the weight of the
+    term). Its variation gives the force :math:`\int \mathbf v \cdot (\mathbf J_0 \times \mathbf B^w)`.
+
+    The current :math:`\mathbf j_0 \in V^1_h` is the one of the dual complex (no boundary conditions, see
+    :meth:`equilibrium_current`), not the weak curl :math:`\mathbb M_1^{-1} \mathbb C^\top \mathbb M_2 \mathbf b_0`,
+    whose tangential components vanish at a wall and cause a spurious wall instability. The force is the matrix
+    :math:`\mathbb W` of :math:`\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)` (:attr:`R` is
+    :math:`-\mathbb W`), and :meth:`advance` updates :math:`\hat{\mathbf a} \leftarrow \hat{\mathbf a} - \Delta t\,
+    (\mathbb M^1_{\textnormal{free}})^{-1} \mathbf y(\mathbf b^w \times \mathbf u)` with
+    :math:`\mathbf y(\mathbf w)_k = \int \mathbf w \cdot \vec{\boldsymbol\Lambda}^1_k` over all basis functions,
+    so that the energy :meth:`energy` :math:`= \mathbf j_0^\top \mathbb M^1_{\textnormal{free}} \hat{\mathbf a}`
+    changes by exactly the work :math:`-\Delta t\, \mathbf u^\top \mathbb W \mathbf b^w` of the force (both are
+    evaluated at the same quadrature points).
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping.
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    projected_equil : ProjectedFluidEquilibrium
+        Projected equilibrium, for the coefficients of the equilibrium magnetic field 2-form.
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+    aux : bool
+        Whether the auxiliary vector potential is advanced (:meth:`advance`, :meth:`energy`).
+    """
+
+    def __init__(
+        self,
+        derham: Derham,
+        domain: Domain,
+        mass_ops: WeightedMassOperators,
+        projected_equil,
+        u_space: str,
+        aux: bool = True,
+    ):
+        self._derham = derham
+        self._mass_ops = mass_ops
+        # equilibrium current through the dual complex (no boundary conditions): h0 = *_h b0 in V1, J0 = curl h0 in
+        # V2 and its representation j0 in V1, all over the full spaces
+        M1 = mass_ops.M1
+        self._M1_free = M1.without_boundary_ops()
+        pc = MassMatrixPreconditioner(M1, apply_bc=False)
+        self._inv_M1 = inverse(self._M1_free, "pcg", pc=pc, tol=1e-14, maxiter=3000, recycle=True)
+        j0 = self.equilibrium_current(projected_equil.b2)
+
+        # spline evaluation at the quadrature points
+        grid = [pts.flatten() for pts in derham.V3splines.quad_grid_pts[0]]
+        self._spans, bn, bd = derham.prepare_eval_tp_fixed(grid)
+        self._bases_1form = [[bd[0], bn[1], bn[2]], [bn[0], bd[1], bn[2]], [bn[0], bn[1], bd[2]]]
+        self._bases_2form = [[bn[0], bd[1], bd[2]], [bd[0], bn[1], bd[2]], [bd[0], bd[1], bn[2]]]
+        self._bases_u = self._bases_2form if u_space == "Hdiv" else [[bn[0], bn[1], bn[2]]] * 3
+        sqrt_g = domain.jacobian_det(*grid)
+        # u-tilde / u-hat
+        self._u_scale = 1.0 / sqrt_g if u_space == "Hdiv" else None
+
+        j0f = derham.create_spline_function("j0", "Hcurl")
+        j0f.vector = j0
+        j0_v = j0f.eval_tp_fixed_loc(self._spans, self._bases_1form)
+        # c = G^{-1} j0 sqrt(g) times the factor of u-tilde: weights of W, u . (c x b) = u^T [c]_x b
+        g_inv = domain.metric_inv(*grid)
+        c = [sum(g_inv[a, e] * j0_v[e] for e in range(3)) for a in range(3)]
+        if u_space == "H1vec":
+            c = [ca * sqrt_g for ca in c]
+        # R = -W, with the weights -[c]_x
+        self._R = mass_ops.create_weighted_mass("Hdiv", u_space)
+        self._R.assemble([[None, c[2], -c[1]], [-c[2], None, c[0]], [c[1], -c[0], None]])
+
+        if aux:
+            # the linear form j0^T M1 of the energy
+            self._M1j0 = self._M1_free.dot(j0)
+            self._bf = derham.create_spline_function("b_aux", "Hdiv")
+            self._uf = derham.create_spline_function("u_aux", u_space)
+            self._b_values = [xp.zeros_like(sqrt_g) for _ in range(3)]
+            self._u_values = [xp.zeros_like(sqrt_g) for _ in range(3)]
+            self._bxu_values = [xp.zeros_like(sqrt_g) for _ in range(3)]
+            self._get_dofs_1 = L2Projector("Hcurl", mass_ops).get_dofs
+            self._tmp_y = derham.V1pol.zeros()
+            self._tmp_a = derham.V1pol.zeros()
+            self._tmp_ca = derham.V2pol.zeros()
+
+    @property
+    def R(self):
+        r""":math:`-\mathbb W`, the matrix (2-forms to the velocity space) of
+        :math:`-\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)`."""
+        return self._R
+
+    def equilibrium_current(self, b0):
+        r"""The equilibrium current :math:`\mathbf j_0 \in V^1_h` of the second-order term, through the dual complex:
+
+        .. math::
+
+            \mathbb M^1_{\textnormal{free}}\, \mathbf h_0 = \mathbb K \mathbf b_0 \,, \qquad
+            \mathbf J_0 = \mathbb C\, \mathbf h_0 \,, \qquad
+            \mathbb M^1_{\textnormal{free}}\, \mathbf j_0 = \mathbb K \mathbf J_0 \,,
+
+        with the metric-free pairing :math:`\mathbb K_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^1_i \cdot
+        \vec{\boldsymbol\Lambda}^2_j \,\textrm d \boldsymbol\eta` of 1-forms and 2-forms, all operators over the full
+        spaces (without boundary conditions). :math:`\mathbf h_0` is the field as a 1-form (Hodge star of the 2-form
+        :math:`\mathbf b_0`) and :math:`\mathbf J_0` its curl, exactly divergence free. Collective: call on all
+        ranks."""
+        K = self._mass_ops.create_weighted_mass("Hdiv", "Hcurl", weights=("Identity",), assemble=True)
+        K = K.without_boundary_ops()
+        h0 = self._inv_M1.dot(K.dot(b0)).copy()
+        J0 = self._derham.curl_bcfree.dot(h0)
+        return self._inv_M1.dot(K.dot(J0)).copy()
+
+    def energy(self, at1) -> float:
+        r"""The second-order magnetic energy :math:`\int \mathbf J_0 \cdot \hat{\mathbf A} \approx \mathbf j_0^\top
+        \mathbb M^1_{\textnormal{free}} \hat{\mathbf a}` of the auxiliary vector potential ``at1``. Collective."""
+        return self._M1j0.inner(at1)
+
+    def advance(self, dt, un12, bw, at1=None, bt2=None):
+        r""":math:`\hat{\mathbf a} \leftarrow \hat{\mathbf a} - \Delta t\, (\mathbb M^1_{\textnormal{free}})^{-1}
+        \mathbf y(\mathbf b^w \times \mathbf u^{n+1/2})` (``at1``) and the diagnostic :math:`\hat{\mathbf b} \leftarrow
+        \hat{\mathbf b} + \mathbb C\, \delta \hat{\mathbf a}` (``bt2``); either may be None. Collective."""
+        self._bf.vector = bw
+        self._uf.vector = un12
+        b_v = self._bf.eval_tp_fixed_loc(self._spans, self._bases_2form, out=self._b_values)
+        u_v = self._uf.eval_tp_fixed_loc(self._spans, self._bases_u, out=self._u_values)
+        if self._u_scale is not None:
+            for ui in u_v:
+                ui *= self._u_scale
+        bxu = self._bxu_values
+        for i in range(3):
+            j, k = (i + 1) % 3, (i + 2) % 3
+            bxu[i][:] = b_v[j] * u_v[k]
+            bxu[i] -= b_v[k] * u_v[j]
+        y = self._get_dofs_1(bxu, dofs=self._tmp_y, apply_bc=False)
+        a = self._inv_M1.dot(y, out=self._tmp_a)
+        a *= dt
+        if at1 is not None:
+            at1 -= a
+            at1.update_ghost_regions()
+        if bt2 is not None:
+            ca = self._derham.curl.dot(a, out=self._tmp_ca)
+            bt2 -= ca
+            bt2.update_ghost_regions()
+
+
+def coeff_arrays(v) -> list:
+    """The coefficient arrays of a scalar Stencil- or PolarVector, for elementwise operations."""
+    if isinstance(v, PolarVector):
+        return [*v.pol, v.tp._data]
+    return [v._data]
+
+
+class WeakPressureTerm:
+    r"""Second-order pressure term of the linear and perturbative variational models in :math:`p`, in weak form:
+    only the integral of the auxiliary pressure :math:`\hat p` (``pt3``) enters the energy,
+    :math:`\int \hat p / (\gamma - 1)`, and for :math:`\mathbf u \cdot \mathbf n = 0` on the boundary its transport
+    :math:`\partial_t \hat p + \nabla \cdot (p^w \mathbf u) + (\gamma - 1) p^w \nabla \cdot \mathbf u = 0` gives the
+    force :math:`\int p^w \nabla \cdot \mathbf v`. Discretely the force is :math:`-\mathbb R \mathbf p^w` with
+    :math:`\mathbb R = -(\mathbb D \mathcal U^v)^\top \mathbb M^3` (:attr:`R`; :math:`\mathcal U^v` the identity for a
+    velocity in :math:`H(\textnormal{div})`), and :meth:`advance` updates
+
+    .. math::
+
+        \frac{\hat{\mathbf p}^{n+1} - \hat{\mathbf p}^n}{\Delta t}
+        + (\gamma - 1)\, \frac{(\mathbb D \mathcal U^v \mathbf u) \odot (\mathbb M^3 \mathbf p^w)}
+        {\hat l^3(1)} = 0 \,,
+
+    with :math:`\hat l^3(1)_{ijk} = \int_{\hat\Omega} \Lambda^3_{ijk} \,\textrm d \boldsymbol\eta` and elementwise
+    product and division (lumped :math:`L^2` projection of :math:`(\gamma - 1) p^w \nabla \cdot \mathbf u`): the
+    energy :meth:`energy` :math:`= \hat l^3(1) \cdot \hat{\mathbf p} / (\gamma - 1)` changes by exactly the work
+    :math:`-\Delta t\, (\mathbb D \mathcal U^v \mathbf u)^\top \mathbb M^3 \mathbf p^w` of the force.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping.
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    basis_ops : BasisProjectionOperators
+        Basis projection operators, for the projection :math:`\mathcal U^v` of a velocity in ``"H1vec"``.
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+    gamma : float
+        Adiabatic index.
+    """
+
+    def __init__(self, derham: Derham, domain: Domain, mass_ops: WeightedMassOperators, basis_ops, u_space, gamma):
+        self._mass_ops = mass_ops
+        self._gamma = gamma
+        self._div_u = derham.div if u_space == "Hdiv" else derham.div @ basis_ops.Uv
+        # (the sign inside the composition: a Schur solver rescales an outer ScaledLinearOperator with dt)
+        self._R = self._div_u.T @ (-1.0 * mass_ops.M3)
+        # 1 / l3(1), for the lumped L2 projection of the auxiliary update
+        self._l3 = L2Projector("L2", mass_ops).get_dofs(domain.jacobian_det)
+        self._inv_l3 = self._l3.space.zeros()
+        for a, inv in zip(coeff_arrays(self._l3), coeff_arrays(self._inv_l3)):
+            nonzero = a != 0.0
+            inv[nonzero] = 1.0 / a[nonzero]
+        self._tmp_a = derham.V3pol.zeros()
+        self._tmp_M3p = derham.V3pol.zeros()
+
+    @property
+    def div_u(self):
+        r"""The divergence :math:`\mathbb D \mathcal U^v` of the velocity."""
+        return self._div_u
+
+    @property
+    def R(self):
+        r""":math:`-(\mathbb D \mathcal U^v)^\top \mathbb M^3`, the matrix of :math:`-\int p \nabla \cdot \mathbf v`."""
+        return self._R
+
+    def energy(self, pt3) -> float:
+        r""":math:`\hat l^3(1) \cdot \hat{\mathbf p} / (\gamma - 1)`. Collective."""
+        return self._l3.inner(pt3) / (self._gamma - 1.0)
+
+    def advance(self, dt, un12, pw, pt3):
+        r""":math:`\hat{\mathbf p} \leftarrow \hat{\mathbf p} - \Delta t\, (\gamma - 1) (\mathbb D \mathcal U^v
+        \mathbf u) \odot (\mathbb M^3 \mathbf p^w) / \hat l^3(1)`. Collective."""
+        a = self._div_u.dot(un12, out=self._tmp_a)
+        M3p = self._mass_ops.M3.dot(pw, out=self._tmp_M3p)
+        for ai, m, inv in zip(coeff_arrays(a), coeff_arrays(M3p), coeff_arrays(self._inv_l3)):
+            ai *= m
+            ai *= inv
+        a *= (self._gamma - 1.0) * dt
+        pt3 -= a
+        pt3.update_ghost_regions()
 
 
 def extracted_ones(derham: Derham, form: str) -> Vector:
