@@ -258,7 +258,7 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
         markers[3, ip] = v_n + dt * k_v
 
         # residual; absolute in v (a relative measure fails near bounce points where v -> 0)
-                markers[residual_idx, ip] = sqrt(
+        markers[residual_idx, ip] = sqrt(
             (markers[0, ip] - eta_k[0]) ** 2
             + (markers[1, ip] - eta_k[1]) ** 2
             + (markers[2, ip] - eta_k[2]) ** 2

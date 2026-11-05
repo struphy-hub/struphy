@@ -324,7 +324,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         markers[3, ip] -= k_v
 
         # residual; absolute in v (a relative measure fails near bounce points where v -> 0)
-                markers[residual_idx, ip] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + k_v**2)
+        markers[residual_idx, ip] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + k_v**2)
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, True)
