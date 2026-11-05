@@ -173,24 +173,19 @@ class Accumulator:
             if symmetry == "pressure":
                 for _ in range(3):
                     self._vectors += [BlockVector(self.derham.coeff_spaces[self.form])]
-                    self._vectors_temp += [
-                        BlockVector(self.derham.coeff_spaces[self.form]),
-                    ]
-                    self._vectors_out += [
-                        BlockVector(self.derham.coeff_spaces[self.form]),
-                    ]
 
             # normal treatment (just one vector)
             else:
                 for op in self._operators:
                     if isinstance(op.matrix, StencilMatrix):
                         self._vectors += [StencilVector(op.matrix.domain)]
-                        self._vectors_temp += [StencilVector(op.matrix.domain)]
-                        self._vectors_out += [StencilVector(op.matrix.domain)]
                     else:
                         self._vectors += [BlockVector(op.matrix.domain)]
-                        self._vectors_temp += [BlockVector(op.matrix.domain)]
-                        self._vectors_out += [BlockVector(op.matrix.domain)]
+
+            # outputs of the extraction and boundary operators (polar vectors with polar splines), see vectors
+            for _ in self._vectors:
+                self._vectors_temp += [self.derham.extraction_ops[self.form].codomain.zeros()]
+                self._vectors_out += [self.derham.boundary_ops[self.form].codomain.zeros()]
 
             for vec in self._vectors:
                 if isinstance(vec, StencilVector):
@@ -514,8 +509,9 @@ class AccumulatorVector:
         coeff_space = self.derham.fem_spaces[self.form].coeff_space
         for _ in range(n_vectors):
             self._vectors += [vector_class(coeff_space)]
-            self._vectors_temp += [vector_class(coeff_space)]
-            self._vectors_out += [vector_class(coeff_space)]
+            # outputs of the extraction and boundary operators (polar vectors with polar splines), see vectors
+            self._vectors_temp += [self.derham.extraction_ops[self.form].codomain.zeros()]
+            self._vectors_out += [self.derham.boundary_ops[self.form].codomain.zeros()]
 
         for vec in self._vectors:
             if isinstance(vec, StencilVector):

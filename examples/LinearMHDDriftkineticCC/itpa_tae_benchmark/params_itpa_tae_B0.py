@@ -1,7 +1,7 @@
 """Toroidal Alfven eigenmode (TAE) of the ITPA benchmark driven unstable by energetic ions: the n = 6 TAE in the gap at
 the crossing of the m = 10 and m = 11 shear Alfven branches (q = 1.75, r = 0.5) of the LinearMHD ITPA example, excited
-by drift-kinetic energetic deuterons of 400 keV (LinearMHDDriftkineticCC, delta-f), with and without the toroidal
-Fourier filter of the accumulated moments."""
+by drift-kinetic energetic deuterons of 400 keV (LinearMHDDriftkineticCC, delta-f). Canonical Maxwellian with
+shift="B0"; see params_itpa_tae_Bmax.py for the other shift."""
 
 # -----------------------------
 # Description of the simulation
@@ -10,10 +10,15 @@ Fourier filter of the accumulated moments."""
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
 import argparse
+import logging
 from pathlib import Path
 
+# Coefficients (c0, c1, c2, c3) of the energetic-ion density, fitted at 400 keV for shift="B0" to match the ITPA
+# benchmark density profile. For another temperature or shift, refit them.
+C_FIT = (0.47685, 0.20088, 0.13150, 0.51475)
+
 # Command line options
-# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid (default 24 96 16).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
@@ -23,11 +28,22 @@ parser.add_argument(
     default=str(Path(__file__).resolve().parent),
     help="Folder in which the output folder is created (default: beside this file).",
 )
-parser.add_argument("--sim-folder", default="sim_data", help="Name of the output folder.")
-parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 44, 8], help="Number of elements per direction.")
+parser.add_argument("--sim-folder", default="sim_B0", help="Name of the output folder.")
+parser.add_argument(
+    "--num-elements",
+    type=int,
+    nargs=3,
+    default=[24, 96, 16],
+    help="Number of elements per direction (default 24 96 16: the H(div) shear Alfven step needs about 8 elements per "
+    "poloidal wavelength of the m = 10 harmonic for the right TAE frequency, see the description).",
+)
 parser.add_argument("--Np", type=int, default=1_000_000, help="Number of markers of the energetic ions.")
 parser.add_argument(
-    "--T-hot", type=float, default=400.0, help="Temperature of the energetic deuterons in keV (benchmark: 0-800 keV)."
+    "--T-hot",
+    type=float,
+    default=400.0,
+    help="Temperature of the energetic deuterons in keV (benchmark: 0-800 keV). The density coefficients C_FIT are "
+    "fitted at 400 keV: refit them for any other temperature.",
 )
 parser.add_argument(
     "--nh-scale",
@@ -35,8 +51,8 @@ parser.add_argument(
     default=1.0,
     help="Factor on the energetic-ion density profile of the benchmark (the growth rate is proportional to it).",
 )
-parser.add_argument("--dt", type=float, default=1.0, help="Time step.")
-parser.add_argument("--tend", type=float, default=1200.0, help="End time.")
+parser.add_argument("--dt", type=float, default=0.25, help="Time step.")
+parser.add_argument("--tend", type=float, default=700.0, help="End time.")
 parser.add_argument(
     "--filter",
     default="fourier",
@@ -52,6 +68,19 @@ parser.add_argument(
     choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
     help="Algorithm of the guiding-center drift push (PushGuidingCenterBxEstar): a discrete gradient (energy "
     "conserving, iterative) or the explicit RK4.",
+)
+parser.add_argument(
+    "--parallel-algo",
+    default="discrete_gradient_1st_order_newton",
+    choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
+    help="Algorithm of the parallel guiding-center push (PushGuidingCenterParallel): a discrete gradient (energy "
+    "conserving, iterative) or the explicit RK4.",
+)
+parser.add_argument(
+    "--magnetosonic-cross-b0",
+    action="store_true",
+    help="Replace the background current, background pressure and sound steps by MagnetosonicCrossB0, which writes the "
+    "current force and the pressure work through B0 x, like the shear Alfven step (model flag magnetosonic_cross_b0).",
 )
 parser.add_argument(
     "--marker-bc",
@@ -79,15 +108,18 @@ if args.test_run:
     args.num_elements = [8, 32, 4]
     args.Np = 2000
 
-name = f"ITPA TAE benchmark driven by energetic ions (LinearMHDDriftkineticCC, filter {args.filter})"
+if args.T_hot != 400.0:
+    logging.getLogger("struphy").warning(
+        f"C_FIT is fitted at 400 keV, not at T_hot = {args.T_hot} keV: refit it to match the benchmark density profile."
+    )
+
+name = f"ITPA TAE benchmark driven by energetic ions (LinearMHDDriftkineticCC, shift=B0, filter {args.filter})"
 description = f"""
 Toroidal Alfven eigenmode (TAE) of the ITPA benchmark (Koenies et al. 2018), driven unstable by energetic ions:
 linear ideal MHD coupled to drift-kinetic energetic deuterons (current coupling, delta-f) with the model
 LinearMHDDriftkineticCC. The MHD part is the ITPA TAE of examples/LinearMHD/itpa_tae_benchmark (same equilibrium,
 units and seed); here the energetic ions are the source of free energy: their radial density gradient at the gap
-drives the TAE, whose amplitude grows exponentially. The run is meant to be made twice, with the toroidal Fourier
-filter of the accumulated moments (--filter fourier, default) and without (--filter none), and compared with
-pproc_itpa_tae.py --compare.
+drives the TAE, whose amplitude grows exponentially.
 
 Physics. The TAE (see the LinearMHD ITPA example) has the frequency
     omega_TAE = n / (2m + 1) * v_A(r_c) / R0
@@ -102,25 +134,36 @@ R0 = 10 m, a = 1 m, B0 = 3 T, q(r) = 1.71 + 0.16 r^2/a^2, hydrogen bulk with the
 beta 0.0018 (units x = 1 m, B = 1 T, n = 2e19 m^-3, so v_unit = 4.88e6 m/s and t_unit = 0.205 us). Only n = 6 is
 computed, on a sixth of the torus (HollowTorus with tor_period = 6 and a hole of radius 0.1; the logical mode number
 -1 along eta3 is the physical n = 6), grid {args.num_elements} with cubic splines, time step {args.dt} up to
-t = {args.tend}. The compressional MHD (sound wave, background current and pressure steps of LinearMHD) is included.
+t = {args.tend}. The compressional MHD is included, with the background current,
+background pressure and sound steps of LinearMHD or, with --magnetosonic-cross-b0, with MagnetosonicCrossB0, which
+writes the current force and the pressure work through B0 x like the shear Alfven step:
+{args.magnetosonic_cross_b0}.
+The grid has 96 poloidal elements (about 9 per wavelength of the m = 10 harmonic): the model has the magnetic field in
+H(div), whose shear Alfven step uses the commuting projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal
+interpolation error makes the effective poloidal mode number about 2-3% too small with 44 elements, which shifts the
+continuum near the gap (where n q - m nearly cancels) so much that there is no TAE (PR #887).
 Energetic deuterons with the temperature T_h = {args.T_hot} keV (thermal speed sqrt(T_h/m_D) = {{vth:.3g}} v_unit,
 about 0.3 v_A at 400 keV, gyro-radius about 3 cm in 3 T; the normalized cyclotron period epsilon follows from the
-units), represented by {args.Np} markers with delta-f weights (control variate). The density profile of the
-benchmark,
-    n_h(s) = n0 c3 exp(-(c2/c1) tanh((sqrt(s) - c0) / c2)),
-    n0 = 1.44131e17 m^-3, c0 = 0.49123, c1 = 0.298228, c2 = 0.198739, c3 = 0.521298,
-(times --nh-scale = {args.nh_scale}) is taken with sqrt(s) = r(psi_c)/a, the minor radius of the flux surface
-psi = psi_c of the canonical toroidal momentum: the equilibrium is the canonical Maxwellian (an exact equilibrium of the
-guiding-center motion, see CanonicalMaxwellian2D with shift=None). The benchmark used a distribution of the flux
-label of the position instead, which is not an equilibrium; with a distribution of the canonical toroidal momentum
-its growth rate is about a factor of two smaller (NOVA-K, Sec. IV.D.1 of the paper). The guiding-center pushers use
-{args.drift_algo} for the drifts (--drift-algo) and RK4 for the parallel motion, markers leaving the plasma are
-removed (--marker-bc remove) or refilled on the same flux surface (--marker-bc refill): {args.marker_bc}. Filter of
-the accumulated moments: {args.filter}.
+units), represented by {args.Np} markers with delta-f weights (control variate). The density profile is
+    n_h = n0 c3 exp(-(c2/c1) tanh((r_c - c0) / c2)),
+    r_c = sign(s) sqrt(|s|), s = (psi_c - psi_axis) / (psi_edge - psi_axis),
+    n0 = 1.44131e17 m^-3, (c0, c1, c2, c3) = {C_FIT},
+(times --nh-scale = {args.nh_scale}). The equilibrium is the canonical Maxwellian with shift="B0" (see
+CanonicalMaxwellian2D). This shift is not a constant of motion for a part of the trapped particles,
+so this distribution is not an exact equilibrium and drives delta-f in the steep gradient without any wave.
+The coefficients are fitted at 400 keV, so that the density in the radius of the position matches the benchmark profile
+    n_h(s) = n0 c3 exp(-(c2/c1) tanh((sqrt(s) - c0) / c2)), c0 = 0.49123, c1 = 0.298228, c2 = 0.198739, c3 = 0.521298:
+for another temperature, refit them. The benchmark used a distribution of the flux label of the position; with a
+distribution of the canonical toroidal momentum its growth rate is about a factor of two smaller (NOVA-K, Sec. 4.4.1
+of the paper). The guiding-center pushers use {args.drift_algo} for the drifts (--drift-algo) and
+{args.parallel_algo} for the parallel motion (--parallel-algo), the current coupling is explicit, markers leaving the
+plasma are removed (--marker-bc remove) or refilled on the same field line (--marker-bc refill): {args.marker_bc}.
+Filter of the accumulated moments: {args.filter}.
 
-Cost. With the defaults (24 x 44 x 8 elements, 1e6 markers, dt = 1), a time step takes about 30 s on 4 MPI ranks
-(about 10 h up to t = 1200), mostly in the guiding-center pushers and the current coupling, which scale with the
-number of markers per rank: the run is meant for a cluster with many more ranks.
+Cost. On 24 x 88 x 8 elements with 1e6 markers, dt = 1 and RK4 for the parallel motion, a time step took about 26-30 s
+on 4 MPI ranks, mostly in the guiding-center pushers and the current coupling, which scale with the number of markers
+per rank. The default grid has about 2.2 times more cells and both pushers are iterative: the run is meant for a
+cluster with many more ranks.
 The TAE is seeded by a small m = 10, 11 velocity perturbation localized at the gap (as in the LinearMHD example).
 
 Expected result. After the initial transient, the TAE (the (m, n) = (10, 6) and (11, 6) harmonics of the radial
@@ -129,8 +172,7 @@ velocity at r_c) oscillates with omega close to omega_TAE = 0.086 (4.2e5 rad/s; 
 harmonics (n = 0, 12, ...) is not removed and contaminates the energies. The pproc script measures omega (asserted
 within 10% of omega_TAE and of the ideal MHD frequency 4.07e5 rad/s of the benchmark) and the growth rate gamma from
 the MHD kinetic energy (asserted positive with a filter), and plots the energies (MHD, magnetic, energetic ions),
-the fields and the radial profiles of the (m, n) harmonics; with --compare it overlays the runs with and without
-filter.
+the fields and the radial profiles of the (m, n) harmonics; with --compare it overlays two runs.
 
 References:
 - A. Koenies et al., "Benchmark of gyrokinetic, kinetic MHD and gyrofluid codes for the linear calculation of fast
@@ -139,8 +181,6 @@ References:
 - B. K. Na, S. Possanner, X. Wang, "Structure-preserving discretization of MHD-driftkinetic current coupling"
   (the discretization of LinearMHDDriftkineticCC).
 """
-
-import logging
 
 from struphy import set_logging_level
 
@@ -154,6 +194,7 @@ import cunumpy as xp
 
 from struphy import (
     BaseUnits,
+    BinningPlot,
     BoundaryParameters,
     DerhamOptions,
     EnvironmentOptions,
@@ -185,7 +226,11 @@ base_units = BaseUnits(x=1.0, B=1.0, n=0.2)
 # Model instance: energetic deuterons on a hydrogen bulk (epsilon of the energetic ions from the units)
 A_BULK, A_HOT = 1.0, 2.0
 model = LinearMHDDriftkineticCC(
-    base_units=base_units, mhd_mass_number=A_BULK, hot_charge_number=1, hot_mass_number=A_HOT
+    base_units=base_units,
+    mhd_mass_number=A_BULK,
+    hot_charge_number=1,
+    hot_mass_number=A_HOT,
+    magnetosonic_cross_b0=args.magnetosonic_cross_b0,
 )
 
 # thermal speed sqrt(T_h/m_h) of the energetic ions, in units of the Alfven velocity unit B/sqrt(mu0 n A_b m_H)
@@ -198,6 +243,7 @@ description = description.replace("{vth:.3g}", f"{vth:.3g}")
 model.em_fields.b_field.save_data = True
 model.mhd.velocity.save_data = True
 model.mhd.pressure.save_data = True
+model.energetic_ions.var.save_data = True
 
 # --------------------------
 # Instance of the simulation
@@ -208,7 +254,7 @@ env = EnvironmentOptions(out_folders=args.out_folder, save_step=4, sim_folder=ar
 
 # Time stepping
 # --test-run: the initial, a middle and a final saved time step
-time_opts = Time(dt=args.dt, Tend=2 * env.save_step * args.dt if args.test_run else args.tend)
+time_opts = Time(dt=args.dt, Tend=2 * env.save_step * args.dt if args.test_run else args.tend, split_algo="LieTrotter")
 
 # Geometry
 a, R0 = 1.0, 10.0
@@ -248,26 +294,21 @@ sim = Simulation(
 # Particle parameters
 # -------------------
 
-# the minor radius of the flux surface psi (monotonic psi(r) of the AdhocTorus)
-R_TAB = xp.linspace(0.0, a, 2001)
-PSI_TAB = equil.psi_r(R_TAB)
-
-# density profile of the benchmark in units of the bulk density 2e19 m^-3
+# density in units of the bulk density 2e19 m^-3, as a function of the normalized canonical toroidal momentum
 N0 = 1.44131e17 / (base_units.n * 1e20)
-C0, C1, C2, C3 = 0.49123, 0.298228, 0.198739, 0.521298
-
-
-def minor_radius(psi):
-    """Minor radius of the flux surface psi (constant beyond the axis and the plasma boundary)."""
-    return xp.interp(psi, PSI_TAB, R_TAB)
+itpa_density = perturbations.ITPA_density(n0=N0, c=C_FIT)
+psi_axis, psi_edge = equil.psi_range
 
 
 def n_hot(psi_c):
-    """Energetic-ion density of the benchmark as a function of the canonical toroidal momentum, with
-    sqrt(s) = r(psi_c)/a."""
-    sqrt_s = minor_radius(psi_c) / a
-    return args.nh_scale * N0 * C3 * xp.exp(-(C2 / C1) * xp.tanh((sqrt_s - C0) / C2))
+    """Energetic-ion density as a function of the shifted canonical toroidal momentum."""
+    s = (psi_c - psi_axis) / (psi_edge - psi_axis)
+    return args.nh_scale * itpa_density(xp.sign(s) * xp.sqrt(xp.abs(s)))
 
+
+# binned distributions for the density profile and the resonance plots of the pproc script
+binplot_r = BinningPlot(slice="e1", n_bins=64, ranges=(0.0, 1.0))
+binplot_r_vpar = BinningPlot(slice="e1_v1", n_bins=(64, 64), ranges=((0.0, 1.0), (-5 * vth, 5 * vth)))
 
 model.energetic_ions.set_markers(
     # mu drawn with the local |B_0| (default B0="equil")
@@ -277,7 +318,7 @@ model.energetic_ions.set_markers(
     # refill: the markers leaving through the walls are refilled on the same flux surface instead of removed
     boundary_params=BoundaryParameters(bc=(args.marker_bc, "periodic", "periodic")),
     sorting_params=SortingParameters(do_sort=True, sorting_frequency=10),
-    saving_params=SavingParameters(n_markers=0),
+    saving_params=SavingParameters(n_markers=0, binning_plots=(binplot_r, binplot_r_vpar)),
     # the discrete-gradient pushers sort at mid-points in each iteration
     bufsize=2.0,
 )
@@ -295,11 +336,16 @@ if args.drift_algo == "rk4":
     props.push_bxe.options = props.push_bxe.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
 else:
     props.push_bxe.options = props.push_bxe.Options(algo=args.drift_algo)
-props.push_parallel.options = props.push_parallel.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
+if args.parallel_algo == "rk4":
+    props.push_parallel.options = props.push_parallel.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
+else:
+    props.push_parallel.options = props.push_parallel.Options(algo=args.parallel_algo)
 props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params)
 props.cc5d_gradb.options = props.cc5d_gradb.Options(filter_params=filter_params)
 # (CurrentCoupling5DDensity accumulates no vector: nothing to filter)
 props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)
+if args.magnetosonic_cross_b0:
+    props.magnetosonic.options = props.magnetosonic.Options()
 
 # ------------------
 # Initial conditions
@@ -309,10 +355,9 @@ props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)
 
 # energetic ions: canonical Maxwellian (equilibrium, the control variate of delta-f)
 model.energetic_ions.var.add_background(
-    # with the exact canonical toroidal momentum (shift=None): the profile of the benchmark in psi_c
-    # (shift="B0" is not a constant of motion for a part of the trapped particles and would drive delta-f in the steep
-    # gradient without any wave; shift="Bmax" is an exact equilibrium, but with a refitted profile)
-    maxwellians.CanonicalMaxwellian2D(n=(n_hot, None), vth=(vth, None), equil=equil, epsilon=epsilon, shift=None)
+    # shift="B0" is not a constant of motion for a part of the trapped particles and would drive delta-f in the steep
+    # gradient without any wave: not an exact equilibrium
+    maxwellians.CanonicalMaxwellian2D(n=(n_hot, None), vth=(vth, None), equil=equil, epsilon=epsilon, shift="B0")
 )
 
 # seed of the TAE: the m = 10 and m = 11 harmonics (n = 6: logical mode number -1 along eta3) of the velocity, Gaussian
