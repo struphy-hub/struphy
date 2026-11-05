@@ -20,7 +20,8 @@ C_FIT = (0.51643, 0.13619, 0.10274, 0.56458)
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder (default sim_Bmax_<b-space>); `--b-space` the space of
 # the magnetic field (default Hdiv); `--num-elements` the grid (default 24 96 16 with Hdiv, 24 44 16 with Hcurl;
-# PR #887, issue #889).
+# PR #887, issue #889); `--a1` the hole around the axis; `--degree` the spline degrees (as in the ShearAlfven and
+# LinearMHD ITPA examples).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
@@ -70,6 +71,10 @@ parser.add_argument(
 )
 parser.add_argument("--dt", type=float, default=0.25, help="Time step.")
 parser.add_argument("--tend", type=float, default=700.0, help="End time.")
+parser.add_argument(
+    "--a1", type=float, default=0.1, help="Radius of the hole around the magnetic axis (default 0.1, in units of a)."
+)
+parser.add_argument("--degree", type=int, nargs=3, default=[3, 3, 3], help="Spline degrees per direction.")
 parser.add_argument(
     "--filter",
     default="fourier",
@@ -162,9 +167,9 @@ Landau damping by the velocity gradient (and to continuum damping).
 Setup (ITPA TAE benchmark, Koenies et al. 2018). Large-aspect-ratio tokamak with circular flux surfaces (AdhocTorus):
 R0 = 10 m, a = 1 m, B0 = 3 T, q(r) = 1.71 + 0.16 r^2/a^2, hydrogen bulk with the flat density 2e19 m^-3 and on-axis
 beta 0.0018 (units x = 1 m, B = 1 T, n = 2e19 m^-3, so v_unit = 4.88e6 m/s and t_unit = 0.205 us). Only n = 6 is
-computed, on a sixth of the torus (HollowTorus with tor_period = 6 and a hole of radius 0.1; the logical mode number
--1 along eta3 is the physical n = 6), grid {args.num_elements} with cubic splines, time step {args.dt} up to
-t = {args.tend}. The compressional MHD is included, with the background current,
+computed, on a sixth of the torus (HollowTorus with tor_period = 6 and a hole of radius {args.a1}; the logical
+mode number -1 along eta3 is the physical n = 6), grid {args.num_elements} with spline degrees {args.degree}, time
+step {args.dt} up to t = {args.tend}. The compressional MHD is included, with the background current,
 background pressure and sound steps of LinearMHD or, with --magnetosonic-cross-b0, with MagnetosonicCrossB0, which
 writes the current force and the pressure work through B0 x like the shear Alfven step:
 {args.magnetosonic_cross_b0}.
@@ -302,7 +307,7 @@ time_opts = Time(dt=args.dt, Tend=2 * env.save_step * args.dt if args.test_run e
 
 # Geometry
 a, R0 = 1.0, 10.0
-domain = domains.HollowTorus(a1=0.1, a2=a, R0=R0, sfl=False, pol_period=1, tor_period=6)
+domain = domains.HollowTorus(a1=args.a1, a2=a, R0=R0, sfl=False, pol_period=1, tor_period=6)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(
@@ -317,7 +322,7 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_m
 # boundary conditions (Dirichlet would force the tangential magnetic field to zero); u.n = 0 is then imposed only
 # weakly, by the weak induction equation of the shear Alfven step (see ShearAlfvenCurlCurlPropagator)
 bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "free")
-derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
+derham_opts = DerhamOptions(degree=tuple(args.degree), bcs=(bcs_eta1, None, None))
 
 # Profiling options
 profiling_opts = ProfilingOptions(use_line_profiler=False)
