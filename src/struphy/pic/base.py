@@ -331,9 +331,29 @@ class Particles(metaclass=ABCMeta):
             if bci == "reflect":
                 assert domain is not None, "Reflecting boundary conditions require a domain."
 
+        # "refill" (eta1 only): markers leaving through the walls are refilled (see _particle_refilling) instead of
+        # removed; it is "remove" with bc_refill (both walls if bc_refill is not given)
+        if "refill" in bc:
+            assert bc[0] == "refill" and "refill" not in bc[1:], "The 'refill' boundary condition is for eta1 only."
+            bc = ["remove"] + list(bc[1:])
+            if bc_refill is None:
+                bc_refill = ("inner", "outer")
+
         if bc_refill is not None:
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
+            # _particle_refilling maps along the field line of a HollowTorus (theta = 2 pi eta2) with an equilibrium
+            # q(r): fail here instead of when the first marker leaves
+            if domain is not None:
+                params = domain.params
+                assert all(key in params for key in ("a1", "a2", "tor_period")), (
+                    "Refilling markers needs a HollowTorus domain."
+                )
+                assert params.get("pol_period", 1) == 1, "Refilling markers needs pol_period = 1."
+            assert equil is None or hasattr(equil, "q_r"), (
+                "Refilling markers needs an equilibrium with q_r (AdhocTorus)."
+            )
+        self._bc_refill = bc_refill
 
         self._bc = bc
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
@@ -662,8 +682,8 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def bc_refill(self):
-        """How to re-enter particles if bc is 'refill'."""
-        return self.boundary_params.bc_refill
+        """How to re-enter particles if bc is 'refill' (or 'remove' with ``bc_refill``)."""
+        return self._bc_refill
 
     @property
     def bc_sph(self):
@@ -3163,17 +3183,20 @@ class Particles(metaclass=ABCMeta):
         When particles move outside of the domain, refills them.
         TODO: Currently only valid for HollowTorus geometry with AdhocTorus equilibrium.
 
-        In case of guiding-center orbit, refills particles at the opposite poloidal angle of the same magnetic flux surface.
+        In case of guiding-center orbit, refills particles at the opposite poloidal angle of the same magnetic flux surface, on the same field line (see :meth:`_refill_phi_shift`):
 
         .. math::
 
             \theta_\text{refill} &= - \theta_\text{loss}
             \\
-            \phi_\text{refill} &= -2 q(r_\text{loss}) \theta_\text{loss}
+            \phi_\text{refill} &= \phi_\text{loss} + \Delta\phi(r_\text{loss}, \theta_\text{loss})
 
         In case of full orbit, refills particles at the same gyro orbit until their guiding-centers are also outside of the domain.
         When their guiding-centers also reach at the boundary, refills them as we did with guiding-center orbit.
         """
+
+        # eta3 = tor_period * phi / (2 pi) on a HollowTorus covering 1/tor_period of the torus
+        tor_period = self.domain.params.get("tor_period", 1)
 
         for kind in self.bc_refill:
             # sorting out particles which are out of the domain
@@ -3185,7 +3208,7 @@ class Particles(metaclass=ABCMeta):
             else:
                 outside_inds = xp.nonzero(self._is_outside_right)[0]
                 self.markers[0, outside_inds] = 1 - 1e-4
-                r_loss = 1.0
+                r_loss = self.domain.params["a2"]
 
             if len(outside_inds) == 0:
                 continue
@@ -3202,8 +3225,10 @@ class Particles(metaclass=ABCMeta):
                 if len(gyro_inside_inds) > 0:
                     outside_inds = outside_inds[~gyro_inside_inds]
 
-            # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss
-            self.markers[2, outside_inds] -= 2 * self.equil.q_r(r_loss) * self.markers[1, outside_inds]
+            # do phi boundary transfer along the field line (eta3 = tor_period * phi / 2pi)
+            self.markers[2, outside_inds] += (
+                tor_period * self._refill_phi_shift(r_loss, self.markers[1, outside_inds]) / (2 * xp.pi)
+            )
 
             # theta_boudary_transfer = - theta_loss
             self.markers[1, outside_inds] = 1.0 - self.markers[1, outside_inds]
@@ -3211,6 +3236,42 @@ class Particles(metaclass=ABCMeta):
             # mark the particle as done for multiple step pushers
             self.markers[self.first_pusher_idx, outside_inds] = -1.0
             self._is_outside[outside_inds] = False
+
+    def _refill_phi_shift(self, r, eta2):
+        r"""Change of the toroidal angle along the field line of :class:`~struphy.fields_background.equils.AdhocTorus`
+        from :math:`\theta` to :math:`-\theta` on the flux surface of radius :math:`r`.
+
+        The field line pitch is :math:`\textnormal d\phi / \textnormal d\theta = q(r) \sqrt{1 - r^2/R_0^2}\, R_0 / R` with :math:`R = R_0 + r \cos\theta`:
+
+        .. math::
+
+            \Delta\phi = -4 q(r) \arctan\left[\sqrt{\frac{R_0 - r}{R_0 + r}} \tan\frac{\theta}{2}\right]
+            \quad \textnormal{if sfl = False} \,, \qquad \Delta\phi = -2 q(r)\, \theta^* \quad \textnormal{if sfl = True} \,,
+
+        with the grid angle :math:`\theta = 2\pi\eta_2` or the straight field line angle :math:`\theta^* = 2\pi\eta_2`.
+
+        Parameters
+        ----------
+        r : float
+            Minor radius of the flux surface.
+
+        eta2 : array
+            Logical poloidal coordinates of the lost markers.
+
+        Returns
+        -------
+        array
+            The change of the toroidal angle :math:`\phi`.
+        """
+        q = self.equil.q_r(r)
+
+        if self.domain.params["sfl"]:
+            return -4 * q * xp.pi * eta2
+
+        R0 = self.equil.params["R0"]
+        k = xp.sqrt((R0 - r) / (R0 + r))
+
+        return -4 * q * xp.arctan2(k * xp.sin(xp.pi * eta2), xp.cos(xp.pi * eta2))
 
     def _gyro_transfer(self, outside_inds):
         r"""Refills particles at the same gyro orbit.
