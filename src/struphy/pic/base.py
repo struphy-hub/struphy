@@ -3183,13 +3183,13 @@ class Particles(metaclass=ABCMeta):
         When particles move outside of the domain, refills them.
         TODO: Currently only valid for HollowTorus geometry with AdhocTorus equilibrium.
 
-        In case of guiding-center orbit, refills particles at the opposite poloidal angle of the same magnetic flux surface.
+        In case of guiding-center orbit, refills particles at the opposite poloidal angle of the same magnetic flux surface, on the same field line (see :meth:`_refill_phi_shift`):
 
         .. math::
 
             \theta_\text{refill} &= - \theta_\text{loss}
             \\
-            \phi_\text{refill} &= -2 q(r_\text{loss}) \theta_\text{loss}
+            \phi_\text{refill} &= \phi_\text{loss} + \Delta\phi(r_\text{loss}, \theta_\text{loss})
 
         In case of full orbit, refills particles at the same gyro orbit until their guiding-centers are also outside of the domain.
         When their guiding-centers also reach at the boundary, refills them as we did with guiding-center orbit.
@@ -3225,9 +3225,10 @@ class Particles(metaclass=ABCMeta):
                 if len(gyro_inside_inds) > 0:
                     outside_inds = outside_inds[~gyro_inside_inds]
 
-            # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss (in eta3: times tor_period); exact for
-            # straight field-line angles (sfl=True), to O(r/R) for the geometric angle (sfl=False)
-            self.markers[2, outside_inds] -= 2 * tor_period * self.equil.q_r(r_loss) * self.markers[1, outside_inds]
+            # do phi boundary transfer along the field line (eta3 = tor_period * phi / 2pi)
+            self.markers[2, outside_inds] += (
+                tor_period * self._refill_phi_shift(r_loss, self.markers[1, outside_inds]) / (2 * xp.pi)
+            )
 
             # theta_boudary_transfer = - theta_loss
             self.markers[1, outside_inds] = 1.0 - self.markers[1, outside_inds]
@@ -3235,6 +3236,42 @@ class Particles(metaclass=ABCMeta):
             # mark the particle as done for multiple step pushers
             self.markers[self.first_pusher_idx, outside_inds] = -1.0
             self._is_outside[outside_inds] = False
+
+    def _refill_phi_shift(self, r, eta2):
+        r"""Change of the toroidal angle along the field line of :class:`~struphy.fields_background.equils.AdhocTorus`
+        from :math:`\theta` to :math:`-\theta` on the flux surface of radius :math:`r`.
+
+        The field line pitch is :math:`\textnormal d\phi / \textnormal d\theta = q(r) \sqrt{1 - r^2/R_0^2}\, R_0 / R` with :math:`R = R_0 + r \cos\theta`:
+
+        .. math::
+
+            \Delta\phi = -4 q(r) \arctan\left[\sqrt{\frac{R_0 - r}{R_0 + r}} \tan\frac{\theta}{2}\right]
+            \quad \textnormal{if sfl = False} \,, \qquad \Delta\phi = -2 q(r)\, \theta^* \quad \textnormal{if sfl = True} \,,
+
+        with the grid angle :math:`\theta = 2\pi\eta_2` or the straight field line angle :math:`\theta^* = 2\pi\eta_2`.
+
+        Parameters
+        ----------
+        r : float
+            Minor radius of the flux surface.
+
+        eta2 : array
+            Logical poloidal coordinates of the lost markers.
+
+        Returns
+        -------
+        array
+            The change of the toroidal angle :math:`\phi`.
+        """
+        q = self.equil.q_r(r)
+
+        if self.domain.params["sfl"]:
+            return -4 * q * xp.pi * eta2
+
+        R0 = self.equil.params["R0"]
+        k = xp.sqrt((R0 - r) / (R0 + r))
+
+        return -4 * q * xp.arctan2(k * xp.sin(xp.pi * eta2), xp.cos(xp.pi * eta2))
 
     def _gyro_transfer(self, outside_inds):
         r"""Refills particles at the same gyro orbit.

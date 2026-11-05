@@ -141,8 +141,7 @@ class MaxwellWeakAmpere(Propagator):
               (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with ``derivative="curl"``; with polar
               splines a :class:`~struphy.feec.preconditioner.PolarStiffnessPreconditioner`), rebuilt when the time
               step changes. For ``algo="explicit"``, the mass matrix preconditioner of :math:`\mathbb M_1` is used
-              instead. (With polar splines, the implicit step currently fails in the
-              :class:`~struphy.linear_algebra.schur_solver.SchurSolver` with any preconditioner.)
+              instead.
             - ``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``: preconditioner of
               :math:`\mathbb M_1`, better for small time steps :math:`\Delta t \lesssim h`, e.g. in CFL-limited
               PIC runs.

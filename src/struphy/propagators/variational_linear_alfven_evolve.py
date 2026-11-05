@@ -37,17 +37,20 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
     The thermodynamic variable is not changed, so this propagator serves the linear models in :math:`p` and in
     :math:`q = \sqrt p` alike; together with
     :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve` it splits the linear
-    MHD step into the shear-Alfvén/fast and the sound waves. The second-order term comes from the auxiliary variable
-    :math:`\hat{\mathbf B}` (``bt2``), which, if given, is advanced with
-    :math:`\partial_t \hat{\mathbf B} + \mathcal T_{\mathbf B}(\mathbf u) = 0`; it enters the conserved energy as
-    :math:`\int \mathbf B_0 \cdot \hat{\mathbf B}`.
+    MHD step into the shear-Alfvén/fast and the sound waves. The second-order term comes from the auxiliary
+    second-order field :math:`\hat{\mathbf B} = \nabla \times \hat{\mathbf A}`, with
+    :math:`\partial_t \hat{\mathbf A} = - \mathbf B \times \mathbf u` (``at1``), which enters the conserved energy as
+    :math:`\int \mathbf B_0 \cdot \hat{\mathbf B} = \int \mathbf J_0 \cdot \hat{\mathbf A}`, with the equilibrium
+    current :math:`\mathbf J_0 = \nabla \times \mathbf B_0` (the boundary term vanishes, since
+    :math:`\mathbf u \cdot \mathbf n = \mathbf B \cdot \mathbf n = 0` gives :math:`\hat{\mathbf A} \times \mathbf n = 0`).
+    Its variation gives the force :math:`\int \mathbf B_0 \cdot \mathcal T_{\mathbf B}(\mathbf v) = \int \mathbf v \cdot
+    (\mathbf J_0 \times \mathbf B)`.
 
     Discretization: the equilibrium term with :math:`\mathbb T[\bar{\mathbf B}] = \mathbb C \hat\Pi^1[\hat{\bar{\mathbf
     B}} \times \vec{\boldsymbol\Lambda}^v]` (:class:`~struphy.feec.variational_utilities.Hdiv0_transport_operator`),
-    and the second-order term in weak form, :math:`\int \mathbf B_0 \cdot \mathcal T_{\mathbf B}(\mathbf v) = \int
-    \mathbf v \cdot (\mathbf J_0 \times \mathbf B)` (for :math:`\mathbf B_0 \times \mathbf v = 0` on the boundary), with
-    the discrete equilibrium current :math:`\mathbf j_0 = \mathbb M_1^{-1} \mathbb C^\top \mathbb M_2 \mathbf b_0` and
-    the weighted mass matrix :math:`\mathbb W` of :math:`\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)`:
+    and the second-order term with the equilibrium current :math:`\mathbf j_0` of the dual complex (no boundary
+    conditions, see :meth:`equilibrium_current`) and the weighted mass matrix :math:`\mathbb W` of
+    :math:`\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)`:
 
     .. math::
 
@@ -57,17 +60,30 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         \qquad
         \frac{\mathbf b^{n+1} - \mathbf b^n}{\Delta t} + \mathbb T[\mathbf B_0]\, \mathbf u^{n+\frac12} = 0 \,,
         \\[2mm]
-        &\frac{\hat{\mathbf b}^{n+1} - \hat{\mathbf b}^n}{\Delta t}
-        + \mathbb C \mathbb M_1^{-1} \mathbf y(\mathbf b^w \times \mathbf u^{n+\frac12}) = 0 \,,
+        &\frac{\hat{\mathbf a}^{n+1} - \hat{\mathbf a}^n}{\Delta t}
+        + (\mathbb M^1_{\textnormal{free}})^{-1} \mathbf y(\mathbf b^w \times \mathbf u^{n+\frac12}) = 0 \,,
         \qquad
-        \mathbf y(\mathbf w)_k = \int_\Omega \mathbf w \cdot \vec{\boldsymbol\Lambda}^1_k \,\textrm d \mathbf x \,.
+        \mathbf y(\mathbf w)_k = \int_\Omega \mathbf w \cdot \vec{\boldsymbol\Lambda}^1_k \,\textrm d \mathbf x \,,
         \end{align}
 
-    The auxiliary field is :math:`\hat{\mathbf B} = \nabla \times \mathbf A` with :math:`\partial_t \mathbf A = -
-    \mathbf B \times \mathbf u` projected into :math:`H(\textnormal{curl})`; its energy :math:`\mathbf b_0^\top
-    \mathbb M_2 \hat{\mathbf b}` changes by exactly :math:`-\Delta t\, \mathbf j_0 \cdot \mathbf y = -\Delta t\,
+    where :math:`\mathbb M^1_{\textnormal{free}}` and :math:`\mathbf y` are taken over all basis functions of
+    :math:`V^1_h`, without the boundary conditions. The energy :math:`\mathbf j_0^\top \mathbb M^1_{\textnormal{free}}
+    \hat{\mathbf a}` then changes by exactly :math:`-\Delta t\, \mathbf j_0 \cdot \mathbf y = -\Delta t\,
     (\mathbf u^{n+\frac12})^\top \mathbb W \mathbf b^w`, the work of the force, which makes the step energy conserving
-    (both forms are evaluated at the same quadrature points).
+    (both forms are evaluated at the same quadrature points). The second-order field :math:`\hat{\mathbf b} =
+    \mathbb C \hat{\mathbf a}` (``bt2``) is a diagnostic.
+
+    Why the current of the dual complex: the magnetic energy is :math:`\frac12 \int \beta \wedge \star \beta` for the
+    2-form :math:`\beta`, and its second-order term is :math:`\int d\hat\alpha \wedge H_0 = \int \hat\alpha \wedge
+    dH_0` with :math:`H_0 = \star \beta_0` (metric-free integration by parts, the boundary term vanishes with
+    :math:`\hat{\mathbf A} \times \mathbf n = 0`). The current :math:`J_0 = dH_0` is the exterior derivative of the
+    Hodge dual of the field, a quantity of the dual complex (:math:`H`, :math:`J`), which has no wall conditions. The
+    vector potential, the electric field and the magnetic field live in the primal complex with the wall conditions.
+    Writing the energy as :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}`, with :math:`\hat{\mathbf a}` subject to
+    the boundary conditions, instead makes the current the weak curl :math:`\mathbb M_1^{-1} \mathbb C^\top \mathbb M_2
+    \mathbf b_0`, the codifferential of the primal complex: its tangential components vanish at a wall where those of
+    :math:`\mathbf J_0` do not, a boundary layer one element wide that does not shrink in amplitude and causes a
+    spurious instability localized at the wall. Both energies are the same in the continuum.
 
     The option ``weights`` sets :math:`\mathbf b^w`. With ``"midpoint"`` (default), :math:`\mathbf b^w =
     \mathbf b^{n+\frac12}`: one linear solve
@@ -121,15 +137,20 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self, bt2: FEECVariable = None):
+    def __init__(self, at1: FEECVariable = None, bt2: FEECVariable = None):
         r"""
         Parameters
         ----------
+        at1 : FEECVariable, default=None
+            Auxiliary second-order vector potential :math:`\hat{\mathbf A}` (``"Hcurl"`` space), advanced with
+            :math:`\partial_t \hat{\mathbf A} = - \mathbf B \times \mathbf u`. It enters only the energy,
+            :meth:`second_order_energy`.
         bt2 : FEECVariable, default=None
-            Auxiliary second-order variable :math:`\hat{\mathbf B}` (``"Hdiv"`` space), advanced with
-            :math:`\partial_t \hat{\mathbf B} + \mathcal T_{\mathbf B}(\mathbf u) = 0`. It enters only the energy.
+            Diagnostic second-order field :math:`\hat{\mathbf B} = \nabla \times \hat{\mathbf A}` (``"Hdiv"``
+            space).
         """
         self.variables = self.Variables()
+        self.at1 = at1
         self.bt2 = bt2
 
     @dataclass(repr=False)
@@ -214,6 +235,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
 
     @profile
     def allocate(self):
+        self._at1 = None if self.at1 is None else self.at1.spline.vector
         self._bt2 = None if self.bt2 is None else self.bt2.spline.vector
         self._info = self.options.info and (self.rank == 0)
 
@@ -231,8 +253,8 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             self._T0.update_coeffs(self.projected_equil.b2)
             self._T0T.update_coeffs(self.projected_equil.b2)
 
-        # second-order term in weak form: the force int v . (j0 x b) of the discrete equilibrium current
-        # j0 = M1^{-1} C^T M2 b0 (R = -W below), and the auxiliary field b-hat = curl a, a the L2 projection of b x u
+        # second-order term: the force int v . (j0 x b) of the projected equilibrium current (R = -W below), and the
+        # auxiliary vector potential a, the L2 projection of -b x u into V1 without boundary conditions
         self._midpoint = self.options.weights == "midpoint"
         self._init_second_order_term()
 
@@ -270,11 +292,13 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         or :math:`\hat{\mathbf u}` (H1vec), both forms are integrals of :math:`\hat{\mathbf j}_0^\top G^{-1}
         (\hat{\mathbf B}^2 \times \tilde{\mathbf u}) \sqrt g` at the same quadrature points, so that
         :math:`\mathbf j_0 \cdot \mathbf y(\mathbf b \times \mathbf u) = \mathbf u^\top \mathbb W \mathbf b` exactly."""
-        tol, maxiter = 1e-14, 3000
+        # equilibrium current through the dual complex (no boundary conditions): h0 = *_h b0 in V1, J0 = curl h0 in
+        # V2 and its representation j0 in V1, all over the full spaces
         M1 = self.mass_ops.M1
-        self._inv_M1 = inverse(M1, "pcg", pc=MassMatrixPreconditioner(M1), tol=tol, maxiter=maxiter, recycle=True)
-        self._M2b0 = self.mass_ops.M2.dot(self.projected_equil.b2)
-        j0 = self._inv_M1.dot(self.derham.curl.T.dot(self._M2b0))
+        M1_free = M1.without_boundary_ops()
+        pc = MassMatrixPreconditioner(M1, apply_bc=False)
+        self._inv_M1 = inverse(M1_free, "pcg", pc=pc, tol=1e-14, maxiter=3000, recycle=True)
+        j0 = self.equilibrium_current(self.projected_equil.b2)
 
         # spline evaluation at the quadrature points
         grid = [pts.flatten() for pts in self.derham.V3splines.quad_grid_pts[0]]
@@ -298,7 +322,9 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         self._R = self.mass_ops.create_weighted_mass("Hdiv", self._u_space)
         self._R.assemble([[None, c[2], -c[1]], [-c[2], None, c[0]], [c[1], -c[0], None]])
 
-        if self._bt2 is not None:
+        if self._at1 is not None or self._bt2 is not None:
+            # the linear form j0^T M1 of the energy
+            self._M1j0 = M1_free.dot(j0)
             self._bf = self.derham.create_spline_function("b_aux", "Hdiv")
             self._uf = self.derham.create_spline_function("u_aux", self._u_space)
             self._b_values = [xp.zeros_like(sqrt_g) for _ in range(3)]
@@ -308,11 +334,41 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             self._tmp_y = self.derham.V1pol.zeros()
             self._tmp_a = self.derham.V1pol.zeros()
 
+    def equilibrium_current(self, b0):
+        r"""The equilibrium current :math:`\mathbf j_0 \in V^1_h` of the second-order term, through the dual complex:
+
+        .. math::
+
+            \mathbb M^1_{\textnormal{free}}\, \mathbf h_0 = \mathbb K \mathbf b_0 \,, \qquad
+            \mathbf J_0 = \mathbb C\, \mathbf h_0 \,, \qquad
+            \mathbb M^1_{\textnormal{free}}\, \mathbf j_0 = \mathbb K \mathbf J_0 \,,
+
+        with the metric-free pairing :math:`\mathbb K_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^1_i \cdot
+        \vec{\boldsymbol\Lambda}^2_j \,\textrm d \boldsymbol\eta` of 1-forms and 2-forms, all operators over the full
+        spaces (without boundary conditions). :math:`\mathbf h_0` is the field as a 1-form (Hodge star of the 2-form
+        :math:`\mathbf b_0`) and :math:`\mathbf J_0` its curl, exactly divergence free. Collective: call on all
+        ranks."""
+        K = self.mass_ops.create_weighted_mass("Hdiv", "Hcurl", weights=("Identity",), assemble=True)
+        K = K.without_boundary_ops()
+        h0 = self._inv_M1.dot(K.dot(b0)).copy()
+        J0 = self.derham.curl_bcfree.dot(h0)
+        return self._inv_M1.dot(K.dot(J0)).copy()
+
+    def second_order_energy(self) -> float:
+        r"""The second-order magnetic energy :math:`\int \mathbf J_0 \cdot \hat{\mathbf A} \approx \mathbf j_0^\top
+        \mathbb M^1_{\textnormal{free}} \hat{\mathbf a}` of the auxiliary vector potential ``at1`` (0 without it).
+        Collective: call on all ranks."""
+        if self._at1 is None:
+            return 0.0
+        return self._M1j0.inner(self._at1)
+
     def _advance_aux(self, dt, un12, bw):
-        r""":math:`\hat{\mathbf b} \leftarrow \hat{\mathbf b} - \Delta t\, \mathbb C \mathbb M_1^{-1}
+        r""":math:`\hat{\mathbf a} \leftarrow \hat{\mathbf a} - \Delta t\, (\mathbb M^1_{\textnormal{free}})^{-1}
         \mathbf y(\mathbf b^w \times \mathbf u^{n+1/2})`, with :math:`\mathbf y(\mathbf w)_k = \int \mathbf w \cdot
-        \vec{\boldsymbol\Lambda}^1_k`: the energy :math:`\mathbf b_0^\top \mathbb M_2 \hat{\mathbf b}` changes by
-        :math:`-\Delta t\, \mathbf j_0 \cdot \mathbf y = -\Delta t\, (\mathbf u^{n+1/2})^\top \mathbb W \mathbf b^w`."""
+        \vec{\boldsymbol\Lambda}^1_k` over all basis functions: the energy :math:`\mathbf j_0^\top
+        \mathbb M^1_{\textnormal{free}} \hat{\mathbf a}` changes by :math:`-\Delta t\, \mathbf j_0 \cdot \mathbf y =
+        -\Delta t\, (\mathbf u^{n+1/2})^\top \mathbb W \mathbf b^w`; and the diagnostic
+        :math:`\hat{\mathbf b} \leftarrow \hat{\mathbf b} + \mathbb C\, \delta \hat{\mathbf a}`."""
         self._bf.vector = bw
         self._uf.vector = un12
         b_v = self._bf.eval_tp_fixed_loc(self._spans, self._bases_2form, out=self._b_values)
@@ -325,12 +381,16 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             j, k = (i + 1) % 3, (i + 2) % 3
             bxu[i][:] = b_v[j] * u_v[k]
             bxu[i] -= b_v[k] * u_v[j]
-        y = self._get_dofs_1(bxu, dofs=self._tmp_y, apply_bc=True)
+        y = self._get_dofs_1(bxu, dofs=self._tmp_y, apply_bc=False)
         a = self._inv_M1.dot(y, out=self._tmp_a)
-        ca = self.derham.curl.dot(a, out=self._tmp_fb)
-        ca *= dt
-        self._bt2 -= ca
-        self._bt2.update_ghost_regions()
+        a *= dt
+        if self._at1 is not None:
+            self._at1 -= a
+            self._at1.update_ghost_regions()
+        if self._bt2 is not None:
+            ca = self.derham.curl.dot(a, out=self._tmp_fb)
+            self._bt2 -= ca
+            self._bt2.update_ghost_regions()
 
     def prepare_time_step(self, dt: float):
         """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
@@ -365,7 +425,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         bn1 -= incr[1]
 
         # auxiliary second-order variable, with the same weight as the momentum equation (b^n or b^{n+1/2})
-        if self._bt2 is not None:
+        if self._at1 is not None or self._bt2 is not None:
             if self._midpoint:
                 bw = bn.copy(out=self._tmp_bn12)
                 bw += bn1

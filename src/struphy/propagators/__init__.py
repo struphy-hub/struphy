@@ -28,6 +28,7 @@ _LAZY_IMPORTS = {
     "ImplicitDiffusion": "struphy.propagators.implicit_diffusion",
     "JxBCold": "struphy.propagators.jxb_cold",
     "Magnetosonic": "struphy.propagators.magnetosonic",
+    "MagnetosonicCrossB0": "struphy.propagators.magnetosonic_cross_b0",
     "MagnetosonicUniform": "struphy.propagators.magnetosonic_uniform",
     "MaxwellWeakAmpere": "struphy.propagators.maxwell_weak_ampere",
     "MomentumAdvection": "struphy.propagators.momentum_advection",
@@ -101,6 +102,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.implicit_diffusion import ImplicitDiffusion
     from struphy.propagators.jxb_cold import JxBCold
     from struphy.propagators.magnetosonic import Magnetosonic
+    from struphy.propagators.magnetosonic_cross_b0 import MagnetosonicCrossB0
     from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform
     from struphy.propagators.maxwell_weak_ampere import MaxwellWeakAmpere
     from struphy.propagators.momentum_advection import MomentumAdvection
@@ -173,6 +175,7 @@ __all__ = [
     "ImplicitDiffusion",
     "JxBCold",
     "Magnetosonic",
+    "MagnetosonicCrossB0",
     "MagnetosonicUniform",
     "MaxwellWeakAmpere",
     "MomentumAdvection",

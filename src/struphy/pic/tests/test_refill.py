@@ -1,12 +1,14 @@
 """Refilling of markers leaving a hollow torus through its walls (``bc="refill"``, or ``"remove"`` with
 ``bc_refill``)."""
 
+import math
+
 import pytest
 
 pytestmark = pytest.mark.mpi_pic
 
 
-def _make_particles(boundary_params, tor_period):
+def _make_particles(boundary_params, tor_period, sfl=False):
     """Particles5D in a hollow torus (1/tor_period of the torus) with the ad hoc tokamak equilibrium."""
     from maybempi import MPI
 
@@ -21,7 +23,7 @@ def _make_particles(boundary_params, tor_period):
 
     comm = MPI.COMM_WORLD
 
-    domain = domains.HollowTorus(a1=0.1, a2=0.9, R0=3.0, tor_period=tor_period)
+    domain = domains.HollowTorus(a1=0.1, a2=0.9, R0=3.0, tor_period=tor_period, sfl=sfl)
     equil = equils.AdhocTorus(a=1.0, R0=3.0, B0=1.0, q0=1.2, q1=2.0)
     equil.domain = domain
 
@@ -43,12 +45,28 @@ def _make_particles(boundary_params, tor_period):
     return particles, equil, domain
 
 
+def _field_line_shift(equil, domain, r, eta2):
+    """Shift of eta3 along the field line from eta2 to 1 - eta2 at the radius r, by integrating its pitch. With
+    sfl=True, eta2 is the straight field line angle, with sfl=False the geometric angle."""
+    from scipy.integrate import quad
+
+    q = float(equil.q_r(r))
+    tor_period = domain.params["tor_period"]
+    if domain.params["sfl"]:
+        return -2 * tor_period * q * eta2
+
+    R0 = equil.params["R0"]
+    pitch = lambda theta: q * (1 - (r / R0) ** 2) ** 0.5 * R0 / (R0 + r * math.cos(theta))
+    theta = 2 * math.pi * eta2
+    return tor_period * quad(pitch, theta, -theta)[0] / (2 * math.pi)
+
+
+@pytest.mark.parametrize("sfl", [False, True])
 @pytest.mark.parametrize("tor_period", [1, 6])
 @pytest.mark.parametrize("bc", ["refill", "remove_with_bc_refill"])
-def test_refill_on_flux_surface(bc, tor_period):
+def test_refill_on_flux_surface(bc, tor_period, sfl):
     """A marker leaving through a wall is put back just inside that wall at the up-down mirrored poloidal angle
-    (eta2 -> 1 - eta2), shifted along the field line (eta3 -> eta3 - 2 tor_period q(r_wall) eta2), with its
-    velocity unchanged; no marker is lost."""
+    (eta2 -> 1 - eta2), shifted along the field line, with its velocity unchanged; no marker is lost."""
     import cunumpy as xp
 
     from struphy import BoundaryParameters
@@ -57,7 +75,7 @@ def test_refill_on_flux_surface(bc, tor_period):
         boundary_params = BoundaryParameters(bc=("refill", "periodic", "periodic"))
     else:
         boundary_params = BoundaryParameters(bc=("remove", "periodic", "periodic"), bc_refill=("inner", "outer"))
-    particles, equil, domain = _make_particles(boundary_params, tor_period)
+    particles, equil, domain = _make_particles(boundary_params, tor_period, sfl=sfl)
     assert particles.bc_refill == ("inner", "outer")
 
     valid = xp.nonzero(particles.valid_mks)[0]
@@ -82,7 +100,7 @@ def test_refill_on_flux_surface(bc, tor_period):
         _, e2, e3 = eta[ip]
         assert particles.markers[0, ip] == pytest.approx(eta1_new)
         assert particles.markers[1, ip] == pytest.approx(1.0 - e2)
-        eta3_new = (e3 - 2 * tor_period * float(equil.q_r(r_wall)) * e2) % 1.0
+        eta3_new = (e3 + _field_line_shift(equil, domain, r_wall, e2)) % 1.0
         assert particles.markers[2, ip] == pytest.approx(eta3_new)
     assert xp.allclose(particles.markers[:3, inside], eta[inside])
 
