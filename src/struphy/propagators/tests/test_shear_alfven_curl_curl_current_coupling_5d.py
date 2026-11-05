@@ -16,7 +16,7 @@ def _model(projected: bool, nonlinear: bool, n_hot: float, b_amp: float = 1e-2, 
     from struphy.models import LinearMHDDriftkineticCC
     from struphy.propagators.shear_alfven_curl_curl_current_coupling_5d import ShearAlfvenCurlCurlCurrentCoupling5D
 
-    model = LinearMHDDriftkineticCC(b_space="Hcurl", projected=projected)
+    model = LinearMHDDriftkineticCC(b_space="Hcurl", projected=projected, split_magnetization=False)
     prop = model.propagators.shear_alf
     assert isinstance(prop, ShearAlfvenCurlCurlCurrentCoupling5D)
     model.energetic_ions.set_markers(loading_params=LoadingParameters(Np=200, seed=1234))

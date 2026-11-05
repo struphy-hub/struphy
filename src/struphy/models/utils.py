@@ -176,7 +176,7 @@ def magnetic_discretization_doc(model_cls) -> str:
     apply_splitting_order(hcurl)
     for n, (name, prop) in enumerate(vars(hcurl).items(), start=1):
         prop_cls = type(prop)
-        if prop_cls is type(hdiv[name]):
+        if name in hdiv and prop_cls is type(hdiv[name]):
             continue
         doc += f'**{n}. {name}** with ``b_space="Hcurl"`` (:class:`~{prop_cls.__module__}.{prop_cls.__name__}`):\n\n'
         doc += f"{prop_cls.__doc__}\n\n"

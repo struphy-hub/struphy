@@ -16,12 +16,14 @@ from struphy.propagators.current_coupling_5d_density import CurrentCoupling5DDen
 from struphy.propagators.current_coupling_5d_density_1form import CurrentCoupling5DDensity1form
 from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
 from struphy.propagators.current_coupling_5d_gradb_1form import CurrentCoupling5DGradB1form
+from struphy.propagators.current_coupling_5d_magnetization_1form import CurrentCoupling5DMagnetization1form
 from struphy.propagators.magnetosonic_cross_b0 import MagnetosonicCrossB0
 from struphy.propagators.push_guiding_center_bx_estar import PushGuidingCenterBxEstar
 from struphy.propagators.push_guiding_center_bx_estar_1form import PushGuidingCenterBxEstar1form
 from struphy.propagators.push_guiding_center_parallel import PushGuidingCenterParallel
 from struphy.propagators.push_guiding_center_parallel_1form import PushGuidingCenterParallel1form
 from struphy.propagators.shear_alfven_curl_curl_current_coupling_5d import ShearAlfvenCurlCurlCurrentCoupling5D
+from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 logger = logging.getLogger("struphy")
@@ -64,6 +66,18 @@ class LinearMHDDriftkineticCC(LinearMHD):
     projected: bool
         Projected curl-curl term in the coupled shear-Alfvén step, only with ``b_space="Hcurl"`` (exactly energy
         conserving step), as in :class:`~struphy.models.LinearMHD` (default: False).
+    split_magnetization: bool, optional
+        Only with ``b_space="Hcurl"``: the force of the magnetization of the energetic ions is a step of its own,
+        ``cc5d_mag``
+        (:class:`~struphy.propagators.current_coupling_5d_magnetization_1form.CurrentCoupling5DMagnetization1form`),
+        after the uncoupled curl-curl shear-Alfvén step ``shear_alf``
+        (:class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`), instead of the
+        coupled step
+        :class:`~struphy.propagators.shear_alfven_curl_curl_current_coupling_5d.ShearAlfvenCurlCurlCurrentCoupling5D`.
+        The marker noise of the magnetization then enters only mass matrix solves, not the curl-curl solve (whose
+        Hiptmair-Xu preconditioner converges slowly for it), at the price of the exact energy exchange between the
+        fluid and the magnetic moments. ``None`` (default) means ``True`` with ``b_space="Hcurl"`` and ``False`` with
+        ``"Hdiv"``.
     magnetosonic_cross_b0: bool
         Replace the propagators ``bg_current``, ``bg_pressure`` and ``sound`` by one propagator ``magnetosonic``
         (:class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`), a different discretization of the
@@ -111,6 +125,10 @@ class LinearMHDDriftkineticCC(LinearMHD):
             propagators) (default: ``"Hdiv"``).
         projected : bool
             Projected curl-curl term of the coupled shear-Alfvén step, only with ``b_space="Hcurl"`` (default: False).
+        split_magnetization : bool, optional
+            Only with ``b_space="Hcurl"``: the uncoupled curl-curl step ``shear_alf`` plus the magnetization step
+            ``cc5d_mag`` (after ``shear_alf``) instead of the coupled step; ``None`` means ``True`` with ``"Hcurl"``
+            (default: None).
         **kwargs
             Passed to :class:`LinearMHD.Propagators <struphy.models.LinearMHD.Propagators>`.
         """
@@ -133,9 +151,11 @@ class LinearMHDDriftkineticCC(LinearMHD):
             energetic_ions_var: PICVariable = None,
             b_space: str = "Hdiv",
             projected: bool = False,
+            split_magnetization: bool = None,
             **kwargs,
         ):
             super().__init__(b_field=b_field, b_space=b_space, projected=projected, **kwargs)
+            split = b_space == "Hcurl" if split_magnetization is None else split_magnetization
             if b_space == "Hdiv":
                 self.push_bxe = PushGuidingCenterBxEstar(b_tilde=b_field)
                 self.push_parallel = PushGuidingCenterParallel(b_tilde=b_field)
@@ -147,10 +167,20 @@ class LinearMHDDriftkineticCC(LinearMHD):
             else:
                 self.push_bxe = PushGuidingCenterBxEstar1form(b_tilde=b_field)
                 self.push_parallel = PushGuidingCenterParallel1form(b_tilde=b_field)
-                # replaces the curl-curl shear-Alfven step of LinearMHD
-                self.shear_alf = ShearAlfvenCurlCurlCurrentCoupling5D(
-                    energetic_ions=energetic_ions_var, projected=projected
-                )
+                if split:
+                    # the curl-curl shear-Alfven step of LinearMHD, followed by the magnetization step
+                    self.shear_alf = ShearAlfvenCurlCurlPropagator(projected=projected)
+                    self.cc5d_mag = CurrentCoupling5DMagnetization1form(
+                        energetic_ions=energetic_ions_var, b_tilde=b_field
+                    )
+                    order = list(self.splitting_order)
+                    order.insert(order.index("shear_alf") + 1, "cc5d_mag")
+                    self.splitting_order = tuple(order)
+                else:
+                    # replaces the curl-curl shear-Alfven step of LinearMHD
+                    self.shear_alf = ShearAlfvenCurlCurlCurrentCoupling5D(
+                        energetic_ions=energetic_ions_var, projected=projected
+                    )
                 self.cc5d_density = CurrentCoupling5DDensity1form(energetic_ions=energetic_ions_var, b_tilde=b_field)
                 self.cc5d_gradb = CurrentCoupling5DGradB1form(b_tilde=b_field)
                 self.cc5d_curlb = CurrentCoupling5DCurlb1form(b_tilde=b_field)
@@ -199,10 +229,13 @@ class LinearMHDDriftkineticCC(LinearMHD):
         hot_epsilon: float = None,
         b_space: LinearMHD.OptsBSpace = "Hdiv",
         projected: bool = False,
+        split_magnetization: bool = None,
         magnetosonic_cross_b0: bool = False,
     ):
         if magnetosonic_cross_b0 and b_space != "Hdiv":
             raise ValueError('magnetosonic_cross_b0=True requires b_space="Hdiv".')
+        if split_magnetization and b_space != "Hcurl":
+            raise ValueError('split_magnetization=True requires b_space="Hcurl".')
 
         # 0. store input parameters
         self._store_params(locals())
@@ -224,7 +257,11 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
     def _propagator_args(self):
         """:meta private:"""
-        return {**super()._propagator_args(), "energetic_ions_var": self.energetic_ions.var}
+        return {
+            **super()._propagator_args(),
+            "energetic_ions_var": self.energetic_ions.var,
+            "split_magnetization": self.params["split_magnetization"],
+        }
 
     def _link_propagator_variables(self):
         """:meta private:"""
@@ -238,6 +275,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
         else:
             # shear_alf (u, b) is linked by LinearMHD
             super()._link_propagator_variables()
+        if hasattr(self.propagators, "cc5d_mag"):
+            self.propagators.cc5d_mag.variables.u = self.mhd.velocity
         self.propagators.cc5d_density.variables.u = self.mhd.velocity
         self.propagators.cc5d_gradb.variables.u = self.mhd.velocity
         self.propagators.cc5d_gradb.variables.energetic_ions = self.energetic_ions.var
@@ -391,8 +430,11 @@ class LinearMHDDriftkineticCC(LinearMHD):
         iterations) for ``push_parallel``. The explicit Runge-Kutta methods (``algo="explicit"``) are cheaper but not
         energy conserving. With ``magnetosonic_cross_b0=True``, ``bg_current``, ``bg_pressure`` and ``sound`` are replaced
         by :class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`. The propagators are listed for
-        ``b_space="Hdiv"``, followed by those that differ with ``b_space="Hcurl"`` (the curl-curl shear-Alfvén step, the
-        magnetization of the energetic ions, and the 1-form couplings and guiding-center pushers):"""
+        ``b_space="Hdiv"``, followed by those that differ with ``b_space="Hcurl"`` and ``split_magnetization=True``
+        (default with ``"Hcurl"``: the curl-curl shear-Alfvén step and the magnetization step ``cc5d_mag``, and the
+        1-form couplings and guiding-center pushers); with ``split_magnetization=False``, ``shear_alf`` is
+        :class:`~struphy.propagators.shear_alfven_curl_curl_current_coupling_5d.ShearAlfvenCurlCurlCurrentCoupling5D`
+        and there is no ``cc5d_mag``:"""
         return magnetic_discretization_doc(cls)
 
     @classmethod

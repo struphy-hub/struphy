@@ -325,6 +325,11 @@ MHD-kinetic coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.current_coupling_5d_magnetization_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.current_coupling_6d_current
     :members:
     :exclude-members: options, allocate

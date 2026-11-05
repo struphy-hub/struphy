@@ -246,3 +246,136 @@ def extracted_ones(derham: Derham, form: str) -> Vector:
     for block in getattr(ones, "blocks", (ones,)):
         block._data[:] = 1.0
     return extraction.dot(ones)
+
+
+class Magnetization1form:
+    r"""Magnetization of drift-kinetic energetic ions along the equilibrium field as a 1-form (in :math:`V^1_h`),
+
+    .. math::
+
+        \mathbb M^1 \mathbf m = (\mathcal P^{b,1})^\top \mathbf a\,, \qquad
+        \mathbf a = s \, \frac{1}{N_p} \sum_{k=1}^{N_p} w_k \mu_k \vec \Lambda^0(\boldsymbol \eta_k)\,,
+
+    with the basis projection operator :math:`\mathcal P^{b,1}`
+    (:attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.PB1form`) of the parallel component of a
+    1-form and the accumulated vector :math:`\mathbf a` (kernel ``gc_mag_density_0form``, factor :math:`s`), i.e. the
+    :math:`L^2` projection of :math:`\int f \mu \, \mathbf b_0 \,\textnormal d \mu\, \textnormal d v_\parallel` onto
+    :math:`V^1_h` (pairing: :math:`\mathbf a^\top \mathcal P^{b,1} \mathbf b` is the energy of the magnetic moments in
+    the parallel perturbation). Used by
+    :class:`~struphy.propagators.shear_alfven_curl_curl_current_coupling_5d.ShearAlfvenCurlCurlCurrentCoupling5D` and
+    :class:`~struphy.propagators.current_coupling_5d_magnetization_1form.CurrentCoupling5DMagnetization1form`.
+
+    Parameters
+    ----------
+    particles : Particles5D
+        The energetic-ion markers.
+    derham, domain, mass_ops, basis_ops
+        Discrete de Rham sequence, mapping, weighted mass and basis projection operators.
+    filter_params : FilterParameters
+        Filter of the accumulated vector.
+    solver_params : SolverParameters
+        Controls of the ``M1`` solve (pcg with the mass matrix preconditioner).
+    """
+
+    def __init__(self, particles, derham: Derham, domain: Domain, mass_ops, basis_ops, filter_params, solver_params):
+        from feectools.linalg.solvers import inverse
+
+        from struphy.feec import preconditioner
+        from struphy.pic.accumulation.kernels.gc_mag_density_0form import gc_mag_density_0form
+        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+
+        self._acc = AccumulatorVector(
+            particles, "H1", gc_mag_density_0form, mass_ops, domain.args_domain, filter_params=filter_params
+        )
+        self._PB1T = basis_ops.PB1form.T
+        M1 = mass_ops.M1
+        if derham.polar_splines:
+            pc = preconditioner.PolarMassMatrixPreconditioner(M1)
+        else:
+            pc = preconditioner.MassMatrixPreconditioner(M1)
+        self._M1_inv = inverse(
+            M1,
+            "pcg",
+            pc=pc,
+            tol=solver_params.tol,
+            maxiter=solver_params.maxiter,
+            verbose=solver_params.verbose,
+            recycle=True,
+        )
+        self._rhs = M1.codomain.zeros()
+        self._m = M1.domain.zeros()
+
+    @property
+    def accumulator(self):
+        """The :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` of :math:`\\mathbf a`."""
+        return self._acc
+
+    def __call__(self, scale: float):
+        """Accumulate :math:`\\mathbf a` with the factor ``scale`` and return :math:`\\mathbf m` (the same vector in
+        each call; collective)."""
+        self._acc(scale)
+        self._PB1T.dot(self._acc.vectors[0], out=self._rhs)
+        return self._M1_inv.dot(self._rhs, out=self._m)
+
+
+class TotalFieldMasses1form:
+    r"""Mass matrices of the Lorentz force with the total magnetic field
+    :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` (1-form components
+    :math:`\hat{\mathbf B}^1 = \hat{\mathbf B}^1_0 + \tilde{\mathbf b}^\top \vec \Lambda^1`, the equilibrium evaluated
+    exactly), assembled by :meth:`update`:
+
+    * :attr:`M2B`, as :attr:`~struphy.feec.mass.WeightedMassOperators.M2B` of :math:`\int (\mathbf B \times \mathbf W)
+      \cdot \mathbf V \,\textnormal d \mathbf x` on 2-forms, with the weight
+      :math:`\textnormal{sign}(\det DF) \, [G^{-1} \hat{\mathbf B}^1]_\times` (:math:`\hat{\mathbf B}^2 / |\det DF|`);
+    * :attr:`M2gyro` (if ``gyro``), as :attr:`~struphy.feec.mass.WeightedMassOperators.M2gyro` of
+      :math:`\int \frac{1}{n_0} (\mathbf B \times \mathbf W) \cdot (\mathbf B \times \mathbf V)
+      \,\textnormal d \mathbf x`,
+      with the weight :math:`(|\mathbf B|^2 G - \hat{\mathbf B}^1 (\hat{\mathbf B}^1)^\top) / (n_0 \sqrt g)`.
+
+    Parameters
+    ----------
+    b : FEECVariable
+        The magnetic field perturbation (``"Hcurl"`` space).
+    derham, domain, mass_ops, basis_ops
+        Discrete de Rham sequence, mapping, weighted mass and basis projection operators (with the MHD equilibrium).
+    gyro : bool
+        Whether to assemble :attr:`M2gyro` too.
+    """
+
+    def __init__(self, b, derham: Derham, domain: Domain, mass_ops, basis_ops, gyro: bool = False):
+        assert b.space == "Hcurl", "The magnetic field must be in Hcurl."
+        self._b = b
+        pts = [points.flatten() for points in derham.spline_attributes["Hdiv"].quad_grid_pts[0]]
+        self._spans, bn, bd = derham.prepare_eval_tp_fixed(pts)
+        self._bases_1form = [[bd[0], bn[1], bn[2]], [bn[0], bd[1], bn[2]], [bn[0], bn[1], bd[2]]]
+
+        eq = basis_ops.weights["eq_mhd"]
+        PTS = xp.meshgrid(*pts, indexing="ij")
+        self._b0_1 = [fun(*PTS) for fun in (eq.b1_1, eq.b1_2, eq.b1_3)]
+        g_inv = domain.metric_inv(*pts)
+        g = domain.metric(*pts)
+        self._g_inv = [[g_inv[a, c] for c in range(3)] for a in range(3)]
+        self._g = [[g[a, c] for c in range(3)] for a in range(3)]
+        det_df = domain.jacobian_det(*pts)
+        # M2B has the weight R(B^2)/|det DF| = sign(det DF) R(G^{-1} B^1) (1/sqrt_g is 1/|det DF|)
+        self._sign_det = xp.sign(det_df)
+        self._gyro_scale = 1.0 / (eq.n0(*PTS) * abs(det_df))
+
+        self._bf = derham.create_spline_function("b_tot", "Hcurl")
+        self.M2B = mass_ops.create_weighted_mass("Hdiv", "Hdiv", name="M2B_tot")
+        self.M2gyro = mass_ops.create_weighted_mass("Hdiv", "Hdiv", name="M2gyro_tot") if gyro else None
+        self.update()
+
+    def update(self):
+        """Assemble the mass matrices with the current magnetic field (collective)."""
+        self._b.spline.vector.copy(out=self._bf.vector)
+        b_v = self._bf.eval_tp_fixed_loc(self._spans, self._bases_1form)
+        b1 = [self._b0_1[a] + b_v[a] for a in range(3)]
+        c = [sum(self._g_inv[a][e] * b1[e] for e in range(3)) for a in range(3)]
+        b_sq = sum(b1[a] * c[a] for a in range(3))
+        c = [self._sign_det * ca for ca in c]
+        self.M2B.assemble([[None, -c[2], c[1]], [c[2], None, -c[0]], [-c[1], c[0], None]])
+        if self.M2gyro is not None:
+            self.M2gyro.assemble(
+                [[(b_sq * self._g[a][e] - b1[a] * b1[e]) * self._gyro_scale for e in range(3)] for a in range(3)]
+            )

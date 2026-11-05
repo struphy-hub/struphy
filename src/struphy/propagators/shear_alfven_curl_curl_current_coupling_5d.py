@@ -1,17 +1,13 @@
 import logging
 from dataclasses import dataclass
 
-import cunumpy as xp
-from feectools.linalg.solvers import inverse
 from line_profiler import profile
 
-from struphy.feec import preconditioner
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
-from struphy.pic.accumulation.kernels.gc_mag_density_0form import gc_mag_density_0form
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
+from struphy.propagators.utils import Magnetization1form, TotalFieldMasses1form
 
 logger = logging.getLogger("struphy")
 
@@ -159,99 +155,38 @@ class ShearAlfvenCurlCurlCurrentCoupling5D(ShearAlfvenCurlCurlPropagator):
 
         # mass matrices of the total field (assembled in each step), before the Schur system of the parent is built
         if self.options.nonlinear:
-            self._init_total_field_masses()
+            self._total_field = TotalFieldMasses1form(
+                self.variables.b, self.derham, self.domain, self.mass_ops, self.basis_ops, gyro=not self._projected
+            )
 
         super().allocate()
 
         # magnetization m = M1^{-1} PB1form^T a
-        self._ACC = AccumulatorVector(
+        self._magnetization = Magnetization1form(
             self.energetic_ions.particles,
-            "H1",
-            gc_mag_density_0form,
+            self.derham,
+            self.domain,
             self.mass_ops,
-            self.domain.args_domain,
-            filter_params=self.options.filter_params,
+            self.basis_ops,
+            self.options.filter_params,
+            self.options.solver_params_M1,
         )
-        self._PB1T = self.basis_ops.PB1form.T
-        M1 = self.mass_ops.M1
-        if self.derham.polar_splines:
-            pc_class = preconditioner.PolarMassMatrixPreconditioner
-        else:
-            pc_class = preconditioner.MassMatrixPreconditioner
-        params = self.options.solver_params_M1
-        self._M1_inv = inverse(
-            M1,
-            "pcg",
-            pc=pc_class(M1),
-            tol=params.tol,
-            maxiter=params.maxiter,
-            verbose=params.verbose,
-            recycle=True,
-        )
-        self._rhs_m = M1.codomain.zeros()
-        self._m = M1.domain.zeros()
+        self._ACC = self._magnetization.accumulator
 
     def _lorentz_mass(self):
-        return self._M2B_tot if self.options.nonlinear else self.mass_ops.M2B
+        return self._total_field.M2B if self.options.nonlinear else self.mass_ops.M2B
 
     def _gyro_mass(self):
-        return self._M2gyro_tot if self.options.nonlinear else self.mass_ops.M2gyro
-
-    def _init_total_field_masses(self):
-        """Mass matrices of the total field (weights from :meth:`_update_total_field_masses`), and the evaluation of
-        the equilibrium 1-form, the metric and the density at the quadrature points (fixed)."""
-        pts = [points.flatten() for points in self.derham.spline_attributes["Hdiv"].quad_grid_pts[0]]
-        self._spans, bn, bd = self.derham.prepare_eval_tp_fixed(pts)
-        self._bases_1form = [[bd[0], bn[1], bn[2]], [bn[0], bd[1], bn[2]], [bn[0], bn[1], bd[2]]]
-
-        eq = self.basis_ops.weights["eq_mhd"]
-        PTS = xp.meshgrid(*pts, indexing="ij")
-        self._b0_1 = [fun(*PTS) for fun in (eq.b1_1, eq.b1_2, eq.b1_3)]
-        g_inv = self.domain.metric_inv(*pts)
-        g = self.domain.metric(*pts)
-        self._g_inv = [[g_inv[a, c] for c in range(3)] for a in range(3)]
-        self._g = [[g[a, c] for c in range(3)] for a in range(3)]
-        det_df = self.domain.jacobian_det(*pts)
-        # M2B has the weight R(B^2)/|det DF| = sign(det DF) R(G^{-1} B^1) (1/sqrt_g is 1/|det DF|)
-        self._sign_det = xp.sign(det_df)
-        self._gyro_scale = 1.0 / (eq.n0(*PTS) * abs(det_df))
-
-        self._bf = self.derham.create_spline_function("b_tot", "Hcurl")
-        self._M2B_tot = self.mass_ops.create_weighted_mass("Hdiv", "Hdiv", name="M2B_tot")
-        self._M2gyro_tot = (
-            None if self._projected else self.mass_ops.create_weighted_mass("Hdiv", "Hdiv", name="M2gyro_tot")
-        )
-        self._update_total_field_masses()
-
-    @profile
-    def _update_total_field_masses(self):
-        """Assemble the mass matrices of the total field :math:`\\mathbf B_0 + \\tilde{\\mathbf B}` (1-form
-        components :math:`\\hat{\\mathbf B}^1`): ``M2B`` with the rotation matrix of the contravariant components
-        :math:`c = G^{-1} \\hat{\\mathbf B}^1` (:math:`\\hat{\\mathbf B}^2 / |\\det DF| =
-        \\textnormal{sign}(\\det DF) \\, c`), and ``M2gyro`` with
-        :math:`(|\\mathbf B|^2 G - \\hat{\\mathbf B}^1 (\\hat{\\mathbf B}^1)^\\top) / (n_0 \\sqrt g)`."""
-        self.variables.b.spline.vector.copy(out=self._bf.vector)
-        b_v = self._bf.eval_tp_fixed_loc(self._spans, self._bases_1form)
-        b1 = [self._b0_1[a] + b_v[a] for a in range(3)]
-        c = [sum(self._g_inv[a][e] * b1[e] for e in range(3)) for a in range(3)]
-        b_sq = sum(b1[a] * c[a] for a in range(3))
-        c = [self._sign_det * ca for ca in c]
-        self._M2B_tot.assemble([[None, -c[2], c[1]], [c[2], None, -c[0]], [-c[1], c[0], None]])
-        if self._M2gyro_tot is not None:
-            self._M2gyro_tot.assemble(
-                [[(b_sq * self._g[a][e] - b1[a] * b1[e]) * self._gyro_scale for e in range(3)] for a in range(3)]
-            )
+        return self._total_field.M2gyro if self.options.nonlinear else self.mass_ops.M2gyro
 
     @profile
     def __call__(self, dt):
         # mass matrices of the field at the start of the step
         if self.options.nonlinear:
-            self._update_total_field_masses()
+            self._total_field.update()
 
         # magnetization of the (fixed) energetic ions: m = M1^{-1} PB1form^T a
-        self._ACC(self._ep_scale)
-        self._PB1T.dot(self._ACC.vectors[0], out=self._rhs_m)
-        m = self._M1_inv.dot(self._rhs_m, out=self._m)
+        m = self._m = self._magnetization(self._ep_scale)
 
         # step of the uncoupled curl-curl propagator for the shifted field b + m (m is constant in the step)
         b = self.variables.b.spline.vector
