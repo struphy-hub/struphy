@@ -63,6 +63,11 @@ class PushVxB(Propagator):
             assert new.space in ("Particles6D", "DeltaFParticles6D", "PauliParticles6D", "ParticlesSPH")
             self._ions = new
 
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see PushVxB1form) and
+    # the pusher kernel of each algorithm
+    _b_form = "2"
+    _kernels = {"analytic": push_vxb_analytic, "implicit": push_vxb_implicit}
+
     def __init__(self, b2_var: FEECVariable = None):
         """
         Parameters
@@ -73,6 +78,11 @@ class PushVxB(Propagator):
         """
         self.variables = self.Variables()
         self.b2_var = b2_var
+
+    @property
+    def _b_var(self) -> FEECVariable | None:
+        """The magnetic field variable (in the space of ``_b_form``) added to the equilibrium field."""
+        return self.b2_var
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -112,7 +122,7 @@ class PushVxB(Propagator):
 
         # without FEEC grid (e.g. pure SPH runs) there is no magnetic field: the propagator does nothing
         if self.derham is None:
-            assert self.b2_var is None, (
+            assert self._b_var is None, (
                 f"{self.__class__.__name__} with a magnetic field variable needs a Derham object."
             )
             self._no_field = True
@@ -121,37 +131,38 @@ class PushVxB(Propagator):
             )
             return
 
-        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T: LinearOperator = self.derham.extraction_ops["2"].transpose()
+        # tensor-product space of the field and transposed extraction operator PolarVector --> BlockVector (identity
+        # map in case of no polar splines)
+        V = getattr(self.derham, "V" + self._b_form)
+        self._ET: LinearOperator = self.derham.extraction_ops[self._b_form].transpose()
 
         # the projected equilibrium is already extracted to the tensor-product space; a fluid equilibrium without
-        # magnetic field (e.g. of the SPH models) has no b2
+        # magnetic field (e.g. of the SPH models) has no b1/b2
         if isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB):
-            self.b2_0 = self.projected_equil.b2
-            assert self.b2_0.space == self.derham.V2
+            self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
+            assert self._b_eq.space == V
         else:
-            self.b2_0 = self.derham.V2.zeros()
+            self._b_eq = V.zeros()
 
-        if self.b2_var is not None:
-            assert self.b2_var.spline.vector.space == self._E2T.domain
+        if self._b_var is not None:
+            assert self._b_var.spline.vector.space == self._ET.domain
 
         # without magnetic field the velocities do not change (inner is collective: computed on all ranks)
-        self._no_field = self.b2_var is None and self.b2_0.inner(self.b2_0) == 0.0
+        self._no_field = self._b_var is None and self._b_eq.inner(self._b_eq) == 0.0
         if self._no_field:
             logger.info(f"{self.__class__.__name__}: no magnetic field, the propagator does nothing.")
             return
 
         # allocate dummy vectors to avoid temporary array allocations
-        self._tmp = self.derham.V2.zeros()
-        self._b_full = self.derham.V2.zeros()
+        self._tmp = V.zeros()
+        self._b_full = V.zeros()
+        # the static total field (no field variable) is summed in the first call after each allocation
+        self._b_full_static_done = False
 
         # define pusher kernel
-        if self.options.algo == "analytic":
-            kernel = push_vxb_analytic
-        elif self.options.algo == "implicit":
-            kernel = push_vxb_implicit
-        else:
+        if self.options.algo not in self._kernels:
             raise ValueError(f"{self.options.algo =} not supported.")
+        kernel = self._kernels[self.options.algo]
 
         # instantiate Pusher
         args_kernel = (
@@ -178,13 +189,13 @@ class PushVxB(Propagator):
         # sum up total magnetic field in the tensor-product space (the variable is extracted first); without a
         # magnetic field variable it is the equilibrium field alone, which does not change: computed once, so that the
         # step has no ghost exchange (an MPI synchronization point) before the kernel
-        if self.b2_var is not None or not getattr(self, "_b_full_static_done", False):
-            b_full: BlockVector = self.b2_0.copy(out=self._b_full)
-            if self.b2_var is not None:
-                b_full += self._E2T.dot(self.b2_var.spline.vector, out=self._tmp)
+        if self._b_var is not None or not getattr(self, "_b_full_static_done", False):
+            b_full: BlockVector = self._b_eq.copy(out=self._b_full)
+            if self._b_var is not None:
+                b_full += self._ET.dot(self._b_var.spline.vector, out=self._tmp)
             b_full.update_ghost_regions()
             b_full /= self._epsilon
-            self._b_full_static_done = self.b2_var is None
+            self._b_full_static_done = self._b_var is None
 
         # call pusher kernel
         self._pusher(dt)
