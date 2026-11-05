@@ -41,10 +41,11 @@ parser.add_argument(
 )
 parser.add_argument(
     "--b-space",
-    default="Hcurl",
+    default=None,
     choices=["Hdiv", "Hcurl"],
     help="Space of the magnetic field (model flag b_space): Hcurl (default; curl-curl shear Alfven step, 1-form "
-    "couplings and pushers, fewer poloidal elements) or Hdiv, see the description.",
+    "couplings and pushers, fewer poloidal elements) or Hdiv (default with --magnetosonic-cross-b0), see the "
+    "description.",
 )
 parser.add_argument(
     "--projected",
@@ -80,14 +81,16 @@ parser.add_argument(
     "--drift-algo",
     default="discrete_gradient_2nd_order",
     choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
-    help="Algorithm of the guiding-center drift push (PushGuidingCenterBxEstar): a discrete gradient (energy "
+    help="Algorithm of the guiding-center drift push (PushGuidingCenterBxEstar1form, PushGuidingCenterBxEstar "
+    "with --b-space Hdiv): a discrete gradient (energy "
     "conserving, iterative) or the explicit RK4.",
 )
 parser.add_argument(
     "--parallel-algo",
     default="discrete_gradient_1st_order_newton",
     choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
-    help="Algorithm of the parallel guiding-center push (PushGuidingCenterParallel): a discrete gradient (energy "
+    help="Algorithm of the parallel guiding-center push (PushGuidingCenterParallel1form, PushGuidingCenterParallel "
+    "with --b-space Hdiv): a discrete gradient (energy "
     "conserving, iterative) or the explicit RK4.",
 )
 parser.add_argument(
@@ -118,6 +121,9 @@ parser.add_argument(
     "for the tests (test_examples.py).",
 )
 args, _ = parser.parse_known_args()
+if args.b_space is None:
+    # MagnetosonicCrossB0 needs the magnetic field in H(div)
+    args.b_space = "Hdiv" if args.magnetosonic_cross_b0 else "Hcurl"
 if args.projected and args.b_space != "Hcurl":
     parser.error("--projected requires --b-space Hcurl.")
 if args.magnetosonic_cross_b0 and args.b_space != "Hdiv":
@@ -164,7 +170,9 @@ writes the current force and the pressure work through B0 x like the shear Alfve
 The magnetic field is in {args.b_space} (--b-space). With H(curl) (default), the shear Alfven step is the curl-curl
 step coupled to the magnetization of the energetic ions (ShearAlfvenCurlCurlCurrentCoupling5D: weak products of the
 Lorentz force, no basis projection) and the couplings and guiding-center pushers use the 1-form field (issue #889);
-44 poloidal elements (about 4 per wavelength of the m = 10 harmonic) suffice. With H(div), the shear Alfven step uses
+44 poloidal elements (about 4 per wavelength of the m = 10 harmonic), as in the ShearAlfven and LinearMHD versions
+of this benchmark, which give the benchmark frequency with them (PR #887); the H(curl) setup of this example has not
+yet been validated by a full run (issue #889). With H(div), the shear Alfven step uses
 the commuting projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal interpolation error makes the
 effective poloidal mode number about 2-3% too small with 44 elements, which shifts the continuum near the gap (where
 n q - m nearly cancels) so much that there is no TAE (PR #887): hence 96 poloidal elements with H(div). Boundary
