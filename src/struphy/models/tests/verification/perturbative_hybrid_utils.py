@@ -1,4 +1,5 @@
-"""Shared setup of the verification tests of the hybrid perturbative models (PerturbativeMHDWithQVlasovCC/PC):
+"""Shared setup of the verification tests of the hybrid perturbative models (PerturbativeMHDWithQVlasovCC/PC,
+PerturbativeMHDWithQDriftkineticCC):
 finite-amplitude perturbations of all MHD variables in the Colella domain (homogeneous slab), energetic ions with a
 shifted Maxwellian, tight solver tolerances."""
 
@@ -28,8 +29,8 @@ def global_max(value: float) -> float:
 
 
 def set_tight_options(model):
-    """Tight tolerances of all linear and nonlinear solves, weights of the nonlinear terms at t^{n+1/2}
-    (second order in time)."""
+    """Tight tolerances of all linear and nonlinear solves, and the weights of the nonlinear terms at t^{n+1/2}
+    (``Options(weights="midpoint")``, second order in time) for the propagators that have this option."""
     tol = SolverParameters(tol=1e-13, maxiter=5000)
     nonlin = NonlinearSolverParameters(tol=1e-12)
     props = model.propagators
@@ -63,9 +64,14 @@ def perturb_mhd(model, amp: float = 0.2):
 
 
 def add_energetic_ions(model, n_h: float = 0.1):
-    """Energetic ions with a Maxwellian of density ``n_h``, shifted in x (non-zero current)."""
+    """Energetic ions with a Maxwellian of density ``n_h``: shifted in x (non-zero current) for full orbits, shifted
+    along b0 for guiding centers (``Particles5D``)."""
     model.energetic_ions.set_markers(loading_params=LoadingParameters(Np=2000, seed=1234))
-    model.energetic_ions.var.add_background(maxwellians.Maxwellian3D(n=(n_h, None), u1=(0.3, None), vth1=(0.5, None)))
+    if model.energetic_ions.var.space == "Particles5D":
+        background = maxwellians.GyroMaxwellian2D(n=(n_h, None), u_para=(0.5, None))
+    else:
+        background = maxwellians.Maxwellian3D(n=(n_h, None), u1=(0.3, None), vth1=(0.5, None))
+    model.energetic_ions.var.add_background(background)
 
 
 def run(model, name: str, dt: float, Tend: float):

@@ -317,6 +317,58 @@ def add_binning_plot(params_path: str, binning_plot: str = "BinningPlot(slice='e
             f.write(line)
 
 
+# algorithms of the guiding-center pushers in the default parameter files of the drift-kinetic hybrids: the
+# energy-conserving discrete gradient methods of the reference discretization, second order (implicit mid-point) for
+# the drift perpendicular to b0, first order (Itoh-Abe) with Newton iterations for the parallel motion
+GC_PUSH_ALGOS = {"push_bxe": "discrete_gradient_2nd_order", "push_parallel": "discrete_gradient_1st_order_newton"}
+
+
+def set_guiding_center_push_algos(params_path: str, algos: dict = GC_PUSH_ALGOS):
+    """Set the algorithms of the guiding-center pushers in a default parameter file, ``Options()`` ->
+    ``Options(algo=...)``.
+
+    Parameters
+    ----------
+    params_path : str
+        Path of the parameter file (modified in place).
+    algos : dict
+        Propagator name -> ``algo`` (default :data:`GC_PUSH_ALGOS`).
+    """
+    with open(params_path, "r") as f:
+        lines = f.readlines()
+    for i, line in enumerate(lines):
+        for prop, algo in algos.items():
+            if f"model.propagators.{prop}.Options()" in line:
+                lines[i] = line.replace(
+                    f"model.propagators.{prop}.Options()", f'model.propagators.{prop}.Options(algo="{algo}")'
+                )
+    with open(params_path, "w") as f:
+        f.writelines(lines)
+
+
+def energetic_ion_mu_energy(mhd, energetic_ions, PB, b_field: FEECVariable) -> float:
+    """Magnetic-moment energy of the guiding centers, :math:`\\frac{A_\\textnormal{h}}{A_\\textnormal{b}} \\sum_p w_p
+    \\mu_p |\\mathbf B|(\\boldsymbol \\eta_p)`, with the parallel component of the magnetic field perturbation
+    ``PB b_field`` (local to this process, valid markers only; the weights carry the :math:`1/N_p`).
+
+    Parameters
+    ----------
+    mhd : FluidSpecies
+        The fluid species ``mhd`` of the model (for the bulk mass number).
+    energetic_ions : ParticleSpecies
+        The energetic ions (species with the ``Particles5D`` variable ``var``).
+    PB : LinearOperator
+        Parallel projection of the magnetic field perturbation to a 0-form (``basis_ops.PB`` or ``PB1form``).
+    b_field : FEECVariable
+        The magnetic field perturbation.
+    """
+    Ab = mhd.mass_number
+    Ah = energetic_ions.var.species.mass_number
+    particles = energetic_ions.var.particles
+    particles.save_magnetic_energy(PB.dot(b_field.spline.vector))
+    return particles.markers[5, particles.valid_mks].dot(particles.markers[8, particles.valid_mks]) * Ah / Ab
+
+
 if __name__ == "__main__":
     fluid_models = get_models(model_type="Fluid")
     kinetic_models = get_models(model_type="Kinetic")
