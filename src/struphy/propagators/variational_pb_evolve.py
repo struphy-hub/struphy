@@ -25,6 +25,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -92,6 +93,16 @@ class VariationalPBEvolve(Propagator):
 
     The weights of the transport operators are taken at :math:`t^n` (in all equations, which conserves the
     energy); the step is therefore only first-order accurate in time.
+
+    **Velocity in** :math:`H(\textnormal{div})` (``model="perturbative"``): :math:`\mathbf u` is a 2-form with vanishing
+    normal component at the boundary. The scheme is the same, with the mass matrix of the total density
+    :math:`\mathbb M^2_\rho` (:class:`~struphy.propagators.utils.VelocityMass` with the constructor argument ``rho``,
+    assembled at the beginning of the step) instead of :math:`\mathbb M^v[\hat\rho_h^n]`, and the transport operators
+    :class:`~struphy.feec.variational_utilities.Hdiv0_transport_operator` and
+    :class:`~struphy.feec.variational_utilities.Pressure_transport_operator` with ``u_space="Hdiv"``
+    (:math:`\hat\Pi^1[(\hat{\mathbf B}^2 \times \vec{\boldsymbol\Lambda}^2)/\sqrt g]`,
+    :math:`\hat\Pi^2[\hat p^3 \vec{\boldsymbol\Lambda}^2/\sqrt g]` and :math:`\mathbb D` without
+    :math:`\mathcal U^v`). Not available with polar splines.
     """
 
     class Variables:
@@ -102,7 +113,7 @@ class VariationalPBEvolve(Propagator):
         p : FEECVariable
             Pressure variable in ``"L2"`` space.
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space.
+            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space for ``model="perturbative"``.
         b : FEECVariable
             Magnetic-field variable in ``"Hdiv"`` space.
         """
@@ -129,7 +140,7 @@ class VariationalPBEvolve(Propagator):
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1vec"
+            assert new.space in ("H1vec", "Hdiv")
             self._u = new
 
         @property
@@ -148,6 +159,7 @@ class VariationalPBEvolve(Propagator):
         u2: FEECVariable = None,
         pt3: FEECVariable = None,
         bt2: FEECVariable = None,
+        rho: FEECVariable = None,
     ):
         r"""
         Parameters
@@ -162,7 +174,13 @@ class VariationalPBEvolve(Propagator):
         bt2 : FEECVariable, default=None
             Auxiliary second-order magnetic field :math:`\mathbf B_2` (``"Hdiv"`` space) of the linear and perturbative
             models, advected by the magnetic perturbation. It enters only the energy, not the momentum equation.
+        rho : FEECVariable, default=None
+            Density perturbation :math:`\tilde\rho` (``"L2"`` space, not updated) of the mass matrix
+            :math:`\mathbb M^2_\rho` (total density :math:`\rho_0 + \tilde\rho`) of a velocity in ``"Hdiv"``;
+            None for :math:`\mathbb M^2_{\rho_0}`. Not used for a velocity in ``"H1vec"``.
         """
+        assert rho is None or (isinstance(rho, FEECVariable) and rho.space == "L2")
+        self._rho = rho
         self.variables = self.Variables()
         self.div_u = div_u
         self.u2 = u2
@@ -195,7 +213,8 @@ class VariationalPBEvolve(Propagator):
             block, or the Kronecker (fast diagonalization) preconditioner of the whole shear-Alfven Schur operator
             :math:`\mathbb M^v[\rho_0] + \frac{\Delta t^2}{4} \mathbb T_0^\top \mathbb M^2 \mathbb T_0`
             (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, built from the equilibrium for
-            each time step in :meth:`prepare_time_step`). The latter needs ``model="linear"``, ``solver="pcg"``,
+            each time step in :meth:`prepare_time_step`; for ``model="perturbative"`` it approximates the Schur
+            operator of the Newton step). The latter needs ``model="linear"`` or ``"perturbative"``, ``solver="pcg"``,
             tensor-product splines and the global commuting projectors; otherwise the mass-matrix preconditioner is
             used (with a warning).
         exb_correction : bool, default=True
@@ -273,15 +292,34 @@ class VariationalPBEvolve(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
-        # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
+        self._u_space = self.variables.u.space
+        self._u_form = self.derham.space_to_form[self._u_space]
+        if self._u_space == "Hdiv":
+            assert self._model == "perturbative", (
+                f'A velocity in "Hdiv" needs model="perturbative", got {self._model!r}.'
+            )
+            assert not self.derham.polar_splines, 'A velocity in "Hdiv" is not available with polar splines.'
+            # mass matrix of the total density, assembled at the beginning of each step
+            self._velocity_mass = VelocityMass(
+                self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=self._rho
+            )
+            self._Mrho = self._velocity_mass.M_rho
+        else:
+            # assembly of WMMnew happens in VariationalDensityEvolve
+            self._Mrho = self.mass_ops.WMMnew
         self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
 
         # Projector
         self._initialize_projectors_and_mass()
 
         # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
-        self._schur_pc = alfven_schur_preconditioner(self, [] if self._model == "linear" else ['model="linear"'])
+        # built from the equilibrium: exact for the Schur operator of the linear model, an approximation (still a fixed
+        # linear preconditioner) for the perturbative one
+        self._schur_pc = alfven_schur_preconditioner(
+            self,
+            [] if self._model in ("linear", "perturbative") else ['model="linear" or "perturbative"'],
+            u_space=self._u_space,
+        )
         self._schur_pc_dt = None
 
         # bunch of temporaries to avoid allocating in the loop
@@ -331,6 +369,8 @@ class VariationalPBEvolve(Propagator):
     def __call__(self, dt):
         # preconditioner for the current time step (no-op unless dt changed since the setup)
         self.prepare_time_step(dt)
+        if self._u_space == "Hdiv":
+            self._velocity_mass.update()
         # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
         self._Mrho_pc.refresh()
 
@@ -547,9 +587,11 @@ class VariationalPBEvolve(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
-        self.curlPib = Hdiv0_transport_operator(self.derham)
+        self.curlPib = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         self.curlPibT = self.curlPib.T
-        self._transop_p = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
+        self._transop_p = Pressure_transport_operator(
+            self.derham, self.domain, self.basis_ops.Uv, self._gamma, u_space=self._u_space
+        )
         self._transop_pT = self._transop_p.T
 
         integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
@@ -564,13 +606,14 @@ class VariationalPBEvolve(Propagator):
 
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
-        # Inverse mass matrix needed to compute the error
+        # Inverse mass matrix of the velocity space (Mv or M2) needed to compute the error
+        M_u = self.mass_ops.M2 if self._u_space == "Hdiv" else self.mass_ops.Mv
         self.pc_Mv = preconditioner.MassMatrixPreconditioner(
-            self.mass_ops.Mv,
+            M_u,
             dim_reduce=None,
         )
         self._inv_Mv = inverse(
-            self.mass_ops.Mv,
+            M_u,
             "pcg",
             pc=self.pc_Mv,
             tol=1e-10,
@@ -581,7 +624,7 @@ class VariationalPBEvolve(Propagator):
         self._I2 = IdentityOperator(self.derham.V2pol)
 
         Jacs = BlockVectorSpace(
-            self.derham.Vvpol,
+            getattr(self.derham, f"V{self._u_form}pol"),
             self.derham.V2pol,
         )
 
@@ -659,7 +702,7 @@ class VariationalPBEvolve(Propagator):
         self.curlPibT.update_coeffs(b)
 
     def _create_Pib0(self):
-        self.curlPib0 = Hdiv0_transport_operator(self.derham)
+        self.curlPib0 = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         self.curlPibT0 = self.curlPib0.T
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
@@ -672,7 +715,9 @@ class VariationalPBEvolve(Propagator):
     def _create_transop0(self):
         """Update the weights of the `BasisProjectionOperator`"""
 
-        self._transop_p0 = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
+        self._transop_p0 = Pressure_transport_operator(
+            self.derham, self.domain, self.basis_ops.Uv, self._gamma, u_space=self._u_space
+        )
         self._transop_p0T = self._transop_p0.T
         self._transop_p0.update_coeffs(self.projected_equil.p3)
         self._transop_p0T.update_coeffs(self.projected_equil.p3)
@@ -700,7 +745,7 @@ class VariationalPBEvolve(Propagator):
 
     def _get_error(self, mn_diff, bn_diff):  # , pn_diff):
         # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
-        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops[self._u_form].dot(mn_diff))
         err_b = self.mass_ops.M2.dot_inner(bn_diff, bn_diff)
         # weak_pn_diff = self.mass_ops.M3.dot(
         #     pn_diff,

@@ -2057,36 +2057,50 @@ class KineticEnergyEvaluator:
 
     divdiv_alpha : float
         Coefficient of the div-div term of the kinetic energy, see :func:`kinetic_metric`.
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` (contravariant components :math:`\hat{\mathbf u}`) or ``"Hdiv"`` (2-form
+        :math:`\hat{\mathbf u}^2 = \sqrt g\, \hat{\mathbf u}`, no div-div term): the metric weights :math:`G` and
+        :math:`G \sqrt g` below become :math:`G/g` and :math:`G/\sqrt g`.
     """
 
-    def __init__(self, derham, domain, mass_ops, basis_ops=None, divdiv_alpha: float = 0.0):
+    def __init__(self, derham, domain, mass_ops, basis_ops=None, divdiv_alpha: float = 0.0, u_space: str = "H1vec"):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        assert u_space == "H1vec" or divdiv_alpha == 0.0, 'u_space="Hdiv" needs divdiv_alpha=0.'
         integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
             integration_grid,
         )
+        bn, bd = self.integration_grid_bn, self.integration_grid_bd
+        if u_space == "Hdiv":
+            self._u_bases = [[bn[0], bd[1], bd[2]], [bd[0], bn[1], bd[2]], [bd[0], bd[1], bn[2]]]
+        else:
+            self._u_bases = [bn] * 3
 
         # tmps
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        self.uf = derham.create_spline_function("uf", "H1vec")
-        self.uf1 = derham.create_spline_function("uf1", "H1vec")
+        self.uf = derham.create_spline_function("uf", u_space)
+        self.uf1 = derham.create_spline_function("uf1", u_space)
 
         self._uf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._Guf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
-        metric = domain.metric(
-            *integration_grid,
-        ) * domain.jacobian_det(*integration_grid)
-        self._proj_u2_metric_term = deepcopy(metric)
+        # |u|^2 = u^T G u (H1vec) or u^T G u / g (Hdiv); get_u2_grid values are integrated with the 3-form weight
+        # 1/sqrt(g), hence the factor sqrt(g)
+        sqrt_g = domain.jacobian_det(*integration_grid)
+        if u_space == "Hdiv":
+            self._proj_u2_metric_term = deepcopy(domain.metric(*integration_grid) / sqrt_g)
+            self._mass_u_metric_term = deepcopy(domain.metric(*integration_grid) / sqrt_g**2)
+        else:
+            self._proj_u2_metric_term = deepcopy(domain.metric(*integration_grid) * sqrt_g)
+            self._mass_u_metric_term = deepcopy(domain.metric(*integration_grid))
 
-        metric = domain.metric(*integration_grid)
-        self._mass_u_metric_term = deepcopy(metric)
-
-        self._M_un = mass_ops.create_weighted_mass("H1vec", "L2")
-        self._M_un1 = mass_ops.create_weighted_mass("L2", "H1vec")
+        self._M_un = mass_ops.create_weighted_mass(u_space, "L2")
+        self._M_un1 = mass_ops.create_weighted_mass("L2", u_space)
 
         # div-div term alpha int rho (div u)^2 dx of the kinetic energy, with sqrt(g) div u = D Uv u (a 3-form)
         assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
@@ -2189,18 +2203,12 @@ class KineticEnergyEvaluator:
 
         uf_values = self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf_values,
         )
         uf1_values = self.uf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf1_values,
         )
 
@@ -2222,10 +2230,7 @@ class KineticEnergyEvaluator:
 
         uf_values = self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf_values,
         )
 
@@ -2247,10 +2252,7 @@ class KineticEnergyEvaluator:
 
         uf1_values = self.uf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf1_values,
         )
 
