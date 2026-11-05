@@ -2,9 +2,11 @@ import logging
 from copy import deepcopy
 
 import cunumpy as xp
+import numpy as np
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
@@ -12,6 +14,7 @@ from struphy.feec.basis_projection_ops import (
     BasisProjectionOperatorLocal,
     CoordinateProjector,
 )
+from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
 from struphy.feec.psydac_derham import Derham
 
 logger = logging.getLogger("struphy")
@@ -293,6 +296,494 @@ class BracketOperator(LinearOperator):
             out = self.mbrackvw.dot(self._u)
 
         return out
+
+
+class QuadratureIntegrator:
+    r"""Integrals of functions given at the local quadrature points against the basis functions of a space,
+    without metric coefficients,
+
+    .. math::
+
+        v_{\mu,ijk} = \int_{[0,1]^3} \Lambda_{\mu,ijk}(\boldsymbol\eta)\, f_\mu(\boldsymbol\eta) \,\textnormal d\boldsymbol\eta\,,
+
+    computed with the Gauss-Legendre quadrature of the mass matrices of ``derham``. The values :math:`f_\mu` are
+    given on the tensor-product grid of the local quadrature points (the flattened ``quad_grid_pts``), as returned by
+    :meth:`~struphy.feec.psydac_derham.SplineFunction.eval_tp_fixed_loc` on that grid. The result is a tensor-product
+    vector (no boundary conditions, no polar extraction).
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence (not polar).
+
+    space_id : str
+        Space of the basis functions ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
+    """
+
+    def __init__(self, derham: Derham, space_id: str):
+        assert not derham.polar_splines, "QuadratureIntegrator is not available for polar splines."
+        attr = derham.spline_attributes[space_id]
+        self._fem_spaces = attr.tensor_spaces
+        self._wts = attr.quad_grid_wts
+        self._spans = attr.quad_grid_spans
+        self._bases = attr.quad_grid_bases
+        self._space = derham.coeff_spaces[derham.space_to_form[space_id]]
+
+    @property
+    def space(self):
+        """The coefficient space of the result."""
+        return self._space
+
+    def integrate(self, values: list, out=None):
+        """Integrate the values (one array per component) against the basis functions.
+
+        Parameters
+        ----------
+        values : list[xp.ndarray]
+            Function values at the local quadrature points, one array per component of the space.
+
+        out : StencilVector | BlockVector, optional
+            Output vector in :attr:`space`.
+
+        Returns
+        -------
+        StencilVector | BlockVector
+            The integrals.
+        """
+        assert len(values) == len(self._fem_spaces)
+        if out is None:
+            out = self.space.zeros()
+        else:
+            assert out.space == self.space
+
+        blocks = [out] if len(self._fem_spaces) == 1 else out.blocks
+        for fem_space, spans, wts, bases, vals, block in zip(
+            self._fem_spaces, self._spans, self._wts, self._bases, values, blocks
+        ):
+            block._data[:] = 0.0
+            kernel_3d_vec(
+                *spans,
+                *fem_space.degree,
+                *[int(start) for start in fem_space.coeff_space.starts],
+                *fem_space.coeff_space.pads,
+                *wts,
+                *bases,
+                vals,
+                block._data,
+            )
+
+        out.exchange_assembly_data()
+        out.update_ghost_regions()
+        return out
+
+
+def eval_bases_with_derivatives(derham: Derham, pts: list) -> tuple:
+    r"""Knot spans, values and first derivatives of the non-vanishing N- and D-splines of ``derham`` at the points
+    ``pts`` (three 1d arrays), in the format of :meth:`~struphy.feec.psydac_derham.Derham.prepare_eval_tp_fixed`
+    (for :meth:`~struphy.feec.psydac_derham.SplineFunction.eval_tp_fixed_loc`).
+
+    Returns
+    -------
+    spans, bn, bd, dbn, dbd : tuple
+        Each a 3-tuple (one entry per direction); ``bn``, ``dbn`` of format (point, :math:`p+1`) and ``bd``, ``dbd``
+        of format (point, :math:`p`).
+    """
+    from struphy.bsplines import bsplines_kernels
+
+    spans, bns, bds = derham.prepare_eval_tp_fixed(pts)
+
+    dbns, dbds = [], []
+    for etas, space_1d in zip(pts, derham.V0fem.spaces):
+        tn = xp.to_numpy(space_1d.knots)
+        pn = space_1d.degree
+        etas = xp.to_numpy(etas)
+        dbn = np.zeros((etas.size, pn + 1), dtype=float)
+        dbd = np.zeros((etas.size, pn), dtype=float)
+        left = np.zeros(max(pn, 1), dtype=float)
+        right = np.zeros(max(pn, 1), dtype=float)
+        vals_n = np.zeros(pn + 1, dtype=float)
+        vals_d = np.zeros(pn, dtype=float)
+        for n in range(etas.size):
+            # as in prepare_eval_tp_fixed: avoid 1. --> 0. for clamped splines
+            eta = etas[n] % (1.0 + 1e-14)
+            span = bsplines_kernels.find_span(tn, pn, eta)
+            if pn >= 1:
+                bsplines_kernels.basis_funs_1st_der(tn, pn, eta, span, left, right, vals_n)
+                dbn[n] = vals_n
+            if pn >= 2:
+                # D-splines: B-splines of degree pn - 1 scaled as in bsplines_kernels.b_d_splines_slim
+                bsplines_kernels.basis_funs_1st_der(tn, pn - 1, eta, span, left, right, vals_d)
+                for il in range(pn):
+                    vals_d[pn - 1 - il] *= pn / (tn[span - il + pn] - tn[span - il])
+                dbd[n] = vals_d
+        dbns += [xp.to_cunumpy(dbn)]
+        dbds += [xp.to_cunumpy(dbd)]
+
+    return spans, bns, bds, tuple(dbns), tuple(dbds)
+
+
+class HdivBracketOperator(LinearOperator):
+    r"""Bracket of the variational momentum advection for a velocity 2-form :math:`\mathbf u \in H(\textnormal{div})`:
+    the skew-symmetric linear map
+    :math:`\mathbb B[\hat{\mathbf y}] : \mathbb R^{N_2} \to \mathbb R^{N_2}`,
+
+    .. math::
+
+        \mathbf v^\top \mathbb B[\hat{\mathbf y}]\, \mathbf u = \langle \mathbf m, \widehat{[A_{\mathbf u}, A_{\mathbf v}]} \rangle
+        = \int_\Omega \hat{\mathbf y} \cdot [\mathbf u, \mathbf v] \,\textnormal d\mathbf x\,,
+        \qquad [\mathbf u, \mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u\,,
+
+    for velocities :math:`\mathbf u, \mathbf v` with flux (2-form) coefficients
+    :math:`\hat{\boldsymbol\omega}_{\mathbf u}, \hat{\boldsymbol\omega}_{\mathbf v} \in Z^0` and a fixed momentum
+    :math:`\mathbf m`, represented by :math:`\hat{\mathbf y} = (\mathbb M^Z)^{-1} \mathbf m \in Z^0` (the unweighted
+    logical mass matrix of the 2-forms, :math:`\hat y_k` are covariant components).
+
+    The discrete vector fields act as derivations, by Galerkin projection on the auxiliary space
+    :math:`W' = V^0_h + \sum_k Z_k + \sum_k Z_k/\sqrt g`, which contains the contravariant components
+    :math:`\hat u^k = \hat\omega_k / \sqrt g` of the velocities and the components of :math:`\hat{\mathbf y}`. Hence
+    :math:`A_{\mathbf u}\eta_k = \hat u^k` (no projection), the hat map is the identity on the velocities, and the
+    projection of the commutator drops out in the pairing with :math:`\hat{\mathbf y}`. :math:`W'` is never built.
+
+    The representer :math:`\hat{\mathbf y}` defines the discrete Lagrangian off the velocities, which the pairing
+    with the commutator needs, since :math:`[A_{\mathbf u}, A_{\mathbf v}]` is not the image of a velocity.
+    With the logical :math:`L^2` projection :math:`\Pi_{Z^0}` on :math:`Z^0` and the linear map
+    :math:`\Phi(C) = \Pi_{Z^0}(\sqrt g\, C\eta)` on the Lie algebra (with :math:`\Phi(A_{\mathbf u}) = \hat{\boldsymbol\omega}_{\mathbf u}`),
+    :math:`\ell_h(A) = \frac12 \Phi(A)^\top \mathbb M^2_\rho\, \Phi(A)` equals the kinetic energy on the velocities and
+
+    .. math::
+
+        \Big\langle \frac{\delta \ell_h}{\delta A}(A_{\mathbf u}), C \Big\rangle = \mathbf m^\top \Phi(C)
+        = \int \hat{\mathbf y} \cdot \sqrt g\, C\eta \,\textnormal d\boldsymbol\eta\,,
+        \qquad \mathbf m = \mathbb M^2_\rho \hat{\boldsymbol\omega}_{\mathbf u}\,,
+
+    so :math:`\mathbb B` is the Euler-Poincaré bracket of :math:`\ell_h`. The regularity of :math:`\hat{\mathbf y}` comes
+    from this choice: for :math:`p \geq 2` the components of :math:`Z` are continuous, so
+    :math:`\hat{\mathbf y} \in H(\textnormal{curl})` and :math:`\textnormal{curl}\, \hat{\mathbf y} \in L^2`. Since the
+    product is logical (:math:`\textnormal d\boldsymbol\eta`), :math:`\ell_h` depends on the parametrization of the
+    mapping off the velocities. This does not affect the skew-symmetry or the conservation of energy.
+
+    With :math:`\nabla \times (\mathbf u \times \mathbf v) = \mathbf u\, \nabla\cdot\mathbf v
+    - \mathbf v\, \nabla\cdot\mathbf u + \mathbf v \cdot \nabla\mathbf u - \mathbf u \cdot \nabla\mathbf v` and an
+    integration by parts (the boundary term vanishes since :math:`\mathbf u \cdot \mathbf n = \mathbf v \cdot \mathbf n = 0`),
+    in logical coordinates (component-wise products, logical :math:`\textnormal{div}` and :math:`\textnormal{curl}`),
+
+    .. math::
+
+        \mathbf v^\top \mathbb B[\hat{\mathbf y}]\, \mathbf u = \int \frac{1}{\sqrt g} \Big[
+        (\hat{\mathbf y} \cdot \hat{\boldsymbol\omega}_{\mathbf u})\, \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf v}
+        - (\hat{\mathbf y} \cdot \hat{\boldsymbol\omega}_{\mathbf v})\, \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf u}
+        - \textnormal{curl}\, \hat{\mathbf y} \cdot (\hat{\boldsymbol\omega}_{\mathbf u} \times \hat{\boldsymbol\omega}_{\mathbf v})
+        \Big] \textnormal d\boldsymbol\eta\,,
+
+    which needs no derivatives of the mapping. The integrand is pointwise antisymmetric in
+    :math:`(\mathbf u, \mathbf v)`, so :math:`\mathbf u^\top \mathbb B \mathbf u = 0` (conservation of the kinetic
+    energy) also with inexact quadrature. In matrix form,
+
+    .. math::
+
+        \mathbb B[\hat{\mathbf y}] = \mathbb D^\top \mathbb N - \mathbb N^\top \mathbb D - \mathbb R\,,\qquad
+        \mathbb N_{b,(k,a)} = \int \Lambda^3_b\, \frac{\hat y_k}{\sqrt g}\, \Lambda^2_{k,a} \,\textnormal d\boldsymbol\eta\,,\qquad
+        \mathbb R_{(k,a),(j,b)} = \int \Lambda^2_{k,a}\, \frac{[\textnormal{curl}\,\hat{\mathbf y}]_{\times,kj}}{\sqrt g}\,
+        \Lambda^2_{j,b} \,\textnormal d\boldsymbol\eta\,,
+
+    with the divergence matrix :math:`\mathbb D` and the cross-product matrix :math:`[\mathbf c]_\times \mathbf x = \mathbf c \times \mathbf x`.
+    :math:`\mathbb N` and :math:`\mathbb R` are weighted mass matrices, assembled in :meth:`update_momentum`.
+
+    Boundary conditions: only the normal flux of the velocity vanishes (:math:`\hat{\mathbf u} \in Z^0`); the input,
+    the output and :math:`\hat{\mathbf y}` are restricted with ``derham.boundary_ops["2"]``.
+    Needs degree :math:`p \geq 2` (2-forms continuous, :math:`\hat{\mathbf y} \in H(\textnormal{curl})`); not
+    available for polar splines.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence of the velocity.
+
+    domain : Domain
+        The mapping (for :math:`1/\sqrt g`).
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators of ``derham`` (for :math:`\mathbb M^Z`, :math:`\mathbb N` and :math:`\mathbb R`).
+
+    tol : float
+        Tolerance of the solves with :math:`\mathbb M^Z`.
+
+    maxiter : int
+        Maximum number of iterations of these solves.
+    """
+
+    def __init__(self, derham: Derham, domain, mass_ops, tol: float = 1e-14, maxiter: int = 1000):
+        from struphy.feec.preconditioner import MassMatrixPreconditioner
+
+        assert not derham.polar_splines, "HdivBracketOperator is not available for polar splines."
+        reduced = tuple(n == 1 and periodic for n, periodic in zip(derham.num_elements, derham.spl_kind))
+        assert all(r or p >= 2 for r, p in zip(reduced, derham.degree)), (
+            f"The bracket of a velocity in H(div) needs degree >= 2 (except in periodic directions with one "
+            f"element), got {derham.degree}."
+        )
+
+        self._derham = derham
+        self._domain = derham.V2pol
+        self._codomain = derham.V2pol
+        self._dtype = derham.V2.dtype
+        self._bc = derham.boundary_ops["2"]
+        self._tol = tol
+        self._maxiter = maxiter
+        self._comm = derham.comm
+
+        # unweighted logical mass matrix of the 2-forms (with boundary conditions), for the momentum representer
+        self._MZ = mass_ops.create_weighted_mass(
+            "Hdiv", "Hdiv", weights=("Identity",), name="M2_logical", assemble=True
+        )
+        self._pc_MZ = MassMatrixPreconditioner(self._MZ)
+        self._inv_MZ = self.new_momentum_solver()
+
+        # local quadrature points of the mass matrices (the same for all spaces)
+        pts = [pt.flatten() for pt in derham.V0splines.quad_grid_pts[0]]
+        for space_id in ("Hdiv", "L2"):
+            for comp_pts in derham.spline_attributes[space_id].quad_grid_pts:
+                for d in range(3):
+                    assert xp.allclose(comp_pts[d].flatten(), pts[d]), "Quadrature grids differ."
+        self._shape = tuple(pt.size for pt in pts)
+        self._s = 1.0 / domain.jacobian_det(*pts)
+        assert self._s.shape == self._shape
+
+        # values (and first derivatives) of the basis functions of the 2-forms and 3-forms at the quadrature points
+        spans, bn, bd, dbn, dbd = eval_bases_with_derivatives(derham, pts)
+        self._spans = spans
+        # component k of the 2-forms: N-splines in direction k, D-splines in the others
+        self._bases_2 = [[bn[d] if d == k else bd[d] for d in range(3)] for k in range(3)]
+        # derivative in direction j
+        self._bases_2_der = [
+            [
+                [(dbn[d] if d == k else dbd[d]) if d == j else (bn[d] if d == k else bd[d]) for d in range(3)]
+                for k in range(3)
+            ]
+            for j in range(3)
+        ]
+        self._bases_3 = list(bd)
+        self._u2f = derham.create_spline_function("u2_bracket", "Hdiv")
+        self._y2f = derham.create_spline_function("y2_bracket", "Hdiv")
+        self._div3f = derham.create_spline_function("divu3_bracket", "L2")
+
+        # integration against the basis functions of the 2-forms and 3-forms (matrix-free applications)
+        self._int_2 = QuadratureIntegrator(derham, "Hdiv")
+        self._int_3 = QuadratureIntegrator(derham, "L2")
+
+        # the weighted mass matrices N (Hdiv -> L2), N^T (L2 -> Hdiv) and R (Hdiv -> Hdiv), assembled in update_momentum
+        self._div = derham.div
+        self._divT = derham.div.T
+        self._N = mass_ops.create_weighted_mass("Hdiv", "L2", name="N_bracket")
+        self._NT = mass_ops.create_weighted_mass("Hdiv", "L2", name="N_bracket_T", transposed=True)
+        self._R = mass_ops.create_weighted_mass("Hdiv", "Hdiv", name="R_bracket")
+        # scaling of the assembled weights (normalized to one, such that small momenta are not cut off as zero blocks)
+        self._scale_N = 0.0
+        self._scale_R = 0.0
+
+        # temporaries
+        self._y_q = [xp.zeros(self._shape, dtype=float) for _ in range(3)]
+        self._c_q = [xp.zeros(self._shape, dtype=float) for _ in range(3)]
+        self._dy_q = [[xp.zeros(self._shape, dtype=float) for _ in range(3)] for _ in range(3)]
+        self._f_q = [xp.zeros(self._shape, dtype=float) for _ in range(3)]
+        self._g_q = xp.zeros(self._shape, dtype=float)
+        self._tmp_y = derham.V2pol.zeros()
+        self._tmp_2 = derham.V2pol.zeros()
+        self._tmp_3 = derham.V3pol.zeros()
+        self._tmp_3b = derham.V3pol.zeros()
+        self._tmp_int_2 = derham.V2.zeros()
+        self._tmp_int_3 = derham.V3.zeros()
+
+        self._has_momentum = False
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def shape_q(self) -> tuple:
+        """Shape of the arrays of values at the local quadrature points."""
+        return self._shape
+
+    @property
+    def y_hat(self):
+        r"""The coefficients of the momentum representer :math:`\hat{\mathbf y} \in Z^0`."""
+        return self._tmp_y
+
+    def transpose(self, conjugate=False):
+        return -self
+
+    def new_momentum_solver(self):
+        r"""A new solver with the logical mass matrix :math:`\mathbb M^Z` (own initial guesses)."""
+        return inverse(self._MZ, "pcg", pc=self._pc_MZ, tol=self._tol, maxiter=self._maxiter, recycle=True)
+
+    def momentum_values(self, m: BlockVector, inv_MZ, y: BlockVector, y_q: list, c_q: list) -> tuple:
+        r"""Values at the quadrature points of the representer :math:`\hat{\mathbf y} = (\mathbb M^{Z})^{-1} \mathbf m`
+        (written to ``y``, solved with ``inv_MZ``, e.g. :meth:`new_momentum_solver`) and of its logical curl
+        (written to ``y_q`` and ``c_q``)."""
+        assert m.space == self.domain
+        inv_MZ.dot(m, out=y)
+        self._y2f.vector = y
+        self._y2f.eval_tp_fixed_loc(self._spans, self._bases_2, out=y_q)
+        dy = self._dy_q
+        for j in range(3):
+            self._y2f.eval_tp_fixed_loc(self._spans, self._bases_2_der[j], out=dy[j])
+        # dy[j][k] = d_j y_k
+        xp.subtract(dy[1][2], dy[2][1], out=c_q[0])
+        xp.subtract(dy[2][0], dy[0][2], out=c_q[1])
+        xp.subtract(dy[0][1], dy[1][0], out=c_q[2])
+        return y_q, c_q
+
+    def velocity_values(self, u: BlockVector, u_q: list, divu_q) -> tuple:
+        r"""Values at the quadrature points of the flux coefficients of the velocity ``u`` and of their logical
+        divergence (written to ``u_q`` and ``divu_q``)."""
+        self._u2f.vector = u
+        self._u2f.eval_tp_fixed_loc(self._spans, self._bases_2, out=u_q)
+        self._div3f.vector = self._div.dot(u, out=self._tmp_3)
+        self._div3f.eval_tp_fixed_loc(self._spans, self._bases_3, out=divu_q)
+        return u_q, divu_q
+
+    def _global_max(self, arrays) -> float:
+        loc = max(float(xp.max(xp.abs(a))) if a.size > 0 else 0.0 for a in arrays)
+        if self._comm is not None and self._comm.Get_size() > 1:
+            loc = self._comm.allreduce(loc, op=MPI.MAX)
+        return loc
+
+    def update_momentum(self, m: BlockVector):
+        r"""Set the momentum, given as the linear form :math:`\mathbf m = \mathbb M^2_\rho \hat{\boldsymbol\omega}` on the
+        velocities (a dual vector of the 2-forms): compute its representer :math:`\hat{\mathbf y}` and assemble
+        :math:`\mathbb N` and :math:`\mathbb R` (collective)."""
+        y_q, c_q = self.momentum_values(m, self._inv_MZ, self._tmp_y, self._y_q, self._c_q)
+        s = self._s
+
+        # N with the weights y_k / sqrt g
+        for k in range(3):
+            xp.multiply(s, y_q[k], out=self._f_q[k])
+        self._scale_N = self._global_max(self._f_q)
+        if self._scale_N > 0.0:
+            w = [f / self._scale_N for f in self._f_q]
+            self._N.assemble(weights=[[w[0], w[1], w[2]]])
+            self._NT.assemble(weights=[[w[0]], [w[1]], [w[2]]])
+
+        # R with the antisymmetric weights [curl y]_x / sqrt g
+        c = [s * c_q[k] for k in range(3)]
+        self._scale_R = self._global_max(c)
+        if self._scale_R > 0.0:
+            c = [ck / self._scale_R for ck in c]
+            self._R.assemble(
+                weights=[[None, -c[2], c[1]], [c[2], None, -c[0]], [-c[1], c[0], None]],
+            )
+
+        self._has_momentum = True
+
+    def dot(self, v, out=None):
+        assert self._has_momentum, "Set the momentum with update_momentum before applying the bracket."
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+        if out is None:
+            out = self.codomain.zeros()
+        else:
+            assert out.space == self.codomain
+
+        out *= 0.0
+        if self._scale_N > 0.0:
+            # D^T N v - N^T D v
+            self._divT.dot(self._N.dot(v, out=self._tmp_3), out=out)
+            out -= self._NT.dot(self._div.dot(v, out=self._tmp_3b), out=self._tmp_2)
+            out *= self._scale_N
+        if self._scale_R > 0.0:
+            out.mul_iadd(-self._scale_R, self._R.dot(v, out=self._tmp_2))
+        return out
+
+    def apply_values(self, u_q: list, divu_q, y_q: list, c_q: list, out=None):
+        r"""The bracket :math:`\mathbb B[\hat{\mathbf y}]\,\mathbf u` applied matrix-free, from the values at the quadrature
+        points of the velocity (:meth:`velocity_values`) and of the momentum representer and its curl
+        (:meth:`momentum_values`): the vector of the integrals against :math:`\textnormal{div}\,\Lambda^2` and
+        :math:`\Lambda^2` of the integrand of the class docstring."""
+        if out is None:
+            out = self.codomain.zeros()
+        s = self._s
+        f = self._f_q
+        g = self._g_q
+
+        # int div(Lambda^2) (y . u) / sqrt g
+        g[:] = 0.0
+        for k in range(3):
+            g += y_q[k] * u_q[k]
+        g *= s
+        I3 = self._int_3.integrate([g], out=self._tmp_int_3)
+        self._divT.dot(I3, out=out)
+
+        # - int Lambda^2 . (y div u + curl y x u) / sqrt g
+        xp.multiply(y_q[0], divu_q, out=f[0])
+        f[0] += c_q[1] * u_q[2] - c_q[2] * u_q[1]
+        xp.multiply(y_q[1], divu_q, out=f[1])
+        f[1] += c_q[2] * u_q[0] - c_q[0] * u_q[2]
+        xp.multiply(y_q[2], divu_q, out=f[2])
+        f[2] += c_q[0] * u_q[1] - c_q[1] * u_q[0]
+        for k in range(3):
+            f[k] *= -s
+        I2 = self._int_2.integrate(f, out=self._tmp_int_2)
+        out += self._bc.dot(I2, out=self._tmp_2)
+        return out
+
+
+class HdivBracketMomentumDerivative(LinearOperator):
+    r"""Derivative of the bracket :math:`\mathbb B[\hat{\mathbf y}(\mathbf m)]\,\mathbf x` of a
+    :class:`HdivBracketOperator` with respect to the momentum :math:`\mathbf m`, for a fixed velocity
+    :math:`\mathbf x` (:meth:`set_velocity`): the linear map
+    :math:`\delta\mathbf m \mapsto \mathbb B[(\mathbb M^Z)^{-1}\delta\mathbf m]\,\mathbf x` (the bracket is bilinear
+    in the momentum and the velocity), applied matrix-free. Used in the Newton iteration with the momentum at
+    :math:`t^{n+1/2}`.
+
+    Parameters
+    ----------
+    bracket : HdivBracketOperator
+        The bracket.
+    """
+
+    def __init__(self, bracket: HdivBracketOperator):
+        self._B = bracket
+        self._inv_MZ = bracket.new_momentum_solver()
+        shape = bracket.shape_q
+        self._y = bracket.domain.zeros()
+        self._y_q = [xp.zeros(shape, dtype=float) for _ in range(3)]
+        self._c_q = [xp.zeros(shape, dtype=float) for _ in range(3)]
+        self._x_q = [xp.zeros(shape, dtype=float) for _ in range(3)]
+        self._divx_q = xp.zeros(shape, dtype=float)
+        self._has_velocity = False
+
+    @property
+    def domain(self):
+        return self._B.domain
+
+    @property
+    def codomain(self):
+        return self._B.codomain
+
+    @property
+    def dtype(self):
+        return self._B.dtype
+
+    def set_velocity(self, x):
+        r"""Set the velocity :math:`\mathbf x` (its values at the quadrature points are stored)."""
+        self._B.velocity_values(x, self._x_q, self._divx_q)
+        self._has_velocity = True
+
+    def transpose(self, conjugate=False):
+        raise NotImplementedError("HdivBracketMomentumDerivative has no transpose.")
+
+    def dot(self, dm, out=None):
+        assert self._has_velocity, "Set the velocity with set_velocity before applying the derivative."
+        y_q, c_q = self._B.momentum_values(dm, self._inv_MZ, self._y, self._y_q, self._c_q)
+        return self._B.apply_values(self._x_q, self._divx_q, y_q, c_q, out=out)
 
 
 class L2_transport_operator(LinearOperator):
