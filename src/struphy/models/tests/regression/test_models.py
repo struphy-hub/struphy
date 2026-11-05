@@ -189,28 +189,6 @@ def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, update_baselines: b
 
 
 @pytest.mark.models
-@pytest.mark.hybrid
-def test_dkcc_hcurl_coupled_magnetization(tmp_path, update_baselines: bool):
-    """LinearMHDDriftkineticCC with b_space="Hcurl" and split_magnetization=False (the magnetization in the coupled
-    curl-curl step instead of the step cc5d_mag of the default): the flag survives the generated parameter file."""
-    from struphy.io.setup import import_parameters_py
-    from struphy.propagators.shear_alfven_curl_curl_current_coupling_5d import ShearAlfvenCurlCurlCurrentCoupling5D
-
-    model = models_utils.get_model_by_name("LinearMHDDriftkineticCC")(b_space="Hcurl", split_magnetization=False)
-    path = os.path.join(tmp_path, "params_LinearMHDDriftkineticCC.py")
-    model.generate_default_parameter_file(path=path, prompt=False)
-    params_model = import_parameters_py(path).model
-    assert params_model.params["split_magnetization"] is False
-    assert isinstance(params_model.propagators.shear_alf, ShearAlfvenCurlCurlCurrentCoupling5D)
-    assert not hasattr(params_model.propagators, "cc5d_mag")
-    ut.call_test(
-        model=model,
-        case="LinearMHDDriftkineticCC-b_space=Hcurl-split_magnetization=False",
-        update_baselines=update_baselines,
-    )
-
-
-@pytest.mark.models
 @pytest.mark.fluid
 @pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
 def test_linear_mhd_inherits_linear_euler(b_space: str, tmp_path):

@@ -15,7 +15,6 @@ _LAZY_IMPORTS = {
     "CurrentCoupling5DDensity1form": "struphy.propagators.current_coupling_5d_density_1form",
     "CurrentCoupling5DGradB": "struphy.propagators.current_coupling_5d_gradb",
     "CurrentCoupling5DGradB1form": "struphy.propagators.current_coupling_5d_gradb_1form",
-    "CurrentCoupling5DMagnetization1form": "struphy.propagators.current_coupling_5d_magnetization_1form",
     "CurrentCoupling6DCurrent": "struphy.propagators.current_coupling_6d_current",
     "CurrentCoupling6DCurrent1form": "struphy.propagators.current_coupling_6d_current_1form",
     "CurrentCoupling6DDensity": "struphy.propagators.current_coupling_6d_density",
@@ -90,7 +89,6 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.current_coupling_5d_density_1form import CurrentCoupling5DDensity1form
     from struphy.propagators.current_coupling_5d_gradb import CurrentCoupling5DGradB
     from struphy.propagators.current_coupling_5d_gradb_1form import CurrentCoupling5DGradB1form
-    from struphy.propagators.current_coupling_5d_magnetization_1form import CurrentCoupling5DMagnetization1form
     from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
     from struphy.propagators.current_coupling_6d_current_1form import CurrentCoupling6DCurrent1form
     from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
@@ -164,7 +162,6 @@ __all__ = [
     "CurrentCoupling5DDensity1form",
     "CurrentCoupling5DGradB",
     "CurrentCoupling5DGradB1form",
-    "CurrentCoupling5DMagnetization1form",
     "CurrentCoupling6DCurrent",
     "CurrentCoupling6DCurrent1form",
     "CurrentCoupling6DDensity",

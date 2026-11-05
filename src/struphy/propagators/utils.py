@@ -262,8 +262,7 @@ class Magnetization1form:
     :math:`L^2` projection of :math:`\int f \mu \, \mathbf b_0 \,\textnormal d \mu\, \textnormal d v_\parallel` onto
     :math:`V^1_h` (pairing: :math:`\mathbf a^\top \mathcal P^{b,1} \mathbf b` is the energy of the magnetic moments in
     the parallel perturbation). Used by
-    :class:`~struphy.propagators.shear_alfven_curl_curl_current_coupling_5d.ShearAlfvenCurlCurlCurrentCoupling5D` and
-    :class:`~struphy.propagators.current_coupling_5d_magnetization_1form.CurrentCoupling5DMagnetization1form`.
+    :class:`~struphy.propagators.shear_alfven_curl_curl_current_coupling_5d.ShearAlfvenCurlCurlCurrentCoupling5D`.
 
     Parameters
     ----------

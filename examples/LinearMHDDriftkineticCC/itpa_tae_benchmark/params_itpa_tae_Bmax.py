@@ -19,7 +19,7 @@ C_FIT = (0.51643, 0.13619, 0.10274, 0.56458)
 
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--b-space` the space of the magnetic field (default
-# Hdiv); `--num-elements` the grid (default 24 96 16 with Hdiv, 24 44 16 with Hcurl; PR #887, issue #889).
+# Hcurl); `--num-elements` the grid (default 24 44 16 with Hcurl, 24 96 16 with Hdiv; PR #887, issue #889).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
@@ -35,29 +35,21 @@ parser.add_argument(
     type=int,
     nargs=3,
     default=None,
-    help="Number of elements per direction (default 24 96 16 with --b-space Hdiv, 24 44 16 with Hcurl: the H(div) "
+    help="Number of elements per direction (default 24 44 16 with --b-space Hcurl, 24 96 16 with Hdiv: the H(div) "
     "shear Alfven step needs about 8 elements per poloidal wavelength of the m = 10 harmonic for the right TAE "
     "frequency, see the description).",
 )
 parser.add_argument(
     "--b-space",
-    default="Hdiv",
+    default="Hcurl",
     choices=["Hdiv", "Hcurl"],
-    help="Space of the magnetic field (model flag b_space): Hdiv (default) or Hcurl (curl-curl shear Alfven step, "
-    "1-form couplings and pushers; fewer poloidal elements, see the description).",
+    help="Space of the magnetic field (model flag b_space): Hcurl (default; curl-curl shear Alfven step, 1-form "
+    "couplings and pushers, fewer poloidal elements) or Hdiv, see the description.",
 )
 parser.add_argument(
     "--projected",
     action="store_true",
     help="With --b-space Hcurl: projection of the Lorentz force in the curl-curl term (model flag projected).",
-)
-parser.add_argument(
-    "--split-magnetization",
-    action=argparse.BooleanOptionalAction,
-    default=None,
-    help="With --b-space Hcurl: the force of the magnetization of the energetic ions as a step of its own, after the "
-    "curl-curl shear Alfven step (default with Hcurl), or in the coupled shear Alfven step "
-    "(--no-split-magnetization; model flag split_magnetization).",
 )
 parser.add_argument("--Np", type=int, default=1_000_000, help="Number of markers of the energetic ions.")
 parser.add_argument(
@@ -126,12 +118,12 @@ parser.add_argument(
     "for the tests (test_examples.py).",
 )
 args, _ = parser.parse_known_args()
-if args.b_space != "Hcurl" and (args.projected or args.split_magnetization):
-    parser.error("--projected and --split-magnetization require --b-space Hcurl.")
+if args.projected and args.b_space != "Hcurl":
+    parser.error("--projected requires --b-space Hcurl.")
 if args.magnetosonic_cross_b0 and args.b_space != "Hdiv":
     parser.error("--magnetosonic-cross-b0 requires --b-space Hdiv.")
 if args.num_elements is None:
-    args.num_elements = [24, 96, 16] if args.b_space == "Hdiv" else [24, 44, 16]
+    args.num_elements = [24, 44, 16] if args.b_space == "Hcurl" else [24, 96, 16]
 if args.test_run:
     args.num_elements = [8, 32, 4]
     args.Np = 2000
@@ -169,19 +161,16 @@ t = {args.tend}. The compressional MHD is included, with the background current,
 background pressure and sound steps of LinearMHD or, with --magnetosonic-cross-b0, with MagnetosonicCrossB0, which
 writes the current force and the pressure work through B0 x like the shear Alfven step:
 {args.magnetosonic_cross_b0}.
-The magnetic field is in {args.b_space} (--b-space). With H(div) (default), the shear Alfven step uses the commuting
-projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal interpolation error makes the effective poloidal mode
-number about 2-3% too small with 44 elements, which shifts the continuum near the gap (where n q - m nearly cancels)
-so much that there is no TAE (PR #887): hence the 96 poloidal elements (about 9 per wavelength of the m = 10
-harmonic). With H(curl), the shear Alfven step is the curl-curl step (weak products of the Lorentz force, no basis
-projection) and the couplings and guiding-center pushers use the 1-form field (issue #889); 44 poloidal elements
-suffice. The force of the magnetization of the energetic ions is then a step of its own
-(CurrentCoupling5DMagnetization1form, --split-magnetization, default with H(curl)): in the coupled curl-curl step
-(--no-split-magnetization) the marker noise of the magnetization enters the curl-curl solve, whose Hiptmair-Xu
-preconditioner needs about 10 times more iterations for it; split off, the noise enters only mass matrix solves,
-at the price of the exact energy exchange between the fluid and the magnetic moments. Boundary conditions at the walls: b.n = 0 and u.n = 0 imposed strongly
-with H(div); free boundary conditions with H(curl) (Dirichlet would force the tangential magnetic field to zero), where
-u.n = 0 holds only weakly, through the weak induction equation of the shear Alfven step.
+The magnetic field is in {args.b_space} (--b-space). With H(curl) (default), the shear Alfven step is the curl-curl
+step coupled to the magnetization of the energetic ions (ShearAlfvenCurlCurlCurrentCoupling5D: weak products of the
+Lorentz force, no basis projection) and the couplings and guiding-center pushers use the 1-form field (issue #889);
+44 poloidal elements (about 4 per wavelength of the m = 10 harmonic) suffice. With H(div), the shear Alfven step uses
+the commuting projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal interpolation error makes the
+effective poloidal mode number about 2-3% too small with 44 elements, which shifts the continuum near the gap (where
+n q - m nearly cancels) so much that there is no TAE (PR #887): hence 96 poloidal elements with H(div). Boundary
+conditions at the walls: b.n = 0 and u.n = 0 imposed strongly with H(div); free boundary conditions with H(curl)
+(Dirichlet would force the tangential magnetic field to zero), where u.n = 0 holds only weakly, through the weak
+induction equation of the shear Alfven step.
 Energetic deuterons with the temperature T_h = {args.T_hot} keV (thermal speed sqrt(T_h/m_D) = {{vth:.3g}} v_unit,
 about 0.3 v_A at 400 keV, gyro-radius about 3 cm in 3 T; the normalized cyclotron period epsilon follows from the
 units), represented by {args.Np} markers with delta-f weights (control variate). The density profile is
@@ -200,10 +189,12 @@ of the paper). The guiding-center pushers use {args.drift_algo} for the drifts (
 plasma are removed (--marker-bc remove) or refilled on the same field line (--marker-bc refill): {args.marker_bc}.
 Filter of the accumulated moments: {args.filter}.
 
-Cost. On 24 x 88 x 8 elements with 1e6 markers, dt = 1 and RK4 for the parallel motion, a time step took about 26-30 s
-on 4 MPI ranks, mostly in the guiding-center pushers and the current coupling, which scale with the number of markers
-per rank. The default grid has about 2.2 times more cells and both pushers are iterative: the run is meant for a
-cluster with many more ranks.
+Cost. With 1e5 markers on 4 MPI ranks (dt = 0.25, default pushers), a time step took about 11 s with --b-space Hcurl
+(24 x 44 x 16) and about 16 s with --b-space Hdiv (24 x 96 x 16). The marker noise of the magnetization makes the
+curl-curl solve of the H(curl) step need about 60-70 Hiptmair-Xu iterations instead of about 10 without energetic
+ions (the H(div) solve: about 25), and the number grows with dt (about 300 at dt = 1). The guiding-center pushers and
+the current coupling scale with the number of markers per rank (on 24 x 88 x 8 with 1e6 markers, dt = 1 and RK4 for
+the parallel motion, a time step took about 26-30 s with H(div)): the run is meant for a cluster with many more ranks.
 The TAE is seeded by a small m = 10, 11 velocity perturbation localized at the gap (as in the LinearMHD example).
 
 Expected result. After the initial transient, the TAE (the (m, n) = (10, 6) and (11, 6) harmonics of the radial
@@ -272,7 +263,6 @@ model = LinearMHDDriftkineticCC(
     hot_mass_number=A_HOT,
     b_space=args.b_space,
     projected=args.projected,
-    split_magnetization=args.split_magnetization,
     magnetosonic_cross_b0=args.magnetosonic_cross_b0,
 )
 
@@ -386,11 +376,7 @@ if args.parallel_algo == "rk4":
     props.push_parallel.options = props.push_parallel.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
 else:
     props.push_parallel.options = props.push_parallel.Options(algo=args.parallel_algo)
-if hasattr(props, "cc5d_mag"):
-    # H(curl) with the magnetization split off: the shear Alfven step has no particles, the magnetization step filters
-    props.cc5d_mag.options = props.cc5d_mag.Options(filter_params=filter_params)
-else:
-    props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params)
+props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params)
 props.cc5d_gradb.options = props.cc5d_gradb.Options(filter_params=filter_params)
 # (CurrentCoupling5DDensity accumulates no vector: nothing to filter)
 props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)
