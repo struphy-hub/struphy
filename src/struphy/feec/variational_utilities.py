@@ -443,6 +443,25 @@ class HdivBracketOperator(LinearOperator):
     :math:`\hat u^k = \hat\omega_k / \sqrt g` of the velocities and the components of :math:`\hat{\mathbf y}`. Hence
     :math:`A_{\mathbf u}\eta_k = \hat u^k` (no projection), the hat map is the identity on the velocities, and the
     projection of the commutator drops out in the pairing with :math:`\hat{\mathbf y}`. :math:`W'` is never built.
+
+    The representer :math:`\hat{\mathbf y}` defines the discrete Lagrangian off the velocities, which the pairing
+    with the commutator needs, since :math:`[A_{\mathbf u}, A_{\mathbf v}]` is not the image of a velocity.
+    With the logical :math:`L^2` projection :math:`\Pi_{Z^0}` on :math:`Z^0` and the linear map
+    :math:`\Phi(C) = \Pi_{Z^0}(\sqrt g\, C\eta)` on the Lie algebra (with :math:`\Phi(A_{\mathbf u}) = \hat{\boldsymbol\omega}_{\mathbf u}`),
+    :math:`\ell_h(A) = \frac12 \Phi(A)^\top \mathbb M^2_\rho\, \Phi(A)` equals the kinetic energy on the velocities and
+
+    .. math::
+
+        \Big\langle \frac{\delta \ell_h}{\delta A}(A_{\mathbf u}), C \Big\rangle = \mathbf m^\top \Phi(C)
+        = \int \hat{\mathbf y} \cdot \sqrt g\, C\eta \,\textnormal d\boldsymbol\eta\,,
+        \qquad \mathbf m = \mathbb M^2_\rho \hat{\boldsymbol\omega}_{\mathbf u}\,,
+
+    so :math:`\mathbb B` is the Euler-Poincaré bracket of :math:`\ell_h`. The regularity of :math:`\hat{\mathbf y}` comes
+    from this choice: for :math:`p \geq 2` the components of :math:`Z` are continuous, so
+    :math:`\hat{\mathbf y} \in H(\textnormal{curl})` and :math:`\textnormal{curl}\, \hat{\mathbf y} \in L^2`. Since the
+    product is logical (:math:`\textnormal d\boldsymbol\eta`), :math:`\ell_h` depends on the parametrization of the
+    mapping off the velocities. This does not affect the skew-symmetry or the conservation of energy.
+
     With :math:`\nabla \times (\mathbf u \times \mathbf v) = \mathbf u\, \nabla\cdot\mathbf v
     - \mathbf v\, \nabla\cdot\mathbf u + \mathbf v \cdot \nabla\mathbf u - \mathbf u \cdot \nabla\mathbf v` and an
     integration by parts (the boundary term vanishes since :math:`\mathbf u \cdot \mathbf n = \mathbf v \cdot \mathbf n = 0`),
