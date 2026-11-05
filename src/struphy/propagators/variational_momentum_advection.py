@@ -70,8 +70,8 @@ class VariationalMomentumAdvection(Propagator):
         [\mathbf u, \mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u\,.
 
     The velocity is a 2-form, :math:`\hat{\mathbf u}^2_h = (\mathbf u^n)^\top \vec{\boldsymbol\Lambda}^2`, and the bracket is
-    discretized with the vector fields as derivations of the auxiliary spline space :math:`W` of double knots
-    (:class:`~struphy.feec.variational_utilities.HdivBracketOperator`, :math:`\mathbb B[\hat{\mathbf y}]` with
+    discretized with the vector fields as derivations of an auxiliary space that contains the contravariant
+    velocity components, so that no projection is needed (:class:`~struphy.feec.variational_utilities.HdivBracketOperator`, :math:`\mathbb B[\hat{\mathbf y}]` with
     :math:`\mathbf v^\top \mathbb B[\hat{\mathbf y}] \mathbf u = \langle \mathbf m, \widehat{[A_{\mathbf u}, A_{\mathbf v}]}\rangle`
     and :math:`\hat{\mathbf y} = (\mathbb M^2_{\textnormal{log}})^{-1} \mathbf m` the representer of the momentum
     :math:`\mathbf m` with the unweighted logical mass matrix of the 2-forms). The semi-discrete problem is
