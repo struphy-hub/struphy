@@ -1,6 +1,56 @@
 # Changelog
 
 
+## Struphy 3.6.1 - 2026-11-05
+
+* [PyPI](https://pypi.org/project/struphy/3.6.1)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.6.1)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.6.0...v3.6.1)
+
+
+### Headlines
+
+* **ITPA TAE benchmark with energetic particles**: the new example `examples/LinearMHDDriftkineticCC/itpa_tae_benchmark` runs the n = 6 TAE of the ITPA benchmark (Könies et al. 2018), driven by 400 keV deuterons, with `CanonicalMaxwellian2D`, delta-f markers and flags for the Fourier filter, the marker boundary condition and the EP parameters; its pproc script checks the TAE frequency against the benchmark. The `LinearMHD` and `ShearAlfven` ITPA examples now use the benchmark units, the new propagator `MagnetosonicCrossB0` is used by the example, and marker refill (`BoundaryParameters(bc=("refill", ...))`) works now (before, it was silently ignored and refilled markers landed at the wrong toroidal phase). https://github.com/struphy-hub/struphy/pull/881
+* **Polar splines in Schur solvers and the Vlasov-Ampère coupling**: `SchurSolver` applies the Schur complement lazily through the new `SchurOperator` when it cannot be assembled as one matrix, so `ShearAlfven`, `MaxwellWeakAmpere` and `VlasovAmpereCoupling` now run with polar splines for every preconditioner (before, feectools failed with `assert a.domain == domain`). Accumulators return polar vectors with polar splines, and `VlasovAmpereCoupling` uses polar buffers for `e`. https://github.com/struphy-hub/struphy/pull/883
+
+### API changes
+
+* The PR makes the singular quasi-neutrality system of `GyrokineticPoisson` and `DriftKineticElectrostaticAdiabatic` well-posed (new `ImplicitDiffusion.lhs_is_singular`), and makes `en_phi` of DKEA consistent with the solved equation. https://github.com/struphy-hub/struphy/pull/874
+* `CanonicalMaxwellian2D` gets the argument `shift` with the new default `"Bmax"`, which shifts the canonical toroidal momentum with the maximum of `|B|` on the flux surface, so `f0(psi_c)` is an exact equilibrium of the guiding-center motion (with the old shift, barely trapped particles carried a spurious delta-f). `shifted` is deprecated; `AxisymmMHDequilibrium` gets `absB_RZ()`, `absB_max()` and `absB_max_table()`. https://github.com/struphy-hub/struphy/pull/877
+* `LoadingParameters.B0` and `GyroMaxwellian2D(B0=...)` accept a number, a callable or `"equil"`, which is the new default (was `2.0`): `Particles5D` draws the magnetic moment with the local `|B_0|` of the species' equilibrium, so the markers are Maxwellian in `v_perp` at their position, consistent with the sampling density. New helpers `maxwellians.check_B0_option` and `maxwellians.eval_B0_option`. https://github.com/struphy-hub/struphy/pull/878
+* The default `solver` of `JxBCold.Options` is now `"gmres"` (with `maxiter=300`), since `pbicgstab` with the mass-matrix preconditioner converged erratically (42 to 3000 iterations for roundoff-level changes); symmetric solvers in old parameter files are now replaced by `"gmres"`. https://github.com/struphy-hub/struphy/pull/880
+* `MHDequilibrium` gets the methods `gradp1()` (pressure gradient as a 1-form) and `j_dia2()`, `j_dia2_1()`, `j_dia2_2()`, `j_dia2_3()` (diamagnetic current as a 2-form), used by the new propagator `MagnetosonicCrossB0`. https://github.com/struphy-hub/struphy/pull/881
+* The hybrid models `LinearMHDVlasovPC`, `LinearMHDVlasovCC` and `LinearMHDDriftkineticCC` get the model flag `b_space` (`"Hdiv"` default, `"Hcurl"`), and `LinearMHDDriftkineticCC` also `projected`, as in `LinearMHD`. New `BasisProjectionOperators.PB1form`. https://github.com/struphy-hub/struphy/pull/890
+
+### Physics models
+
+* New model family `LinearEulerWithQ` → `LinearMHDWithQ`: the equations of the LinearEuler family with `q = sqrt(p)` as thermodynamic variable, with the new propagators `SoundWaveLinearWithQ` and `BackgroundQGradient`. `LinearMHDWithQ` supports `b_space="Hdiv"`, `"Hcurl"` and `projected`, as `LinearMHD`. https://github.com/struphy-hub/struphy/pull/861
+* New perturbative (nonlinear) models `PerturbativeEulerWithQ(LinearEulerWithQ)` and `PerturbativeMHDWithQ(LinearMHDWithQ)` for the perturbations of a static equilibrium, where each nonlinear term is a separate, exactly energy conserving step: the new propagators `SoundWaveNonlinearWithQ`, `MomentumAdvection` and `ShearAlfvenNonlinear`. https://github.com/struphy-hub/struphy/pull/864
+* New propagator `MagnetosonicCrossB0`: the equations of `Magnetosonic`, with the equilibrium terms written through `B0 x` and the diamagnetic current (requires `B0 . grad p0 = 0`); used by the ITPA TAE example of `LinearMHDDriftkineticCC`. https://github.com/struphy-hub/struphy/pull/881
+* New propagators with true 1-form couplings for a magnetic field in H(curl): `PushVxB1form`, `CurrentCoupling6DDensity1form`, `CurrentCoupling6DCurrent1form`, `CurrentCoupling5DDensity1form`, `CurrentCoupling5DGradB1form`, `CurrentCoupling5DCurlb1form`, `PushGuidingCenterBxEstar1form`, `PushGuidingCenterParallel1form`, and the curl-curl step `ShearAlfvenCurlCurlCurrentCoupling5D` (exactly energy conserving with `projected=True`). The field is never converted to a 2-form; the kernels evaluate the 1-form directly. https://github.com/struphy-hub/struphy/pull/890
+
+### Bug fixes
+
+* Fix `push_pc_eta_stage_Hcurl/Hdiv/H1vec` (`PushEtaPC`, used by `LinearMHDVlasovPC`) and `push_deterministic_diffusion_stage`, which skipped only holes and pushed markers reflected in an earlier Runge-Kutta stage again from `eta1 = -1`, so that they left the domain. https://github.com/struphy-hub/struphy/pull/872
+* Fix stale scalar quantities in a second `Simulation.run()` on the same object (model test restarts, notebooks): the scalars cached the objects of the first allocation and saved the last value of the first run in every step. The new hook `Scalar.allocate()` fetches the objects again after each allocation. https://github.com/struphy-hub/struphy/pull/876
+* Fix `SchurSolver` with polar splines, which added the polar operator `BC` to the tensor-product stencil matrix of `A` and failed in feectools for `ShearAlfven`, `MaxwellWeakAmpere` and `VlasovAmpereCoupling` (see Headlines). https://github.com/struphy-hub/struphy/pull/883
+
+### Internals
+
+* `LinearMHDDriftkineticCC` runs on the GPU (CuPy backend): CUDA versions of its guiding-center pushers, current-coupling accumulations and the magnetic-energy diagnostic, each with a CPU/CUDA parity test, and a `--setup profiling` mode in the `lowmode_tae` example. https://github.com/struphy-hub/struphy/pull/865
+* `LinearMHDVlasovCC` and `LinearMHDVlasovPC` run on the GPU: CUDA versions of 17 pushers and (matrix-free) accumulation kernels with parity tests; the 6D coupling propagators no longer fall back to assembled matrices on CuPy. https://github.com/struphy-hub/struphy/pull/867
+* Fix the scheduled CI workflows: pytest on the installed package now gets `--rootdir`, so `conftest.py` is loaded, and the install includes `plasma-plots` for the example pproc scripts. https://github.com/struphy-hub/struphy/pull/869
+* Well-conditioned test inputs for the `push_gc_Bstar_explicit_multistage` CUDA parity cases, which failed machine-dependently because `B*_par` nearly vanished for one marker. https://github.com/struphy-hub/struphy/pull/870
+* The docs build is tested in CI for PRs into `devel` and `main` (tutorial notebooks skipped), GitHub Pages is published only on pushes to `main`, and `plasma-plots>=0.1.1` is required (Python 3.10 support). https://github.com/struphy-hub/struphy/pull/659
+* `VariationalPressurelessFluid` and `VariationalBarotropicFluid` use Newton instead of Picard iterations for the momentum advection in their default parameter files, which blew up in the first step. https://github.com/struphy-hub/struphy/pull/875
+* `CanonicalMaxwellian2D` evaluates `psi_c` once per call and never reuses it across calls; the old cache, checked at only 4 sample markers, accepted stale values after small marker moves or MPI sorting and added control-variate noise. https://github.com/struphy-hub/struphy/pull/879
+* Linear variational MHD (`crank_nicolson=True`) assembles the second-order force with the equilibrium current of the dual complex, without wall conditions, which removes a spurious growing mode at the inner wall of a hollow cylinder; the substeps stay exactly energy conserving. https://github.com/struphy-hub/struphy/pull/884
+* Polar splines in `VlasovMaxwellCoupling`, `DriftKineticMaxwellCoupling` and `EfieldWeightsCoupling`, which asserted `not polar_splines` or read polar blocks in the pusher; tensor-product runs are unchanged. https://github.com/struphy-hub/struphy/pull/885
+* `VariationalViscosity` with the velocity in H(div) computes the vorticity as the weak curl, i.e. perfect slip at the wall; before, the projection to H(curl) imposed a grid-dependent slip penalty of order `mu/h`. https://github.com/struphy-hub/struphy/pull/888
+* The `ShearAlfven` ITPA TAE example uses `--b-space Hcurl` and `--dt 0.2` by default, since `Hdiv` on the default 24x44x8 grid has no TAE; new flags `--tend`, `--a1` and `--degree`. https://github.com/struphy-hub/struphy/pull/887
+
+
 ## Struphy 3.6.0 - 2026-10-31
 
 * [PyPI](https://pypi.org/project/struphy/3.6.0)
