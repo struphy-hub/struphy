@@ -199,9 +199,10 @@ plasma are removed (--marker-bc remove) or refilled on the same field line (--ma
 Filter of the accumulated moments: {args.filter}.
 
 Cost. With 1e5 markers on 4 MPI ranks (dt = 0.25, default pushers), a time step took about 16 s with --b-space Hdiv
-(24 x 96 x 16) and about 11 s with --b-space Hcurl (24 x 44 x 16, the shear Alfven step with nonlinear=False;
-nonlinear=True, the default, adds about 8 s). The marker noise of the magnetization makes the
-curl-curl solve of the H(curl) step need about 60-70 Hiptmair-Xu iterations instead of about 10 without energetic
+(24 x 96 x 16) and about 19 s with --b-space Hcurl (24 x 44 x 16; about 8 s of it for the mass matrices of the total
+field in the shear Alfven step, nonlinear=True by default; about 11 s with nonlinear=False). The marker noise of
+the magnetization makes the curl-curl solve of the H(curl) step need about 60-70 Hiptmair-Xu iterations instead of
+about 10 without energetic
 ions (the H(div) solve: about 25), and the number grows with dt (about 300 at dt = 1). The guiding-center pushers and
 the current coupling scale with the number of markers per rank (on 24 x 88 x 8 with 1e6 markers, dt = 1 and RK4 for
 the parallel motion, a time step took about 26-30 s with H(div)): the run is meant for a cluster with many more ranks.
