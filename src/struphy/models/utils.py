@@ -6,7 +6,7 @@ from feectools.linalg.block import BlockVector
 import struphy.models as models
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel, apply_splitting_order
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, KineticEnergyPIC, LostMarkersPIC
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
@@ -257,6 +257,64 @@ def add_perturbative_scalars(scalars: dict, mhd, energies: PerturbativeEnergies)
     scalars["en_q2"] = BilinearEnergyFEEC(mhd.sqrt_p, bilinear_form_name="M3", normalization=2 / (GAMMA - 1))
     scalars["en_internal"] = FunctionScalarFEEC(energies.en_internal)
     scalars["en_tot"] = FunctionScalarFEEC(energies.en_tot)
+
+
+## hybrid MHD models with energetic ions (LinearMHD* and PerturbativeMHDWithQ* hybrids)
+
+
+def add_energetic_ion_scalars(scalars: dict, mhd, energetic_ions, extra: dict = None, kinetic_name: str = "en_f"):
+    """Add the scalars of the energetic ions to those of the fluid model: their kinetic energy ``en_f`` (normalized
+    with the mass ratio :math:`A_\\textnormal{h} / A_\\textnormal{b}`), further energies ``extra`` (e.g. the magnetic
+    moment energy of guiding centers), the total energy ``en_tot`` (the fluid one plus all of them, kept last) and the
+    number of lost markers ``n_lost_particles``.
+
+    Parameters
+    ----------
+    scalars : dict
+        Scalars of the fluid model (with ``en_tot``), modified in place.
+    mhd : FluidSpecies
+        The fluid species ``mhd`` of the model (for the bulk mass number).
+    energetic_ions : ParticleSpecies
+        The energetic ions (species with the PIC variable ``var``).
+    extra : dict, optional
+        Further energies of the energetic ions (name -> scalar), added after ``en_f`` and to ``en_tot``.
+    kinetic_name : str
+        Name of the kinetic energy scalar (default ``"en_f"``).
+    """
+    en_tot = scalars.pop("en_tot")
+    Ab = mhd.mass_number
+    Ah = energetic_ions.var.species.mass_number
+    energies = {kinetic_name: KineticEnergyPIC(energetic_ions.var, normalization=Ah / Ab), **(extra or {})}
+    for name, energy in energies.items():
+        scalars[name] = energy
+        en_tot = en_tot + energy
+    scalars["en_tot"] = en_tot
+    scalars["n_lost_particles"] = LostMarkersPIC(energetic_ions.var)
+
+
+def add_binning_plot(params_path: str, binning_plot: str = "BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))"):
+    """Replace the ``saving_params`` of a default parameter file by ``SavingParameters`` with one binning plot of the
+    energetic ions (``binning_plot``, Python code).
+
+    Parameters
+    ----------
+    params_path : str
+        Path of the parameter file (modified in place).
+    binning_plot : str
+        Python code of the :class:`~struphy.io.options.BinningPlot`.
+    """
+    new_file = []
+    with open(params_path, "r") as f:
+        for line in f:
+            if "saving_params = " in line:
+                new_file += [f"\nbinplot = {binning_plot}\n"]
+                new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
+            else:
+                new_file += [line]
+
+    with open(params_path, "w") as f:
+        for line in new_file:
+            f.write(line)
 
 
 if __name__ == "__main__":

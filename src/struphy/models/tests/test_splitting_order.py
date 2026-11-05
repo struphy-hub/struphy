@@ -240,6 +240,24 @@ def test_linear_mhd_hybrids_inherit_linear_mhd():
 
 
 @pytest.mark.mpi_skip
+def test_perturbative_mhd_hybrids_inherit_perturbative_mhd():
+    from struphy.models import PerturbativeMHDWithQ, PerturbativeMHDWithQVlasovCC, PerturbativeMHDWithQVlasovPC
+
+    parent_names = list(vars(PerturbativeMHDWithQ().propagators))
+    for model_class in (PerturbativeMHDWithQVlasovCC, PerturbativeMHDWithQVlasovPC):
+        model = model_class(mhd_mass_number=2.0, hot_mass_number=3.0)
+        assert isinstance(model, PerturbativeMHDWithQ)
+        assert model.mhd.mass_number == 2.0 and model.energetic_ions.mass_number == 3.0
+        assert model.em_fields.b_field.space == "Hdiv"
+        names = list(vars(model.propagators))
+        # the steps of the parent, in the parent's order, with its Strang group consecutive
+        assert [name for name in names if name in parent_names] == parent_names, model_class.__name__
+        assert names.index("bg_current") + 1 == names.index("bg_q") == names.index("sound") - 1
+        assert {"en_U", "en_internal", "en_B", "en_f", "en_tot", "n_lost_particles"} <= set(model.scalars._dct)
+        assert list(model.scalars._dct)[-2:] == ["en_tot", "n_lost_particles"]
+
+
+@pytest.mark.mpi_skip
 def test_linear_mhd_hybrids_in_old_metadata():
     from struphy.models import LinearMHDDriftkineticCC, LinearMHDVlasovPC
     from struphy.models.base import StruphyModel
