@@ -18,8 +18,9 @@ from pathlib import Path
 C_FIT = (0.51643, 0.13619, 0.10274, 0.56458)
 
 # Command line options
-# `--out-folder` and `--sim-folder` set the output folder; `--b-space` the space of the magnetic field (default
-# Hcurl); `--num-elements` the grid (default 24 44 16 with Hcurl, 24 96 16 with Hdiv; PR #887, issue #889).
+# `--out-folder` and `--sim-folder` set the output folder (default sim_Bmax_<b-space>); `--b-space` the space of
+# the magnetic field (default Hdiv); `--num-elements` the grid (default 24 96 16 with Hdiv, 24 44 16 with Hcurl;
+# PR #887, issue #889).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
@@ -29,23 +30,24 @@ parser.add_argument(
     default=str(Path(__file__).resolve().parent),
     help="Folder in which the output folder is created (default: beside this file).",
 )
-parser.add_argument("--sim-folder", default="sim_Bmax", help="Name of the output folder.")
+parser.add_argument(
+    "--sim-folder", default=None, help="Name of the output folder (default: sim_Bmax_<b-space>, e.g. sim_Bmax_Hdiv)."
+)
 parser.add_argument(
     "--num-elements",
     type=int,
     nargs=3,
     default=None,
-    help="Number of elements per direction (default 24 44 16 with --b-space Hcurl, 24 96 16 with Hdiv: the H(div) "
+    help="Number of elements per direction (default 24 96 16 with --b-space Hdiv, 24 44 16 with Hcurl: the H(div) "
     "shear Alfven step needs about 8 elements per poloidal wavelength of the m = 10 harmonic for the right TAE "
     "frequency, see the description).",
 )
 parser.add_argument(
     "--b-space",
-    default=None,
+    default="Hdiv",
     choices=["Hdiv", "Hcurl"],
-    help="Space of the magnetic field (model flag b_space): Hcurl (default; curl-curl shear Alfven step, 1-form "
-    "couplings and pushers, fewer poloidal elements) or Hdiv (default with --magnetosonic-cross-b0), see the "
-    "description.",
+    help="Space of the magnetic field (model flag b_space): Hdiv (default) or Hcurl (curl-curl shear Alfven step, "
+    "1-form couplings and pushers, fewer poloidal elements, not yet validated by a full run), see the description.",
 )
 parser.add_argument(
     "--projected",
@@ -121,15 +123,14 @@ parser.add_argument(
     "for the tests (test_examples.py).",
 )
 args, _ = parser.parse_known_args()
-if args.b_space is None:
-    # MagnetosonicCrossB0 needs the magnetic field in H(div)
-    args.b_space = "Hdiv" if args.magnetosonic_cross_b0 else "Hcurl"
+if args.sim_folder is None:
+    args.sim_folder = f"sim_Bmax_{args.b_space}"
 if args.projected and args.b_space != "Hcurl":
     parser.error("--projected requires --b-space Hcurl.")
 if args.magnetosonic_cross_b0 and args.b_space != "Hdiv":
     parser.error("--magnetosonic-cross-b0 requires --b-space Hdiv.")
 if args.num_elements is None:
-    args.num_elements = [24, 44, 16] if args.b_space == "Hcurl" else [24, 96, 16]
+    args.num_elements = [24, 96, 16] if args.b_space == "Hdiv" else [24, 44, 16]
 if args.test_run:
     args.num_elements = [8, 32, 4]
     args.Np = 2000
@@ -167,13 +168,13 @@ t = {args.tend}. The compressional MHD is included, with the background current,
 background pressure and sound steps of LinearMHD or, with --magnetosonic-cross-b0, with MagnetosonicCrossB0, which
 writes the current force and the pressure work through B0 x like the shear Alfven step:
 {args.magnetosonic_cross_b0}.
-The magnetic field is in {args.b_space} (--b-space). With H(curl) (default), the shear Alfven step is the curl-curl
+The magnetic field is in {args.b_space} (--b-space). With H(curl), the shear Alfven step is the curl-curl
 step coupled to the magnetization of the energetic ions (ShearAlfvenCurlCurlCurrentCoupling5D: weak products of the
 Lorentz force, no basis projection) and the couplings and guiding-center pushers use the 1-form field (issue #889);
 44 poloidal elements (about 4 per wavelength of the m = 10 harmonic), as in the ShearAlfven and LinearMHD versions
 of this benchmark, which give the benchmark frequency with them (PR #887); the H(curl) setup of this example has not
-yet been validated by a full run (issue #889). With H(div), the shear Alfven step uses
-the commuting projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal interpolation error makes the
+yet been validated by a full run (issue #889). With H(div) (default, the more robust choice), the shear Alfven step
+uses the commuting projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal interpolation error makes the
 effective poloidal mode number about 2-3% too small with 44 elements, which shifts the continuum near the gap (where
 n q - m nearly cancels) so much that there is no TAE (PR #887): hence 96 poloidal elements with H(div). Boundary
 conditions at the walls: b.n = 0 and u.n = 0 imposed strongly with H(div); free boundary conditions with H(curl)
@@ -197,8 +198,9 @@ of the paper). The guiding-center pushers use {args.drift_algo} for the drifts (
 plasma are removed (--marker-bc remove) or refilled on the same field line (--marker-bc refill): {args.marker_bc}.
 Filter of the accumulated moments: {args.filter}.
 
-Cost. With 1e5 markers on 4 MPI ranks (dt = 0.25, default pushers), a time step took about 11 s with --b-space Hcurl
-(24 x 44 x 16) and about 16 s with --b-space Hdiv (24 x 96 x 16). The marker noise of the magnetization makes the
+Cost. With 1e5 markers on 4 MPI ranks (dt = 0.25, default pushers), a time step took about 16 s with --b-space Hdiv
+(24 x 96 x 16) and about 11 s with --b-space Hcurl (24 x 44 x 16, the shear Alfven step with nonlinear=False;
+nonlinear=True, the default, adds about 8 s). The marker noise of the magnetization makes the
 curl-curl solve of the H(curl) step need about 60-70 Hiptmair-Xu iterations instead of about 10 without energetic
 ions (the H(div) solve: about 25), and the number grows with dt (about 300 at dt = 1). The guiding-center pushers and
 the current coupling scale with the number of markers per rank (on 24 x 88 x 8 with 1e6 markers, dt = 1 and RK4 for

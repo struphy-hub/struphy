@@ -111,11 +111,12 @@ class ShearAlfvenCurlCurlCurrentCoupling5D(ShearAlfvenCurlCurlPropagator):
         filter_params : FilterParameters, default=None
             Filter of the accumulated vector; defaults to ``FilterParameters()`` (no filter). With a filter the energy
             is no longer conserved exactly (the filter acts on the accumulated vector only).
-        nonlinear : bool, default=False
-            If ``True``, the Lorentz force uses the total magnetic field :math:`\mathbf B_0 + \tilde{\mathbf B}` (mass
-            matrices assembled in each step, which costs about as much as the curl-curl solve itself), else the
-            equilibrium field :math:`\mathbf B_0` (default; as the shear-Alfvén step of
-            :class:`~struphy.models.LinearMHD`).
+        nonlinear : bool, default=True
+            If ``True`` (default, as the H(div) step
+            :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`), the Lorentz
+            force uses the total magnetic field :math:`\mathbf B_0 + \tilde{\mathbf B}` (mass matrices assembled in
+            each step, which costs about as much as the curl-curl solve itself), else the equilibrium field
+            :math:`\mathbf B_0`.
         solver_params_M1 : SolverParameters, default=None
             Solver controls of the inner ``M1`` solve for the magnetization (pcg with the mass matrix preconditioner);
             defaults to ``SolverParameters(tol=1e-14)``.
@@ -123,7 +124,7 @@ class ShearAlfvenCurlCurlCurrentCoupling5D(ShearAlfvenCurlCurlPropagator):
 
         ep_scale: float = None
         filter_params: FilterParameters = None
-        nonlinear: bool = False
+        nonlinear: bool = True
         solver_params_M1: SolverParameters = None
 
         def __post_init__(self):
