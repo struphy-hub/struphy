@@ -1,6 +1,5 @@
 """Tests of the bracket of the variational momentum advection for a velocity in H(div)
-(:class:`~struphy.feec.variational_utilities.HdivBracketOperator`) and of the auxiliary space of double knots
-(:class:`~struphy.feec.variational_utilities.DoubleKnotSpace`)."""
+(:class:`~struphy.feec.variational_utilities.HdivBracketOperator`)."""
 
 import cunumpy as xp
 import numpy as np
@@ -10,7 +9,11 @@ from maybempi import MPI
 from struphy import domains
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
-from struphy.feec.variational_utilities import DoubleKnotSpace, HdivBracketOperator
+from struphy.feec.variational_utilities import (
+    HdivBracketMomentumDerivative,
+    HdivBracketOperator,
+    eval_bases_with_derivatives,
+)
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
@@ -37,57 +40,6 @@ def _random_vector(space, seed):
         block._data[:] = xp.asarray(rng.standard_normal(block._data.shape))
     v.update_ghost_regions()
     return v
-
-
-@pytest.mark.parametrize("map_name", ["Cuboid", "HollowTorus"])
-@pytest.mark.parametrize("bcs", [BCS, (None, None, None)])
-def test_double_knot_space(map_name, bcs):
-    """W contains the constants (integral of the basis = volume), and the preconditioned solves with M^W[sqrt g]
-    converge in few iterations, also on the HollowTorus."""
-    from feectools.linalg.solvers import inverse
-
-    domain = MAPS[map_name]()
-    derham = _derham(domain, (8, 6, 4), (3, 2, 2), bcs=bcs)
-    W = DoubleKnotSpace(derham, domain)
-
-    # W has two coefficients per element and direction (double knots)
-    for n, nel, p, bc in zip(W.space.npts, (8, 6, 4), (3, 2, 2), bcs):
-        assert n == (2 * nel if bc is None else 2 * nel + p - 1)
-
-    # the constant 1 (all coefficients one): int sqrt g = volume of the domain
-    ones = W.space.zeros()
-    ones._data[W._owned] = 1.0
-    ones.update_ghost_regions()
-    assert xp.allclose(W.evaluate(ones), 1.0)
-    vol = ones.inner(W.mass.dot(ones))
-    vol_quad = W.integrate(W.sqrt_g).inner(ones)
-    assert np.isclose(vol, vol_quad, rtol=1e-12)
-
-    # derivatives of the constant vanish
-    for j in range(3):
-        assert xp.allclose(W.evaluate(ones, derivative=j), 0.0, atol=1e-10)
-
-    # the stored mass matrix equals the matrix-free one (also in the ghost regions, i.e. across MPI ranks)
-    g = W.space.zeros()
-    rng = np.random.default_rng(5 + MPI.COMM_WORLD.Get_rank())
-    g._data[W._owned] = xp.asarray(rng.standard_normal(g._data[W._owned].shape))
-    g.update_ghost_regions()
-    Mg = W.mass.dot(g)
-    Mg_free = W.mass_matrix_free.dot(g)
-    diff = Mg - Mg_free
-    assert (diff.inner(diff) / Mg_free.inner(Mg_free)) ** 0.5 < 1e-13
-    assert xp.allclose(Mg._data, Mg_free._data, rtol=0.0, atol=1e-13 * float(xp.max(xp.abs(Mg_free._data))))
-
-    # solve with M^W[sqrt g]
-    f = W.space.zeros()
-    rng = np.random.default_rng(3 + MPI.COMM_WORLD.Get_rank())
-    f._data[W._owned] = xp.asarray(rng.standard_normal(f._data[W._owned].shape))
-    f.update_ghost_regions()
-    solver = inverse(W.mass, "pcg", pc=W.mass_pc, tol=1e-13, maxiter=200)
-    sol = solver.dot(W.mass.dot(f))
-    diff = sol - f
-    assert (diff.inner(diff) / f.inner(f)) ** 0.5 < 1e-9
-    assert solver._info["niter"] < 30, f"{solver._info = }"
 
 
 @pytest.mark.parametrize("map_name", ["Cuboid", "Colella", "HollowTorus"])
@@ -173,6 +125,59 @@ def test_hdiv_bracket_convergence(map_name):
     assert errors[0] / errors[1] > 8.0, f"{errors = }"
 
 
+@pytest.mark.parametrize("degree", [(2, 2, 2), (3, 2, 3)])
+def test_eval_bases_with_derivatives(degree):
+    """The derivatives of the N- and D-splines at the quadrature points agree with finite differences, and the
+    values with Derham.prepare_eval_tp_fixed."""
+    domain = MAPS["Cuboid"]()
+    derham = _derham(domain, (6, 5, 4), degree, bcs=(("dirichlet", "dirichlet"), None, ("free", "free")))
+    pts = [pt.flatten() for pt in derham.V0splines.quad_grid_pts[0]]
+    spans, bn, bd, dbn, dbd = eval_bases_with_derivatives(derham, pts)
+    h = 1e-6
+    for d in range(3):
+        pts_p = list(pts)
+        pts_m = list(pts)
+        pts_p[d] = pts[d] + h
+        pts_m[d] = pts[d] - h
+        _, bn_p, bd_p = derham.prepare_eval_tp_fixed(pts_p)
+        _, bn_m, bd_m = derham.prepare_eval_tp_fixed(pts_m)
+        _, bn_0, bd_0 = derham.prepare_eval_tp_fixed(pts)
+        assert xp.allclose(bn[d], bn_0[d]) and xp.allclose(bd[d], bd_0[d])
+        assert xp.allclose(dbn[d], (bn_p[d] - bn_m[d]) / (2 * h), atol=1e-5 * float(xp.max(xp.abs(dbn[d]))))
+        assert xp.allclose(dbd[d], (bd_p[d] - bd_m[d]) / (2 * h), atol=1e-5 * float(xp.max(xp.abs(dbd[d]))))
+
+
+@pytest.mark.parametrize("map_name", ["Colella", "HollowTorus"])
+def test_hdiv_bracket_matrix_free(map_name):
+    """The assembled bracket (N, R) equals its matrix-free application, and the derivative with respect to the
+    momentum is consistent with the bracket (bilinearity)."""
+    domain = MAPS[map_name]()
+    derham = _derham(domain, (6, 6, 4), (3, 2, 2))
+    mass_ops = WeightedMassOperators(derham, domain)
+    B = HdivBracketOperator(derham, domain, mass_ops)
+    bc = derham.boundary_ops["2"]
+
+    m = mass_ops.M2.dot(_random_vector(derham.V2pol, 11))
+    B.update_momentum(m)
+    u = bc.dot(_random_vector(derham.V2pol, 13))
+    Bu = B.dot(u)
+
+    shape = B.shape_q
+    u_q = [xp.zeros(shape) for _ in range(3)]
+    divu_q = xp.zeros(shape)
+    B.velocity_values(u, u_q, divu_q)
+    Bu_free = B.apply_values(u_q, divu_q, B._y_q, B._c_q)
+    diff = Bu - Bu_free
+    assert (diff.inner(diff) / Bu.inner(Bu)) ** 0.5 < 1e-12
+
+    # D[u] m = B[y(m)] u
+    D = HdivBracketMomentumDerivative(B)
+    D.set_velocity(u)
+    Dm = D.dot(m)
+    diff = Dm - Bu
+    assert (diff.inner(diff) / Bu.inner(Bu)) ** 0.5 < 1e-10
+
+
 def test_hdiv_bracket_rejects_polar():
     """Polar splines are not supported."""
     domain = domains.IGAPolarCylinder(num_elements=(6, 9), degree=(2, 2), a=1.0, Lz=3.0)
@@ -189,6 +194,6 @@ def test_hdiv_bracket_rejects_polar():
 
 
 if __name__ == "__main__":
-    test_double_knot_space("HollowTorus", BCS)
     test_hdiv_bracket_skew("HollowTorus", (3, 2, 3))
     test_hdiv_bracket_convergence("Colella")
+    test_hdiv_bracket_matrix_free("HollowTorus")

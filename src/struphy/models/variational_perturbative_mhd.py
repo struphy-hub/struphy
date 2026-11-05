@@ -418,8 +418,8 @@ class VariationalPerturbativeMHD(StruphyModel):
 
         **Velocity in** :math:`H(\textnormal{div})` **for the nonlinear model** (``u_space="Hdiv"``): the advection of
         the momentum (the commutator of the Euler-Poincaré equations) is discretized with the vector fields acting as
-        derivations on an auxiliary spline space with double knots, which contains all components of the 2-forms
-        (:class:`~struphy.feec.variational_utilities.HdivBracketOperator`). It needs the degree :math:`p \geq 2`,
+        derivations on an auxiliary space that contains the contravariant velocity components, so that the
+        bracket needs no projection (:class:`~struphy.feec.variational_utilities.HdivBracketOperator`). It needs the degree :math:`p \geq 2`,
         except in periodic directions with one element, and no polar splines. The velocity mass matrix is the 2-form
         mass matrix of the total density :math:`\rho_0 + \tilde\rho`, and the energy is conserved up to the solver
         tolerances, as with the velocity in :math:`(H^1)^3`.
