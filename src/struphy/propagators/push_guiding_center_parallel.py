@@ -95,6 +95,16 @@ class PushGuidingCenterParallel(Propagator):
             assert "Particles5D" in new.space
             self._ions = new
 
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # PushGuidingCenterParallel1form), the basis operator of its parallel component and the kernels that evaluate it
+    _b_form = "2"
+    _pb_name = "PB"
+    _kernels = {
+        "bstar": bstar_2form,
+        "discrete_gradient_2nd_order": push_gc_Bstar_discrete_gradient_2nd_order,
+        "explicit": push_gc_Bstar_explicit_multistage,
+    }
+
     def __init__(
         self,
         phi: FEECVariable = None,
@@ -119,6 +129,8 @@ class PushGuidingCenterParallel(Propagator):
         assert phi is None or e_field is None, "Pass either the potential phi or the electric field e_field, not both."
         if e_field is not None:
             assert isinstance(e_field, FEECVariable) and e_field.space == "Hcurl", "e_field must be in Hcurl."
+        b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
+        assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.e_field = e_field
         self.variables = self.Variables()
         self.phi = phi if phi is not None else FEECVariable(space="H1")
@@ -200,7 +212,7 @@ class PushGuidingCenterParallel(Propagator):
 
         # magnetic equilibrium field
         self._gradB1 = self.projected_equil.gradB1
-        b2 = self.projected_equil.b2
+        b_eq = getattr(self.projected_equil, "b" + self._b_form)
         curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._absB0 = self.projected_equil.absB0
         curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
@@ -209,17 +221,18 @@ class PushGuidingCenterParallel(Propagator):
         # PolarVector --> Stencil-/BlockVector (identity maps in case of no polar splines)
         self._E0T = self.derham.extraction_ops["0"].transpose()
         self._E1T = self.derham.extraction_ops["1"].transpose()
-        self._E2T = self.derham.extraction_ops["2"].transpose()
+        self._EbT = self.derham.extraction_ops[self._b_form].transpose()
 
-        # magnetic perturbation (in B* = B0 + b_tilde + epsilon v_par curl b0 and in B*_parallel and |B|)
+        # magnetic perturbation (in B* = B0 + b_tilde + epsilon v_par curl b0 and in B*_parallel and |B|);
+        # b_full holds the tensor-product coefficients of the total field (a 2-form, or a 1-form in the subclass)
         if self.b_tilde is not None:
             self._B_dot_b = self.derham.V0.zeros()
             self._grad_b_full = self.derham.V1.zeros()
-            self._b2_eq = b2
-            self._b2_full = b2.space.zeros()
-            b2 = self._b2_full
+            self._b_eq = b_eq
+            self._b_full = b_eq.space.zeros()
+            b_full = self._b_full
 
-            self._PB = getattr(self.basis_ops, "PB")
+            self._PB = getattr(self.basis_ops, self._pb_name)
             self._B_dot_b_pol = self._PB.codomain.zeros()
             self._grad_b_pol = self.derham.grad.codomain.zeros()
 
@@ -227,6 +240,7 @@ class PushGuidingCenterParallel(Propagator):
         else:
             self._grad_b_full = self._gradB1
             self._B_dot_b = self._absB0
+            b_full = b_eq
 
         # allocate electric potential (self._phi holds its tensor-product coefficients)
         if self._allocate_phi:
@@ -285,14 +299,14 @@ class PushGuidingCenterParallel(Propagator):
 
                 self.add_init_kernel(
                     KernelSetup(
-                        kernel=bstar_2form,
+                        kernel=self._kernels["bstar"],
                         output_indices=(first_free_idx + 2, first_free_idx + 3, first_free_idx + 4),
                         args=(
                             self.derham.args_derham,
                             self._epsilon,
-                            b2[0]._data,
-                            b2[1]._data,
-                            b2[2]._data,
+                            b_full[0]._data,
+                            b_full[1]._data,
+                            b_full[2]._data,
                             curl_unit_b2[0]._data,
                             curl_unit_b2[1]._data,
                             curl_unit_b2[2]._data,
@@ -453,7 +467,7 @@ class PushGuidingCenterParallel(Propagator):
                 )  # evaluate at Z^{n+1,k} and save
 
                 # pusher kernel
-                kernel = push_gc_Bstar_discrete_gradient_2nd_order
+                kernel = self._kernels["discrete_gradient_2nd_order"]
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -462,9 +476,9 @@ class PushGuidingCenterParallel(Propagator):
                     self._grad_b_full[0]._data,
                     self._grad_b_full[1]._data,
                     self._grad_b_full[2]._data,
-                    b2[0]._data,
-                    b2[1]._data,
-                    b2[2]._data,
+                    b_full[0]._data,
+                    b_full[1]._data,
+                    b_full[2]._data,
                     curl_unit_b2[0]._data,
                     curl_unit_b2[1]._data,
                     curl_unit_b2[2]._data,
@@ -498,7 +512,7 @@ class PushGuidingCenterParallel(Propagator):
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
 
-            kernel = push_gc_Bstar_explicit_multistage
+            kernel = self._kernels["explicit"]
 
             args_kernel = (
                 self.derham.args_derham,
@@ -506,9 +520,9 @@ class PushGuidingCenterParallel(Propagator):
                 self._grad_b_full[0]._data,
                 self._grad_b_full[1]._data,
                 self._grad_b_full[2]._data,
-                b2[0]._data,
-                b2[1]._data,
-                b2[2]._data,
+                b_full[0]._data,
+                b_full[1]._data,
+                b_full[2]._data,
                 curl_unit_b2[0]._data,
                 curl_unit_b2[1]._data,
                 curl_unit_b2[2]._data,
@@ -540,8 +554,8 @@ class PushGuidingCenterParallel(Propagator):
         phi.update_ghost_regions()
 
     def _update_b_tilde(self):
-        """Total magnetic field (2-form), parallel magnetic field and its gradient (equilibrium plus perturbation) in the
-        tensor-product spaces."""
+        """Total magnetic field (a 2-form, or a 1-form in the subclass), parallel magnetic field and its gradient
+        (equilibrium plus perturbation) in the tensor-product spaces."""
         B_dot_b_pol = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b_pol)
         B_dot_b = self._E0T.dot(B_dot_b_pol, out=self._B_dot_b)
         B_dot_b.update_ghost_regions()
@@ -553,10 +567,10 @@ class PushGuidingCenterParallel(Propagator):
         grad_b_full += self._gradB1
         B_dot_b += self._absB0
 
-        # total magnetic field B0 + b_tilde (2-form) in B*
-        b2_full = self._E2T.dot(self.b_tilde.spline.vector, out=self._b2_full)
-        b2_full += self._b2_eq
-        b2_full.update_ghost_regions()
+        # total magnetic field B0 + b_tilde (in the space of _b_form) in B*
+        b_full = self._EbT.dot(self.b_tilde.spline.vector, out=self._b_full)
+        b_full += self._b_eq
+        b_full.update_ghost_regions()
 
     @profile
     def __call__(self, dt):
