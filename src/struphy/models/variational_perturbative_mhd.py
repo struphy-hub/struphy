@@ -69,15 +69,11 @@ class VariationalPerturbativeMHD(StruphyModel):
             self.init_variables(mass_number=mass_number)
 
     class Diagnostics(DiagnosticSpecies):
-        def __init__(self, crank_nicolson: bool = False, linear: bool = False):
+        def __init__(self):
             self.div_u = FEECVariable(space="L2")
             self.u2 = FEECVariable(space="Hdiv")
             self.pt3 = FEECVariable(space="L2")
             self.bt2 = FEECVariable(space="Hdiv")
-            if crank_nicolson or not linear:
-                # vector potential of the second-order field, energy int J0 . A-hat (one linear solve per substep, or
-                # the nonlinear model)
-                self.at1 = FEECVariable(space="Hcurl")
             self.init_variables()
 
     ## propagators
@@ -89,7 +85,6 @@ class VariationalPerturbativeMHD(StruphyModel):
             u2: FEECVariable = None,
             pt3: FEECVariable = None,
             bt2: FEECVariable = None,
-            at1: FEECVariable = None,
             rho: FEECVariable = None,
             linear: bool = False,
             with_viscosity: bool = True,
@@ -98,14 +93,14 @@ class VariationalPerturbativeMHD(StruphyModel):
         ):
             self.variat_dens = VariationalDensityEvolve()
             if crank_nicolson:
-                self.variat_lin_alfven = VariationalLinearAlfvenEvolve(at1=at1, bt2=bt2)
+                self.variat_lin_alfven = VariationalLinearAlfvenEvolve(bt2=bt2)
                 self.variat_lin_sound = VariationalLinearSoundEvolve(div_u=div_u, u2=u2, pt3=pt3)
             elif linear:
                 self.variat_pb = VariationalPBEvolve(div_u=div_u, u2=u2, pt3=pt3, bt2=bt2)
             else:
                 # rho: the density perturbation, for the mass matrix of the total density of a velocity in Hdiv
                 self.variat_mom = VariationalMomentumAdvection(rho=rho)
-                self.variat_pb = VariationalPBEvolve(pt3=pt3, bt2=bt2, rho=rho, at1=at1)
+                self.variat_pb = VariationalPBEvolve(pt3=pt3, bt2=bt2, rho=rho)
             # the linear model heats the auxiliary pressure p-hat; the nonlinear one heats the pressure (full_p)
             if with_viscosity:
                 self.variat_viscous = VariationalViscosity(rho=rho, pt3=pt3 if linear else None)
@@ -138,7 +133,7 @@ class VariationalPerturbativeMHD(StruphyModel):
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD(mass_number=mass_number, u_space=u_space)
-        self.diagnostics = self.Diagnostics(crank_nicolson=crank_nicolson, linear=linear)
+        self.diagnostics = self.Diagnostics()
 
         # 2. derive units (must be done after instantiating species to access charge and mass numbers)
         self.setup_equation_params(base_units=base_units)
@@ -149,7 +144,6 @@ class VariationalPerturbativeMHD(StruphyModel):
             u2=self.diagnostics.u2,
             pt3=self.diagnostics.pt3,
             bt2=self.diagnostics.bt2,
-            at1=self.diagnostics.at1 if (crank_nicolson or not linear) else None,
             rho=self.mhd.density,
             linear=linear,
             with_viscosity=with_viscosity,
@@ -188,11 +182,8 @@ class VariationalPerturbativeMHD(StruphyModel):
                 self.mhd.velocity, bilinear_form_name="M2n" if u_space == "Hdiv" else "WMMnew"
             )
         magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
-        # int B0 . B-hat, as int J0 . A-hat with one linear solve per substep and in the nonlinear model
-        if crank_nicolson or not linear:
-            magnetic_energy_2 = FunctionScalarFEEC(self._compute_en_mag_2)
-        else:
-            magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", normalization=2.0)
+        # second-order magnetic energy b0^T M2 b-hat
+        magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", normalization=2.0)
         thermo_energy = FunctionScalarFEEC(self._compute_en_thermo)
         thermo_energy_l1 = FunctionScalarFEEC(self._compute_en_thermo_l1)
         magnetic_energy_l1 = BilinearEnergyFEEC(self.em_fields.b_field, right_variable="b2", normalization=2.0)
@@ -290,11 +281,6 @@ class VariationalPerturbativeMHD(StruphyModel):
         if self.params["crank_nicolson"]:
             return self.propagators.variat_lin_sound
         return self.propagators.variat_pb
-
-    def _compute_en_mag_2(self):
-        if self.params["crank_nicolson"]:
-            return self.propagators.variat_lin_alfven.second_order_energy()
-        return self.propagators.variat_pb.second_order_energy()
 
     def _compute_en_U_hdiv(self):
         """Kinetic energy 1/2 u^T M^2_rho u with the total density rho_0 + rho (velocity in Hdiv)."""
@@ -396,16 +382,12 @@ class VariationalPerturbativeMHD(StruphyModel):
         total energy ``en_tot``. So with dissipation the total energy is still conserved up to the solver
         tolerances.
 
-        **Second-order magnetic energy with one linear solve per substep** (``crank_nicolson=True``) **and in the
-        nonlinear model**: the term
-        :math:`\int \mathbf B_0 \cdot \hat{\mathbf B}` is written as :math:`\int \mathbf J_0 \cdot \hat{\mathbf A}`,
-        with the auxiliary vector potential :math:`\hat{\mathbf A}` (``diagnostics.at1``),
-        :math:`\partial_t \hat{\mathbf A} = - \tilde{\mathbf B} \times \mathbf u`, :math:`\hat{\mathbf B} = \nabla \times
-        \hat{\mathbf A}` (``diagnostics.bt2``) and the equilibrium current :math:`\mathbf J_0 = \nabla \times
-        \mathbf B_0`. Both are the same in the continuum (:math:`\hat{\mathbf A} \times \mathbf n = 0` at the wall);
-        discretely the force :math:`\mathbf J_0 \times \tilde{\mathbf B}` then uses the current of the dual complex,
-        the curl of the 1-form :math:`\star \mathbf B_0` without wall conditions, instead of the weak curl of
-        :math:`\mathbf B_0`, which vanishes tangentially at a wall and causes a spurious wall instability (see
+        **Second-order magnetic energy**: the term :math:`\int \mathbf B_0 \cdot \hat{\mathbf B} = \mathbf b_0^\top
+        \mathbb M^2 \hat{\mathbf b}` of the second-order field :math:`\hat{\mathbf B}` (``diagnostics.bt2``), advected
+        with the perturbation as weight, :math:`\partial_t \hat{\mathbf B} + \nabla \times (\tilde{\mathbf B} \times
+        \mathbf u) = 0`, with the same commuting projection :math:`\hat\Pi^1` as the field itself. The force of the
+        equilibrium current is the variation of this term (the adjoint of the transport, Galerkin Hodge star
+        :math:`\mathbb M^2`), without integration by parts or auxiliary variables (see
         :class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve`).
 
         **Weights of the nonlinear model**: in ``variat_pb`` the terms with the perturbations (the pressure force, the

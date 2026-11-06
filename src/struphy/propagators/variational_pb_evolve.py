@@ -25,7 +25,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
-from struphy.propagators.utils import EquilibriumCurrentTerm, VelocityMass, WeakPressureTerm
+from struphy.propagators.utils import EquilibriumCurrentTerm, VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -106,52 +106,57 @@ class VariationalPBEvolve(Propagator):
 
     **Perturbative model** (``model="perturbative"``): the conserved energy is
     :math:`\frac12 \mathbf u^\top \mathbb M^v_\rho \mathbf u + \frac12 \mathbf b^\top \mathbb M^2 \mathbf b
-    + \int \mathbf J_0 \cdot \hat{\mathbf A} + \int \hat p / (\gamma - 1)`, with the auxiliary second-order
-    variables :math:`\hat p` (``pt3``) and :math:`\hat{\mathbf A}` (``at1``; :math:`\hat{\mathbf B} =
-    \nabla \times \hat{\mathbf A}` is ``bt2``), advanced with the perturbations :math:`\mathbf b^w`,
-    :math:`\mathbf p^w` as weights. The equilibrium transport (weights :math:`\mathbf B_0`, :math:`p_0`) is as above;
-    with the perturbations,
+    + \mathbf b_0^\top \mathbb M^2 \hat{\mathbf b} + \int \hat p / (\gamma - 1)`, the expansion of the energy of the full
+    model (Galerkin Hodge star :math:`\mathbb M^2` throughout) without the terms linear in the perturbation, whose forces
+    (the equilibrium force) are dropped. The auxiliary second-order variables :math:`\hat p` (``pt3``) and
+    :math:`\hat{\mathbf b}` (``bt2``) are advanced with the part of the transport of :math:`\mathbf p` and :math:`\mathbf b`
+    that has the perturbations :math:`\mathbf p^w`, :math:`\mathbf b^w` as weights; the forces are the adjoints of these
+    transports. The equilibrium transport (weights :math:`\mathbf B_0`, :math:`p_0`) is as above, and
 
     .. math::
 
         \begin{align}
         &\mathbb M^v_\rho \frac{\mathbf u^{n+1}-\mathbf u^n}{\Delta t}
         - (\mathbb T[\mathbf B_0] + \mathbb T[\mathbf b^w])^\top \mathbb M^2 \mathbf b^{n+\frac12}
-        - \mathbb W \mathbf b^w - (\mathbb D \mathcal U^v)^\top \mathbb M^3 \mathbf p^w = 0 \,,
+        - \mathbb T[\mathbf b^w]^\top \mathbb M^2 \mathbf b_0
+        - \mathbb S[\mathbf p^w]^\top \hat l^3(\tfrac{g}{\gamma-1}) = 0 \,,
         \\[2mm]
         &\frac{\mathbf b^{n+1}-\mathbf b^n}{\Delta t} + (\mathbb T[\mathbf B_0] + \mathbb T[\mathbf b^w])
         \mathbf u^{n+\frac12} = 0 \,, \qquad
         \frac{\mathbf p^{n+1}-\mathbf p^n}{\Delta t} + (\mathbb S[p_0] + \mathbb S[\mathbf p^w])
         \mathbf u^{n+\frac12} = 0 \,,
         \\[2mm]
-        &\frac{\hat{\mathbf p}^{n+1}-\hat{\mathbf p}^n}{\Delta t} + (\gamma - 1)\,
-        \frac{(\mathbb D \mathcal U^v \mathbf u^{n+\frac12}) \odot (\mathbb M^3 \mathbf p^w)}{\hat l^3(1)} = 0
+        &\frac{\hat{\mathbf b}^{n+1}-\hat{\mathbf b}^n}{\Delta t} + \mathbb T[\mathbf b^w] \mathbf u^{n+\frac12} = 0
         \,, \qquad
-        \frac{\hat{\mathbf a}^{n+1}-\hat{\mathbf a}^n}{\Delta t}
-        + (\mathbb M^1_{\textnormal{free}})^{-1} \mathbf y(\mathbf b^w \times \mathbf u^{n+\frac12}) = 0 \,,
+        \frac{\hat{\mathbf p}^{n+1}-\hat{\mathbf p}^n}{\Delta t} + \mathbb S[\mathbf p^w] \mathbf u^{n+\frac12} = 0 \,,
         \end{align}
 
     with :math:`\mathbb T[\bar{\mathbf B}] = \mathbb C \hat\Pi^1[\hat{\bar{\mathbf B}} \times
-    \vec{\boldsymbol\Lambda}^v]`, :math:`\mathbb S[\bar p]` the pressure transport above, the pressure force in
-    weak form :math:`\int p^w \nabla \cdot \mathbf v` with the lumped update of :math:`\hat p` (elementwise product and
-    division, :math:`\hat l^3(1)_{ijk} = \int \Lambda^3_{ijk} \textrm d \boldsymbol\eta`, see
-    :class:`~struphy.propagators.utils.WeakPressureTerm`, as in
-    :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve`), and the force
-    :math:`\mathbb W` of :math:`\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)` with the equilibrium current
-    of the dual complex (:class:`~struphy.propagators.utils.EquilibriumCurrentTerm`, as in
-    :class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve`; the weak curl
-    :math:`\mathbb C^\top \mathbb M^2 \mathbf b_0` of :math:`\int \mathbf B_0 \cdot \hat{\mathbf B}` drops the
-    tangential current at a wall). The energy is conserved for any weights. The option ``weights`` sets them:
+    \vec{\boldsymbol\Lambda}^v]` and :math:`\mathbb S[\bar p]` the pressure transport above. The second-order magnetic
+    term :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}` has no wall defect: :math:`\hat{\mathbf b} = \mathbb C
+    \hat{\mathbf a}` with :math:`\hat{\mathbf a}` the sum of the projections :math:`\hat\Pi^1[\hat{\mathbf b}^w \times
+    \mathbf u]`, which have zero tangential trace (the degrees of freedom on a wall edge integrate the tangential
+    component of :math:`\mathbf B^w \times \mathbf u`, zero for :math:`\mathbf B^w \cdot \mathbf n = \mathbf u \cdot
+    \mathbf n = 0`), so :math:`\mathbf b_0^\top \mathbb M^2 \mathbb C \hat{\mathbf a} = \hat{\mathbf a}^\top
+    \mathbb C^\top \mathbb M^2 \mathbf b_0` is the weak curl of :math:`\mathbf b_0` tested only against fields of zero
+    tangential trace, on which it is exact; the current is never used as a field. The energy is conserved for any
+    weights. The option ``weights`` sets them:
 
     - ``"midpoint"`` (default): :math:`\mathbf b^w = \mathbf b^{n+\frac12}`, :math:`\mathbf p^w =
       \mathbf p^{n+\frac12}`, the implicit midpoint rule. At small amplitude the step is that of the linear model with
       midpoint weights
       (:class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve` and
-      :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve`, up to the
-      splitting): sound waves and second-order terms are implicit. The Newton matrix contains the derivatives of
-      these linear terms, :math:`\mathbb M^v_\rho + \frac{\Delta t^2}{4} (\mathbb D \mathcal U^v)^\top \mathbb M^3
-      \mathbb S[p_0]` in the upper left block and :math:`\frac{\Delta t}{2} \mathbb W` in the upper right block, so
-      the Newton iteration is exact at small amplitude; it is not symmetric (``solver="rpbicgstab"``).
+      :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve`, which use the same
+      operators, up to the splitting): sound waves and second-order terms
+      are implicit. The Newton matrix contains the derivatives of these linear terms,
+      :math:`\mathbb M^v_\rho + \frac{\Delta t^2}{4} (\mathbb D \mathcal U^v)^\top \mathbb M^3 \mathbb S[p_0]` in the
+      upper left block (with the weak form :math:`\mathbb S[\mathbf p]^\top \hat l^3 \approx -(\mathbb D
+      \mathcal U^v)^\top \mathbb M^3 \mathbf p` of the derivative of the pressure force) and :math:`\frac{\Delta t}{2}
+      \mathbb W` in the upper right block, with :math:`\mathbb W` the matrix of :math:`\int \mathbf v \cdot
+      (\mathbf j_0 \times \mathbf B)` (an approximation of the derivative of the force
+      :math:`\mathbb T[\mathbf b]^\top \mathbb M^2 \mathbf b_0`, with the values at the quadrature points of the
+      current of the dual complex, :class:`~struphy.propagators.utils.EquilibriumCurrentTerm`); it is not symmetric
+      (``solver="rpbicgstab"``).
       The weights are updated in every iteration, which stops when also the pressure has converged.
     - ``"frozen"``: :math:`\mathbf b^w = \mathbf b^n`, :math:`\mathbf p^w = \mathbf p^n`. The pressure force and the
       force of the equilibrium current are then explicit, and sound waves grow for :math:`\Delta t\, \omega_s
@@ -213,7 +218,6 @@ class VariationalPBEvolve(Propagator):
         pt3: FEECVariable = None,
         bt2: FEECVariable = None,
         rho: FEECVariable = None,
-        at1: FEECVariable = None,
     ):
         r"""
         Parameters
@@ -232,9 +236,6 @@ class VariationalPBEvolve(Propagator):
             Density perturbation :math:`\tilde\rho` (``"L2"`` space, not updated) of the mass matrix
             :math:`\mathbb M^2_\rho` (total density :math:`\rho_0 + \tilde\rho`) of a velocity in ``"Hdiv"``;
             None for :math:`\mathbb M^2_{\rho_0}`. Not used for a velocity in ``"H1vec"``.
-        at1 : FEECVariable, default=None
-            Auxiliary second-order vector potential :math:`\hat{\mathbf A}` (``"Hcurl"`` space) of the perturbative
-            model, whose energy :math:`\int \mathbf J_0 \cdot \hat{\mathbf A}` is :meth:`second_order_energy`.
         """
         assert rho is None or (isinstance(rho, FEECVariable) and rho.space == "L2")
         self._rho = rho
@@ -243,7 +244,6 @@ class VariationalPBEvolve(Propagator):
         self.u2 = u2
         self.pt3 = pt3
         self.bt2 = bt2
-        self.at1 = at1
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -347,7 +347,6 @@ class VariationalPBEvolve(Propagator):
         self._linearize = self.options.nonlin_solver.linearize
         self._gamma = self.options.gamma
         self._midpoint = self.options.weights == "midpoint"
-        self._at1 = None if self.at1 is None else self.at1.spline.vector
 
         if self.div_u is None:
             self._divu = None
@@ -551,16 +550,16 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_advection,
                 )
 
-                # force of the equilibrium current, int v . (j0 x b^w), with j0 of the dual complex
-                advection += self._R_j0.dot(bw, out=self._tmp_advection2)
+                # second-order magnetic term b0^T M2 b-hat: the force is the adjoint of the transport of b-hat
+                advection += self.curlPibT.dot(self._linear_form_dl_db0, out=self._tmp_advection2)
 
                 advection += self.curlPibT.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection2,
                 )
 
-                # pressure force in weak form, int p^w div v (energy of the auxiliary pressure)
-                advection += self._pressure_term.R.dot(pw, out=self._tmp_advection2)
+                # pressure force: adjoint of the transport S[p^w] of the perturbation (energy of the auxiliary pressure)
+                advection += self._transop_pT.dot(self._linear_form_dl_dp, out=self._tmp_advection2)
 
                 b_advection = self.curlPib.dot(
                     un12,
@@ -674,36 +673,21 @@ class VariationalPBEvolve(Propagator):
         # Update the 2nd order variables
 
         if self._pt3 is not None:
-            if perturbative:
-                # lumped L2 projection of (gamma - 1) p^w div u: the energy changes by the work of the pressure force
-                self._pressure_term.advance(dt, un12, pw, self._pt3)
-            else:
-                p_advection = self._transop_p.dot(
-                    un12,
-                    out=self._tmp_p_advection,
-                )
-                p_advection *= dt
-                self._pt3 -= p_advection
+            # the part of the pressure transport with the perturbation as weight (p^n or p^{n+1/2})
+            p_advection = self._transop_p.dot(
+                un12,
+                out=self._tmp_p_advection,
+            )
+            p_advection *= dt
+            self._pt3 -= p_advection
 
-        if perturbative:
-            # second-order magnetic term: vector potential (energy int J0 . A-hat) and the field bt2 = curl at1
-            if self._at1 is not None or self._bt2 is not None:
-                self._current_term.advance(dt, un12, bw, at1=self._at1, bt2=self._bt2)
-        elif self._bt2 is not None:
+        if self._bt2 is not None:
             b_advection = self.curlPib.dot(
                 un12,
                 out=self._tmp_b_advection,
             )
             b_advection *= dt
             self._bt2 -= b_advection
-
-    def second_order_energy(self) -> float:
-        r"""The second-order magnetic energy :math:`\int \mathbf J_0 \cdot \hat{\mathbf A}` of ``at1`` for
-        ``model="perturbative"`` (0 without it), see :class:`~struphy.propagators.utils.EquilibriumCurrentTerm`.
-        Collective: call on all ranks."""
-        if self._model != "perturbative" or self._at1 is None:
-            return 0.0
-        return self._current_term.energy(self._at1)
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
@@ -772,29 +756,24 @@ class VariationalPBEvolve(Propagator):
             self._full_curlPib = self.curlPib0 + self.curlPib
             self._full_curlPibT = self.curlPibT0 + self.curlPibT
 
-            # second-order magnetic term with the equilibrium current of the dual complex: force -R b^w = W b^w
-            self._current_term = EquilibriumCurrentTerm(
-                self.derham,
-                self.domain,
-                self.mass_ops,
-                self.projected_equil,
-                self._u_space,
-                aux=self.at1 is not None or self.bt2 is not None,
-            )
-            self._R_j0 = self._current_term.R
-            # second-order pressure term in weak form, force int p^w div v, as in the linear model
-            self._pressure_term = WeakPressureTerm(
-                self.derham, self.domain, self.mass_ops, self.basis_ops, self._u_space, self._gamma
-            )
+            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
+            # second-order magnetic term b0^T M2 b-hat (Galerkin Hodge star, as the full-f energy); W, the force
+            # int v . (j0 x b) with the values of the current of the dual complex at the quadrature points, is used only
+            # in the Newton matrix (as an approximation of the derivative of the force T[b]^T M2 b0)
+            self._R_j0 = EquilibriumCurrentTerm(
+                self.derham, self.domain, self.mass_ops, self.projected_equil, self._u_space
+            ).R
 
             self._mdt2_pc_curlPibT_M = 2 * (self._full_curlPibT @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self._full_curlPib
             if self._midpoint:
                 # derivatives of the linear terms with midpoint weights: the force of the equilibrium current in
-                # the upper right block, the sound waves in the upper left block, (D U)^T M3 S[p0]
+                # the upper right block, the sound waves in the upper left block, (D U)^T M3 S[p0], with the weak
+                # form S[p]^T l ~ -(D U)^T M3 p of the derivative of the pressure force (only the convergence of the
+                # Newton iteration depends on it, not its solution)
                 self._dt2_R = ScaledLinearOperator(self._R_j0.domain, self._R_j0.codomain, 1.0, self._R_j0)
                 self._J01 = self._mdt2_pc_curlPibT_M + self._dt2_R
-                div_u = self._pressure_term.div_u
+                div_u = self.derham.div if self._u_space == "Hdiv" else self.derham.div @ self.basis_ops.Uv
                 sound = div_u.T @ self.mass_ops.M3 @ self._transop_p0
                 self._dt2_sound = ScaledLinearOperator(sound.domain, sound.codomain, 1.0, sound)
                 self._J00 = self._Mrho + self._dt2_sound

@@ -4,11 +4,11 @@ from typing import Literal
 
 from line_profiler import profile
 
+from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import Pressure_transport_operator, dot_normalized
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
-from struphy.propagators.utils import WeakPressureTerm
 from struphy.propagators.variational_linear_base import VariationalLinearEvolve
 from struphy.utils.utils import check_option
 
@@ -46,7 +46,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
     The magnetic field is not changed; together with
     :class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve` this splits the
     linear MHD step into the shear-Alfvén/fast and the sound waves. The second-order term of the energy comes from
-    the auxiliary variable :math:`\hat s` (``pt3``), which, if given, is advanced with
+    the second-order variable :math:`\hat s` (``pt3``), which, if given, is advanced with
     :math:`\partial_t \hat s + \mathcal S^\kappa_s(\mathbf u) = 0`; it enters the conserved energy as
     :math:`\int 2 q_0 \hat q / (\gamma - 1)`, respectively :math:`\int \hat p / (\gamma - 1)`.
 
@@ -74,39 +74,37 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
       :math:`\mathbb M^v[\hat\rho_0] + \frac{\Delta t^2}{2(\gamma - 1)} \mathbb S[q_0]^\top \mathbb M^3 \mathbb S[q_0]`
       is constant in time and the sound waves are implicit.
 
-    * ``"linear_p"``: only the integral of :math:`\hat p` enters the energy, and for :math:`\mathbf u \cdot
-      \mathbf n = 0` on the boundary :math:`\int \mathcal S^\gamma_p(\mathbf v) = (\gamma - 1) \int p\, \nabla \cdot
-      \mathbf v`. The second-order term is therefore discretized in this weak form, with the divergence
-      :math:`\mathbb D \mathcal U^v` of the velocity and the mass matrix :math:`\mathbb M^3`:
+    * ``"linear_p"``: only the integral of :math:`\hat p` enters the energy, :math:`\int \hat p / (\gamma - 1) =
+      -\hat{\mathbf l}^\top \hat{\mathbf p}` with :math:`\hat{\mathbf l} = -\hat l^3(\sqrt g) / (\gamma - 1)`,
+      :math:`\hat l^3(\sqrt g)_{ijk} = \int_{\hat\Omega} \Lambda^3_{ijk} \sqrt g\, \textrm d \boldsymbol\eta`. The force is
+      the variation of this term, the adjoint of the transport of :math:`\hat p` (as in the perturbative model,
+      :class:`~struphy.propagators.variational_pb_evolve.VariationalPBEvolve`):
 
       .. math::
 
           \begin{align}
-          &\mathbb M^v[\hat\rho_0] \frac{\mathbf u^{n+1} - \mathbf u^n}{\Delta t}
-          - (\mathbb D \mathcal U^v)^\top \mathbb M^3 \mathbf p^w = 0 \,,
+          &\mathbb M^v_{\rho_0} \frac{\mathbf u^{n+1} - \mathbf u^n}{\Delta t}
+          + \mathbb S[\mathbf p^w]^\top \hat{\mathbf l} = 0 \,,
           \qquad
           \frac{\mathbf p^{n+1} - \mathbf p^n}{\Delta t} + \mathbb S[p_0]\, \mathbf u^{n+\frac12} = 0 \,,
           \\[2mm]
-          &\frac{\hat{\mathbf p}^{n+1} - \hat{\mathbf p}^n}{\Delta t}
-          + (\gamma - 1)\, \frac{(\mathbb D \mathcal U^v \mathbf u^{n+\frac12}) \odot (\mathbb M^3 \mathbf p^w)}
-          {\hat l^3(1)} = 0 \,,
+          &\frac{\hat{\mathbf p}^{n+1} - \hat{\mathbf p}^n}{\Delta t} + \mathbb S[\mathbf p^w]\, \mathbf u^{n+\frac12}
+          = 0 \,,
           \end{align}
 
-      with :math:`\hat l^3(1)_{ijk} = \int_{\hat\Omega} \Lambda^3_{ijk} \,\textrm d \boldsymbol\eta` and elementwise
-      product and division: the auxiliary variable is advanced with :math:`\partial_t \hat p + (\gamma - 1) p\,
-      \nabla \cdot \mathbf u = 0` (lumped :math:`L^2` projection), and its energy
-      :math:`\hat l^3(1) \cdot \hat{\mathbf p} / (\gamma - 1)` changes by exactly the work
-      :math:`-\Delta t\, (\mathbb D \mathcal U^v \mathbf u^{n+\frac12})^\top \mathbb M^3 \mathbf p^w` of the force.
-      The pressure force is the one of :class:`~struphy.propagators.magnetosonic.Magnetosonic`.
-
-      The option ``weights`` sets :math:`\mathbf p^w`. With ``"midpoint"`` (default),
-      :math:`\mathbf p^w = \mathbf p^{n+\frac12}`: one linear solve with the (not symmetric) Schur complement
-      :math:`\mathbb M^v[\hat\rho_0] + \frac{\Delta t^2}{4} (\mathbb D \mathcal U^v)^\top \mathbb M^3 \mathbb S[p_0]`;
-      the step is the implicit midpoint rule, energy conserving and second order in time, and the sound waves are
-      implicit. With ``"frozen"``, :math:`\mathbf p^w = \mathbf p^n`: the velocity is advanced with one mass-matrix
-      solve, then the pressure. The sound waves are then explicit and not stable for any :math:`\Delta t`: the
-      amplitude of a sound wave of frequency :math:`\omega_s` grows by :math:`|\lambda|^2 = 1 + (\Delta t\,
-      \omega_s)^2 / 2` per step (first order in time).
+      which conserves the energy exactly for any weight :math:`\mathbf p^w`. The option ``weights`` sets it. With
+      ``"midpoint"`` (default), :math:`\mathbf p^w = \mathbf p^{n+\frac12}`, the implicit midpoint rule, second order in
+      time with implicit sound waves: the force is linear in :math:`\mathbf p^w` but not available as a matrix, so the
+      system is solved by a Newton iteration on :math:`(\mathbf u^{n+1}, \mathbf p^{n+1})` with the exact residual and
+      its weak form :math:`\mathbb S[\mathbf p]^\top \hat{\mathbf l} \approx -(\mathbb D \mathcal U^v)^\top \mathbb M^3
+      \mathbf p` (the force :math:`\int p\, \nabla \cdot \mathbf v`) in the matrix
+      (:class:`~struphy.propagators.variational_linear_base.VariationalLinearEvolve`, Schur complement
+      :math:`\mathbb M^v_{\rho_0} + \frac{\Delta t^2}{4} (\mathbb D \mathcal U^v)^\top \mathbb M^3 \mathbb S[p_0]`, not
+      symmetric), which only affects the convergence (relative tolerance 1e-12). With ``"frozen"``,
+      :math:`\mathbf p^w = \mathbf p^n`: the velocity is advanced with one mass-matrix solve, then the pressure. The
+      sound waves are then explicit and not stable for any :math:`\Delta t`: the amplitude of a sound wave of
+      frequency :math:`\omega_s` grows by :math:`|\lambda|^2 = 1 + (\Delta t\, \omega_s)^2 / 2` per step (first order
+      in time).
 
     For ``"linear_q"`` the weight :math:`\mathbf q^n` at :math:`t^n` is the same in the momentum equation and in the
     update of :math:`\hat{\mathbf q}`, which makes the step energy conserving; it is first order in time, stable for
@@ -114,12 +112,11 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
     (only ``weights="frozen"``).
 
     The velocity can also be a 2-form, :math:`\mathbf u \in H(\textnormal{div})` (velocity variable in ``"Hdiv"``
-    space). The scheme is the same, with :math:`\mathbb M^v[\hat\rho_0] \to \mathbb M^{2,n}`,
+    space). The scheme is the same, with :math:`\mathbb M^v_{\rho_0} \to \mathbb M^2_{\rho_0}`,
     :math:`\mathcal U^v \to \mathbb I` and
     :math:`\mathbb S[\bar s] = \mathbb D \hat\Pi^2[\hat{\bar s} \vec{\boldsymbol\Lambda}^2/\sqrt g]
-    + (\kappa - 1) \hat\Pi^3[\hat{\bar s}/\sqrt g\, \vec{\boldsymbol\Lambda}^3] \mathbb D`;
-    for ``"linear_p"`` the equilibrium operator is :math:`\mathbb D \mathcal S^2 + (\gamma - 1) \mathcal K^3 \mathbb D`
-    of :class:`~struphy.propagators.magnetosonic.Magnetosonic`. The energy is conserved in the same way.
+    + (\kappa - 1) \hat\Pi^3[\hat{\bar s}/\sqrt g\, \vec{\boldsymbol\Lambda}^3] \mathbb D`. The energy is conserved in
+    the same way.
     """
 
     class Variables:
@@ -280,34 +277,33 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         else:
             kappa = self._gamma
             s0 = self.projected_equil.p3
-        if self._u_space == "Hdiv" and self._model == "linear_p":
-            # equilibrium term as in Magnetosonic
-            div = self.derham.div
-            self._S0 = div @ self.basis_ops.S2 + (kappa - 1.0) * (self.basis_ops.K3 @ div)
-        else:
-            self._S0 = Pressure_transport_operator(
-                self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
-            )
-            self._S0.update_coeffs(s0)
+        # equilibrium transport (the same operator as in the perturbative model, VariationalPBEvolve)
+        self._S0 = Pressure_transport_operator(
+            self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
+        )
+        self._S0.update_coeffs(s0)
 
         u = self.variables.u.spline.vector
         s = self.variables.s.spline.vector
+        # transport operator with the perturbation as weight
+        self._Ss = Pressure_transport_operator(
+            self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
+        )
+        self._SsT = self._Ss.T
+        self._div_u = self._Ss.div
         if self._model == "linear_q":
-            # transport operator with the perturbation (weight q^n) and linear form of the equilibrium, -2/(gamma-1) M3 q0
-            self._Ss = Pressure_transport_operator(
-                self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
-            )
-            self._SsT = self._Ss.T
+            # linear form of the equilibrium, -2/(gamma-1) M3 q0
             self._lf0 = -2.0 / (self._gamma - 1.0) * self.mass_ops.M3.dot(s0)
-            self._div_u = self._Ss.div
         else:
-            # weak form of the second-order term: the force int p div v, i.e. R p = -(D U^v)^T M3 p (U^v the identity
-            # for a velocity in Hdiv), as in Magnetosonic
-            self._pressure_term = WeakPressureTerm(
-                self.derham, self.domain, self.mass_ops, self.basis_ops, self._u_space, self._gamma
-            )
-            self._div_u = self._pressure_term.div_u
-            self._R = self._pressure_term.R
+            # linear form of the energy int p-hat / (gamma - 1) of the second-order pressure (with the sign of the force
+            # term), as in VariationalPBEvolve: the force is the adjoint S[p^w]^T of the transport of p-hat
+            self._lf0 = L2Projector("L2", self.mass_ops).get_dofs(self.domain.jacobian_det)
+            self._lf0 *= -1.0 / (self._gamma - 1.0)
+            # weak form -(D U^v)^T M3 of the derivative of that force, only for the Newton matrix (the sign inside the
+            # composition: a Schur solver rescales an outer ScaledLinearOperator with dt)
+            self._R = self._div_u.T @ (-1.0 * self.mass_ops.M3)
+            self._newton_tol = 1e-12
+            self._newton_maxiter = 30
 
         self._midpoint = self.options.weights == "midpoint"
 
@@ -346,6 +342,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         self._tmp_sn12 = s.space.zeros()
         self._tmp_fs = s.space.zeros()
         self._tmp_M3s = s.space.zeros()
+        self._tmp_du = u.space.zeros()
 
     @profile
     def __call__(self, dt):
@@ -356,24 +353,17 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         sn = self.variables.s.spline.vector
 
         if self._model == "linear_q":
-            # weight of the second-order term at t^n
+            # weight of the second-order term at t^n; residual at (u^n, q^n): the force
+            # -2/(gamma-1) (S0^T M3 q^n + S[q^n]^T M3 q0) and S0 u^n (times dt)
             self._Ss.update_coeffs(sn)
             self._SsT.update_coeffs(sn)
-
-        if self._model == "linear_q" or self._midpoint:
-            # residual at (u^n, s^n): the force -2/(gamma-1) (S0^T M3 q^n + S[q^n]^T M3 q0), respectively
-            # -(D U^v)^T M3 p^n, and S0 u^n (times dt)
-            if self._model == "linear_q":
-                M3s = self.mass_ops.M3.dot(sn, out=self._tmp_M3s)
-                M3s *= -2.0 / (self._gamma - 1.0)
-                f_u = self._S0T.dot(M3s, out=self._tmp_fu)
-                f_u += self._SsT.dot(self._lf0, out=self._tmp_fu2)
-            else:
-                f_u = self._R.dot(sn, out=self._tmp_fu)
+            M3s = self.mass_ops.M3.dot(sn, out=self._tmp_M3s)
+            M3s *= -2.0 / (self._gamma - 1.0)
+            f_u = self._S0T.dot(M3s, out=self._tmp_fu)
+            f_u += self._SsT.dot(self._lf0, out=self._tmp_fu2)
             f_u *= dt
             f_s = self._S0.dot(un, out=self._tmp_fs)
             f_s *= dt
-
             incr = self._solve_increment(dt, f_u, f_s)
             un1 = un.copy(out=self._tmp_un1)
             un1 -= incr[0]
@@ -382,9 +372,51 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
+        elif self._midpoint:
+            # Newton iteration on (u^{n+1}, p^{n+1}) with the exact force S[p^{n+1/2}]^T l of the second-order pressure
+            # in the residual and its weak form R in the matrix
+            un1 = un.copy(out=self._tmp_un1)
+            sn1 = sn.copy(out=self._tmp_sn1)
+            err0 = None
+            for it in range(self._newton_maxiter):
+                un12 = un.copy(out=self._tmp_un12)
+                un12 += un1
+                un12 *= 0.5
+                sn12 = sn.copy(out=self._tmp_sn12)
+                sn12 += sn1
+                sn12 *= 0.5
+                self._SsT.update_coeffs(sn12)
+                # momentum: M (u1 - un) + dt S[p^{n+1/2}]^T l
+                du = un1.copy(out=self._tmp_du)
+                du -= un
+                f_u = self._Mrho.dot(du, out=self._tmp_fu)
+                g = self._SsT.dot(self._lf0, out=self._tmp_fu2)
+                g *= dt
+                f_u += g
+                # pressure: p1 - pn + dt S0 u^{n+1/2}
+                f_s = self._S0.dot(un12, out=self._tmp_fs)
+                f_s *= dt
+                f_s += sn1
+                f_s -= sn
+                err = (f_u.inner(f_u) + f_s.inner(f_s)) ** 0.5
+                if err0 is None:
+                    err0 = err
+                if err <= self._newton_tol * err0 or err == 0.0:
+                    break
+                incr = self._solve_increment(dt, f_u, f_s)
+                un1 -= incr[0]
+                sn1 -= incr[1]
+            else:
+                logger.warning(f"{self.__class__.__name__}: Newton iteration not converged ({err / err0:.2e}).")
+            if self._info:
+                logger.info(f"{self.__class__.__name__}: {it} Newton iterations")
+            un12 = un.copy(out=self._tmp_un12)
+            un12 += un1
+            un12 *= 0.5
         else:
-            # velocity: M (u^{n+1} - u^n) = dt (D U^v)^T M3 p^n, with the pressure at t^n only
-            f_u = self._R.dot(sn, out=self._tmp_fu)
+            # velocity: M (u^{n+1} - u^n) = -dt S[p^n]^T l, with the pressure at t^n only
+            self._SsT.update_coeffs(sn)
+            f_u = self._SsT.dot(self._lf0, out=self._tmp_fu)
             f_u *= dt
             # normalized right-hand side: the tolerance of the linear solver is relative to it
             if self.options.relative_tol:
@@ -413,22 +445,18 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             else:
                 self.basis_ops.Uv.dot(un1, out=self._u2)
 
-        # auxiliary second-order variable, with the same weight as the momentum equation (s^n or s^{n+1/2})
+        # second-order variable, with the same weight as the momentum equation: s-hat += -dt S[s^w] u^{n+1/2}
         if self._pt3 is not None:
-            if self._model == "linear_q":
-                s_advection = self._Ss.dot(un12, out=self._tmp_fs)
-                s_advection *= dt
-                self._pt3 -= s_advection
-                self._pt3.update_ghost_regions()
+            if self._midpoint:
+                sw = sn.copy(out=self._tmp_sn12)
+                sw += sn1
+                sw *= 0.5
             else:
-                if self._midpoint:
-                    sw = sn.copy(out=self._tmp_sn12)
-                    sw += sn1
-                    sw *= 0.5
-                else:
-                    sw = sn
-                # lumped L2 projection of (gamma - 1) p^w div u: the energy changes by the work of the force, see
-                # WeakPressureTerm
-                self._pressure_term.advance(dt, un12, sw, self._pt3)
+                sw = sn
+            self._Ss.update_coeffs(sw)
+            s_advection = self._Ss.dot(un12, out=self._tmp_fs)
+            s_advection *= dt
+            self._pt3 -= s_advection
+            self._pt3.update_ghost_regions()
 
         self.update_feec_variables(u=un1, s=sn1)
