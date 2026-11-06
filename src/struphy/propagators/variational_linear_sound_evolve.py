@@ -97,7 +97,12 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
       time with implicit sound waves: the force is linear in :math:`\mathbf p^w` but not available as a matrix, so the
       system is solved by a Newton iteration on :math:`(\mathbf u^{n+1}, \mathbf p^{n+1})` with the exact residual and
       its weak form :math:`\mathbb S[\mathbf p]^\top \hat{\mathbf l} \approx -(\mathbb D \mathcal U^v)^\top \mathbb M^3
-      \mathbf p` (the force :math:`\int p\, \nabla \cdot \mathbf v`) in the matrix
+      \mathbf p` (the force :math:`\int p\, \nabla \cdot \mathbf v`) in the matrix. The weak form is not the variation
+      of the Lagrangian; it can replace its derivative because of the identity :math:`\hat{\mathbf l}^\top
+      \mathbb S[p]\, \mathbf u = -\int p\, \nabla \cdot \mathbf u\, \textrm d \mathbf x`: the divergence part of
+      :math:`\mathbb S` drops (:math:`\hat{\mathbf l}^\top \mathbb D \mathbf w = 0` for zero normal flux) and
+      :math:`\hat\Pi^3` preserves integrals, so the two agree up to the quadrature of the metric factor (exactly for
+      an affine mapping)
       (:class:`~struphy.propagators.variational_linear_base.VariationalLinearEvolve`, Schur complement
       :math:`\mathbb M^v_{\rho_0} + \frac{\Delta t^2}{4} (\mathbb D \mathcal U^v)^\top \mathbb M^3 \mathbb S[p_0]`, not
       symmetric), which only affects the convergence (relative tolerance 1e-12). With ``"frozen"``,
