@@ -57,6 +57,7 @@ _LAZY_IMPORTS = {
     "VariationalLinearSoundEvolve": "struphy.propagators.variational_linear_sound_evolve",
     "VariationalMagFieldEvolve": "struphy.propagators.variational_mag_field_evolve",
     "VariationalMomentumAdvection": "struphy.propagators.variational_momentum_advection",
+    "VariationalNonlinearPBEvolve": "struphy.propagators.variational_nonlinear_pb_evolve",
     "VariationalPBEvolve": "struphy.propagators.variational_pb_evolve",
     "VariationalQBEvolve": "struphy.propagators.variational_qb_evolve",
     "VariationalResistivity": "struphy.propagators.variational_resistivity",
@@ -121,6 +122,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.propagators.variational_linear_sound_evolve import VariationalLinearSoundEvolve
     from struphy.propagators.variational_mag_field_evolve import VariationalMagFieldEvolve
     from struphy.propagators.variational_momentum_advection import VariationalMomentumAdvection
+    from struphy.propagators.variational_nonlinear_pb_evolve import VariationalNonlinearPBEvolve
     from struphy.propagators.variational_pb_evolve import VariationalPBEvolve
     from struphy.propagators.variational_qb_evolve import VariationalQBEvolve
     from struphy.propagators.variational_resistivity import VariationalResistivity
@@ -184,6 +186,7 @@ __all__ = [
     "VariationalLinearSoundEvolve",
     "VariationalMagFieldEvolve",
     "VariationalMomentumAdvection",
+    "VariationalNonlinearPBEvolve",
     "VariationalPBEvolve",
     "VariationalQBEvolve",
     "VariationalResistivity",

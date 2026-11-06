@@ -1,15 +1,19 @@
-"""The nonlinear VariationalPerturbativeMHD with the velocity in H(div) (u_space="Hdiv"): energy conservation, the
-energy balance of the viscous step, and agreement with the velocity in H1vec."""
+"""The perturbative VariationalPerturbativeMHD with the velocity in H(div) (u_space="Hdiv"): energy conservation, the
+energy balance of the viscous step, agreement with the velocity in H1vec, and the stability of sound waves at large
+time steps."""
 
 import numpy as np
 import pytest
 from maybempi import MPI
 
 from struphy import DerhamOptions, Simulation, Time, domains, equils, grids, perturbations
+from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models import VariationalPerturbativeMHD
 
 
-def _model(u_space, map_name, num_elements=(8, 8, 1), degree=2, mu=0.0, eta=0.0, dt=0.05, weights=None, amp=1e-2):
+def _model(
+    u_space, map_name, num_elements=(8, 8, 1), degree=2, mu=0.0, eta=0.0, dt=0.05, weights=None, amp=1e-2, tight=False
+):
     """The nonlinear model with a velocity perturbation (normal to the wall on the torus, where it vanishes),
     allocated (no output)."""
     model = VariationalPerturbativeMHD(u_space=u_space)
@@ -47,8 +51,16 @@ def _model(u_space, map_name, num_elements=(8, 8, 1), degree=2, mu=0.0, eta=0.0,
         derham_opts=DerhamOptions(degree=tuple(1 if n == 1 else degree for n in num_elements), bcs=bcs),
     )
     props = model.propagators
+    # tight tolerances of the coupled steps (tight=True): their energy is conserved up to the solver tolerances
+    lin = SolverParameters(tol=1e-12, maxiter=3000) if tight else SolverParameters()
     props.variat_dens.options = props.variat_dens.Options(model="perturbative")
-    props.variat_pb.options = props.variat_pb.Options(model="perturbative", weights=weights)
+    props.variat_lin_alfven.options = props.variat_lin_alfven.Options(weights=weights or "midpoint", solver_params=lin)
+    props.variat_lin_sound.options = props.variat_lin_sound.Options(
+        model="linear_p", weights=weights, solver_params=lin
+    )
+    props.variat_nonlinear.options = props.variat_nonlinear.Options(
+        nonlin_solver=NonlinearSolverParameters(tol=1e-12 if tight else 1e-10, maxiter=100)
+    )
     props.variat_viscous.options = props.variat_viscous.Options(model="full_p", mu=mu)
     props.variat_resist.options = props.variat_resist.Options(model="full_p", eta=eta)
     model.mhd.velocity.add_perturbation(pert)
@@ -129,19 +141,31 @@ if __name__ == "__main__":
 @pytest.mark.models
 @pytest.mark.fluid
 @pytest.mark.parametrize("u_space", ["Hdiv", "H1vec"])
-def test_pb_midpoint_weights_large_dt(u_space):
-    """A sound wave at a large time step (dt omega_s ~ 3): with the weights of the perturbation at t^n the pressure
-    force is explicit and the wave grows (by a factor 8 in 10 steps here); with midpoint weights (default) the sound waves are
-    implicit and the amplitude stays bounded, with the energy conserved."""
+def test_midpoint_weights_large_dt(u_space):
+    """A sound wave at a large time step (dt omega_s ~ 3), advanced with the coupled steps of the velocity, the
+    magnetic field and the pressure (the Strang group of the model): with the weights of the second-order terms of the
+    linear steps at t^n the pressure force is explicit and the wave grows (by a factor > 4 in 10 steps here); with midpoint
+    weights (default) the sound waves are implicit and the amplitude stays bounded, with the energy conserved."""
     dt = 0.5
     growth = {}
     for weights in ("frozen", "midpoint"):
-        model, _ = _model(u_space, "Cuboid", num_elements=(8, 8, 1), degree=2, dt=dt, weights=weights, amp=1e-5)
+        model, _ = _model(
+            u_space, "Cuboid", num_elements=(8, 8, 1), degree=2, dt=dt, weights=weights, amp=1e-5, tight=True
+        )
         s0 = _scalars(model, ["en_U", "en_tot"])
         en_U = [s0["en_U"]]
+        props = model.propagators
         for _ in range(10):
-            model.propagators.variat_pb(dt)
+            # the coupled steps of the velocity, the magnetic field and the pressure (the Strang group of the model)
+            props.variat_lin_alfven(dt / 2)
+            props.variat_lin_sound(dt / 2)
+            props.variat_nonlinear(dt)
+            props.variat_lin_sound(dt / 2)
+            props.variat_lin_alfven(dt / 2)
             en_U += [_scalars(model, ["en_U"])["en_U"]]
+            # the explicit (frozen) case grows without bound: stop before the state overflows
+            if weights == "frozen" and not en_U[-1] < 16.0 * s0["en_U"]:
+                break
         s1 = _scalars(model, ["en_tot"])
         growth[weights] = np.sqrt(max(en_U) / s0["en_U"])
         if weights == "midpoint":

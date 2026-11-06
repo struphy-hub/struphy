@@ -36,6 +36,7 @@ from struphy.models.toy_drift import ToyDrift
 from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
 from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
+from struphy.models.variational_linear_mhd import VariationalLinearMHD
 from struphy.models.variational_mhd import VariationalMHD
 from struphy.models.variational_mhd_with_p import VariationalMHD_with_p
 from struphy.models.variational_mhd_with_q import VariationalMHD_with_q
@@ -90,6 +91,7 @@ __all__ = [
     "VariationalMHD",
     "VariationalMHD_with_p",
     "VariationalMHD_with_q",
+    "VariationalLinearMHD",
     "VariationalPerturbativeMHD",
     "VariationalPerturbativeMHD_with_q",
     "VariationalPressurelessFluid",
