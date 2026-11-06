@@ -101,8 +101,8 @@ def test_variational_mhd_with_p_default_options(tmp_path):
 @pytest.mark.models
 @pytest.mark.fluid
 def test_variational_perturbative_hdiv(tmp_path, update_baselines: bool, test_profiling: bool = True):
-    """The nonlinear VariationalPerturbativeMHD with the velocity in H(div): the default parameter file keeps the
-    flag and sets a degree >= 2 (needed by the momentum advection), and the generic model test passes."""
+    """VariationalPerturbativeMHD with the velocity in H(div): the default parameter file keeps the flag and sets a
+    degree >= 2 (needed by the momentum advection), and the generic model test passes."""
     from struphy.io.setup import import_parameters_py
     from struphy.models import VariationalPerturbativeMHD
 
@@ -124,16 +124,63 @@ def test_variational_perturbative_hdiv(tmp_path, update_baselines: bool, test_pr
 
 @pytest.mark.models
 @pytest.mark.fluid
-@pytest.mark.parametrize("perturbative_model", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
+@pytest.mark.parametrize("cls_name", ["VariationalLinearMHD", "VariationalPerturbativeMHD"])
+def test_variational_mhd_family_variants(cls_name: str, tmp_path):
+    """The variational MHD family: the default parameter file sets the variants of the propagators of the model, the
+    linear model has no momentum advection and no nonlinear step, the perturbative one has both (in the splitting
+    order of its Strang group)."""
+    from struphy.io.setup import import_parameters_py
+
+    model = models_utils.get_model_by_name(model_name=cls_name)()
+    path = os.path.join(tmp_path, f"params_{cls_name}.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    props = import_parameters_py(path).model.propagators
+    for name, variant in model.propagator_variants.items():
+        assert getattr(props, name).options.model == variant, name
+    perturbative = cls_name == "VariationalPerturbativeMHD"
+    assert hasattr(props, "variat_mom") == perturbative
+    assert hasattr(props, "variat_nonlinear") == perturbative
+    if perturbative:
+        names = list(vars(props))
+        i = names.index("variat_lin_alfven")
+        assert names[i : i + 3] == ["variat_lin_alfven", "variat_lin_sound", "variat_nonlinear"]
+
+
+@pytest.mark.models
+@pytest.mark.fluid
+def test_variational_linear_mhd_hdiv(tmp_path, update_baselines: bool, test_profiling: bool = True):
+    """VariationalLinearMHD with the velocity in H(div): the flag survives the parameter file and the generic model
+    test passes."""
+    from struphy.io.setup import import_parameters_py
+    from struphy.models import VariationalLinearMHD
+
+    model = VariationalLinearMHD(u_space="Hdiv")
+    path = os.path.join(tmp_path, "params_VariationalLinearMHD_hdiv.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params = import_parameters_py(path)
+    assert params.model.params["u_space"] == "Hdiv"
+    assert params.model.mhd.velocity.space == "Hdiv"
+
+    ut.call_test(
+        model=model,
+        test_profiling=test_profiling,
+        case="VariationalLinearMHD-u_space=Hdiv",
+        update_baselines=update_baselines,
+    )
+
+
+@pytest.mark.models
+@pytest.mark.fluid
 @pytest.mark.parametrize("crank_nicolson", [False, True])
 def test_variational_perturbative_linear(
-    perturbative_model: str, crank_nicolson: bool, tmp_path, update_baselines: bool, test_profiling: bool = True
+    crank_nicolson: bool, tmp_path, update_baselines: bool, test_profiling: bool = True
 ):
-    """The linear version (linear=True) of the perturbative models, with the Picard propagators or with one linear
+    """The linear version (linear=True) of the perturbative q model, with the Picard propagators or with one linear
     solve per substep (crank_nicolson=True): the default parameter file keeps the flags and sets the linear variants
     of the propagators, and the generic model test passes."""
     from struphy.io.setup import import_parameters_py
 
+    perturbative_model = "VariationalPerturbativeMHD_with_q"
     model_class = models_utils.get_model_by_name(model_name=perturbative_model)
     model = model_class(linear=True, crank_nicolson=crank_nicolson)
 
@@ -149,15 +196,14 @@ def test_variational_perturbative_linear(
 
     # the q model with the unsplit step (split_sound=False): the flag is kept, and VariationalQBEvolve gets the
     # linear variant
-    if perturbative_model == "VariationalPerturbativeMHD_with_q":
-        if not crank_nicolson:
-            assert params_model.propagators.variat_alfven.options.model == "linear"
-        unsplit = model_class(linear=True, split_sound=False)
-        path_unsplit = os.path.join(tmp_path, f"params_{perturbative_model}_unsplit.py")
-        unsplit.generate_default_parameter_file(path=path_unsplit, prompt=False)
-        unsplit_model = import_parameters_py(path_unsplit).model
-        assert not unsplit_model.params["split_sound"] and unsplit_model.params["linear"]
-        assert unsplit_model.propagators.variat_qb.options.model == "linear_q"
+    if not crank_nicolson:
+        assert params_model.propagators.variat_alfven.options.model == "linear"
+    unsplit = model_class(linear=True, split_sound=False)
+    path_unsplit = os.path.join(tmp_path, f"params_{perturbative_model}_unsplit.py")
+    unsplit.generate_default_parameter_file(path=path_unsplit, prompt=False)
+    unsplit_model = import_parameters_py(path_unsplit).model
+    assert not unsplit_model.params["split_sound"] and unsplit_model.params["linear"]
+    assert unsplit_model.propagators.variat_qb.options.model == "linear_q"
 
     ut.call_test(
         model=model,

@@ -41,6 +41,7 @@ _LAZY_IMPORTS = {
     "TwoFluidQuasiNeutralToy": "struphy.models.two_fluid_quasi_neutral_toy",
     "VariationalBarotropicFluid": "struphy.models.variational_barotropic_fluid",
     "VariationalCompressibleFluid": "struphy.models.variational_compressible_fluid",
+    "VariationalLinearMHD": "struphy.models.variational_linear_mhd",
     "VariationalMHD": "struphy.models.variational_mhd",
     "VariationalMHD_with_p": "struphy.models.variational_mhd_with_p",
     "VariationalMHD_with_q": "struphy.models.variational_mhd_with_q",
@@ -91,6 +92,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
     from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
     from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
+    from struphy.models.variational_linear_mhd import VariationalLinearMHD
     from struphy.models.variational_mhd import VariationalMHD
     from struphy.models.variational_mhd_with_p import VariationalMHD_with_p
     from struphy.models.variational_mhd_with_q import VariationalMHD_with_q
@@ -140,6 +142,7 @@ __all__ = [
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",
     "VariationalCompressibleFluid",
+    "VariationalLinearMHD",
     "VariationalMHD",
     "VariationalMHD_with_p",
     "VariationalMHD_with_q",
