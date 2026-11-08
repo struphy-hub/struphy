@@ -18,7 +18,10 @@ from pathlib import Path
 C_FIT = (0.51643, 0.13619, 0.10274, 0.56458)
 
 # Command line options
-# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid (default 24 96 16).
+# `--out-folder` and `--sim-folder` set the output folder (default sim_Bmax_<b-space>); `--b-space` the space of
+# the magnetic field (default Hdiv); `--num-elements` the grid (default 24 96 16 with Hdiv, 24 44 16 with Hcurl;
+# PR #887, issue #889); `--a1` the hole around the axis; `--degree` the spline degrees (as in the ShearAlfven and
+# LinearMHD ITPA examples).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
@@ -28,14 +31,29 @@ parser.add_argument(
     default=str(Path(__file__).resolve().parent),
     help="Folder in which the output folder is created (default: beside this file).",
 )
-parser.add_argument("--sim-folder", default="sim_Bmax", help="Name of the output folder.")
+parser.add_argument(
+    "--sim-folder", default=None, help="Name of the output folder (default: sim_Bmax_<b-space>, e.g. sim_Bmax_Hdiv)."
+)
 parser.add_argument(
     "--num-elements",
     type=int,
     nargs=3,
-    default=[24, 96, 16],
-    help="Number of elements per direction (default 24 96 16: the H(div) shear Alfven step needs about 8 elements per "
-    "poloidal wavelength of the m = 10 harmonic for the right TAE frequency, see the description).",
+    default=None,
+    help="Number of elements per direction (default 24 96 16 with --b-space Hdiv, 24 44 16 with Hcurl: the H(div) "
+    "shear Alfven step needs about 8 elements per poloidal wavelength of the m = 10 harmonic for the right TAE "
+    "frequency, see the description).",
+)
+parser.add_argument(
+    "--b-space",
+    default="Hdiv",
+    choices=["Hdiv", "Hcurl"],
+    help="Space of the magnetic field (model flag b_space): Hdiv (default) or Hcurl (curl-curl shear Alfven step, "
+    "1-form couplings and pushers, fewer poloidal elements, not yet validated by a full run), see the description.",
+)
+parser.add_argument(
+    "--projected",
+    action="store_true",
+    help="With --b-space Hcurl: projection of the Lorentz force in the curl-curl term (model flag projected).",
 )
 parser.add_argument("--Np", type=int, default=1_000_000, help="Number of markers of the energetic ions.")
 parser.add_argument(
@@ -54,6 +72,10 @@ parser.add_argument(
 parser.add_argument("--dt", type=float, default=0.25, help="Time step.")
 parser.add_argument("--tend", type=float, default=700.0, help="End time.")
 parser.add_argument(
+    "--a1", type=float, default=0.1, help="Radius of the hole around the magnetic axis (default 0.1, in units of a)."
+)
+parser.add_argument("--degree", type=int, nargs=3, default=[3, 3, 3], help="Spline degrees per direction.")
+parser.add_argument(
     "--filter",
     default="fourier",
     choices=["fourier", "hybrid", "three_point", "none"],
@@ -66,14 +88,16 @@ parser.add_argument(
     "--drift-algo",
     default="discrete_gradient_2nd_order",
     choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
-    help="Algorithm of the guiding-center drift push (PushGuidingCenterBxEstar): a discrete gradient (energy "
+    help="Algorithm of the guiding-center drift push (PushGuidingCenterBxEstar1form, PushGuidingCenterBxEstar "
+    "with --b-space Hdiv): a discrete gradient (energy "
     "conserving, iterative) or the explicit RK4.",
 )
 parser.add_argument(
     "--parallel-algo",
     default="discrete_gradient_1st_order_newton",
     choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
-    help="Algorithm of the parallel guiding-center push (PushGuidingCenterParallel): a discrete gradient (energy "
+    help="Algorithm of the parallel guiding-center push (PushGuidingCenterParallel1form, PushGuidingCenterParallel "
+    "with --b-space Hdiv): a discrete gradient (energy "
     "conserving, iterative) or the explicit RK4.",
 )
 parser.add_argument(
@@ -104,6 +128,14 @@ parser.add_argument(
     "for the tests (test_examples.py).",
 )
 args, _ = parser.parse_known_args()
+if args.sim_folder is None:
+    args.sim_folder = f"sim_Bmax_{args.b_space}"
+if args.projected and args.b_space != "Hcurl":
+    parser.error("--projected requires --b-space Hcurl.")
+if args.magnetosonic_cross_b0 and args.b_space != "Hdiv":
+    parser.error("--magnetosonic-cross-b0 requires --b-space Hdiv.")
+if args.num_elements is None:
+    args.num_elements = [24, 96, 16] if args.b_space == "Hdiv" else [24, 44, 16]
 if args.test_run:
     args.num_elements = [8, 32, 4]
     args.Np = 2000
@@ -113,7 +145,10 @@ if args.T_hot != 400.0:
         f"C_FIT is fitted at 400 keV, not at T_hot = {args.T_hot} keV: refit it to match the benchmark density profile."
     )
 
-name = f"ITPA TAE benchmark driven by energetic ions (LinearMHDDriftkineticCC, shift=Bmax, filter {args.filter})"
+name = (
+    f"ITPA TAE benchmark driven by energetic ions (LinearMHDDriftkineticCC, shift=Bmax, "
+    f"b_space={args.b_space}, filter {args.filter})"
+)
 description = f"""
 Toroidal Alfven eigenmode (TAE) of the ITPA benchmark (Koenies et al. 2018), driven unstable by energetic ions:
 linear ideal MHD coupled to drift-kinetic energetic deuterons (current coupling, delta-f) with the model
@@ -132,16 +167,24 @@ Landau damping by the velocity gradient (and to continuum damping).
 Setup (ITPA TAE benchmark, Koenies et al. 2018). Large-aspect-ratio tokamak with circular flux surfaces (AdhocTorus):
 R0 = 10 m, a = 1 m, B0 = 3 T, q(r) = 1.71 + 0.16 r^2/a^2, hydrogen bulk with the flat density 2e19 m^-3 and on-axis
 beta 0.0018 (units x = 1 m, B = 1 T, n = 2e19 m^-3, so v_unit = 4.88e6 m/s and t_unit = 0.205 us). Only n = 6 is
-computed, on a sixth of the torus (HollowTorus with tor_period = 6 and a hole of radius 0.1; the logical mode number
--1 along eta3 is the physical n = 6), grid {args.num_elements} with cubic splines, time step {args.dt} up to
-t = {args.tend}. The compressional MHD is included, with the background current,
+computed, on a sixth of the torus (HollowTorus with tor_period = 6 and a hole of radius {args.a1}; the logical
+mode number -1 along eta3 is the physical n = 6), grid {args.num_elements} with spline degrees {args.degree}, time
+step {args.dt} up to t = {args.tend}. The compressional MHD is included, with the background current,
 background pressure and sound steps of LinearMHD or, with --magnetosonic-cross-b0, with MagnetosonicCrossB0, which
 writes the current force and the pressure work through B0 x like the shear Alfven step:
 {args.magnetosonic_cross_b0}.
-The grid has 96 poloidal elements (about 9 per wavelength of the m = 10 harmonic): the model has the magnetic field in
-H(div), whose shear Alfven step uses the commuting projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal
-interpolation error makes the effective poloidal mode number about 2-3% too small with 44 elements, which shifts the
-continuum near the gap (where n q - m nearly cancels) so much that there is no TAE (PR #887).
+The magnetic field is in {args.b_space} (--b-space). With H(curl), the shear Alfven step is the curl-curl
+step coupled to the magnetization of the energetic ions (ShearAlfvenCurlCurlCurrentCoupling5D: weak products of the
+Lorentz force, no basis projection) and the couplings and guiding-center pushers use the 1-form field (issue #889);
+44 poloidal elements (about 4 per wavelength of the m = 10 harmonic), as in the ShearAlfven and LinearMHD versions
+of this benchmark, which give the benchmark frequency with them (PR #887); the H(curl) setup of this example has not
+yet been validated by a full run (issue #889). With H(div) (default, the more robust choice), the shear Alfven step
+uses the commuting projection Pi^1[(B0 + b) x u] of the Lorentz drift. Its poloidal interpolation error makes the
+effective poloidal mode number about 2-3% too small with 44 elements, which shifts the continuum near the gap (where
+n q - m nearly cancels) so much that there is no TAE (PR #887): hence 96 poloidal elements with H(div). Boundary
+conditions at the walls: b.n = 0 and u.n = 0 imposed strongly with H(div); free boundary conditions with H(curl)
+(Dirichlet would force the tangential magnetic field to zero), where u.n = 0 holds only weakly, through the weak
+induction equation of the shear Alfven step.
 Energetic deuterons with the temperature T_h = {args.T_hot} keV (thermal speed sqrt(T_h/m_D) = {{vth:.3g}} v_unit,
 about 0.3 v_A at 400 keV, gyro-radius about 3 cm in 3 T; the normalized cyclotron period epsilon follows from the
 units), represented by {args.Np} markers with delta-f weights (control variate). The density profile is
@@ -160,10 +203,14 @@ of the paper). The guiding-center pushers use {args.drift_algo} for the drifts (
 plasma are removed (--marker-bc remove) or refilled on the same field line (--marker-bc refill): {args.marker_bc}.
 Filter of the accumulated moments: {args.filter}.
 
-Cost. On 24 x 88 x 8 elements with 1e6 markers, dt = 1 and RK4 for the parallel motion, a time step took about 26-30 s
-on 4 MPI ranks, mostly in the guiding-center pushers and the current coupling, which scale with the number of markers
-per rank. The default grid has about 2.2 times more cells and both pushers are iterative: the run is meant for a
-cluster with many more ranks.
+Cost. With 1e5 markers on 4 MPI ranks (dt = 0.25, default pushers), a time step took about 16 s with --b-space Hdiv
+(24 x 96 x 16) and about 19 s with --b-space Hcurl (24 x 44 x 16; about 8 s of it for the mass matrices of the total
+field in the shear Alfven step, nonlinear=True by default; about 11 s with nonlinear=False). The marker noise of
+the magnetization makes the curl-curl solve of the H(curl) step need about 60-70 Hiptmair-Xu iterations instead of
+about 10 without energetic
+ions (the H(div) solve: about 25), and the number grows with dt (about 300 at dt = 1). The guiding-center pushers and
+the current coupling scale with the number of markers per rank (on 24 x 88 x 8 with 1e6 markers, dt = 1 and RK4 for
+the parallel motion, a time step took about 26-30 s with H(div)): the run is meant for a cluster with many more ranks.
 The TAE is seeded by a small m = 10, 11 velocity perturbation localized at the gap (as in the LinearMHD example).
 
 Expected result. After the initial transient, the TAE (the (m, n) = (10, 6) and (11, 6) harmonics of the radial
@@ -230,6 +277,8 @@ model = LinearMHDDriftkineticCC(
     mhd_mass_number=A_BULK,
     hot_charge_number=1,
     hot_mass_number=A_HOT,
+    b_space=args.b_space,
+    projected=args.projected,
     magnetosonic_cross_b0=args.magnetosonic_cross_b0,
 )
 
@@ -258,7 +307,7 @@ time_opts = Time(dt=args.dt, Tend=2 * env.save_step * args.dt if args.test_run e
 
 # Geometry
 a, R0 = 1.0, 10.0
-domain = domains.HollowTorus(a1=0.1, a2=a, R0=R0, sfl=False, pol_period=1, tor_period=6)
+domain = domains.HollowTorus(a1=args.a1, a2=a, R0=R0, sfl=False, pol_period=1, tor_period=6)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(
@@ -269,8 +318,11 @@ equil = equils.AdhocTorus(
 # (no domain decomposition along eta3, needed by the toroidal Fourier filter)
 grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements), mpi_dims_mask=(True, True, False))
 
-# Derham options: u.n = 0 and b.n = 0 at the walls (flux surfaces)
-derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(("dirichlet", "dirichlet"), None, None))
+# Derham options: with H(div), u.n = 0 and b.n = 0 at the walls (flux surfaces) imposed strongly; with H(curl), free
+# boundary conditions (Dirichlet would force the tangential magnetic field to zero); u.n = 0 is then imposed only
+# weakly, by the weak induction equation of the shear Alfven step (see ShearAlfvenCurlCurlPropagator)
+bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "free")
+derham_opts = DerhamOptions(degree=tuple(args.degree), bcs=(bcs_eta1, None, None))
 
 # Profiling options
 profiling_opts = ProfilingOptions(use_line_profiler=False)

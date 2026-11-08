@@ -236,12 +236,27 @@ Particle pushing
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.push_vxb_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.push_guiding_center_bx_estar
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.push_guiding_center_bx_estar_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.push_guiding_center_parallel
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.push_guiding_center_parallel_1form
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -285,7 +300,17 @@ MHD-kinetic coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.current_coupling_5d_curlb_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.current_coupling_5d_density
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.current_coupling_5d_density_1form
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -295,7 +320,17 @@ MHD-kinetic coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.current_coupling_5d_gradb_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.current_coupling_6d_current
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.current_coupling_6d_current_1form
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -305,7 +340,17 @@ MHD-kinetic coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.current_coupling_6d_density_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.shear_alfven_current_coupling_5d
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.shear_alfven_curl_curl_current_coupling_5d
     :members:
     :exclude-members: options, allocate
     :show-inheritance:

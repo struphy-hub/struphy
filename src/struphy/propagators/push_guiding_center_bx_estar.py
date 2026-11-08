@@ -79,6 +79,11 @@ class PushGuidingCenterBxEstar(Propagator):
             assert "Particles5D" in new.space
             self._ions = new
 
+    # space of the magnetic perturbation ("Hdiv": 2-form, "Hcurl": 1-form, see PushGuidingCenterBxEstar1form) and the
+    # basis operator of its parallel component (the kernels see the perturbation only through this component)
+    _b_form = "2"
+    _pb_name = "PB"
+
     def __init__(
         self,
         phi: FEECVariable = None,
@@ -103,6 +108,8 @@ class PushGuidingCenterBxEstar(Propagator):
         assert phi is None or e_field is None, "Pass either the potential phi or the electric field e_field, not both."
         if e_field is not None:
             assert isinstance(e_field, FEECVariable) and e_field.space == "Hcurl", "e_field must be in Hcurl."
+        b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
+        assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.e_field = e_field
         self.variables = self.Variables()
         self.phi = phi if phi is not None else FEECVariable(space="H1")
@@ -200,7 +207,7 @@ class PushGuidingCenterBxEstar(Propagator):
             self._B_dot_b = self.derham.V0.zeros()
             self._grad_b_full = self.derham.V1.zeros()
 
-            self._PB = getattr(self.basis_ops, "PB")
+            self._PB = getattr(self.basis_ops, self._pb_name)
             self._B_dot_b_pol = self._PB.codomain.zeros()
             self._grad_b_pol = self.derham.grad.codomain.zeros()
 

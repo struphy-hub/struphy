@@ -1,0 +1,303 @@
+"Pusher kernel for gyro-center (5D) dynamics, magnetic field as a 1-form."
+
+from numpy import empty, mod, sqrt, zeros
+from pyccel.decorators import stack_array
+
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+from struphy.bsplines.evaluation_kernels_3d import (
+    eval_0form_spline_mpi,
+    eval_1form_spline_mpi,
+    eval_2form_spline_mpi,
+    get_spans,
+)
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+
+
+@stack_array(
+    "dfm",
+    "dfinv",
+    "dfinvt",
+    "eta_k",
+    "eta_n",
+    "eta_mid",
+    "eta_diff",
+    "grad_H",
+    "grad_I",
+    "e_field",
+    "b1",
+    "tmp",
+    "b_star",
+    "k",
+)
+def push_gc_Bstar_discrete_gradient_2nd_order_1form(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    epsilon: float,
+    grad_b_full_1: "float[:,:,:]",
+    grad_b_full_2: "float[:,:,:]",
+    grad_b_full_3: "float[:,:,:]",
+    b1_1: "float[:,:,:]",
+    b1_2: "float[:,:,:]",
+    b1_3: "float[:,:,:]",
+    curl_unit_b2_1: "float[:,:,:]",
+    curl_unit_b2_2: "float[:,:,:]",
+    curl_unit_b2_3: "float[:,:,:]",
+    B_dot_b_coeffs: "float[:,:,:]",
+    curl_unit_b_dot_b0: "float[:,:,:]",
+    e_field_1: "float[:,:,:]",
+    e_field_2: "float[:,:,:]",
+    e_field_3: "float[:,:,:]",
+    evaluate_e_field: bool,
+):
+    r"""For each marker :math:`p` in markers array, make one step of Picard iteration (index :math:`k`) for
+
+    .. math::
+
+        \left\{ 
+            \begin{aligned} 
+                \frac{\boldsymbol \eta_p^{n+1, k+1} - \boldsymbol \eta_p^{n}}{\Delta t} &= 
+                \frac 1 \varepsilon\frac{\hat{\mathbf B}^{*\textnormal{v}}}{\hat B^{*}_\parallel} 
+                \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right) 
+                \frac{\partial \overline H}{\partial v_{\parallel}} (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})\,,
+                \\
+                \frac{v_{\parallel,p}^{n+1,k+1} - v_{\parallel,p}^{n}}{\Delta t} &= 
+                - \frac 1 \varepsilon\frac{\hat{\mathbf B}^{*\textnormal{v}}}{\hat B^{*}_\parallel} 
+                \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right) \cdot
+                \frac{\partial \overline H}{\partial \boldsymbol \eta} (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})\,,
+            \end{aligned}
+        \right.
+
+    where the Hamiltonian reads
+
+    .. math::
+
+        H(\mathbf Z) = H(\boldsymbol \eta, v_{\parallel}) =\varepsilon\frac{v_{\parallel}^2}{2} 
+        + \varepsilon\mu_p |\hat{\mathbf B}| (\boldsymbol \eta) + \hat \phi(\boldsymbol \eta)\,,
+
+    and where
+
+    .. math::
+
+        \frac{\partial \overline H}{\partial \mathbf Z}
+        (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})
+        = \frac{\partial H}{\partial \mathbf Z} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)
+        + (\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}) \,
+        \frac{H(\mathbf Z_p^{n+1, k}) - H(\mathbf Z_p^{n}) - (\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}) \cdot
+        \frac{\partial H}{\partial \mathbf Z} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)}{||\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}||}\,,
+
+    is the Gonzalez discrete gradient. The magnetic field is given as a 1-form :math:`\hat{\mathbf B}^1` and
+
+    .. math::
+
+        \hat{\mathbf B}^{*\textnormal{v}} = G^{-1} \hat{\mathbf B}^1 + \frac{\varepsilon v_\parallel}{\sqrt g} \hat \nabla \times \hat{\mathbf b}^1_0\,,\qquad
+        \hat B^*_\parallel = \hat B + \varepsilon v_\parallel \widehat{\left[(\nabla \times \mathbf b_0) \cdot \mathbf b_0\right]}\,.
+
+    This is
+    :func:`~struphy.pic.pushing.kernels.push_gc_Bstar_discrete_gradient_2nd_order.push_gc_Bstar_discrete_gradient_2nd_order_kernels.push_gc_Bstar_discrete_gradient_2nd_order`
+    with :math:`\hat{\mathbf B}^{*2} / \sqrt g = \hat{\mathbf B}^{*\textnormal{v}}`: the factor :math:`\sqrt g` cancels
+    in the magnetic-field term (:math:`\hat{\mathbf B}^2 = \sqrt g \, G^{-1} \hat{\mathbf B}^1`).
+
+    Notes
+    -----
+    This kernel performs evaluations at mid-points. 
+    Other evaluations are performed in ``init_kernels`` and ``eval_kernels``,
+    respectively.
+    """
+
+    # allocate metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinvt = empty((3, 3), dtype=float)
+
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
+
+    grad_H = empty(3, dtype=float)
+    grad_I = empty(3, dtype=float)
+
+    e_field = zeros(3, dtype=float)
+    b1 = empty(3, dtype=float)
+    tmp = empty(3, dtype=float)
+    b_star = empty(3, dtype=float)
+
+    # intermediate k-vector
+    k = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    first_pusher_idx = args_markers.first_pusher_idx
+    first_shift_idx = args_markers.first_shift_idx
+    residual_idx = args_markers.residual_idx
+    first_free_idx = args_markers.first_free_idx
+
+    for ip in range(n_markers):
+        # check if marker is converged or a hole
+        if markers[first_pusher_idx, ip] == -1.0:
+            continue
+
+        eta_k[:] = markers[0:3, ip] + markers[first_shift_idx : first_shift_idx + 3, ip]
+        eta_n[:] = markers[first_pusher_idx : first_pusher_idx + 3, ip]
+
+        eta_mid[:] = (eta_k + eta_n) / 2.0
+        eta_mid[:] = mod(eta_mid, 1.0)
+        eta_diff[:] = eta_k - eta_n
+
+        v_k = markers[3, ip]
+        v_n = markers[first_pusher_idx + 3, ip]
+        v_mid = (v_k + v_n) / 2.0
+        v_diff = v_k - v_n
+
+        mu = markers[mu_idx, ip]
+
+        # Hamiltonian at n (from init_kernel)
+        H_n = markers[first_free_idx, ip]
+
+        # Hamiltonian at (n+1, k) (from eval_kernel)
+        H_k = markers[first_free_idx + 1, ip]
+
+        # mid-point evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta_mid[0],
+            eta_mid[1],
+            eta_mid[2],
+            args_domain,
+            dfm,
+        )
+
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels.transpose(dfinv, dfinvt)
+
+        # mid-point spline evaluation
+        span1, span2, span3 = get_spans(
+            eta_mid[0],
+            eta_mid[1],
+            eta_mid[2],
+            args_derham,
+        )
+
+        # compute grad_H at n + 1/2
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            grad_b_full_1,
+            grad_b_full_2,
+            grad_b_full_3,
+            grad_H,
+        )
+
+        grad_H *= epsilon * mu
+
+        if evaluate_e_field:
+            eval_1form_spline_mpi(
+                span1,
+                span2,
+                span3,
+                args_derham,
+                e_field_1,
+                e_field_2,
+                e_field_3,
+                e_field,
+            )
+
+            e_field *= -1.0
+            grad_H += e_field
+
+        # compute grad_I
+        grad_H_v = epsilon * v_mid
+
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) + v_diff * grad_H_v
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff) + v_diff * v_diff
+
+        if dZ_squared == 0.0:
+            grad_I[:] = grad_H
+            grad_I_v = grad_H_v
+        else:
+            grad_I[:] = grad_H + eta_diff * (H_k - H_n - dZ_dot_grad_H) / dZ_squared
+            grad_I_v = grad_H_v + v_diff * (H_k - H_n - dZ_dot_grad_H) / dZ_squared
+
+        # compute B* (vector-field components): G^{-1} b1 + epsilon v curl_unit_b2 / sqrt(g)
+        eval_2form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            curl_unit_b2_1,
+            curl_unit_b2_2,
+            curl_unit_b2_3,
+            b_star,
+        )
+
+        b_star *= epsilon * v_mid / det_df
+
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            b1_1,
+            b1_2,
+            b1_3,
+            b1,
+        )
+
+        # G^{-1} b1 = DF^{-1} DF^{-T} b1, added to b_star
+        linalg_kernels.matrix_vector(dfinvt, b1, tmp)
+        linalg_kernels.matrix_vector(dfinv, tmp, b1)
+        b_star += b1
+
+        # compute B*_parallel (0-form, no metric factor)
+        B_dot_b = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            B_dot_b_coeffs,
+        )
+
+        b_star_parallel = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            curl_unit_b_dot_b0,
+        )
+
+        b_star_parallel *= epsilon * v_mid
+        b_star_parallel += B_dot_b
+        b_star_parallel *= epsilon
+
+        # calculate k for eta
+        k[:] = b_star / b_star_parallel * grad_I_v
+
+        # calculate k_v for v
+        k_v = linalg_kernels.scalar_dot(b_star, grad_I)
+        k_v /= -b_star_parallel
+
+        # compute values at (n+1, k+1)
+        markers[0:3, ip] = eta_n + dt * k
+        markers[3, ip] = v_n + dt * k_v
+
+        # residual
+        markers[residual_idx, ip] = sqrt(
+            (markers[0, ip] - eta_k[0]) ** 2
+            + (markers[1, ip] - eta_k[1]) ** 2
+            + (markers[2, ip] - eta_k[2]) ** 2
+            + (markers[3, ip] - v_k) ** 2,
+        )
+
+        # apply kinetic boundary conditions
+        pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
