@@ -74,6 +74,13 @@ class LoadingParameters:
 
     restart_key : str, optional
         HDF5 dataset key within the 'restart/' folder containing marker array data.
+
+    tor_copies : int, default=1
+        Toroidal quiet start (``loading="pseudo_random"`` only): ``Np / tor_copies`` markers are drawn and each is
+        loaded ``tor_copies`` times at ``eta3 + j / tor_copies``, with the same other coordinates. For an
+        axisymmetric equilibrium the copies stay toroidal shifts of each other, so their deposit has no toroidal
+        modes other than multiples of ``tor_copies`` apart from the response to the fields. Must divide ``Np`` and
+        the number of cells in eta3.
     """
 
     Np: int = 5000
@@ -91,8 +98,10 @@ class LoadingParameters:
     dir_particles: str = None
     dir_particles_abs: str = None
     restart_key: str = None
+    tor_copies: int = 1
 
     def __post_init__(self):
+        assert isinstance(self.tor_copies, int) and self.tor_copies >= 1, "tor_copies must be a positive integer."
         check_option(self.loading, LiteralOptions.OptsLoading)
         check_option(self.spatial, LiteralOptions.OptsSpatialLoading)
         check_B0_option(self.B0)

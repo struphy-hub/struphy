@@ -1248,6 +1248,13 @@ class Particles(metaclass=ABCMeta):
             for key, val in self.loading_params.__dict__.items():
                 logger.debug(f"{key + ' :':<25}{val}")
 
+            tor_copies = self.loading_params.tor_copies
+            if tor_copies > 1:
+                assert self.loading == "pseudo_random", 'tor_copies > 1 needs loading="pseudo_random".'
+                n_cells_3 = int(self._domain_array_host[0, 8]) * int(self.nprocs[2])
+                assert n_cells_3 % tor_copies == 0, f"{tor_copies =} must divide the number of cells in eta3."
+                assert int(self.Np) % tor_copies == 0, f"{tor_copies =} must divide Np = {int(self.Np)}."
+
             # 1. standard random number generator (pseudo-random)
             if self.loading == "pseudo_random":
                 # set seed
@@ -1261,7 +1268,7 @@ class Particles(metaclass=ABCMeta):
                 # markers drawn per chunk: large chunks keep the number of iterations (each a few small kernels and
                 # a device sync on the GPU) low, e.g. 16 instead of 1600 for 16M markers; a chunk of temporaries
                 # takes ~(3 + vdim + 4) * 8 bytes per marker (~50 MB). The NumPy draws do not depend on it.
-                chunk_size = 2**20
+                chunk_size = (2**20 // tor_copies) * tor_copies
 
                 # Total number of markers to draw (sum over all clones)
                 while num_loaded_particles_glob < int(self.Np):
@@ -1269,7 +1276,13 @@ class Particles(metaclass=ABCMeta):
                     num_to_add_glob = min(chunk_size, int(self.Np) - num_loaded_particles_glob)
                     # one column per particle; drawn row by row, so that the random numbers of a particle are
                     # consecutive in the stream
-                    temp = xp.random.rand(num_to_add_glob, 3 + self.vdim).T
+                    temp = xp.random.rand(num_to_add_glob // tor_copies, 3 + self.vdim).T
+                    # toroidal quiet start: copies of each marker at eta3 + j / tor_copies
+                    if tor_copies > 1:
+                        n_base = temp.shape[1]
+                        temp = xp.tile(temp, (1, tor_copies))
+                        shift = xp.repeat(xp.arange(tor_copies, dtype=float) / tor_copies, n_base)
+                        temp[2] = xp.mod(temp[2] + shift, 1.0)
                     # inversion method for drawing uniformly on the disc, before the domain check
                     if self.spatial == "disc":
                         temp[0] = xp.sqrt(temp[0])
