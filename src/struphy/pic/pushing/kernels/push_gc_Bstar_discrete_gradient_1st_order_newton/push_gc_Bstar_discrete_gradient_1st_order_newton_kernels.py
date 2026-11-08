@@ -237,8 +237,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
             e_field *= -1.0
             grad_H += e_field
 
-        # compute the Itoh discrete gradient; for |eta_diff| < 1e-8 the difference quotients are dominated by
-        # round-off and replaced by the derivative at the step end (energy error < |H''| * eta_diff**2 / 2)
+        # compute the Itoh discrete gradient
         if -1e-8 < eta_diff[0] < 1e-8:
             grad_I[0] = grad_H_1
         else:
@@ -254,7 +253,6 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         else:
             grad_I[2] = (H_k123 - H_k12) / (eta_diff[2])
 
-        # H is quadratic in v, hence the quotient (H_k - H_k123) / v_diff is exact without cancellation
         grad_I_v = epsilon * (v_k + v_n) / 2.0
 
         # compute F; the Poisson matrix is [[0, Jvec], [-Jvec^T, 0]]
@@ -323,7 +321,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         markers[0:3, ip] -= k
         markers[3, ip] -= k_v
 
-        # residual; absolute in v (a relative measure fails near bounce points where v -> 0)
+        # residual
         markers[residual_idx, ip] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + k_v**2)
 
         # apply kinetic boundary conditions

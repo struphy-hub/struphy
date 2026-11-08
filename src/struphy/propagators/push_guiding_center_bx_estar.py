@@ -178,8 +178,6 @@ class PushGuidingCenterBxEstar(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     b_par_filter = None
-    """Filter of the parallel magnetic perturbation in the marker energy, set by a model whose coupling term to the
-    magnetic field deposits with this filter (:class:`~struphy.pic.accumulation.filter.AccumFilter`, or None)."""
 
     @profile
     def allocate(self):

@@ -146,8 +146,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             Solver controls.
         filter_params : FilterParameters, default=None
             Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
-            With ``use_filter="fourier_in_tor"`` the energy is conserved if the markers see the same filter on the
-            parallel magnetic perturbation in their energy, which :class:`~struphy.models.LinearMHDDriftkineticCC` sets up.
             The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
             but the propagator then no longer conserves the energy exactly (the filter is applied to the
             accumulated vectors only, not to the fields seen by the particles).

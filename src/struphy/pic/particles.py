@@ -467,7 +467,6 @@ class Particles5D(Particles):
     momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
 
     _budget = False
-    """Whether the energy budget is on, see :meth:`enable_energy_budget`."""
 
     def __post_init__(self):
         """Retrieve the discrete equilibrium magnetic-field quantities (:math:`|B_0|`, unit 1-form
@@ -709,24 +708,7 @@ class Particles5D(Particles):
         )
 
     def enable_energy_budget(self):
-        r"""
-        Track the marker energy that the frozen-weight energy balance does not contain, in
-        :attr:`refill_energy` and :attr:`weight_energy`.
-
-        With :math:`H_p = v_{\\parallel,p}^2/2 + \\mu_p (|B_0| + b_\\parallel)(\\boldsymbol \\eta_p)`, a propagator
-        with frozen weights exchanges energy with the fields only, up to
-
-        .. math::
-
-            \\Delta E_\\textnormal{refill} = \\sum_{p\\,\\textnormal{refilled}} w_p (H_p^\\textnormal{refilled}
-            - H_p^\\textnormal{before push}) \\,, \\qquad
-            \\Delta E_\\textnormal{weight} = \\sum_p (w_p^{n+1} - w_p^n) H_p^{n+1} \\,,
-
-        where the second term is the control variate update of :meth:`update_weights`.
-
-        Needs two diagnostics columns more than the default (the propagators clear the columns after them). They
-        travel with the markers, so refilled markers can change the MPI rank.
-        """
+        """Track the marker energy from refilling and from the weight update (needs two more diagnostics columns)."""
         assert self.n_cols_diagnostics >= self.default_n_cols["diagnostics"] + 2, (
             "The energy budget needs two more diagnostics columns."
         )
@@ -739,17 +721,13 @@ class Particles5D(Particles):
 
     @property
     def refill_energy(self):
-        """Cumulative energy change of this rank from refilling (without the factor of the species energy)."""
         return self._refill_energy
 
     @property
     def weight_energy(self):
-        """Cumulative energy change of this rank from the weight update (without the factor of the species energy)."""
         return self._weight_energy
 
     def _marker_energy(self, markers):
-        """Energy per marker of the given columns (positions on this rank), at the field of :meth:`budget_begin_push`.
-        Does not communicate. The diagnostics column of ``markers`` is overwritten."""
         eval_magnetic_energy_PBb(
             markers,
             self.derham.args_derham,
@@ -764,13 +742,7 @@ class Particles5D(Particles):
         return 0.5 * markers[3] ** 2 + markers[self.first_diagnostics_idx]
 
     def budget_begin_push(self, PBb):
-        """To be called before a propagator that moves the markers: saves the energy of each marker.
-
-        Parameters
-        ----------
-        PBb : BlockVector
-            Finite element coefficients of the time-dependent magnetic field, projected onto V0.
-        """
+        """Save the energy of each marker before a propagator that moves them."""
         E0T = self.derham.extraction_ops["0"].transpose()
         E0T.dot(PBb, out=self._budget_tmp0)
         self._budget_tmp0.update_ghost_regions()
@@ -781,9 +753,7 @@ class Particles5D(Particles):
         self.markers[self._budget_flag_idx, valid] = 0.0
 
     def budget_count_refilled(self):
-        """Add the energy of the markers refilled since the last call. To be called when all markers are on the right
-        MPI rank and before the weights change (:meth:`update_weights` does it, for the control variate). A propagator
-        that moves the markers leaves them so, not its intermediate sorting."""
+        """Add the energy change of the markers refilled since the last call."""
         refilled = xp.flatnonzero(xp.logical_and(self.valid_mks, self.markers[self._budget_flag_idx] == 1.0))
         if refilled.size == 0:
             return
@@ -795,7 +765,6 @@ class Particles5D(Particles):
         self.markers[self._budget_flag_idx, refilled] = 0.0
 
     def _particle_refilling(self):
-        """Flag the refilled markers for the energy budget, see :meth:`enable_energy_budget`."""
         if self._budget:
             for kind in self.bc_refill:
                 outside = self._is_outside_left if kind == "inner" else self._is_outside_right
@@ -803,7 +772,6 @@ class Particles5D(Particles):
         super()._particle_refilling()
 
     def update_weights(self):
-        """See :meth:`~struphy.pic.base.Particles.update_weights`, with the energy change for the energy budget."""
         if not self._budget:
             super().update_weights()
             return

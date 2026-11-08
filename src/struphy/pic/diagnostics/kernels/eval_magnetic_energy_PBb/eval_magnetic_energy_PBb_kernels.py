@@ -22,8 +22,6 @@ def eval_magnetic_energy_PBb(
 ):
     r"""
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
-    Marker positions outside of [0, 1] are wrapped in periodic directions (``periodic[i]`` is True) and folded
-    (mirrored) into [0, 1] in non-periodic directions.
     The result is stored at markers[first_diagnostics_idx, :].
     """
     eta = empty(3, dtype=float)

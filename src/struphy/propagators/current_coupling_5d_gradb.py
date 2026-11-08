@@ -145,14 +145,11 @@ class CurrentCoupling5DGradB(Propagator):
             Preconditioner used with the mass matrix.
 
         solver_params : SolverParameters, default=None
-            Iterative-solver controls. If ``None``, defaults to ``SolverParameters()``, with ``tol=1e-13`` for
-            ``algo="discrete_gradient"``: the accuracy of the linear solves limits the energy conservation.
+            Iterative-solver controls. If ``None``, defaults to
+            ``SolverParameters()``.
 
         filter_params : FilterParameters, default=None
             Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
-            With ``use_filter="fourier_in_tor"`` and ``algo="discrete_gradient"`` the same filter is applied to the
-            mid-point velocity seen by the markers: the filter is a symmetric projector on the coefficients, so
-            :math:`\mathbf u^\top \mathbb F \mathbf V = (\mathbb F \mathbf u)^\top \mathbf V` and the energy is conserved.
             The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
             but the propagator then no longer conserves the energy exactly (the filter is applied to the
             accumulated vectors only, not to the fields seen by the particles).
@@ -227,8 +224,6 @@ class CurrentCoupling5DGradB(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     b_par_filter = None
-    """Filter of the parallel magnetic perturbation in the marker energy, set by a model whose coupling term to the
-    magnetic field deposits with this filter (:class:`~struphy.pic.accumulation.filter.AccumFilter`, or None)."""
 
     @profile
     def allocate(self):
@@ -360,12 +355,10 @@ class CurrentCoupling5DGradB(Propagator):
             self._ku = self.variables.u.spline.vector.space.zeros()
             self._u_temp = self.variables.u.spline.vector.space.zeros()
 
-            # convergence of the discrete gradient, see the properties below
             self._n_not_converged = 0
             self._last_iterations = 0
             self._last_e_diff = 0.0
 
-            # periodic directions: marker positions wrap there and are folded (mirrored) into [0, 1] otherwise
             self._periodic = xp.array(self.derham.spl_kind, dtype=bool)
 
             # magnetic perturbation (zero if not given)
@@ -525,7 +518,7 @@ class CurrentCoupling5DGradB(Propagator):
         # clear buffer
         markers[first_pusher_idx:-2] = 0.0
 
-        # save old marker phase space coordinates
+        # save old marker positions
         markers[first_pusher_idx : first_pusher_idx + particles.n_cols_pusher] = markers[: particles.n_cols_pusher]
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
@@ -710,15 +703,13 @@ class CurrentCoupling5DGradB(Propagator):
                 u_mid /= 2.0
                 u_mid.update_ghost_regions()
 
-                # the markers see the adjoint of the filter of the accumulated vector, needed for energy conservation
                 if self._ACC.accfilter.params.use_filter == "fourier_in_tor":
                     self._ACC.accfilter(u_mid)
 
                 # save H^{n+1, k}
                 markers[first_free_idx : first_free_idx + 3, ~holes] = markers[0:3, ~holes]
 
-                # calculate denominator ||H^{n+1, k} - H^n||^2
-                # (correction only in eta: en_U is quadratic in u, so its mid-point gradient is already exact)
+                # calculate denominator ||z^{n+1, k} - z^n||^2
                 sum_H_diff_loc = xp.sum(
                     (markers[:3, ~holes] - markers[first_pusher_idx : first_pusher_idx + 3, ~holes]) ** 2,
                 )
@@ -805,7 +796,6 @@ class CurrentCoupling5DGradB(Propagator):
                     self._periodic,
                 )
 
-                # largest change of a marker position in this iteration
                 eta_change = xp.abs(markers[0:3, ~holes] - markers[first_free_idx : first_free_idx + 3, ~holes])
                 max_eta_change_loc = float(xp.max(eta_change)) if eta_change.size > 0 else 0.0
 
@@ -858,8 +848,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 diff = buffer_array[0]
 
-                # check convergence: the energy decides; e_diff can be small before the iteration has converged (small
-                # weights, cancellation), hence the guard on the marker positions
+                # check convergence
                 if e_diff < self.options.dg_solver_params.tol_energy and diff < self.options.dg_solver_params.tol:
                     if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                         logger.info(f"converged diff: {diff}")
@@ -888,7 +877,7 @@ class CurrentCoupling5DGradB(Propagator):
             self._last_iterations = iter_num
             self._last_e_diff = float(e_diff)
 
-            # sorting markers (remove the folding shifts first, boundary conditions are applied now)
+            # sorting markers
             if particles.mpi_comm is not None:
                 markers[first_shift_idx : first_shift_idx + 3] = 0.0
                 particles.mpi_sort_markers()

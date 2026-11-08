@@ -331,8 +331,6 @@ class Pusher:
                     residuals = self._residuals[:n]
                     converged = self._converged_loc[:n]
                     residuals[:] = markers[residual_idx, :n]
-                    # markers flagged as done by the boundary conditions (refilled or reflected) are skipped
-                    # by the kernel and keep the residual of the iteration in which they left the domain
                     residuals[markers[first_pusher_idx, :n] == -1.0] = -1.0
                     max_res = xp.max(residuals) if n > 0 else -1.0
                     if max_res < 0.0:

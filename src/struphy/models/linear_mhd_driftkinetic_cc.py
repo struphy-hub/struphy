@@ -54,8 +54,7 @@ class LinearMHDDriftkineticCC(LinearMHD):
         (:class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`), a different discretization of the
         same equations (default: False).
     energy_budget: bool
-        Save the scalars ``en_refill`` and ``en_weight``: the cumulative energy from refilling markers and from the
-        control variate weight update (default: False). Adds two marker columns, so a restart must use the same value.
+        Save the scalars ``en_refill`` and ``en_weight`` (default: False).
     """
 
     # propagators renamed when the model joined the LinearEuler family (options of old run metadata)
@@ -255,7 +254,6 @@ class LinearMHDDriftkineticCC(LinearMHD):
         self._PB = getattr(Propagator.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
 
-        # the coupling of shear_alf deposits with this filter, so the marker energy sees the same filter on b_par
         accfilter = self.propagators.shear_alf._ACC.accfilter
         self._b_par_filter = accfilter if accfilter.params.use_filter == "fourier_in_tor" else None
         self.propagators.push_bxe.b_par_filter = self._b_par_filter
@@ -266,15 +264,12 @@ class LinearMHDDriftkineticCC(LinearMHD):
             self.energetic_ions.var.particles.enable_energy_budget()
 
     def _b_par(self):
-        """The parallel magnetic perturbation seen by the markers in their energy."""
         PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
         if self._b_par_filter is not None:
             self._b_par_filter(PBb)
         return PBb
 
     def integrate(self, dt, split_algo="LieTrotter"):
-        """See :meth:`~struphy.models.base.StruphyModel.integrate`. With ``energy_budget`` the energy of the markers
-        is saved before each propagator that moves them."""
         if not self.params["energy_budget"]:
             super().integrate(dt, split_algo=split_algo)
             return
@@ -396,9 +391,7 @@ class LinearMHDDriftkineticCC(LinearMHD):
         - Magnetic-moment energetic-particle energy: ``en_fB``
         - Total energy: ``en_tot = en_U + en_thermal + en_B + en_fv + en_fB``
         - Lost particles: ``n_lost_particles``
-        - With ``energy_budget=True``, cumulative energy from refilling markers ``en_refill`` and from the control
-          variate weight update ``en_weight``. With the energy-conserving propagators (sonic steps excluded),
-          ``en_tot - en_refill - en_weight`` is constant in time."""
+        - With ``energy_budget=True``: ``en_refill`` and ``en_weight``"""
 
     @classmethod
     def doc_discretization(cls):

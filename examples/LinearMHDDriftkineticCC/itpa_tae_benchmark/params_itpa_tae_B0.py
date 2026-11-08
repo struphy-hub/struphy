@@ -89,7 +89,7 @@ parser.add_argument(
     help="Radial boundary condition of the energetic-ion markers: refill the markers leaving the plasma on the same "
     "flux surface at the up-down mirrored poloidal angle (default; same velocity, so the constants of motion and f0 "
     "are nearly unchanged; for the HollowTorus with the AdhocTorus equilibrium), or remove them (with the profile of "
-    "the benchmark, about 20% of the markers are lost in the first 100 time units).",
+    "the benchmark, about 20%% of the markers are lost in the first 100 time units).",
 )
 parser.add_argument(
     "--seed",

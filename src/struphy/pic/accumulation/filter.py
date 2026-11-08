@@ -187,19 +187,7 @@ class AccumFilter:
 
 
 class FilteredOperator(LinearOperator):
-    r"""The linear operator :math:`\mathbb F \mathbb A \mathbb F`, with the symmetric filter :math:`\mathbb F`.
-
-    A particle matrix must be filtered like this if the vector deposited by the same markers and the field they see
-    are filtered: the matrix then is the derivative of the filtered deposition in the direction of the filtered field.
-
-    Parameters
-    ----------
-    operator : LinearOperator
-        The operator :math:`\mathbb A`.
-
-    accfilter : AccumFilter
-        The filter :math:`\mathbb F`.
-    """
+    """The linear operator F A F of an operator A and a symmetric filter F (an AccumFilter)."""
 
     def __init__(self, operator: LinearOperator, accfilter: AccumFilter):
         self._operator = operator

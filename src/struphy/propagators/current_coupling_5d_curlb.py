@@ -134,8 +134,6 @@ class CurrentCoupling5DCurlb(Propagator):
 
         filter_params : FilterParameters, default=None
             Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
-            With ``use_filter="fourier_in_tor"`` the same filter is applied to the average velocity seen by the
-            markers: the filter is a symmetric projector on the coefficients, so the energy is conserved.
             The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
             but the propagator then no longer conserves the energy exactly (the filter is applied to the
             accumulated vectors only, not to the fields seen by the particles).
@@ -314,7 +312,6 @@ class CurrentCoupling5DCurlb(Propagator):
             pushes_eta=False,
         )
 
-        # the filter of the accumulated vector and of the velocity seen by the markers enters the matrix on both sides
         if self._ACC.accfilter.params.use_filter == "fourier_in_tor":
             self._A_particles = FilteredOperator(self._A_particles, self._ACC.accfilter)
 
@@ -358,7 +355,6 @@ class CurrentCoupling5DCurlb(Propagator):
 
         _u.update_ghost_regions()
 
-        # the markers see the adjoint of the filter of the accumulated vector, needed for energy conservation
         if self._ACC.accfilter.params.use_filter == "fourier_in_tor":
             self._ACC.accfilter(_u)
 
