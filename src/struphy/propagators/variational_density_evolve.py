@@ -181,8 +181,8 @@ class VariationalDensityEvolve(Propagator):
             Solver of the Schur complement of the non-symmetric Newton system (preconditioned with the
             density-weighted mass matrix, except ``"gmres"``, which has no preconditioner). Its non-symmetric part grows
             with the flow CFL number :math:`\Delta t\, |\mathbf u|\, k_{\max}`; when it is of order ten, BiCGStab
-            can break down, which raises an error. ``"gmres"`` is robust but needs many iterations without
-            preconditioner.
+            can break down, which raises an error. ``"gmres"`` does not break down this way, but needs many
+            iterations without preconditioner (not tested at large flow CFL numbers in 3D).
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         weights : {"frozen", "midpoint"}, default=None
@@ -474,8 +474,8 @@ class VariationalDensityEvolve(Propagator):
                 raise RuntimeError(
                     f"VariationalDensityEvolve: the linear solver of the Newton system ({self.options.jacobian_solver}) "
                     f"broke down (non-finite Newton increment, solver info {self._inv_Jacobian._solver._info}). This "
-                    "happens for large flow CFL numbers dt |u| k_max; reduce the time step or use "
-                    'Options(jacobian_solver="gmres").'
+                    "happens for large flow CFL numbers dt |u| k_max (of order ten); reduce the time step. "
+                    'Options(jacobian_solver="gmres") may help, but it has no preconditioner and is slow in 3D.'
                 )
             un1 -= incr[0]
             rhon1 -= incr[1]
