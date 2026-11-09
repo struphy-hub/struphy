@@ -115,6 +115,7 @@ def test_sound_step_same_as_picard(tmp_path):
         assert rel < 1e-6, (name, rel)
 
 
+@pytest.mark.verif_pr
 def test_energy_conservation(tmp_path):
     """The energy with the auxiliary variables (B^ and p^) is conserved around the sheared slab, where the
     second-order terms (curl B0 and grad p0) are active."""
@@ -234,7 +235,7 @@ def _reduced_one_step_map(model, dt: float, m: int, n: int) -> tuple[np.ndarray,
     return A, leak
 
 
-def test_no_wall_mode(tmp_path):
+def test_no_wall_mode(mpi_out_folder: str):
     """Screw pinch (R0 = 20, Suydam-stable) in a hollow cylinder with the inner wall at r = 0.2, where the equilibrium
     current is tangential: the one-step map of the Fourier mode (m, n) = (3, -2) has no growing eigenvalue. With the
     discrete curl of B0 as the current of the second-order force (tangential components zero at the wall), the same
@@ -257,7 +258,7 @@ def test_no_wall_mode(tmp_path):
     )
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="wall"),
+        env=EnvironmentOptions(out_folders=mpi_out_folder, sim_folder="wall"),
         time_opts=Time(dt=dt, Tend=dt),
         domain=domains.HollowCylinder(a1=0.2, a2=1.0, Lz=2 * np.pi * R0),
         equil=equils.ScrewPinch(a=1.0, R0=R0, B0=1.0, q0=1.25, q1=2.25, n1=0.0, n2=0.0, na=1.0, beta=0.1, p0=0.1),
