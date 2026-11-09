@@ -1723,13 +1723,16 @@ class Derham:
             projection=projection,
         )
 
-    def prepare_eval_tp_fixed(self, grids_1d):
+    def prepare_eval_tp_fixed(self, grids_1d, derivatives: bool = False):
         """Obtain knot span indices and spline basis functions evaluated at tensor product grid.
 
         Parameters
         ----------
         grids_1d : 3-list of 1d arrays
             Points of the tensor product grid.
+
+        derivatives : bool
+            Whether to also return the first derivatives of the basis functions.
 
         Returns
         -------
@@ -1741,22 +1744,28 @@ class Derham:
 
         bds : 3-tuple of 3d float arrays
             Values of degree non-zero D-Splines at quadrature points in format (n, nq, basis).
+
+        dbns : 3-tuple of 3d float arrays
+            First derivatives of the B-Splines, in the format of ``bns`` (only with ``derivatives=True``).
+
+        dbds : 3-tuple of 3d float arrays
+            First derivatives of the D-Splines, in the format of ``bds`` (only with ``derivatives=True``).
         """
 
         # spline degree and knot vectors must come from N-spline spaces (V0 space)
-        spans, bns, bds = [], [], []
+        out = [[], [], [], [], []] if derivatives else [[], [], []]
 
         for etas, space_1d, end in zip(grids_1d, self.V0fem.spaces, self.V0.ends):
-            span, bn, bd = self._get_span_and_basis_for_eval_mpi(
+            res = self._get_span_and_basis_for_eval_mpi(
                 etas,
                 space_1d,
                 end,
+                derivatives=derivatives,
             )
-            spans += [span]
-            bns += [bn]
-            bds += [bd]
+            for lst, arr in zip(out, res):
+                lst += [arr]
 
-        return tuple(spans), tuple(bns), tuple(bds)
+        return tuple(tuple(lst) for lst in out)
 
     # --------------------------
     #      private methods:
@@ -2216,12 +2225,13 @@ class Derham:
 
         return neigh_id
 
-    def _get_span_and_basis_for_eval_mpi(self, etas, Nspace, end):
+    def _get_span_and_basis_for_eval_mpi(self, etas, Nspace, end, derivatives: bool = False):
         """Compute
 
         the knot span index,
         pn + 1 values of N-splines,
         pn values of D-splines,
+        (with ``derivatives=True``) their first derivatives,
 
         at each point in etas.
 
@@ -2236,6 +2246,9 @@ class Derham:
         end : int
             End coeff index on current process for N-spline space.
 
+        derivatives : bool
+            Whether to also return the first derivatives of the N- and D-splines.
+
         Returns
         -------
         spans : xp.array
@@ -2246,6 +2259,12 @@ class Derham:
 
         bd : xp.array
             2d array of pn values of D-splines indexed by (eta, spline value).
+
+        dbn : xp.array
+            2d array of the first derivatives of the N-splines, as ``bn`` (only with ``derivatives=True``).
+
+        dbd : xp.array
+            2d array of the first derivatives of the D-splines, as ``bd`` (only with ``derivatives=True``).
         """
 
         from struphy.bsplines import bsplines_kernels
@@ -2261,12 +2280,30 @@ class Derham:
         bds = np.zeros((etas.size, pn), dtype=float)
         bn = np.zeros(pn + 1, dtype=float)
         bd = np.zeros(pn, dtype=float)
+        if derivatives:
+            dbns = np.zeros((etas.size, pn + 1), dtype=float)
+            dbds = np.zeros((etas.size, pn), dtype=float)
+            bn_tmp = np.zeros(pn + 1, dtype=float)
+            dbn = np.zeros(pn + 1, dtype=float)
+            dbd = np.zeros(pn, dtype=float)
+            left = np.zeros(max(pn, 1), dtype=float)
+            right = np.zeros(max(pn, 1), dtype=float)
 
         for n in range(etas.size):
             # avoid 1. --> 0. for clamped interpolation
             eta = etas[n] % (1.0 + 1e-14)
             span = bsplines_kernels.find_span(Tn, pn, eta)
             bsplines_kernels.b_d_splines_slim(Tn, pn, eta, span, bn, bd)
+            if derivatives:
+                if pn >= 1:
+                    bsplines_kernels.b_der_splines_slim(Tn, pn, eta, span, bn_tmp, dbn)
+                    dbns[n] = dbn
+                if pn >= 2:
+                    # D-splines: B-splines of degree pn - 1, scaled as in bsplines_kernels.b_d_splines_slim
+                    bsplines_kernels.basis_funs_1st_der(Tn, pn - 1, eta, span, left, right, dbd)
+                    for il in range(pn):
+                        dbd[pn - 1 - il] *= pn / (Tn[span - il + pn] - Tn[span - il])
+                    dbds[n] = dbd
             # correct span for mpi spline eval
             if span > end + pn + 1:
                 span -= Nspace.nbasis
@@ -2274,6 +2311,14 @@ class Derham:
             bns[n] = bn
             bds[n] = bd
 
+        if derivatives:
+            return (
+                xp.to_cunumpy(spans),
+                xp.to_cunumpy(bns),
+                xp.to_cunumpy(bds),
+                xp.to_cunumpy(dbns),
+                xp.to_cunumpy(dbds),
+            )
         return xp.to_cunumpy(spans), xp.to_cunumpy(bns), xp.to_cunumpy(bds)
 
 
