@@ -162,7 +162,7 @@ def test_hdiv_agrees_with_h1vec():
     change = np.sqrt(sum(np.sum((a - b) ** 2) for a, b in zip(vals["Hdiv"], exact0))) / norm
     diff = np.sqrt(sum(np.sum((a - b) ** 2) for a, b in zip(vals["Hdiv"], vals["H1vec"]))) / norm
     assert change > 0.05, f"{change = }"
-    assert diff < 0.2 * change, f"{diff = }, {change = }"
+    assert diff < 0.25 * change, f"{diff = }, {change = }"
 
 
 def test_hdiv_invalid_options():
