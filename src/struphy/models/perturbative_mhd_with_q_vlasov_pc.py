@@ -18,8 +18,8 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
     (6D Vlasov) via the pressure-coupling scheme.
 
     Extends :class:`~struphy.models.PerturbativeMHDWithQ` by energetic ions, whose pressure force perpendicular to the
-    equilibrium magnetic field enters the MHD momentum equation, as in :class:`~struphy.models.LinearMHDVlasovPC`, with the inertia of the total density
-    in the coupling term. The magnetic field is in :math:`H(\\textnormal{div})`.
+    equilibrium magnetic field enters the MHD momentum equation, as in :class:`~struphy.models.LinearMHDVlasovPC`,
+    with the inertia of the total density in the coupling term. The magnetic field is in :math:`H(\\textnormal{div})`.
 
     Parameters
     ----------
@@ -227,7 +227,7 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
         :math:`\pm \int \mathbb{P}_\textnormal{h} : \nabla \tilde{\mathbf U}_\perp \, \textnormal d \mathbf x` (adjoint
         pair, also in :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`). The transport with
         :math:`\tilde{\mathbf U}_\perp` does no work, because the phase-space flow
-        :math:`(\mathbf v + \tilde{\mathbf U}_\perp, \varepsilon^{-1} \mathbf v \times (\mathbf B_0 + \tilde{\mathbf B})
+        :math:`(\mathbf v + \tilde{\mathbf U}_\perp, \epsilon^{-1} \mathbf v \times (\mathbf B_0 + \tilde{\mathbf B})
         - \nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)` is divergence free:
 
         .. math::
@@ -267,9 +267,8 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
     def doc_long_description(cls):
         r"""PerturbativeMHDWithQVlasovPC is the nonlinear counterpart of :class:`~struphy.models.LinearMHDVlasovPC`:
         the pressure force (perpendicular to the equilibrium field) of energetic ions, described by a 6D Vlasov
-        equation, enters the full
-        (nonlinear) ideal MHD equations for the perturbations of a static equilibrium, written in the square root of
-        the pressure, :math:`q = \sqrt p`.
+        equation, enters the full (nonlinear) ideal MHD equations for the perturbations of a static equilibrium,
+        written in the square root of the pressure, :math:`q = \sqrt p`.
 
         The time step reuses the steps of :class:`~struphy.models.PerturbativeMHDWithQ` and adds the pressure-coupling
         steps of :class:`~struphy.models.LinearMHDVlasovPC`, unchanged except for the inertia of the bulk plasma in

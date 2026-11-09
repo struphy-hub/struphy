@@ -293,7 +293,7 @@ def add_energetic_ion_scalars(scalars: dict, mhd, energetic_ions, extra: dict = 
 
 
 def check_pressure_coupling_perp(model: StruphyModel):
-    """Warn if the propagators ``push_eta_pc`` and ``pc6d`` of a pressure-coupling hybrid model use different
+    r"""Warn if the propagators ``push_eta_pc`` and ``pc6d`` of a pressure-coupling hybrid model use different
     ``use_perp_model``: the energy exchange is exact only if the transport :math:`(\mathbf v + \tilde{\mathbf U}_\perp)
     \cdot \nabla f_\textnormal{h}` and the pressure coupling use the same :math:`\tilde{\mathbf U}_\perp`.
 

@@ -1,5 +1,3 @@
-import logging
-
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_mhd import LinearMHD
@@ -10,8 +8,6 @@ from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
 from struphy.propagators.push_eta_pc import PushEtaPC
 from struphy.propagators.push_vxb import PushVxB
 from struphy.propagators.push_vxb_1form import PushVxB1form
-
-logger = logging.getLogger("struphy")
 
 
 class LinearMHDVlasovPC(LinearMHD):
@@ -223,7 +219,7 @@ class LinearMHDVlasovPC(LinearMHD):
         :math:`\pm \int \mathbb{P}_\textnormal{h} : \nabla \tilde{\mathbf U}_\perp \, \textnormal d \mathbf x` (adjoint
         pair, also in :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`). The transport with
         :math:`\tilde{\mathbf U}_\perp` does no work, because the phase-space flow
-        :math:`(\mathbf v + \tilde{\mathbf U}_\perp, \varepsilon^{-1} \mathbf v \times (\mathbf B_0 + \tilde{\mathbf B})
+        :math:`(\mathbf v + \tilde{\mathbf U}_\perp, \epsilon^{-1} \mathbf v \times (\mathbf B_0 + \tilde{\mathbf B})
         - \nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)` is divergence free:
 
         .. math::

@@ -89,6 +89,8 @@ def _allocate(tmp_path, model, name, use_perp_model: bool = True):
     b = model.em_fields.b_field
     b.add_perturbation(perturbations.ModesCos(ms=(1,), amps=(0.2,), comp=0, given_in_basis="physical"))
     props = model.propagators
+    if hasattr(props, "push_eta_pc"):
+        props.push_eta_pc.options = props.push_eta_pc.Options(use_perp_model=use_perp_model)
     for step in ("couple_dens", "couple_curr", "pc6d"):
         if hasattr(props, step):
             prop = getattr(props, step)
