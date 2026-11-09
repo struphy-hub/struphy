@@ -194,8 +194,8 @@ def test_catalog_signatures():
     for catalog in CATALOGS.values():
         catalog.check_signatures()
     assert {package.split(".", 1)[1]: len(catalog) for package, catalog in CATALOGS.items()} == {
-        "pic.pushing.kernels": 46,
-        "pic.accumulation.kernels": 29,
+        "pic.pushing.kernels": 60,
+        "pic.accumulation.kernels": 40,
         "pic.diagnostics.kernels": 10,
         "pic.sph.kernels": 4,
         "pic.kernels": 4,
