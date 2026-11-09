@@ -82,6 +82,10 @@ They list the required structure, documentation, registration and tests; CI chec
 - The model tests in `src/struphy/models/tests/regression/` compare every model against stored baselines (1 and 2
   ranks). A change that intentionally changes results must update the baselines in the same PR, see
   `src/struphy/models/AGENTS.md`.
+- The verification tests in `src/struphy/models/tests/verification/` run on PRs only if marked `verif_pr` (a small
+  core set) or if their file is changed by the PR; all of them run in the scheduled CI (Sun/Wed on `devel`).
+  Before merging a PR that changes a model or shared numerics, run the affected verification tests locally, or run all
+  of them on the branch with `gh workflow run test-PR-models.yml --ref <branch>` (a manual run selects everything).
 - Keep local runs small (e.g. ≤ 32³ cells). Never use the full-size profiling cases as tests.
 
 ## Performance pitfalls
