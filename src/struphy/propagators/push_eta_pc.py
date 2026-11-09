@@ -24,13 +24,20 @@ class PushEtaPC(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf x_p(t)}{\textnormal d t} = \mathbf v_p + \mathbf U (\mathbf x_p(t))\,,
+        \frac{\textnormal d \mathbf x_p(t)}{\textnormal d t} = \mathbf v_p + \mathbf U_\perp (\mathbf x_p(t))\,,
 
-    for constant :math:`\mathbf v_p` and :math:`\mathbf U` in logical space given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+    where :math:`\mathbf U_\perp = \mathbf U - (\mathbf b_0 \cdot \mathbf U) \mathbf b_0` is the velocity perpendicular
+    to the equilibrium magnetic field, :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|` (``use_perp_model=True``,
+    default; its FE coefficients are those of
+    :meth:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Pperp` applied to :math:`\mathbf U`; it agrees
+    with the :math:`\mathbf U_\perp` of :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D` up to
+    the projection error),
+    or :math:`\mathbf U_\perp = \mathbf U` (``use_perp_model=False``).
+    For constant :math:`\mathbf v_p` and :math:`\mathbf U_\perp` in logical space given by :math:`\mathbf x = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p + \textnormal{vec}(\hat{\mathbf U}) \,,
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p + \textnormal{vec}(\hat{\mathbf U}_\perp) \,,
 
     where
 
@@ -90,8 +97,9 @@ class PushEtaPC(Propagator):
             If ``None``, defaults to ``ButcherTableau()``.
 
         use_perp_model : bool, default=True
-            Flag forwarded to the particle kernel to select the perpendicular
-            model formulation.
+            If ``True``, push with the velocity perpendicular to the equilibrium magnetic field (see above),
+            otherwise with the full velocity. Use the same value in
+            :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used to interpret ``u_tilde`` in the pusher kernel.
@@ -141,12 +149,20 @@ class PushEtaPC(Propagator):
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
 
+        # velocity used by the pusher: its projection perpendicular to b0, or the velocity itself
+        if self.options.use_perp_model:
+            self._Pperp = self.basis_ops.Pperp(self.options.u_space)
+            self._u_push = self._u_tilde.space.zeros()
+        else:
+            self._Pperp = None
+            self._u_push = self._u_tilde
+
         args_kernel = (
             self.derham.args_derham,
-            self._u_tilde[0]._data,
-            self._u_tilde[1]._data,
-            self._u_tilde[2]._data,
-            self.options.use_perp_model,
+            self._u_push[0]._data,
+            self._u_push[1]._data,
+            self._u_push[2]._data,
+            False,  # the projection of the kernel (drop the eta_3 component) is replaced by Pperp
             xp.asarray(butcher.a_stage),
             xp.asarray(butcher.b),
             xp.asarray(butcher.c),
@@ -164,7 +180,9 @@ class PushEtaPC(Propagator):
         )
 
     def __call__(self, dt):
-        self._u_tilde.update_ghost_regions()
+        if self._Pperp is not None:
+            self._Pperp.dot(self._u_tilde, out=self._u_push)
+        self._u_push.update_ghost_regions()
 
         self._pusher(dt)
 

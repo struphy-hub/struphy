@@ -338,26 +338,51 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
         .. math::
 
-            n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu
-
-        .. math::
-
-            \mathbf{J}_\textnormal{gc} = \int \frac{f_\textnormal{h}}{B_\parallel^*} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
-
-        .. math::
-
-            \mathbf{M}_\textnormal{gc} = -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            n_\textnormal{gc} &= \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            \\[2mm]
+            \mathbf{J}_\textnormal{gc} &= \int f_\textnormal{h} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            \\[2mm]
+            \mathbf{M}_\textnormal{gc} &= -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
 
         where
 
         .. math::
 
-            B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*
+            B^*_\parallel &= \mathbf{b}_0 \cdot \mathbf{B}^*
             \\[2mm]
             \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0
             \\[2mm]
             \mathbf{E}^* &= -\tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla (\mathbf{b}_0 \cdot \mathbf{B})
+            \\[2mm]
+            \mathbf{B} &= \mathbf{B}_0 + \tilde{\mathbf{B}}
 
+        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and
+        :math:`\mathbf B_0 \cdot \mathbf n = \tilde{\mathbf B} \cdot \mathbf n = 0` on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions;
+        otherwise, lost markers carry energy out of the domain, see ``n_lost_particles``):
+
+        Mass perturbation, number of energetic ions (the guiding-center phase-space volume
+        :math:`B_\parallel^* \, \textnormal{d} \mathbf x \, \textnormal{d} v_\parallel \textnormal{d} \mu` is preserved by
+        the flow) and divergence of the magnetic field:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \int \tilde \rho \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\textnormal d}{\textnormal d t} \int \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel
+            \textnormal{d} \mu \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\partial}{\partial t} \nabla \cdot \tilde{\mathbf B} = 0
+
+        Total perturbed energy, for an equilibrium with :math:`\nabla \times \mathbf B_0 = 0` and
+        :math:`\nabla p_0 = 0`, with :math:`\gamma = 5/3`. The guiding-center current
+        :math:`\mathbf{J}_\textnormal{gc}` and magnetization :math:`\mathbf{M}_\textnormal{gc}` exchange energy between
+        the MHD flow, the magnetic field and the energetic ions:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \left[ \int \left( \frac{\rho_0}{2} |\tilde{\mathbf U}|^2
+            + \frac 12 |\tilde{\mathbf B}|^2 + \frac{\tilde p^2}{2 \gamma p_0} \right) \textnormal d \mathbf x
+            + \frac{A_\textnormal{h}}{A_\textnormal{b}} \int \int f_\textnormal{h} B_\parallel^* \left( \frac 12
+            v_\parallel^2 + \mu \, \mathbf b_0 \cdot \mathbf B \right) \textnormal{d} v_\parallel \textnormal{d} \mu
+            \, \textnormal d \mathbf x \right] = 0
         """
 
     @classmethod
