@@ -903,6 +903,36 @@ class BasisProjectionOperators:
 
         return self._PB
 
+    @property
+    def PB1form(self):
+        r"""
+        Basis projection operator of the parallel component of a 1-form,
+
+        .. math::
+
+            \mathcal P^{b,1}_{ijk, (\mu, mno)} := \hat \Pi^0_{ijk} \left[\hat{b}^\textnormal{v}_{\text{eq},\mu} \, \Lambda^1_{\mu, mno}\right]\,,
+
+        the 1-form version of :attr:`PB`: for :math:`\tilde{\mathbf B} = DF^{-\top} \hat{\mathbf B}^1` and
+        :math:`\mathbf b_0 = DF \, \hat{\mathbf b}^\textnormal{v}_0`, the parallel component is
+        :math:`\mathbf b_0 \cdot \tilde{\mathbf B} = \hat{\mathbf b}^\textnormal{v}_0 \cdot \hat{\mathbf B}^1` (no
+        metric factor).
+        """
+        if not hasattr(self, "_PB1form"):
+            fun = [[]]
+            for m in range(3):
+                fun[-1] += [
+                    lambda e1, e2, e3, m=m: self.weights["eq_mhd"].unit_bv(e1, e2, e3)[m],
+                ]
+
+            self._PB1form = self.create_basis_op(
+                fun,
+                "Hcurl",
+                "H1",
+                name="PB1form",
+            )
+
+        return self._PB1form
+
     ##########################################
     # Wrapper around BasisProjectionOperator #
     ##########################################

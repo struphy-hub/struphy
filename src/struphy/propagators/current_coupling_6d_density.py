@@ -33,6 +33,10 @@ class CurrentCoupling6DDensity(Propagator):
         \\[2mm]
         &n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3 \mathbf v\,.
 
+    Here, the magnetic field perturbation :math:`\tilde{\mathbf B}` (``b_tilde``, not updated) and the projected
+    equilibrium field :math:`\mathbf B_0` (``projected_equil.b2``) are 2-forms in :math:`H(\textnormal{div})`; see
+    :class:`~struphy.propagators.current_coupling_6d_density_1form.CurrentCoupling6DDensity1form` for 1-forms.
+
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point).
     """
 
@@ -59,6 +63,11 @@ class CurrentCoupling6DDensity(Propagator):
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
 
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # CurrentCoupling6DDensity1form) and the accumulation kernels (assembled and matrix-free)
+    _b_form = "2"
+    _kernels = {"accum": cc_lin_mhd_6d_1, "accum_mf": cc_lin_mhd_6d_1_mf}
+
     def __init__(
         self,
         energetic_ions: PICVariable = None,
@@ -70,7 +79,7 @@ class CurrentCoupling6DDensity(Propagator):
         energetic_ions : PICVariable, default=None
             Energetic-ion particle distribution providing the density source term.
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the coupling term.
+            Magnetic perturbation 2-form (``"Hdiv"`` space) entering the coupling term (not updated).
             If ``None``, only the equilibrium field is used.
         """
         self.variables = self.Variables()
@@ -150,7 +159,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         particles = self.energetic_ions.particles
         u = self.variables.u.spline.vector
-        self._b_eq = self.projected_equil.b2
+        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
 
         # if self._particles.control_variate:
 
@@ -202,7 +211,7 @@ class CurrentCoupling6DDensity(Propagator):
             self._column = particles.args_markers.first_free_idx
             assert particles.n_cols_aux >= 3, "matrix_free needs 3 free (auxiliary) marker columns."
             # the kernel that stores the fillings (called in __call__)
-            self._store_kernel = cc_lin_mhd_6d_1_mf
+            self._store_kernel = self._kernels["accum_mf"]
             self._A_particles = MarkerOperator(
                 particles,
                 self.options.u_space,
@@ -216,7 +225,7 @@ class CurrentCoupling6DDensity(Propagator):
             self._accumulator = Accumulator(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_6d_1,
+                self._kernels["accum"],
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=False,
@@ -226,7 +235,7 @@ class CurrentCoupling6DDensity(Propagator):
             self._A_particles = self._accumulator.operators[0]
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.extraction_ops["2"].transpose()
+        self._EbT = self.derham.extraction_ops[self._b_form].transpose()
 
         # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         u_id = self.derham.space_to_form[self.options.u_space]
@@ -253,7 +262,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
-        self._b_full2 = self._E2T.codomain.zeros()
+        self._b_full2 = self._EbT.codomain.zeros()
 
         self._rhs_v = u.space.zeros()
         self._u_new = u.space.zeros()
@@ -262,17 +271,8 @@ class CurrentCoupling6DDensity(Propagator):
         # pointer to old coefficients
         un = self.variables.u.spline.vector
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        self._b_eq.copy(out=self._b_full1)
-
-        if self.b_tilde is not None:
-            self._b_full1 += self.b_tilde.spline.vector
-
-        # extract coefficients to tensor product space (in-place)
-        self._E2T.dot(self._b_full1, out=self._b_full2)
-
-        # update ghost regions because of non-local access in accumulation kernel!
-        self._b_full2.update_ghost_regions()
+        # total magnetic field in the tensor-product space (in self._b_full2)
+        self._sum_b_full()
 
         # perform accumulation (either with or without control variate)
         # if self._particles.control_variate:
@@ -340,7 +340,20 @@ class CurrentCoupling6DDensity(Propagator):
         max_du = self.update_feec_variables(u=un1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"Status     for CurrentCoupling6DDensity: {info['success']}")
-            logger.info(f"Iterations for CurrentCoupling6DDensity: {info['niter']}")
-            logger.info(f"Maxdiff up for CurrentCoupling6DDensity: {max_du}")
+            name = self.__class__.__name__
+            logger.info(f"Status     for {name}: {info['success']}")
+            logger.info(f"Iterations for {name}: {info['niter']}")
+            logger.info(f"Maxdiff up for {name}: {max_du}")
             logger.info("")
+
+    def _sum_b_full(self):
+        """Sum up the total magnetic field b_eq + E^T b_tilde in the tensor-product space (in ``self._b_full2``) and
+        update its ghost regions; the projected equilibrium is already a tensor-product vector, only b_tilde is
+        extracted (polar splines)."""
+        self._b_eq.copy(out=self._b_full2)
+
+        if self.b_tilde is not None:
+            self._b_full2 += self._EbT.dot(self.b_tilde.spline.vector, out=self._b_full1)
+
+        # update ghost regions because of non-local access in accumulation kernel!
+        self._b_full2.update_ghost_regions()

@@ -236,7 +236,8 @@ class LinearMHD(LinearEuler):
         ``shear_alf`` is :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` for
         ``b_space="Hdiv"`` (listed below) and
         :class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator` for
-        ``b_space="Hcurl"`` (at the end):"""
+        ``b_space="Hcurl"`` (at the end, with the other propagators that differ with ``b_space="Hcurl"`` in the hybrid
+        models):"""
         return magnetic_discretization_doc(cls)
 
     @classmethod
