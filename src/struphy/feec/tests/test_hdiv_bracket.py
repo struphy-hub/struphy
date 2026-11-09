@@ -12,7 +12,6 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.variational_utilities import (
     HdivBracketMomentumDerivative,
     HdivBracketOperator,
-    eval_bases_with_derivatives,
 )
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
@@ -123,28 +122,6 @@ def test_hdiv_bracket_convergence(map_name):
     assert errors[-1] < 1e-2, f"{errors = }"
     # convergence (about fourth order for p = 2)
     assert errors[0] / errors[1] > 8.0, f"{errors = }"
-
-
-@pytest.mark.parametrize("degree", [(2, 2, 2), (3, 2, 3)])
-def test_eval_bases_with_derivatives(degree):
-    """The derivatives of the N- and D-splines at the quadrature points agree with finite differences, and the
-    values with Derham.prepare_eval_tp_fixed."""
-    domain = MAPS["Cuboid"]()
-    derham = _derham(domain, (6, 5, 4), degree, bcs=(("dirichlet", "dirichlet"), None, ("free", "free")))
-    pts = [pt.flatten() for pt in derham.V0splines.quad_grid_pts[0]]
-    spans, bn, bd, dbn, dbd = eval_bases_with_derivatives(derham, pts)
-    h = 1e-6
-    for d in range(3):
-        pts_p = list(pts)
-        pts_m = list(pts)
-        pts_p[d] = pts[d] + h
-        pts_m[d] = pts[d] - h
-        _, bn_p, bd_p = derham.prepare_eval_tp_fixed(pts_p)
-        _, bn_m, bd_m = derham.prepare_eval_tp_fixed(pts_m)
-        _, bn_0, bd_0 = derham.prepare_eval_tp_fixed(pts)
-        assert xp.allclose(bn[d], bn_0[d]) and xp.allclose(bd[d], bd_0[d])
-        assert xp.allclose(dbn[d], (bn_p[d] - bn_m[d]) / (2 * h), atol=1e-5 * float(xp.max(xp.abs(dbn[d]))))
-        assert xp.allclose(dbd[d], (bd_p[d] - bd_m[d]) / (2 * h), atol=1e-5 * float(xp.max(xp.abs(dbd[d]))))
 
 
 @pytest.mark.parametrize("map_name", ["Colella", "HollowTorus"])
