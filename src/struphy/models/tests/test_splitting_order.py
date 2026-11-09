@@ -241,20 +241,35 @@ def test_linear_mhd_hybrids_inherit_linear_mhd():
 
 @pytest.mark.mpi_skip
 def test_perturbative_mhd_hybrids_inherit_perturbative_mhd():
-    from struphy.models import PerturbativeMHDWithQ, PerturbativeMHDWithQVlasovCC, PerturbativeMHDWithQVlasovPC
+    from struphy.models import (
+        PerturbativeMHDWithQ,
+        PerturbativeMHDWithQDriftkineticCC,
+        PerturbativeMHDWithQVlasovCC,
+        PerturbativeMHDWithQVlasovPC,
+    )
+    from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
     parent_names = list(vars(PerturbativeMHDWithQ().propagators))
-    for model_class in (PerturbativeMHDWithQVlasovCC, PerturbativeMHDWithQVlasovPC):
+    for model_class, en_f in (
+        (PerturbativeMHDWithQVlasovCC, ("en_f",)),
+        (PerturbativeMHDWithQVlasovPC, ("en_f",)),
+        (PerturbativeMHDWithQDriftkineticCC, ("en_fv", "en_fB")),
+    ):
         model = model_class(mhd_mass_number=2.0, hot_mass_number=3.0)
         assert isinstance(model, PerturbativeMHDWithQ)
         assert model.mhd.mass_number == 2.0 and model.energetic_ions.mass_number == 3.0
         assert model.em_fields.b_field.space == "Hdiv"
         names = list(vars(model.propagators))
-        # the steps of the parent, in the parent's order, with its Strang group consecutive
-        assert [name for name in names if name in parent_names] == parent_names, model_class.__name__
+        # the steps of the parent, in the parent's order, with its Strang group consecutive (the drift-kinetic model
+        # has one shear-Alfven step with the total field instead of shear_alf and nonlin_alf)
+        expected = [
+            n for n in parent_names if not (model_class is PerturbativeMHDWithQDriftkineticCC and n == "nonlin_alf")
+        ]
+        assert [name for name in names if name in parent_names] == expected, model_class.__name__
         assert names.index("bg_current") + 1 == names.index("bg_q") == names.index("sound") - 1
-        assert {"en_U", "en_internal", "en_B", "en_f", "en_tot", "n_lost_particles"} <= set(model.scalars._dct)
+        assert {"en_U", "en_internal", "en_B", *en_f, "en_tot", "n_lost_particles"} <= set(model.scalars._dct)
         assert list(model.scalars._dct)[-2:] == ["en_tot", "n_lost_particles"]
+    assert isinstance(PerturbativeMHDWithQDriftkineticCC().propagators.shear_alf, ShearAlfvenCurrentCoupling5D)
 
 
 @pytest.mark.mpi_skip
