@@ -16,6 +16,7 @@ from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_D_mf import cc_lin_mhd_5d_D_
 from struphy.pic.accumulation.kernels.marker_operator_asym_dot import marker_operator_asym_dot
 from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import velocity_mass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -36,6 +37,11 @@ class CurrentCoupling5DDensity(Propagator):
         \mathbf u^{n+1} - \mathbf u^n = -\frac{A_\textnormal{h}}{A_b} \frac{1}{\epsilon} \mathbb{L}²{\mathbb{B}}^\times_f \mathbb{N}(1/g) \mathbb{W} \mathbb{N}\left(1- \frac{\hat B^0_\parallel}{\hat B^{*0} _\parallel}\right) (\mathbb{L}²)^\top \frac{\Delta t}{2} \cdot (\mathbf u^{n+1} + \mathbf u^n) \,.
 
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``Options(u_space="Hdiv")``): the inertia is that of the total density, :math:`\rho_0 \to \rho_0 + \tilde
+    \rho^n` (mass matrix :math:`\mathbb M^2_\rho` of :class:`~struphy.propagators.utils.VelocityMass`, assembled at
+    :math:`t^n`; the density does not change in this step).
     """
 
     class Variables:
@@ -70,6 +76,7 @@ class CurrentCoupling5DDensity(Propagator):
         self,
         energetic_ions: PICVariable = None,
         b_tilde: FEECVariable = None,
+        rho_field: FEECVariable = None,
     ):
         """
         Parameters
@@ -80,7 +87,13 @@ class CurrentCoupling5DDensity(Propagator):
         b_tilde : FEECVariable, default=None
             Magnetic perturbation 2-form (``"Hdiv"`` space) entering the coupling term.
             If ``None``, only the equilibrium field is used.
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, ``u_space="Hdiv"`` only). If ``None``, that of
+            :math:`\rho_0`.
         """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
+        self.rho_field = rho_field
         b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
         assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.variables = self.Variables()
@@ -178,8 +191,9 @@ class CurrentCoupling5DDensity(Propagator):
             self._u_form_int = int(self.derham.space_to_form[self.options.u_space])
 
         # call operatros
+        # (with rho_field: the mass matrix of the total density, assembled in __call__)
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
-        self._A = getattr(self.mass_ops, id_M)
+        self._velocity_mass, self._A = velocity_mass(self, self.options.u_space, self.rho_field)
 
         # magnetic equilibrium field (the field in the space of _b_form)
         unit_b1 = self.projected_equil.unit_b1
@@ -267,6 +281,10 @@ class CurrentCoupling5DDensity(Propagator):
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
+
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
 
         # sum up total magnetic field b_full = b_eq + b_tilde (in-place)
         b_full = self._b_eq.copy(out=self._b_full)
