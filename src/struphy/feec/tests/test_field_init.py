@@ -348,7 +348,14 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
             )
             logger.info("uv asserts passed.")
 
-            # plotting fields with equilibrium
+            # plotting fields with equilibrium; evaluating the spline fields is collective, so on all ranks
+            if show_plot:
+                if isinstance(mhd_equil, FluidEquilibriumWithB):
+                    absB0_h = mhd_equil.domain.push(field_0, *meshgrids)
+                p3_h = mhd_equil.domain.push(field_3, *meshgrids)
+                b1h = mhd_equil.domain.push(field_1(*meshgrids), *meshgrids, kind="1")
+                b2h = mhd_equil.domain.push(field_2(*meshgrids), *meshgrids, kind="2")
+                bvh = mhd_equil.domain.push(field_4(*meshgrids), *meshgrids, kind="v")
             if show_plot and rank == 0:
                 plt.figure(f"0/3-forms top, {mhd_equil =}", figsize=(24, 16))
                 plt.figure(
@@ -377,7 +384,6 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
 
                 # 0-form
                 if isinstance(mhd_equil, FluidEquilibriumWithB):
-                    absB0_h = mhd_equil.domain.push(field_0, *meshgrids)
                     absB0 = mhd_equil.domain.push(mhd_equil.absB0, *meshgrids)
 
                     levels = xp.linspace(xp.min(absB0) - 1e-10, xp.max(absB0), 20)
@@ -515,7 +521,6 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                     plt.title("reference, poloidal view (e1-e2)")
 
                 # 3-form
-                p3_h = mhd_equil.domain.push(field_3, *meshgrids)
                 p3 = mhd_equil.domain.push(mhd_equil.p3, *meshgrids)
 
                 levels = xp.linspace(xp.min(p3) - 1e-10, xp.max(p3), 20)
@@ -653,11 +658,6 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                 plt.title("reference, poloidal view (e1-e2)")
 
                 # 1-form magnetic field plots
-                b1h = mhd_equil.domain.push(
-                    field_1(*meshgrids),
-                    *meshgrids,
-                    kind="1",
-                )
                 b1 = mhd_equil.domain.push(
                     [*mhd_equil.u1(*meshgrids)],
                     *meshgrids,
@@ -802,11 +802,6 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                     plt.title("reference, poloidal view (e1-e2)")
 
                 # 2-form magnetic field plots
-                b2h = mhd_equil.domain.push(
-                    field_2(*meshgrids),
-                    *meshgrids,
-                    kind="2",
-                )
                 b2 = mhd_equil.domain.push(
                     [*mhd_equil.u2(*meshgrids)],
                     *meshgrids,
@@ -951,11 +946,6 @@ def test_bckgr_init_mhd(num_elements, degree, bcs, with_desc=False, with_gvec=Fa
                     plt.title("reference, poloidal view (e1-e2)")
 
                 # vector-field magnetic field plots
-                bvh = mhd_equil.domain.push(
-                    field_4(*meshgrids),
-                    *meshgrids,
-                    kind="v",
-                )
                 bv = mhd_equil.domain.push(
                     [*mhd_equil.uv(*meshgrids)],
                     *meshgrids,

@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import pytest
@@ -8,8 +7,6 @@ from matplotlib import pyplot as plt
 from maybempi import MPI
 
 from struphy import (
-    BaseUnits,
-    DerhamOptions,
     EnvironmentOptions,
     Simulation,
     Time,
@@ -23,12 +20,12 @@ logger = logging.getLogger("struphy")
 
 
 @pytest.mark.verif_pr
-def test_poisson_1d(do_plot=False):
+def test_poisson_1d(mpi_out_folder: str, do_plot=False):
     # light-weight model instance
     model = Poisson(with_t_dep_source=True)
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "Poisson")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="time_source_1d")
 
@@ -125,8 +122,7 @@ def test_poisson_1d(do_plot=False):
         logger.info(f"{err =}")
         assert err < 0.0057
 
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    test_poisson_1d(do_plot=True)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_poisson_1d(out, do_plot=True)

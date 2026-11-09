@@ -1,7 +1,9 @@
 import pytest
 
 
-@pytest.mark.skip
+@pytest.mark.skip(
+    reason="uses the API before the params-file refactor #83 (initialize_coeffs, TwoFluidQuasiNeutralFull); port to TwoFluidQuasiNeutralToy or remove"
+)
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("num_elements", [[16, 1, 1], [32, 1, 1]])
 @pytest.mark.parametrize("degree", [[1, 1, 1], [2, 1, 1]])
@@ -210,7 +212,9 @@ if __name__ == "__main__":
 import pytest
 
 
-@pytest.mark.skip
+@pytest.mark.skip(
+    reason="uses the API before the params-file refactor #83 (initialize_coeffs, TwoFluidQuasiNeutralFull); port to TwoFluidQuasiNeutralToy or remove"
+)
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("num_elements", [[16, 16, 1], [32, 32, 1]])
 @pytest.mark.parametrize("degree", [[1, 1, 1], [2, 2, 1]])

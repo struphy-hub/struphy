@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import h5py
@@ -9,7 +8,6 @@ from matplotlib import pyplot as plt
 from maybempi import MPI
 
 from struphy import (
-    BaseUnits,
     BinningPlot,
     BoundaryParameters,
     DerhamOptions,
@@ -33,7 +31,7 @@ logger = logging.getLogger("struphy")
 
 
 @pytest.mark.verif_pr
-def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
+def test_weak_Landau(mpi_out_folder: str, do_plot: bool = False, exit_before_run: bool = False):
     """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.
     """
@@ -41,7 +39,7 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="weak_Landau")
 
@@ -166,12 +164,10 @@ def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
         assert rel_error < 0.22, f"Assertion for weak Landau damping failed: {gamma_num =} vs. {gamma =}."
         logger.info(f"Assertion for weak Landau damping passed ({rel_error =}).")
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.clones
 @pytest.mark.parametrize("control_variate", [False, True])
-def test_energy_conservation(control_variate: bool, nclones: int, exit_before_run: bool = False):
+def test_energy_conservation(mpi_out_folder: str, control_variate: bool, nclones: int, exit_before_run: bool = False):
     """``en_tot`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
 
     A time step is :class:`~struphy.propagators.push_eta.PushEta` followed by the Crank-Nicolson step
@@ -195,7 +191,7 @@ def test_energy_conservation(control_variate: bool, nclones: int, exit_before_ru
 
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(
         out_folders=out_folders, sim_folder=f"energy_conservation_cv_{control_variate}", num_clones=nclones
@@ -263,11 +259,9 @@ def test_energy_conservation(control_variate: bool, nclones: int, exit_before_ru
         assert drift < tol, f"Total energy not conserved: {en_tot =}, {drift =}."
         logger.info(f"Assertion for energy conservation passed ({control_variate =}, {drift =}).")
 
-        shutil.rmtree(env.path_out)
-
 
 @pytest.mark.clones
-def test_initial_poisson_full_f(nclones: int):
+def test_initial_poisson_full_f(mpi_out_folder: str, nclones: int):
     r"""The initial Poisson solve with full-f markers deposits the charge of :math:`f - f_0` (delta-f weights, no
     background source), i.e. subtracts :math:`n_0` once.
 
@@ -278,7 +272,7 @@ def test_initial_poisson_full_f(nclones: int):
     """
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f", num_clones=nclones)
 
@@ -314,12 +308,10 @@ def test_initial_poisson_full_f(nclones: int):
         f"Initial potential of a neutral full-f plasma: {phi_rms =} (n0 subtracted twice gives 0.09)."
     )
 
-    MPI.COMM_WORLD.Barrier()
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        shutil.rmtree(test_folder)
 
-
-def test_initial_poisson_full_f_noise():
+def test_initial_poisson_full_f_noise(
+    mpi_out_folder: str,
+):
     r"""The initial Poisson solve deposits the delta-f weights also for full-f markers.
 
     For a density perturbation :math:`\delta n = a \cos(k x)` of a uniform Maxwellian, the exact initial potential is
@@ -329,7 +321,7 @@ def test_initial_poisson_full_f_noise():
     """
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f_noise")
 
@@ -373,14 +365,11 @@ def test_initial_poisson_full_f_noise():
     particles = model.kinetic_ions.var.particles
     assert xp.allclose(particles.weights, particles.weights0), "Full-f weights not restored after the initial solve."
 
-    MPI.COMM_WORLD.Barrier()
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    test_weak_Landau(do_plot=True)
-    test_initial_poisson_full_f_noise()
-    test_initial_poisson_full_f(nclones=1)
-    test_energy_conservation(control_variate=False, nclones=1)
-    test_energy_conservation(control_variate=True, nclones=1)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_weak_Landau(out, do_plot=True)
+    test_initial_poisson_full_f_noise(out)
+    test_initial_poisson_full_f(out, nclones=1)
+    test_energy_conservation(out, control_variate=False, nclones=1)
+    test_energy_conservation(out, control_variate=True, nclones=1)
