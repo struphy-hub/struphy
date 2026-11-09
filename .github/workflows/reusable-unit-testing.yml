@@ -157,6 +157,15 @@ jobs:
           echo "Running $PYTEST_CMD $TESTMON_SELECT $TEST_FILES"
           $PYTEST_CMD $TESTMON_SELECT -o "$TESTMON_IGNORE" $TEST_FILES
 
+      # every test file must be in a shard; this check depends on the file tree, not on code that testmon tracks,
+      # so it runs explicitly, without testmon (a new unlisted test file would not make testmon select it)
+      - name: Check that every test file is in a shard
+        if: ${{ !cancelled() && inputs.n-procs == 1 && matrix.shard == 'shard-1' }}
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd ${{ env.STRUPHY_PATH }}
+          pytest -v console/tests/test_unit_test_shards.py
+
       # only when kernels, the PIC code or the compile command change (see changes_testmon_cannot_see.sh)
       - name: Compile all kernels with OpenMP
         if: inputs.n-procs == 1 && matrix.shard == 'shard-4' && env.OPENMP_RUN == 'true'
