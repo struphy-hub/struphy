@@ -51,22 +51,11 @@ RTOL_CASE = {
     "DriftKineticMaxwell": 1e-4,
 }
 
-# roundoff-dominated quantities that are not compared (not stored), with the reason; remove them once fixed
-_SINGULAR_PHI = "ill-conditioned Poisson solve in the default setup: phi is amplified roundoff"
-EXCLUDED_KEYS = {
-    "DriftKineticElectrostaticAdiabatic": (
-        ("scalar/en_phi", "scalar/en_tot", "scalar/phi_integral", "feec/em_fields/phi"),
-        _SINGULAR_PHI,
-    ),
-    "GyrokineticPoisson": (("feec/em_fields/phi",), _SINGULAR_PHI),
-}
+# roundoff-dominated quantities that are not compared (not stored): {case: (keys, reason)}; remove them once fixed
+EXCLUDED_KEYS = {}
 
 # cases whose default run is known to produce non-finite values (inf/nan); remove a case once it is fixed
-_DT_TOO_LARGE = "default dt=0.01 too large: VariationalMomentumAdvection does not converge, blow-up in the first step"
-KNOWN_NONFINITE = {
-    "VariationalBarotropicFluid": _DT_TOO_LARGE,
-    "VariationalPressurelessFluid": _DT_TOO_LARGE,
-}
+KNOWN_NONFINITE = {}
 
 UPDATE_COMMANDS = (
     "pytest -m models --update-baselines src/struphy/models/tests/regression/\n"

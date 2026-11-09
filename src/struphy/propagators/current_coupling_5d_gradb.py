@@ -102,14 +102,31 @@ class CurrentCoupling5DGradB(Propagator):
             assert "Particles5D" in new.space
             self._energetic_ions = new
 
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # CurrentCoupling5DGradB1form), the basis operator of its parallel component, and the accumulation and pusher
+    # kernels of the explicit and discrete-gradient algorithms
+    _b_form = "2"
+    _pb_name = "PB"
+    _kernels = {
+        "accum": cc_lin_mhd_5d_gradB,
+        "push_Hdiv": push_gc_cc_J2_stage_Hdiv,
+        "push_H1vec": push_gc_cc_J2_stage_H1vec,
+        "accum_dg_init": cc_lin_mhd_5d_gradB_dg_init,
+        "accum_dg": cc_lin_mhd_5d_gradB_dg,
+        "push_dg_init": push_gc_cc_J2_dg_init_Hdiv,
+        "push_dg": push_gc_cc_J2_dg_Hdiv,
+    }
+
     def __init__(self, b_tilde: FEECVariable = None):
         """
         Parameters
         ----------
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the grad-B
+            Magnetic perturbation 2-form (``"Hdiv"`` space) entering the grad-B
             coupling term. If ``None``, only the equilibrium field is used.
         """
+        b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
+        assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.variables = self.Variables()
         self.b_tilde = b_tilde
 
@@ -222,6 +239,10 @@ class CurrentCoupling5DGradB(Propagator):
 
     @profile
     def allocate(self):
+        # extraction of b_tilde to the tensor-product space read by the kernels (polar splines)
+        self._EbT_tilde = self.derham.extraction_ops[self._b_form].transpose()
+        self._b_tilde_tp = self._EbT_tilde.codomain.zeros()
+
         # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
         self._ep_scale = self.options.ep_scale
         if self._ep_scale is None:
@@ -236,7 +257,7 @@ class CurrentCoupling5DGradB(Propagator):
         # call operatros
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
         self._A = getattr(self.mass_ops, id_M)
-        self._PB = getattr(self.basis_ops, "PB")
+        self._PB = getattr(self.basis_ops, self._pb_name)
 
         # Preconditioner
         if self.options.precond is None:
@@ -255,10 +276,10 @@ class CurrentCoupling5DGradB(Propagator):
             verbose=self.options.solver_params.verbose,
             recycle=self.options.solver_params.recycle,
         )
-        # magnetic equilibrium field
+        # magnetic equilibrium field (the field in the space of _b_form)
         unit_b1 = self.projected_equil.unit_b1
         curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._b2 = self.projected_equil.b2
+        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
         gradB1 = self.projected_equil.gradB1
         absB0 = self.projected_equil.absB0
 
@@ -267,7 +288,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         if self.options.algo == "explicit":
             # temporary vectors to avoid memory allocation
-            self._b_full = self._b2.space.zeros()
+            self._b_full = self._b_eq.space.zeros()
             self._u_new = self.variables.u.spline.vector.space.zeros()
             self._u_temp = self.variables.u.spline.vector.space.zeros()
             self._ku = self.variables.u.spline.vector.space.zeros()
@@ -278,7 +299,7 @@ class CurrentCoupling5DGradB(Propagator):
             self._ACC = AccumulatorVector(
                 self.variables.energetic_ions.particles,
                 self.options.u_space,
-                cc_lin_mhd_5d_gradB,
+                self._kernels["accum"],
                 self.mass_ops,
                 self.domain.args_domain,
                 filter_params=self.options.filter_params,
@@ -307,9 +328,9 @@ class CurrentCoupling5DGradB(Propagator):
 
             # define Pusher
             if self.options.u_space == "Hdiv":
-                self._pusher_kernel = push_gc_cc_J2_stage_Hdiv
+                self._pusher_kernel = self._kernels["push_Hdiv"]
             elif self.options.u_space == "H1vec":
-                self._pusher_kernel = push_gc_cc_J2_stage_H1vec
+                self._pusher_kernel = self._kernels["push_H1vec"]
             else:
                 raise ValueError(
                     f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
@@ -340,7 +361,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         else:
             # temporary vectors to avoid memory allocation
-            self._b_full = self._b2.space.zeros()
+            self._b_full = self._b_eq.space.zeros()
             self._PB_b = self._PB.codomain.zeros()
             self._grad_PB_b = self.derham.grad.codomain.zeros()
             self._u_old = self.variables.u.spline.vector.space.zeros()
@@ -353,13 +374,13 @@ class CurrentCoupling5DGradB(Propagator):
 
             # magnetic perturbation (zero if not given)
             if self.b_tilde is None:
-                b_tilde = self._b2.space.zeros()
+                b_tilde = self._b_eq.space.zeros()
             else:
-                b_tilde = self.b_tilde.spline.vector
+                b_tilde = self._b_tilde_coeffs(update_ghosts=True)
 
             # Call the accumulation and Pusher class
-            accum_kernel_init = cc_lin_mhd_5d_gradB_dg_init
-            accum_kernel = cc_lin_mhd_5d_gradB_dg
+            accum_kernel_init = self._kernels["accum_dg_init"]
+            accum_kernel = self._kernels["accum_dg"]
             self._accum_kernel_en_fB_mid = eval_gradB_ediff
 
             self._args_accum_kernel = (
@@ -368,9 +389,9 @@ class CurrentCoupling5DGradB(Propagator):
                 b_tilde[0]._data,
                 b_tilde[1]._data,
                 b_tilde[2]._data,
-                self._b2[0]._data,
-                self._b2[1]._data,
-                self._b2[2]._data,
+                self._b_eq[0]._data,
+                self._b_eq[1]._data,
+                self._b_eq[2]._data,
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
@@ -454,8 +475,16 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_temp[2]._data,
             )
 
-            self._pusher_kernel_init = push_gc_cc_J2_dg_init_Hdiv
-            self._pusher_kernel = push_gc_cc_J2_dg_Hdiv
+            self._pusher_kernel_init = self._kernels["push_dg_init"]
+            self._pusher_kernel = self._kernels["push_dg"]
+
+    def _b_tilde_coeffs(self, update_ghosts: bool = False):
+        """FE coefficients of ``b_tilde`` extracted to the tensor-product space read by the kernels (in
+        ``self._b_tilde_tp``), with ghost regions if ``update_ghosts`` (for kernels reading them directly)."""
+        b_tilde = self._EbT_tilde.dot(self.b_tilde.spline.vector, out=self._b_tilde_tp)
+        if update_ghosts:
+            b_tilde.update_ghost_regions()
+        return b_tilde
 
     def __call__(self, dt):
         # current FE coeffs
@@ -475,11 +504,11 @@ class CurrentCoupling5DGradB(Propagator):
         # save old marker positions
         markers[first_pusher_idx : first_pusher_idx + 3] = markers[:3]
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        b_full = self._b2.copy(out=self._b_full)
+        # sum up total magnetic field b_full = b_eq + b_tilde (in-place)
+        b_full = self._b_eq.copy(out=self._b_full)
 
         if self.b_tilde is not None:
-            b_full += self.b_tilde.spline.vector
+            b_full += self._b_tilde_coeffs(update_ghosts=self.options.algo == "discrete_gradient")
         b_full.update_ghost_regions()
 
         if self.options.algo == "explicit":

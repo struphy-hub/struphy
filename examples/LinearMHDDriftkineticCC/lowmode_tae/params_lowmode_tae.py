@@ -289,9 +289,9 @@ def n_hot(psi_c):
     return args.nh * xp.exp(-args.kappa * D * xp.tanh((r - R_C) / D))
 
 
-B_min = equil.params["B0"] * R0 / (R0 + a)
 model.energetic_ions.set_markers(
-    loading_params=LoadingParameters(Np=args.Np, seed=1234, moments=(0.0, 0.0, args.vth, args.vth), B0=B_min),
+    # mu drawn with the local |B_0| (default B0="equil")
+    loading_params=LoadingParameters(Np=args.Np, seed=1234, moments=(0.0, 0.0, args.vth, args.vth)),
     # delta-f: the weights carry f - f0, with the canonical Maxwellian f0
     weights_params=WeightsParameters(control_variate=True),
     boundary_params=BoundaryParameters(bc=("remove", "periodic", "periodic")),
@@ -323,11 +323,10 @@ props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)
 
 # energetic ions: canonical Maxwellian (equilibrium, the control variate of delta-f)
 model.energetic_ions.var.add_background(
-    # with the exact canonical toroidal momentum (shifted=False): the shifted variant is not a constant of motion for
-    # a part of the trapped particles, which would drive delta-f in the steep gradient without any wave
-    maxwellians.CanonicalMaxwellian2D(
-        n=(n_hot, None), vth=(args.vth, None), equil=equil, epsilon=epsilon, shifted=False
-    )
+    # with the exact canonical toroidal momentum (shift=None): the profiles in psi_c are those of the reference paper
+    # (shift="B0" is not a constant of motion for a part of the trapped particles and would drive delta-f in the steep
+    # gradient without any wave; shift="Bmax" is an exact equilibrium, but with refitted profiles)
+    maxwellians.CanonicalMaxwellian2D(n=(n_hot, None), vth=(args.vth, None), equil=equil, epsilon=epsilon, shift=None)
 )
 
 # seed of the TAE: the m = 1 and m = 2 harmonics (n = 1: logical mode number -1 along eta3) of the velocity, Gaussian

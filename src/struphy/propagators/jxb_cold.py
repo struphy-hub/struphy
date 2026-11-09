@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import get_args
 
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -28,7 +29,11 @@ class JxBCold(Propagator):
 
     .. math::
 
-        \mathbb M_{1/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right) = \frac{\Delta t}{2} \frac{1}{\varepsilon} \mathbb M_{B_0/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right)\,.
+        \mathbb M^1_{1/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right) = -\frac{\Delta t}{2} \frac{1}{\varepsilon} \mathbb M^1_{B_0/n_0} \left( \mathbf j^{n+1} + \mathbf j^n \right)\,,
+
+    where :math:`\mathbb M^1_{1/n_0}` is the 1-form mass matrix weighted with :math:`1/n_0` (``M1ninv``) and
+    :math:`\mathbb M^1_{B_0/n_0}` the skew-symmetric one of :math:`(\mathbf B_0 \times \mathbf j) \cdot \mathbf F / n_0`
+    (``M1Bninv``), hence the minus sign.
     """
 
     class Variables:
@@ -58,34 +63,47 @@ class JxBCold(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`JxBCold`.
+        r"""Configuration options for :class:`JxBCold`.
 
         Parameters
         ----------
-        solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Symmetric iterative solver used for the linear current update.
+        solver : LiteralOptions.OptsGenSolver, default="gmres"
+            Iterative solver used for the linear current update. The system matrix
+            :math:`\mathbb M^1_{1/n_0} + \frac{\Delta t}{2 \varepsilon} \mathbb M^1_{B_0/n_0}` is not symmetric
+            (:math:`\mathbb M^1_{B_0/n_0}` is skew-symmetric), so a solver for general matrices is needed.
+            ``"gmres"`` (without preconditioner) converges reliably; ``"pbicgstab"`` with the mass matrix
+            preconditioner, which neglects the skew-symmetric part, has erratic iteration numbers when that part
+            dominates (:math:`\Delta t \gtrsim \varepsilon`), down to no convergence after roundoff-level changes of
+            the data. The symmetric solvers of older parameter files (``"pcg"``, ...) are replaced by ``"gmres"``,
+            with a warning.
 
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Preconditioner applied to the weighted mass matrix ``M1ninv``.
+            Preconditioner built from the weighted mass matrix ``M1ninv``; only used by ``solver="pbicgstab"``.
 
         solver_params : SolverParameters, default=None
-            Iterative-solver controls. If ``None``, defaults to
-            ``SolverParameters()``.
+            Iterative-solver controls. If ``None``, defaults to ``SolverParameters(maxiter=300)``: ``"gmres"`` does
+            not restart and keeps one vector per iteration (plus a Hessenberg matrix of size ``maxiter**2``), and
+            needs about 15 to 40 iterations here.
         """
 
         # propagator options
-        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        solver: LiteralOptions.OptsGenSolver = "gmres"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
 
         def __post_init__(self):
+            # the system is not symmetric: symmetric solvers (the default up to v3.6) diverge for dt > epsilon
+            if self.solver in get_args(LiteralOptions.OptsSymmSolver):
+                logger.warning(f"JxBCold: the system is not symmetric, replacing solver={self.solver!r} by 'gmres'.")
+                self.solver = "gmres"
+
             # checks
-            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
             # defaults
             if self.solver_params is None:
-                self.solver_params = SolverParameters()
+                self.solver_params = SolverParameters(maxiter=300)
 
     @property
     def options(self) -> Options:
@@ -109,18 +127,17 @@ class JxBCold(Propagator):
         self._M = self.mass_ops.M1ninv
         self._A = -1 / epsilon * self.mass_ops.M1Bninv  # no dt
 
-        # Preconditioner
-        if self.options.precond is None:
-            pc = None
-        else:
+        # Preconditioner (only pbicgstab takes one)
+        pc_kwargs = {}
+        if self.options.solver == "pbicgstab" and self.options.precond is not None:
             pc_class = getattr(preconditioner, self.options.precond)
-            pc = pc_class(self.mass_ops.M1ninv)
+            pc_kwargs["pc"] = pc_class(self.mass_ops.M1ninv)
 
         # Instantiate linear solver
         self._solver = inverse(
             self._M,
             self.options.solver,
-            pc=pc,
+            **pc_kwargs,
             x0=self.variables.j.spline.vector,
             tol=self.options.solver_params.tol,
             maxiter=self.options.solver_params.maxiter,

@@ -131,22 +131,19 @@ class LinearVlasovAmpereOneSpecies(Vlasov):
         # the periodic Poisson problem below singular.
         self._solve_initial_poisson()
 
+        # background f0 and its values at the markers, for en_f (the particles are new at each allocation)
+        backgrounds = self.kinetic_ions.var.backgrounds
+        if isinstance(backgrounds, list):
+            self._f0 = backgrounds[0]
+        else:
+            self._f0 = backgrounds
+        assert isinstance(self._f0, Maxwellian3D)
+        self._f0_values = xp.zeros(self.kinetic_ions.var.particles.n_markers_max, dtype=float)
+
     def _compute_en_f(self):
         particles = self.kinetic_ions.var.particles
 
         # evaluate f0
-        if not hasattr(self, "_f0"):
-            backgrounds = self.kinetic_ions.var.backgrounds
-            if isinstance(backgrounds, list):
-                self._f0 = backgrounds[0]
-            else:
-                self._f0 = backgrounds
-            self._f0_values = xp.zeros(
-                self.kinetic_ions.var.particles.n_markers_max,
-                dtype=float,
-            )
-            assert isinstance(self._f0, Maxwellian3D)
-
         self._f0_values[particles.valid_mks] = self._f0(*particles.phasespace_coords)
 
         # alpha^2 * v_th^2 * N / 2 * sum_p s_0 * w_p^2 / f_{0,p}  (weights are w_p = delta f_p / (N * s_{0,p}))

@@ -19,6 +19,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.pushing.kernels.push_v_with_efield import push_v_with_efield
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import extracted_ones
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -230,8 +231,8 @@ class VlasovMaxwellCoupling(Propagator):
               ``derivative="curl"`` for the stabilized curl-curl approximation of the Schur operator (see the class
               docstring), rebuilt when the time step changes.
             - ``"MassMatrixPreconditioner"``, ``"PolarMassMatrixPreconditioner"``: preconditioner of
-              :math:`\mathbb M_1`, sufficient for :math:`\Delta t \lesssim h` (polar splines are not supported by
-              this propagator yet).
+              :math:`\mathbb M_1`, sufficient for :math:`\Delta t \lesssim h` (with polar splines,
+              ``"MassMatrixPreconditioner"`` is replaced by ``"PolarMassMatrixPreconditioner"``).
             - ``None``: no preconditioner (set automatically, with a warning, for ``solver="cg"``).
 
         solver_params : SolverParameters, default=None
@@ -312,8 +313,6 @@ class VlasovMaxwellCoupling(Propagator):
         self._c3 = 1.0 / epsilon if self.options.c3 is None else self.options.c3
         assert self._c2 * self._c3 > 0.0, f"c2 * c3 must be > 0, got c2={self._c2}, c3={self._c3}."
 
-        assert not self.derham.polar_splines, "VlasovMaxwellCoupling does not support polar splines yet."
-
         particles = self.variables.ions.particles
         if particles.control_variate:
             assert self._lam2 > 0.0, (
@@ -372,9 +371,7 @@ class VlasovMaxwellCoupling(Propagator):
         # reference density for the stiffness preconditioner: density average of the accumulated matrix
         if self.options.n_ref is None:
             self._accum(*self._args_accum)
-            ones = self.derham.V1.zeros()
-            for block in ones.blocks:
-                block._data[:] = 1.0
+            ones = extracted_ones(self.derham, "1")
             ones_A = ones.inner(self._A_particles.dot(ones))
             ones_M1 = ones.inner(self._M1.dot(ones))
             if ones_A > 0.0:
@@ -387,6 +384,8 @@ class VlasovMaxwellCoupling(Propagator):
 
         # preconditioner (the stiffness preconditioner depends on dt and is built in prepare_time_step)
         self._precond = self.options.precond
+        if self._precond == "MassMatrixPreconditioner" and self.derham.polar_splines:
+            self._precond = "PolarMassMatrixPreconditioner"
         if self._precond in (None, "StiffnessPreconditioner"):
             self._mass_pc = None
         else:
@@ -401,20 +400,27 @@ class VlasovMaxwellCoupling(Propagator):
         self._schur_dt = None
         self._projected = False
 
-        # buffers (the pusher reads e_mid)
-        self._e_mid = self.derham.V1.zeros()
-        self._e_new = self.derham.V1.zeros()
-        self._e_rhs = self.derham.V1.zeros()
-        self._e_tmp = self.derham.V1.zeros()
-        self._b_new = self.derham.V2.zeros()
-        self._b_tmp = self.derham.V2.zeros()
+        # buffers in the spaces of e and b (polar with polar splines)
+        e_space = self.variables.e.spline.vector.space
+        b_space = self.variables.b.spline.vector.space
+        self._e_mid = e_space.zeros()
+        self._e_new = e_space.zeros()
+        self._e_rhs = e_space.zeros()
+        self._e_tmp = e_space.zeros()
+        self._b_new = b_space.zeros()
+        self._b_tmp = b_space.zeros()
+
+        # the mid-point field on the tensor-product space, read by the pusher kernel: E1^T e_mid (e_mid itself
+        # without polar splines)
+        self._E1T = self.derham.extraction_ops["1"].transpose()
+        self._e_mid_tp = self.derham.V1.zeros() if self.derham.polar_splines else self._e_mid
 
         # particle pusher: v^{n+1} = v^n + dt * c3 * DF^{-T} Lambda^1 e_mid
         args_kernel = (
             self.derham.args_derham,
-            self._e_mid.blocks[0]._data,
-            self._e_mid.blocks[1]._data,
-            self._e_mid.blocks[2]._data,
+            self._e_mid_tp.blocks[0]._data,
+            self._e_mid_tp.blocks[1]._data,
+            self._e_mid_tp.blocks[2]._data,
             self._c3,
         )
 
@@ -512,6 +518,9 @@ class VlasovMaxwellCoupling(Propagator):
 
         e_mid = self._solver.dot(rhs, out=self._e_mid)
         e_mid.update_ghost_regions()
+        if self._e_mid_tp is not e_mid:
+            self._E1T.dot(e_mid, out=self._e_mid_tp)
+            self._e_mid_tp.update_ghost_regions()
         return e_mid, self._solver._info
 
     def _project_onto_constraint(self, dt: float):

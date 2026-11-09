@@ -5,12 +5,11 @@ from feectools.linalg.block import BlockVector
 
 import struphy.models as models
 from struphy.io.options import LiteralOptions
-from struphy.models.base import StruphyModel
+from struphy.models.base import StruphyModel, apply_splitting_order
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.propagators.shear_alfven_curl_curl_propagator import ShearAlfvenCurlCurlPropagator
 from struphy.propagators.utils import VelocityMass
 
 logger = logging.getLogger("struphy")
@@ -162,18 +161,25 @@ def add_magnetic_scalars(scalars: dict, b_field: FEECVariable, energies: Magneti
 
 
 def magnetic_discretization_doc(model_cls) -> str:
-    """Body of ``doc_discretization`` of the linear MHD models: the propagators of the model (with the shear-Alfvén
-    step of ``b_space="Hdiv"``), followed by the shear-Alfvén step of ``b_space="Hcurl"``.
+    """Body of ``doc_discretization`` of the linear MHD models with the flag ``b_space``: the propagators of the model
+    (with ``b_space="Hdiv"``), followed by the propagators that differ with ``b_space="Hcurl"`` (the curl-curl
+    shear-Alfvén step, and the 1-form couplings and pushers of the hybrid models).
 
     Parameters
     ----------
     model_cls : type
-        The model class.
+        The model class (its ``Propagators`` take the argument ``b_space``).
     """
     doc = model_cls.propagators_doc()
-    doc += '**1. shear_alf** with ``b_space="Hcurl"`` '
-    doc += "(:class:`~struphy.propagators.shear_alfven_curl_curl_propagator.ShearAlfvenCurlCurlPropagator`):\n\n"
-    doc += f"{ShearAlfvenCurlCurlPropagator.__doc__}\n"
+    hdiv = model_cls.propagators_in_splitting_order()
+    hcurl = model_cls.Propagators(b_space="Hcurl")
+    apply_splitting_order(hcurl)
+    for n, (name, prop) in enumerate(vars(hcurl).items(), start=1):
+        prop_cls = type(prop)
+        if prop_cls is type(hdiv[name]):
+            continue
+        doc += f'**{n}. {name}** with ``b_space="Hcurl"`` (:class:`~{prop_cls.__module__}.{prop_cls.__name__}`):\n\n'
+        doc += f"{prop_cls.__doc__}\n\n"
     return doc
 
 

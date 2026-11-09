@@ -9,6 +9,7 @@ from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
 from struphy.propagators.push_eta_pc import PushEtaPC
 from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.push_vxb_1form import PushVxB1form
 
 logger = logging.getLogger("struphy")
 
@@ -16,8 +17,8 @@ logger = logging.getLogger("struphy")
 class LinearMHDVlasovPC(LinearMHD):
     """Hybrid linear MHD coupled with energetic ions (6D Vlasov) via the pressure-coupling scheme.
 
-    Extends :class:`~struphy.models.LinearMHD` (magnetic field in H(div)) by energetic ions, whose perpendicular
-    pressure tensor enters the MHD momentum equation.
+    Extends :class:`~struphy.models.LinearMHD` by energetic ions, whose perpendicular pressure tensor enters the MHD
+    momentum equation.
 
     Parameters
     ----------
@@ -31,6 +32,14 @@ class LinearMHDVlasovPC(LinearMHD):
         Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
     hot_epsilon: float, optional
         Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
+    b_space: {"Hdiv", "Hcurl"}
+        Space of the magnetic field, as in :class:`~struphy.models.LinearMHD` (default: "Hdiv"). With ``"Hcurl"``, the
+        energetic ions are pushed with the 1-form field
+        (:class:`~struphy.propagators.push_vxb_1form.PushVxB1form` instead of
+        :class:`~struphy.propagators.push_vxb.PushVxB`).
+    projected: bool
+        Projected curl-curl shear-Alfvén step, only with ``b_space="Hcurl"``, as in :class:`~struphy.models.LinearMHD`
+        (default: False).
     """
 
     # propagators renamed when the model joined the LinearEuler family (options of old run metadata)
@@ -68,6 +77,9 @@ class LinearMHDVlasovPC(LinearMHD):
             Magnetic field perturbation, added to the equilibrium field in ``push_vxb`` (default: None).
         u_field : FEECVariable, optional
             Velocity perturbation, which ``push_eta_pc`` adds to the marker velocities (default: None).
+        b_space : str
+            Space of the magnetic field, ``"Hdiv"`` (:class:`~struphy.propagators.push_vxb.PushVxB`) or ``"Hcurl"``
+            (:class:`~struphy.propagators.push_vxb_1form.PushVxB1form`) (default: ``"Hdiv"``).
         **kwargs
             Passed to :class:`LinearMHD.Propagators <struphy.models.LinearMHD.Propagators>`.
         """
@@ -78,11 +90,15 @@ class LinearMHDVlasovPC(LinearMHD):
             self,
             b_field: FEECVariable = None,
             u_field: FEECVariable = None,
+            b_space: str = "Hdiv",
             **kwargs,
         ):
-            super().__init__(b_field=b_field, u_field=u_field, **kwargs)
+            super().__init__(b_field=b_field, u_field=u_field, b_space=b_space, **kwargs)
             self.push_eta_pc = PushEtaPC(u_tilde=u_field)
-            self.push_vxb = PushVxB(b2_var=b_field)
+            if b_space == "Hdiv":
+                self.push_vxb = PushVxB(b2_var=b_field)
+            else:
+                self.push_vxb = PushVxB1form(b1_var=b_field)
             self.pc6d = PressureCoupling6D()
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
@@ -98,12 +114,14 @@ class LinearMHDVlasovPC(LinearMHD):
         hot_charge_number: int = 1,
         hot_mass_number: float = 1.0,
         hot_epsilon: float = None,
+        b_space: LinearMHD.OptsBSpace = "Hdiv",
+        projected: bool = False,
     ):
         # 0. store input parameters
         self._store_params(locals())
 
-        # 1.-5. see LinearMHD (magnetic field in H(div))
-        super().__init__(base_units, mass_number=mhd_mass_number)
+        # 1.-5. see LinearMHD
+        super().__init__(base_units, mass_number=mhd_mass_number, b_space=b_space, projected=projected)
 
     def _create_species(self):
         """:meta private:"""

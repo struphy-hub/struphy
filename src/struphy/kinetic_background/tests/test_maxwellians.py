@@ -1492,7 +1492,8 @@ def test_maxwellian_2d_mhd(num_elements, with_desc, show_plot=False):
 
 
 @pytest.mark.parametrize("num_markers", [200])
-def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
+@pytest.mark.parametrize("shift", ["Bmax", "B0"])
+def test_canonical_maxwellian_uniform(num_markers, shift, show_plot=False):
     """Tests the CanonicalMaxwellian2D evaluation scheme in
     :math:`(\\eta_1, \\eta_2, \\eta_3, v_\\parallel, \\mu)` coordinates
     (flat/marker evaluation), including caching of the canonical toroidal
@@ -1507,6 +1508,8 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
 
     where the second factor drops the :math:`|B_0|` prefactor for ``volume_form=False``.
     """
+    from unittest import mock
+
     import cunumpy as xp
     import matplotlib.pyplot as plt
 
@@ -1551,10 +1554,17 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
         energy = 0.5 * v_para**2 + mu * absB
         psic = psi - epsilon * B0_const * R0 / absB * v_para
 
-        pos_mask = (energy - mu * B0_const) > 0
+        # reference field of the shift: on-axis field or maximum of |B| on the surface psi = P_phi
+        B_ref = B0_const * xp.ones_like(psic) if shift == "B0" else mhd_equil.absB_max(psic)
+        pos_mask = (energy - mu * B_ref) > 0
         correction = xp.zeros_like(psic)
         correction[pos_mask] = (
-            epsilon * xp.sign(v_para[pos_mask]) * xp.sqrt(2 * (energy[pos_mask] - mu[pos_mask] * B0_const)) * R0
+            epsilon
+            * xp.sign(v_para[pos_mask])
+            * xp.sqrt(2 * (energy[pos_mask] - mu[pos_mask] * B_ref[pos_mask]))
+            * B0_const
+            * R0
+            / B_ref[pos_mask]
         )
         return psic + correction, absB
 
@@ -1581,7 +1591,7 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     # ===========================================================
     n_val, vth_val = 2.0, 1.3
 
-    maxwellian = CanonicalMaxwellian2D(n=(n_val, None), vth=(vth_val, None), equil=mhd_equil)
+    maxwellian = CanonicalMaxwellian2D(n=(n_val, None), vth=(vth_val, None), equil=mhd_equil, shift=shift)
 
     res = maxwellian(eta1, eta2, eta3, v_para, mu)
     res_ana = ref_eval(n_val, vth_val, eta1, eta2, eta3, v_para, mu)
@@ -1635,21 +1645,17 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     def n_of_psic(psic):
         return 1.5 + 0.1 * psic
 
-    maxwellian_nc = CanonicalMaxwellian2D(n=(n_of_psic, None), vth=(vth_val, None), equil=mhd_equil)
+    maxwellian_nc = CanonicalMaxwellian2D(n=(n_of_psic, None), vth=(vth_val, None), equil=mhd_equil, shift=shift)
 
     res = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
     res_ana = ref_eval(n_of_psic, vth_val, eta1, eta2, eta3, v_para, mu)
     assert xp.allclose(res, res_ana, atol=10e-10), f"{res=},\n {res_ana=}"
 
-    # calling again with the same markers must hit the internal psi_c cache
-    # and still return the (correct) result
-    markers = xp.stack((eta1, eta2, eta3, v_para, mu), axis=0)
-    assert maxwellian_nc._check_psi_c_cached(markers)
-    res_cached = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
-    assert xp.allclose(res_cached, res_ana, atol=10e-10), f"{res_cached=},\n {res_ana=}"
+    # calling again with the same markers must return the same (correct) result
+    res_again = maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    assert xp.allclose(res_again, res_ana, atol=10e-10), f"{res_again=},\n {res_ana=}"
 
-    # calling with different markers must invalidate the cache instead of
-    # silently reusing the stale psi_c from the previous call
+    # calling with different markers must not reuse psi_c from the previous call
     eta1_b = xp.random.rand(num_markers)
     eta2_b = xp.random.rand(num_markers)
     eta3_b = xp.random.rand(num_markers)
@@ -1660,6 +1666,41 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     res_b_ana = ref_eval(n_of_psic, vth_val, eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
     assert xp.allclose(res_b, res_b_ana, atol=10e-10), f"{res_b=},\n {res_b_ana=}"
 
+    # issue #842: psi_c must never be reused across calls, also not for markers that
+    # (a) swapped slots (MPI sorting, refilling) or (b) moved only slightly (coupling with fields)
+    maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    swapped = [xp.array(a) for a in (eta1, eta2, eta3, v_para, mu)]
+    for a in swapped:
+        a[[5, 7]] = a[[7, 5]]
+    res_swap = maxwellian_nc(*swapped)
+    res_swap_ana = ref_eval(n_of_psic, vth_val, *swapped)
+    assert xp.allclose(res_swap, res_swap_ana, rtol=1e-12, atol=1e-14), f"{res_swap=},\n {res_swap_ana=}"
+
+    maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    # small enough that the old 4-point allclose check accepted the stale psi_c
+    v_para_moved = v_para + 1e-7 * xp.random.randn(num_markers)
+    res_moved = maxwellian_nc(eta1, eta2, eta3, v_para_moved, mu)
+    res_moved_ana = ref_eval(n_of_psic, vth_val, eta1, eta2, eta3, v_para_moved, mu)
+    assert xp.allclose(res_moved, res_moved_ana, rtol=1e-12, atol=1e-14), f"{res_moved=},\n {res_moved_ana=}"
+
+    # a direct moment evaluation after a call with other markers uses its own points
+    maxwellian_nc(eta1, eta2, eta3, v_para, mu)
+    n_b = maxwellian_nc.n(eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
+    psic_b, _ = ref_psic_and_absB(eta1_b, eta2_b, eta3_b, v_para_b, mu_b)
+    assert xp.allclose(n_b, n_of_psic(psic_b), rtol=1e-12, atol=1e-14)
+
+    # psi_c is evaluated exactly once per call (shared by n and vth), and not at all for constant moments
+    def vth_of_psic(psic):
+        return vth_val + 0.0 * psic
+
+    for n_bg, vth_bg, n_evals in ((n_of_psic, vth_of_psic, 1), (n_of_psic, vth_val, 1), (n_val, vth_val, 0)):
+        maxw = CanonicalMaxwellian2D(n=(n_bg, None), vth=(vth_bg, None), equil=mhd_equil)
+        with mock.patch.object(maxw, "eval_psic", wraps=maxw.eval_psic) as spy:
+            maxw(eta1, eta2, eta3, v_para, mu)
+            maxw(eta1, eta2, eta3, v_para, mu)
+        assert spy.call_count == 2 * n_evals, f"{n_bg=}, {vth_bg=}: {spy.call_count=}"
+        assert maxw._psi_c_call is None
+
     # =============================================
     # ===== Test ITPA perturbation in density =====
     # =============================================
@@ -1667,7 +1708,9 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     c = [0.46623, 0.17042, 0.11357, 0.521298]
     pert = perturbations.ITPA_density(n0=n0, c=c)
 
-    maxwellian_pert = CanonicalMaxwellian2D(n=(0.0, pert), vth=(vth_val, None), equil=mhd_equil, volume_form=False)
+    maxwellian_pert = CanonicalMaxwellian2D(
+        n=(0.0, pert), vth=(vth_val, None), equil=mhd_equil, shift=shift, volume_form=False
+    )
 
     res = maxwellian_pert(eta1, eta2, eta3, v_para, mu)
 
@@ -1703,11 +1746,12 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
         m = rng.rand(num_markers_perf) * 0.5
         return e1, e2, e3, vp, m
 
-    maxwellian_nocache = CanonicalMaxwellian2D(n=(n_of_psic, None), vth=(vth_val, None), equil=mhd_equil)
+    maxwellian_nocache = CanonicalMaxwellian2D(n=(n_of_psic, None), vth=(vth_val, None), equil=mhd_equil, shift=shift)
     maxwellian_cache = CanonicalMaxwellian2D(
         n=(n_of_psic, None),
         vth=(vth_val, None),
         equil=mhd_equil,
+        shift=shift,
         cache_size=num_markers_perf,
     )
 
@@ -1720,17 +1764,13 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     assert xp.allclose(res_nocache, res_ana_c, atol=10e-10), f"{res_nocache=},\n {res_ana_c=}"
     assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_cache=}"
 
-    # a cache hit must not overwrite the buffer that the cached psi_c points to
-    markers_c = xp.stack((eta1_c, eta2_c, eta3_c, v_para_c, mu_c), axis=0)
-    assert maxwellian_cache._check_psi_c_cached(markers_c)
+    # a second call reuses the buffers and must give the same result
     res_cache = maxwellian_cache(eta1_c, eta2_c, eta3_c, v_para_c, mu_c)
     assert xp.allclose(res_cache, res_ana_c, atol=10e-10), f"{res_cache=},\n {res_ana_c=}"
 
     def _time_eval(maxwellian, n_reps=5):
-        """Best-of-n_reps wall time for a full psi_c evaluation. Markers are
-        redrawn on every rep so the psi_c *result* cache (see
-        `_check_psi_c_cached`) never hits and each call exercises the full
-        eval_psic computation, isolating the effect of the cbufs buffers."""
+        """Best-of-n_reps wall time for a full evaluation (psi_c is evaluated
+        once per call), isolating the effect of the cbufs buffers."""
         times = []
         for i in range(n_reps):
             e1, e2, e3, vp, m = _random_markers(seed=100 + i)
@@ -1757,24 +1797,37 @@ def test_canonical_maxwellian_uniform(num_markers, show_plot=False):
     )
 
 
-@pytest.mark.mpi_skip
-def test_canonical_maxwellian_unshifted():
-    """With ``shifted=False``, CanonicalMaxwellian2D uses the exact canonical toroidal momentum
-    psi - epsilon F v_par / |B0| (with and without the cache buffers); the default keeps the shift."""
+def _canonical_test_setup():
+    """AdhocTorus on a HollowTorus and random markers (eta1, eta2, eta3, v_par, mu) for the CanonicalMaxwellian2D
+    tests."""
     import cunumpy as xp
 
     from struphy import domains, equils
-    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
 
     epsilon, R0, B0 = 0.05, 5.0, 1.0
     equil = equils.AdhocTorus(a=1.0, R0=R0, B0=B0, q0=1.25, q1=2.25)
     equil.domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=R0)
 
-    n_mks = 100
     xp.random.seed(0)
-    markers = xp.random.rand(5, n_mks)
+    markers = xp.random.rand(5, 100)
     markers[3] = (markers[3] - 0.5) * 4.0
     markers[4] *= 0.5
+    return equil, epsilon, markers
+
+
+@pytest.mark.mpi_skip
+def test_canonical_maxwellian_shift_options():
+    """``shift=None`` is the exact canonical toroidal momentum psi - epsilon F v_par / |B0| (with and without the
+    cache buffers), ``shift="Bmax"`` is the default, and the deprecated ``shifted`` maps to ``shift``."""
+    import warnings
+
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
+
+    equil, epsilon, markers = _canonical_test_setup()
+    B0, R0 = equil.params["B0"], equil.params["R0"]
+    n_mks = markers.shape[1]
 
     etas = markers[:3]
     x, y, z = equil.domain(etas)
@@ -1782,10 +1835,173 @@ def test_canonical_maxwellian_unshifted():
     exact = equil.psi(R, Z) - epsilon * B0 * R0 / equil.absB0(etas) * markers[3]
 
     for cache_size in (None, n_mks):
-        unshifted = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size, shifted=False)
+        unshifted = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size, shift=None)
         assert xp.allclose(unshifted.eval_psic(markers), exact)
-        shifted = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size)
-        assert not xp.allclose(shifted.eval_psic(markers), exact)
+
+        default = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size)
+        assert default.shift == "Bmax"
+        psic_bmax = default.eval_psic(markers).copy()
+        assert not xp.allclose(psic_bmax, exact)
+
+        psic_b0 = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size, shift="B0").eval_psic(
+            markers
+        )
+        assert not xp.allclose(psic_b0, exact)
+        assert not xp.allclose(psic_b0, psic_bmax)
+
+        for shifted, shift in ((True, "B0"), (False, None)):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                deprecated = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size, shifted=shifted)
+            assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+            assert deprecated.shift == shift
+            assert deprecated.params["shift"] == shift
+            assert "shifted" not in deprecated.params
+
+    with pytest.raises(AssertionError):
+        CanonicalMaxwellian2D(equil=equil, shift="Bmin")
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("equil_name", ["AdhocTorus", "AdhocTorusQPsi", "CircularTokamak"])
+def test_absB_max_on_flux_surface(equil_name):
+    """AxisymmMHDequilibrium.absB_max is the maximum of |B| on the flux surface: it bounds |B| at random points of
+    the plasma, it is attained at the inboard midplane of the circular surfaces, and the inboard ray of the ad hoc
+    tokamaks agrees with the search on 128 rays."""
+    import cunumpy as xp
+
+    from struphy import equils
+
+    equil = getattr(equils, equil_name)()
+    R_ax, Z_ax = equil.psi_axis_RZ
+    psi_ax, psi_edge = equil.psi_range
+
+    # minor radius of the plasma boundary along the inboard midplane
+    rho = xp.linspace(0.0, 0.999 * R_ax, 20001)
+    s_in = (equil.psi(R_ax - rho, Z_ax + 0 * rho) - psi_ax) / (psi_edge - psi_ax)
+    a = rho[xp.argmin(xp.abs(s_in - 1.0))]
+
+    # upper bound at random points in the plasma
+    xp.random.seed(1)
+    r = a * xp.sqrt(xp.random.rand(2000))
+    theta = 2 * xp.pi * xp.random.rand(2000)
+    R = R_ax + r * xp.cos(theta)
+    Z = Z_ax + r * xp.sin(theta)
+    absB = equil.absB_RZ(R, Z)
+    assert xp.all(absB <= equil.absB_max(equil.psi(R, Z)) * (1 + 1e-6))
+
+    # attained at the inboard midplane (an upper bound is safe for the shift of CanonicalMaxwellian2D; at the
+    # boundary, the last sample of a ray can lie slightly outside the plasma)
+    r = xp.linspace(0.0, a, 50)
+    psi = equil.psi(R_ax - r, Z_ax + 0 * r)
+    bmax = equil.absB_max(psi) / (1 + equil.bmax_margin)
+    absB_inboard = equil.absB_RZ(R_ax - r, Z_ax + 0 * r)
+    assert xp.all(equil.absB_max(psi) >= absB_inboard)
+    assert xp.allclose(bmax, absB_inboard, rtol=1e-3)
+
+    # the inboard ray only (ad hoc tokamaks) agrees with the search on all rays
+    if equil.bmax_ray_angles is not None:
+        all_rays = getattr(equils, equil_name)()
+        all_rays.bmax_ray_angles = None
+        assert xp.allclose(all_rays.absB_max_table, equil.absB_max_table, rtol=1e-12)
+
+    # clamped outside of psi_range
+    assert xp.isclose(equil.absB_max(psi_ax - 10 * (psi_edge - psi_ax)), equil.absB_max_table[0])
+    assert xp.isclose(equil.absB_max(psi_edge + 10 * (psi_edge - psi_ax)), equil.absB_max_table[-1])
+
+
+@pytest.mark.mpi_skip
+def test_canonical_maxwellian_bounce_invariance():
+    """At a bounce point (v_par -> 0), psi_c must not depend on the sign of v_par for an exact equilibrium. With
+    ``shift="Bmax"`` (and ``shift=None``), psi_c(+delta) - psi_c(-delta) -> 0 for delta -> 0; with ``shift="B0"``,
+    it stays finite for the particles that bounce at |B| > B0 (inboard side)."""
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
+
+    equil, epsilon, markers = _canonical_test_setup()
+    n_mks = markers.shape[1]
+
+    jumps = {}
+    for shift in ("Bmax", "B0", None):
+        maxwellian = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, shift=shift)
+        jumps[shift] = []
+        for delta in (1e-3, 1e-5, 1e-7):
+            plus = markers.copy()
+            plus[3] = delta
+            minus = markers.copy()
+            minus[3] = -delta
+            jumps[shift] += [xp.max(xp.abs(maxwellian.eval_psic(plus) - maxwellian.eval_psic(minus)))]
+
+    for shift in ("Bmax", None):
+        assert jumps[shift][-1] < 1e-6, (shift, jumps[shift])
+        assert jumps[shift][-1] < jumps[shift][0]
+    assert min(jumps["B0"]) > 1e-2, jumps["B0"]
+    assert n_mks == markers.shape[1]
+
+
+@pytest.mark.parametrize("shift", ["Bmax", "B0", None])
+def test_canonical_toroidal_moment_kernel(shift):
+    """The compiled kernel eval_canonical_toroidal_moment_5d (marker diagnostics) agrees with
+    CanonicalMaxwellian2D.eval_psic (up to the spline approximation of |B0| in the kernel)."""
+    import cunumpy as xp
+    from maybempi import MPI, SerialComm
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
+    from struphy.io.options import DerhamOptions
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
+    from struphy.pic.diagnostics.kernels.eval_canonical_toroidal_moment_5d import eval_canonical_toroidal_moment_5d
+    from struphy.topology.grids import TensorProductGrid
+
+    comm = None if isinstance(MPI.COMM_WORLD, SerialComm) else MPI.COMM_WORLD
+
+    equil, epsilon, _ = _canonical_test_setup()
+    derham = Derham(
+        TensorProductGrid(num_elements=[16, 16, 4]),
+        DerhamOptions(degree=[3, 3, 2], bcs=(("free", "free"), None, None)),
+        comm=comm,
+    )
+    absB0_h = ProjectedFluidEquilibriumWithB(equil, derham).absB0
+
+    # markers in the domain of this process
+    xp.random.seed(2)
+    markers = xp.random.rand(5, 500)
+    markers[3] = (markers[3] - 0.5) * 4.0
+    markers[4] *= 0.5
+    dom = derham.domain_array[derham.comm.Get_rank() if comm is not None else 0]
+    for i in range(3):
+        markers[i] = dom[3 * i] + (dom[3 * i + 1] - dom[3 * i]) * markers[i]
+
+    maxwellian = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, shift=shift)
+    psic = maxwellian.eval_psic(markers)
+
+    # columns: eta1, eta2, eta3, v_par, mu, energy, psi (overwritten by psi_c)
+    etas = markers[:3]
+    x, y, z = equil.domain(etas)
+    R, _, Z = equil.inverse_map(x, y, z)
+    columns = xp.zeros((7, markers.shape[1]))
+    columns[:5] = markers
+    columns[5] = 0.5 * markers[3] ** 2 + markers[4] * equil.absB0(etas)
+    columns[6] = equil.psi(R, Z)
+    columns = xp.ascontiguousarray(columns)
+
+    eval_canonical_toroidal_moment_5d(
+        columns,
+        derham.args_derham,
+        5,
+        4,
+        6,
+        epsilon,
+        equil.params["B0"],
+        equil.params["R0"],
+        absB0_h._data,
+        *maxwellian.shift_kernel_args(),
+    )
+
+    err = xp.abs(columns[6] - psic)
+    logger.info(f"{shift = }: max |kernel - eval_psic| = {xp.max(err):.2e}")
+    assert xp.max(err) < 1e-3, xp.max(err)
 
 
 def test_moment_factors_and_division():
@@ -1799,7 +2015,7 @@ def test_moment_factors_and_division():
 
     for f0, n_v in [
         (Maxwellian3D(n=(2.0, None)), 3),
-        (GyroMaxwellian2D(n=(2.0, None)), 2),
+        (GyroMaxwellian2D(n=(2.0, None), B0=2.0), 2),
         (GyroMaxwellian2Dvperp(n=(2.0, None)), 2),
     ]:
         # scalar division
