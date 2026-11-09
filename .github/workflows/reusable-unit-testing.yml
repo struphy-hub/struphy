@@ -35,15 +35,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - shard: shard-1
-            test_files: bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/
-          - shard: shard-2
-            test_files: api/tests/ propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/ dispersion_relations/tests/ io/tests/ simulation/tests/ models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py models/tests/test_scalars.py models/tests/test_splitting_order.py
-          - shard: shard-3
-            test_files: feec/tests/
-          - shard: shard-4
-            test_files: pic/tests/  
+        # the test paths of each shard are in src/struphy/console/unit_test_shards.py
+        shard: ["shard-1", "shard-2", "shard-3", "shard-4"]
 
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
@@ -138,7 +131,6 @@ jobs:
       - name: Run unit tests
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-${{ matrix.shard }}
-          TEST_FILES: ${{ matrix.test_files }}
           # oversubscribed threaded BLAS makes the MPI runs slow and their timing erratic (#743)
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
@@ -148,6 +140,7 @@ jobs:
           set -e
           pip show struphy
           struphy compile --status
+          TEST_FILES=$(python -m struphy.console.unit_test_shards ${{ matrix.shard }})
           echo "Running $UNINSTALL_MPI"
           $UNINSTALL_MPI
           # fingerprint only the core packages: the image is rebuilt with the latest dependencies on every push to

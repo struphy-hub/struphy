@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - devel
+  # keeps the testmon data of devel (restored by new PRs) up to date
+  push:
+    branches:
+      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -94,7 +98,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          pytest -x -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/regression/ 
+          pytest --maxfail=5 -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/regression/ 
 
       - name: Serial-only verification tests
         shell: bash
@@ -114,7 +118,7 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
-          mpirun -oversubscribe -n 2 pytest -x -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/models/tests/regression/
+          mpirun -oversubscribe -n 2 pytest --maxfail=5 -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/models/tests/regression/
 
       - name: Verification tests with 2 MPI
         shell: bash

@@ -189,4 +189,15 @@ markers = [
     "single",
     "mpi_pic",
     "clones",
+    "examples: runs the examples in examples/ (models/tests/test_examples.py)",
+    "convergence: convergence-rate test",
+    # pytest-mpi (also registered by the plugin; listed here for runs without it)
+    "mpi: test run under MPI (pytest-mpi)",
+    "mpi_skip: test that does not touch parallel code, skipped under --with-mpi (pytest-mpi)",
+    "mpi_xfail: expected to fail under MPI (pytest-mpi)",
+    # feectools markers, for feectools tests run with this config (e.g. --pyargs feectools...)
+    "petsc: requires PETSc",
+    "parallel: parallel feectools test",
 ]
+# unregistered (e.g. misspelled) markers on tests are collection errors
+addopts = "--strict-markers"
