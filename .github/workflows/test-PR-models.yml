@@ -135,10 +135,17 @@ jobs:
       - name: Select verification tests
         # PR: the core tests marked "verif_pr" + all tests in the verification files changed by the PR, or importing a
         # changed helper module of the verification folder. The checkout is the PR merge commit, so HEAD^1 is the base.
+        # Push to devel: the core tests only (the push trigger refreshes the testmon data of the model job).
         # Schedule/dispatch: all verification tests.
         # No testmon here: it deactivates its selection when -m is used, and the core set is cheap enough to run always.
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "push" ]; then
+            {
+              echo "VERIF_MARK=verif_pr"
+              echo "VERIF_X=-x"
+              echo "VERIF_CHANGED="
+            } >> "$GITHUB_ENV"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
             git config --global --add safe.directory "$GITHUB_WORKSPACE"
             VDIR=src/struphy/models/tests/verification
             CHANGED=$(git diff --name-only --diff-filter=d HEAD^1 HEAD -- "$VDIR/*.py" | xargs -r -n1 basename)
