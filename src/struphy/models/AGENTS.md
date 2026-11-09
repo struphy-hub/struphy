@@ -39,9 +39,11 @@ and **ask whether to add it to that family** as a child, before writing code. Th
 - **LinearEuler family** (zero-flow equilibrium): `LinearEuler` → `LinearMHD` → `LinearMHDVlasovCC`,
   `LinearMHDVlasovPC`, `LinearMHDDriftkineticCC` (hybrid models with energetic ions).
 - **LinearEulerWithQ family** (zero-flow equilibrium, variable q = sqrt(p)): `LinearEulerWithQ` →
-  `LinearMHDWithQ` → `PerturbativeMHDWithQ`; `LinearEulerWithQ` → `PerturbativeEulerWithQ` (the nonlinear terms,
-  shared by the two through utilities in `utils.py`). Shares the equilibrium scalars and the magnetic field with the
-  LinearEuler family through utilities in `utils.py`.
+  `LinearMHDWithQ` → `PerturbativeMHDWithQ` → `PerturbativeMHDWithQVlasovCC`, `PerturbativeMHDWithQVlasovPC`
+  (hybrid models, the coupling steps of the LinearEuler hybrids with the inertia of the total density);
+  `LinearEulerWithQ` → `PerturbativeEulerWithQ` (the nonlinear terms, shared by the two through utilities in
+  `utils.py`). Shares the equilibrium scalars, the magnetic field and the energetic-ion scalars with the LinearEuler
+  family through utilities in `utils.py`.
 - **Maxwell family**: `Maxwell` → `ColdPlasma` → `ColdPlasmaVlasov`.
 - **SPH family**: `ColdEulerSPH` → `EulerSPH` → `ViscousEulerSPH`; `ColdEulerSPH` → `IncompressibleNavierStokesSPH`.
 
