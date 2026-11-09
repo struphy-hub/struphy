@@ -8,7 +8,7 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.feec.variational_utilities import Hdiv0_transport_operator, Pressure_transport_operator
+from struphy.feec.variational_utilities import Hdiv0_transport_operator
 from struphy.io.options import OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
@@ -21,16 +21,15 @@ logger = logging.getLogger("struphy")
 
 class VariationalNonlinearPBEvolve(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the terms of the perturbative (:math:`\delta f`) variational MHD model that
-    are nonlinear in the perturbations of the magnetic field and the pressure. Together with the linear propagators
+    are nonlinear in the perturbation of the magnetic field. Together with the linear propagators
     (:class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve` and
-    :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve`) it gives the
-    coupling of the velocity, the magnetic field and the pressure of the perturbative model.
+    :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve` with
+    ``total_weight=True``, which contains the transport of the pressure with the pressure perturbation as weight) it
+    gives the coupling of the velocity, the magnetic field and the pressure of the perturbative model.
 
     **Continuous problem.** Find :math:`\mathbf u` (in :math:`(H^1)^3` or :math:`H_0(\textnormal{div})`) and the
-    perturbations :math:`\tilde{\mathbf B} \in H_0(\textnormal{div})`, :math:`\tilde p \in L^2` such that, with the
-    transport operators :math:`\mathcal T_{\bar{\mathbf B}}(\mathbf v) = \nabla \times (\bar{\mathbf B} \times \mathbf v)`
-    and :math:`\mathcal S_{\bar p}(\mathbf v) = \nabla \cdot (\bar p\, \mathbf v) + (\gamma - 1) \bar p\, \nabla \cdot
-    \mathbf v`,
+    perturbation :math:`\tilde{\mathbf B} \in H_0(\textnormal{div})` such that, with the transport operator
+    :math:`\mathcal T_{\bar{\mathbf B}}(\mathbf v) = \nabla \times (\bar{\mathbf B} \times \mathbf v)`,
 
     .. math::
 
@@ -39,36 +38,27 @@ class VariationalNonlinearPBEvolve(Propagator):
         \qquad \forall \, \mathbf v\,,
         \qquad
         \partial_t \tilde{\mathbf B} + \mathcal T_{\tilde{\mathbf B}}(\mathbf u) = 0 \,,
-        \qquad
-        \partial_t \tilde p + \mathcal S_{\tilde p}(\mathbf u) = 0 \,,
 
-    with the total density :math:`\rho = \rho_0 + \tilde\rho` (frozen). These are the terms of the transport of the
-    magnetic field and of the pressure with the perturbations as weights, and the force of the first one, the variation
-    of :math:`\frac12 \int |\tilde{\mathbf B}|^2`. The pressure perturbation does not enter the energy of the
-    perturbative model (only the second-order pressure :math:`\hat p` does, in the linear sound step), so its nonlinear
-    transport has no force. The energy :math:`\frac12 \int \rho |\mathbf u|^2 + \frac12 \int |\tilde{\mathbf B}|^2` is
-    conserved.
+    with the total density :math:`\rho = \rho_0 + \tilde\rho` (frozen): the transport of the magnetic field with the
+    perturbation as weight and its force, the variation of :math:`\frac12 \int |\tilde{\mathbf B}|^2`. The energy
+    :math:`\frac12 \int \rho |\mathbf u|^2 + \frac12 \int |\tilde{\mathbf B}|^2` is conserved.
 
     **Semi-discrete problem.** With :math:`\mathbb T[\mathbf b] = \mathbb C \hat\Pi^1[\hat{\mathbf b} \times
     \vec{\boldsymbol\Lambda}^u]` (:class:`~struphy.feec.variational_utilities.Hdiv0_transport_operator`, for a
-    velocity 2-form the product is divided by :math:`\sqrt g`) and the pressure transport :math:`\mathbb S[\mathbf p]`
-    (:class:`~struphy.feec.variational_utilities.Pressure_transport_operator`), the operators of the linear propagators
-    with the perturbations as weights,
+    velocity 2-form the product is divided by :math:`\sqrt g`), the operator of the linear Alfvén step with the
+    perturbation as weight,
 
     .. math::
 
         \mathbb M^u_\rho \dot{\mathbf u} - \mathbb T[\mathbf b]^\top \mathbb M^2 \mathbf b = 0 \,,
         \qquad
         \dot{\mathbf b} + \mathbb T[\mathbf b]\, \mathbf u = 0 \,,
-        \qquad
-        \dot{\mathbf p} + \mathbb S[\mathbf p]\, \mathbf u = 0 \,,
 
     with the velocity mass matrix of the total density, :math:`\mathbb M^u_\rho` = ``WMMnew`` for
     :math:`\mathbf u \in (H^1)^3` (assembled in :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`)
     or :math:`\mathbb M^2_\rho` (:class:`~struphy.propagators.utils.VelocityMass`) for a velocity 2-form.
 
-    **Time discretization.** Implicit midpoint rule, with the weights :math:`\mathbf b^{n+\frac12}`,
-    :math:`\mathbf p^{n+\frac12}`:
+    **Time discretization.** Implicit midpoint rule, with the weight :math:`\mathbf b^{n+\frac12}`:
 
     .. math::
 
@@ -76,13 +66,37 @@ class VariationalNonlinearPBEvolve(Propagator):
         = \mathbb T[\mathbf b^{n+\frac12}]^\top \mathbb M^2 \mathbf b^{n+\frac12} \,,
         \qquad
         \frac{\mathbf b^{n+1} - \mathbf b^n}{\Delta t} = -\mathbb T[\mathbf b^{n+\frac12}]\, \mathbf u^{n+\frac12} \,,
-        \qquad
-        \frac{\mathbf p^{n+1} - \mathbf p^n}{\Delta t} = -\mathbb S[\mathbf p^{n+\frac12}]\, \mathbf u^{n+\frac12} \,,
 
-    which conserves the energy exactly. It is solved by a Picard iteration (one mass-matrix solve per iteration), which
-    converges for :math:`\Delta t` small compared with the inverse frequency of the waves carried by the perturbation
-    (:math:`\Delta t\, k\, |\tilde{\mathbf B}| / \sqrt{\rho} \lesssim 1`); a warning is logged when it does not
-    converge within ``nonlin_solver.maxiter`` iterations.
+    which conserves the energy exactly and is symmetric in time (second order in a Strang splitting).
+
+    **Solution of the midpoint system.** Picard iteration on the weight :math:`\mathbf w = \mathbf b^{n+\frac12}`
+    only: with :math:`\mathbf w` from the previous iterate, the system is linear and implicit in
+    :math:`(\mathbf u^{n+1}, \mathbf b^{n+1})`,
+
+    .. math::
+
+        \mathbb M^u_\rho (\mathbf u^{n+1} - \mathbf u^n) = \Delta t\, \mathbb T[\mathbf w]^\top \mathbb M^2
+        \frac{\mathbf b^n + \mathbf b^{n+1}}{2} \,,
+        \qquad
+        \mathbf b^{n+1} - \mathbf b^n = -\Delta t\, \mathbb T[\mathbf w]\, \mathbf u^{n+\frac12} \,,
+
+    and eliminating :math:`\mathbf b^{n+1}` gives one symmetric positive definite solve (``Options.solver``,
+    preconditioned with :math:`\mathbb M^u_\rho`),
+
+    .. math::
+
+        \left(\mathbb M^u_\rho + \frac{\Delta t^2}{4} \mathbb K\right) (\mathbf u^{n+1} - \mathbf u^n)
+        = -\frac{\Delta t^2}{2} \mathbb K\, \mathbf u^n
+        + \Delta t\, \mathbb B\, \mathbb T[\mathbf w]^\top \mathbb M^2 \mathbf b^n \,,
+        \qquad
+        \mathbb K = \mathbb B\, \mathbb T[\mathbf w]^\top \mathbb M^2 \mathbb T[\mathbf w]\, \mathbb B \,,
+
+    with the boundary operator :math:`\mathbb B` of the velocity space. At convergence :math:`\mathbf w =
+    \mathbf b^{n+\frac12}`, so this is the midpoint rule above. The waves carried by the perturbation are inside the
+    implicit solve, so the iteration converges also for :math:`\Delta t\, k\, |\tilde{\mathbf B}| / \sqrt\rho \gg 1`
+    (a Picard iteration on all of :math:`(\mathbf u, \mathbf b)` would need :math:`\Delta t\, k_{\max}
+    |\tilde{\mathbf B}| / \sqrt\rho \lesssim 2`, with :math:`k_{\max}` the largest wave number of the grid). A warning
+    is logged when the iteration does not converge within ``nonlin_solver.maxiter`` iterations.
     """
 
     class Variables:
@@ -94,14 +108,11 @@ class VariationalNonlinearPBEvolve(Propagator):
             Velocity variable in ``"H1vec"`` or ``"Hdiv"`` space.
         b : FEECVariable
             Magnetic-field perturbation in ``"Hdiv"`` space.
-        p : FEECVariable
-            Pressure perturbation in ``"L2"`` space.
         """
 
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
-            self._p: FEECVariable = None
 
         @property
         def u(self) -> FEECVariable:
@@ -123,16 +134,6 @@ class VariationalNonlinearPBEvolve(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-        @property
-        def p(self) -> FEECVariable:
-            return self._p
-
-        @p.setter
-        def p(self, new):
-            assert isinstance(new, FEECVariable)
-            assert new.space == "L2"
-            self._p = new
-
     def __init__(self, rho: FEECVariable = None):
         r"""
         Parameters
@@ -152,24 +153,22 @@ class VariationalNonlinearPBEvolve(Propagator):
 
         Parameters
         ----------
-        gamma : float, default=5/3
-            Adiabatic index.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Controls of the Picard iteration: it stops when the change of :math:`(\mathbf u, \mathbf b)` in the energy
-            norm is below ``tol`` times the change in the step; at most ``maxiter`` iterations.
+            Controls of the Picard iteration on the weight :math:`\mathbf b^{n+1/2}`: it stops when the change of
+            :math:`(\mathbf u, \mathbf b)` in the energy norm is below ``tol`` times the change in the step; at most
+            ``maxiter`` iterations.
         solver : {"pcg", "cg"}, default="pcg"
-            Solver of the mass-matrix systems.
+            Solver of the symmetric positive definite velocity system.
         precond : {"MassMatrixPreconditioner", None}, default="MassMatrixPreconditioner"
-            Preconditioner of the mass-matrix systems.
+            Preconditioner of the velocity system, built from the velocity mass matrix :math:`\mathbb M^u_\rho`.
         solver_params : SolverParameters, default=None
-            Controls of the mass-matrix solves.
+            Controls of the linear solves (``tol`` relative to the right-hand side).
         """
 
         # specific literals
         OptsSolver = Literal["pcg", "cg"]
         OptsPrecond = Literal["MassMatrixPreconditioner", None]
         # propagator options
-        gamma: float = 5.0 / 3.0
         nonlin_solver: NonlinearSolverParameters = None
         solver: OptsSolver = "pcg"
         precond: OptsPrecond = "MassMatrixPreconditioner"
@@ -177,7 +176,6 @@ class VariationalNonlinearPBEvolve(Propagator):
 
         def __post_init__(self):
             # checks
-            assert self.gamma > 1.0, f"gamma must be larger than 1, got {self.gamma}."
             check_option(self.solver, self.OptsSolver)
             check_option(self.precond, self.OptsPrecond)
 
@@ -219,24 +217,25 @@ class VariationalNonlinearPBEvolve(Propagator):
         pc = None if self.options.precond is None else MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         self._Mrho_pc = pc
         sp = self.options.solver_params
-        self._inv_Mrho = inverse(
-            self._Mrho, self.options.solver, pc=pc, tol=sp.tol, maxiter=sp.maxiter, verbose=sp.verbose, recycle=True
-        )
 
-        # transport operators with the perturbations as weights
+        # transport operator with the weight w = b^{n+1/2} (updated in every iteration)
         self._Tw = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         self._TwT = self._Tw.T
-        self._Sp = Pressure_transport_operator(
-            self.derham, self.domain, self.basis_ops.Uv, self.options.gamma, u_space=self._u_space
+        M2 = self.mass_ops.M2
+        self._K = self._bop_u @ self._TwT @ M2 @ self._Tw @ self._bop_u
+        # dt^2/4 K, the scalar is set in every call
+        self._dt2K = 2.0 * self._K
+        self._A = self._Mrho + self._dt2K
+        self._A_inv = inverse(
+            self._A, self.options.solver, pc=pc, tol=sp.tol, maxiter=sp.maxiter, verbose=sp.verbose, recycle=True
         )
 
         # temporaries
         u = self.variables.u.spline.vector
         b = self.variables.b.spline.vector
-        p = self.variables.p.spline.vector
         self._un1, self._un12, self._du, self._fu, self._u_new = (u.space.zeros() for _ in range(5))
         self._bn1, self._bn12, self._db, self._M2b, self._b_new = (b.space.zeros() for _ in range(5))
-        self._pn1, self._pn12, self._p_new = (p.space.zeros() for _ in range(3))
+        self._rhs_u, self._Ku = (u.space.zeros() for _ in range(2))
         self._Mdu = u.space.zeros()
         self._fu0 = u.space.zeros()
         self._M2db = b.space.zeros()
@@ -254,43 +253,43 @@ class VariationalNonlinearPBEvolve(Propagator):
 
         un = self.variables.u.spline.vector
         bn = self.variables.b.spline.vector
-        pn = self.variables.p.spline.vector
         un1 = un.copy(out=self._un1)
         bn1 = bn.copy(out=self._bn1)
-        pn1 = pn.copy(out=self._pn1)
         M2 = self.mass_ops.M2
+        bop = self._bop_u
         tol = self.options.nonlin_solver.tol
         maxiter = self.options.nonlin_solver.maxiter
+        self._dt2K._scalar = dt * dt / 4.0
 
+        err = np.inf
         for it in range(maxiter):
-            # midpoint weights of the current iterate
+            # weight w = b^{n+1/2} of the current iterate
             bn12 = bn.copy(out=self._bn12)
             bn12 += bn1
             bn12 *= 0.5
-            pn12 = pn.copy(out=self._pn12)
-            pn12 += pn1
-            pn12 *= 0.5
             self._Tw.update_coeffs(bn12)
             self._TwT.update_coeffs(bn12)
-            self._Sp.update_coeffs(pn12)
 
-            # velocity: M (u1 - un) = dt T[b12]^T M2 b12
+            # increment du = u1 - un: (M + dt^2/4 K) du = -dt^2/2 K un + dt B T[w]^T M2 bn (zero right-hand side,
+            # hence no change, without perturbations)
+            rhs = self._dt2K.dot(un, out=self._rhs_u)
+            rhs *= -2.0
+            f = self._TwT.dot(M2.dot(bn, out=self._M2b), out=self._fu0)
+            f = bop.dot(f, out=self._fu)
+            f *= dt
+            rhs += f
+            du = self._A_inv.dot(rhs, out=self._Ku)
             # (the boundary operator not in place: its dot with out=v zeroes v)
-            f = self._TwT.dot(M2.dot(bn12, out=self._M2b), out=self._fu0)
-            f = self._bop_u.dot(f, out=self._fu)
-            u_new = self._inv_Mrho.dot(f, out=self._u_new)
-            u_new *= dt
+            u_new = bop.dot(du, out=self._u_new)
             u_new += un
-            # midpoint velocity, and the magnetic field and the pressure transported with it
+
+            # midpoint velocity and the transported magnetic field
             un12 = un.copy(out=self._un12)
             un12 += u_new
             un12 *= 0.5
             b_new = self._Tw.dot(un12, out=self._b_new)
             b_new *= -dt
             b_new += bn
-            p_new = self._Sp.dot(un12, out=self._p_new)
-            p_new *= -dt
-            p_new += pn
 
             # change of the iterate in the energy norm, relative to the change in the step
             du = u_new.copy(out=self._du)
@@ -300,7 +299,6 @@ class VariationalNonlinearPBEvolve(Propagator):
             change = self._energy_norm2(du, db)
             u_new.copy(out=un1)
             b_new.copy(out=bn1)
-            p_new.copy(out=pn1)
             du = un1.copy(out=self._du)
             du -= un
             db = bn1.copy(out=self._db)
@@ -318,4 +316,4 @@ class VariationalNonlinearPBEvolve(Propagator):
         if self._info:
             logger.info(f"{self.__class__.__name__}: {it + 1} Picard iterations, relative change {err:.2e}")
 
-        self.update_feec_variables(u=un1, b=bn1, p=pn1)
+        self.update_feec_variables(u=un1, b=bn1)
