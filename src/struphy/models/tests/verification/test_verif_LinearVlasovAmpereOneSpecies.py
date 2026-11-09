@@ -30,7 +30,7 @@ logger = logging.getLogger("struphy")
 
 
 @pytest.mark.verif_pr
-def test_delta_f_initial_condition(exit_before_run: bool = False):
+def test_delta_f_initial_condition(mpi_tmp_path: str, exit_before_run: bool = False):
     """The delta-f markers must carry the density perturbation alone.
 
     A ``DeltaFParticles6D`` species solves for :math:`\\delta f = f - f_0`, so its weights
@@ -52,7 +52,7 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
 
     model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_tmp_path
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="delta_f_init")
 
@@ -133,11 +133,9 @@ def test_delta_f_initial_condition(exit_before_run: bool = False):
         )
         logger.info(f"Assertion for the initial delta-f field energy passed ({rel_error =}).")
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.clones
-def test_energy_conservation(nclones: int, exit_before_run: bool = False):
+def test_energy_conservation(mpi_tmp_path: str, nclones: int, exit_before_run: bool = False):
     """The field-weights coupling must conserve the total energy ``en_E + en_f``.
 
     With only :class:`~struphy.propagators.push_eta.PushEta` and
@@ -152,7 +150,7 @@ def test_energy_conservation(nclones: int, exit_before_run: bool = False):
 
     model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_tmp_path
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="energy_conservation", num_clones=nclones)
 
@@ -216,11 +214,11 @@ def test_energy_conservation(nclones: int, exit_before_run: bool = False):
         assert drift < 1e-6, f"Total energy not conserved: {en_tot =}, {drift =}."
         logger.info(f"Assertion for energy conservation passed ({rel_error =}, {drift =}).")
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.verif_pr
-def test_initial_poisson_no_background():
+def test_initial_poisson_no_background(
+    mpi_tmp_path: str,
+):
     r"""The delta-f markers carry f - f0, so the initial Poisson solve must not subtract the background n0.
 
     Without perturbation the delta-f weights vanish and, with :math:`\phi = 0` at the walls in :math:`x`, so does the
@@ -229,7 +227,7 @@ def test_initial_poisson_no_background():
     """
     model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_tmp_path
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_no_background")
 
@@ -265,12 +263,9 @@ def test_initial_poisson_no_background():
     logger.info(f"{phi_rms =}")
     assert phi_rms < 1e-6, f"Initial potential without perturbation: {phi_rms =} (a background n0 gives 0.09)."
 
-    MPI.COMM_WORLD.Barrier()
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    test_delta_f_initial_condition()
-    test_initial_poisson_no_background()
-    test_energy_conservation(nclones=1)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_delta_f_initial_condition(out)
+    test_initial_poisson_no_background(out)
+    test_energy_conservation(out, nclones=1)

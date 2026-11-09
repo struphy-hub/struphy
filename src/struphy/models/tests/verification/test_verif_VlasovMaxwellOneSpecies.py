@@ -31,7 +31,9 @@ logger = logging.getLogger("struphy")
     "control_variate, Tend, rel_tol",
     [(True, 0.0, 0.1), (False, 0.0, 0.1), (False, 1.0, 0.5)],
 )
-def test_gauss_error(control_variate: bool, Tend: float, rel_tol: float, nclones: int, exit_before_run: bool = False):
+def test_gauss_error(
+    mpi_tmp_path: str, control_variate: bool, Tend: float, rel_tol: float, nclones: int, exit_before_run: bool = False
+):
     """The ``gauss_error`` diagnostic: right after the initial Poisson solve the weak Gauss law holds, and for
     full-f markers the residual stays at the level of the time stepping.
 
@@ -50,7 +52,7 @@ def test_gauss_error(control_variate: bool, Tend: float, rel_tol: float, nclones
     # alpha^2/epsilon != 1 to check the coefficient of the charge density
     model = VlasovMaxwellOneSpecies(alpha=2.0, epsilon=0.5, measure_gauss_law=True)
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_tmp_path
     out_folders = os.path.join(test_folder, "VlasovMaxwellOneSpecies")
     env = EnvironmentOptions(
         out_folders=out_folders, sim_folder=f"gauss_error_{control_variate}_{Tend}", num_clones=nclones
@@ -112,13 +114,8 @@ def test_gauss_error(control_variate: bool, Tend: float, rel_tol: float, nclones
     )
     logger.info(f"Assertion for the initial Gauss-law residual passed ({error =}, {lhs_max[0] =}).")
 
-    # all ranks are done with this case before the shared folder is removed
-    comm.Barrier()
-    if comm.Get_rank() == 0:
-        shutil.rmtree(test_folder)
-    comm.Barrier()
-
 
 if __name__ == "__main__":
-    test_gauss_error(True, 0.0, 0.1, nclones=1)
-    test_gauss_error(False, 1.0, 0.5, nclones=1)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_gauss_error(out, True, 0.0, 0.1, nclones=1)
+    test_gauss_error(out, False, 1.0, 0.5, nclones=1)

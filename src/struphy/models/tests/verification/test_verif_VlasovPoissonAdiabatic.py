@@ -31,7 +31,9 @@ logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("quasi_neutral", [True, False])
-def test_ion_acoustic_Landau(quasi_neutral: bool, do_plot: bool = False, exit_before_run: bool = False):
+def test_ion_acoustic_Landau(
+    mpi_tmp_path: str, quasi_neutral: bool, do_plot: bool = False, exit_before_run: bool = False
+):
     r"""Verification test for Landau damping of an ion-acoustic wave along :math:`\mathbf B_0`.
 
     For :math:`\mathbf k \parallel \mathbf B_0` the gyration decouples and the dispersion relation of the model is
@@ -51,7 +53,7 @@ def test_ion_acoustic_Landau(quasi_neutral: bool, do_plot: bool = False, exit_be
     model = VlasovPoissonAdiabatic(alpha=2.0, epsilon=1.0)
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_tmp_path
     out_folders = os.path.join(test_folder, "VlasovPoissonAdiabatic")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"ion_acoustic_qn_{quasi_neutral}")
 
@@ -154,10 +156,10 @@ def test_ion_acoustic_Landau(quasi_neutral: bool, do_plot: bool = False, exit_be
         assert rel_error < 0.22, f"Ion-acoustic Landau damping failed: {gamma_num =} vs. {gamma =}."
         logger.info(f"Ion-acoustic Landau damping passed ({gamma_num =}, {rel_error =}).")
 
-        shutil.rmtree(test_folder)
 
-
-def test_neutral_full_f_background():
+def test_neutral_full_f_background(
+    mpi_tmp_path: str,
+):
     r"""A uniform full-f plasma of ions with charge number :math:`Z = 2` is neutral, so the potential is at noise level.
 
     Without the control variate, the Poisson solve subtracts the neutralizing background :math:`n_0` from the deposited
@@ -166,7 +168,7 @@ def test_neutral_full_f_background():
     """
     model = VlasovPoissonAdiabatic(charge_number=2, mass_number=4.0, alpha=1.0, epsilon=1.0)
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_tmp_path
     out_folders = os.path.join(test_folder, "VlasovPoissonAdiabatic")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="neutral_full_f")
 
@@ -204,11 +206,8 @@ def test_neutral_full_f_background():
     logger.info(f"{phi_rms =}")
     assert phi_rms < 0.5, f"Full-f background not neutralizing: {phi_rms =} (a background Z n0 gives 2)."
 
-    MPI.COMM_WORLD.Barrier()
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    test_ion_acoustic_Landau(True, do_plot=True)
-    test_neutral_full_f_background()
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_ion_acoustic_Landau(out, True, do_plot=True)
+    test_neutral_full_f_background(out)

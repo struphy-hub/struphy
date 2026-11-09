@@ -74,11 +74,11 @@ def add_energetic_ions(model, n_h: float = 0.1):
     model.energetic_ions.var.add_background(background)
 
 
-def run(model, name: str, dt: float, Tend: float):
+def run(out_folders: str, model, name: str, dt: float, Tend: float):
     """Allocate the simulation and integrate with Strang splitting; returns the FE coefficients of all MHD variables."""
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders="verification_tests", sim_folder=name),
+        env=EnvironmentOptions(out_folders=out_folders, sim_folder=name),
         time_opts=Time(dt=dt, Tend=Tend, split_algo="Strang"),
         domain=domains.Colella(Lx=1.0, Ly=1.0, alpha=0.1, Lz=1.0),
         equil=equils.HomogenSlab(B0x=0.3, B0z=1.0, beta=1.0, n0=1.0),

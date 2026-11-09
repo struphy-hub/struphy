@@ -42,6 +42,7 @@ def call_test(
     test_profiling: bool = False,
     case: str | None = None,
     update_baselines: bool = False,
+    out_folder: str | None = None,
 ):
     """Run a model with its default parameter file, compare the result against the regression baseline (see
     :mod:`struphy.models.tests.regression.utils_regression`), then test a restart and the post-processing.
@@ -60,6 +61,10 @@ def call_test(
 
     update_baselines : bool
         Overwrite the baseline instead of comparing against it.
+
+    out_folder : str | None
+        Folder for the parameter file and the output, the same on all ranks (in tests: the ``mpi_tmp_path``
+        fixture). Defaults to the current working directory.
 
     Raises
     ------
@@ -84,7 +89,7 @@ def call_test(
     assert isinstance(model, StruphyModel), f"{model} of {type(model) = } is not a StruphyModel"
 
     # generate paramater file for testing
-    test_folder = os.path.join(os.getcwd(), "struphy_model_test")
+    test_folder = os.path.join(out_folder if out_folder is not None else os.getcwd(), "struphy_model_test")
     path = os.path.join(test_folder, f"params_{model_name}.py")
 
     if launched_under_mpi():

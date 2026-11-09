@@ -19,7 +19,9 @@ logger = logging.getLogger("struphy")
 MODEL = PerturbativeMHDWithQDriftkineticCC
 
 
-def test_time_convergence():
+def test_time_convergence(
+    mpi_tmp_path: str,
+):
     """First order in time with guiding centers of 10% density (Strang splitting; the total-field operator of the
     shear-Alfven step ``shear_alf`` is evaluated at t^n within the step, so the nonlinear shear-Alfven terms are first
     order): the differences of the MHD variables at T between dt, dt/2 and dt/4 decrease by at least about 2.
@@ -31,7 +33,7 @@ def test_time_convergence():
         set_tight_options(model)
         perturb_mhd(model)
         add_energetic_ions(model)
-        xs.append(run(model, f"{MODEL.__name__}_conv", dt=dt, Tend=0.2))
+        xs.append(run(mpi_tmp_path, model, f"{MODEL.__name__}_conv", dt=dt, Tend=0.2))
     errs = [max_diff(xs[0], xs[1]), max_diff(xs[1], xs[2])]
     logger.info(f"differences between successive time steps {errs}, ratio {errs[0] / errs[1]:.2f}")
     assert errs[0] / errs[1] > 1.7

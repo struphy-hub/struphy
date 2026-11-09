@@ -35,13 +35,13 @@ set_logging_level(logging.INFO)
 @pytest.mark.verif_pr
 @pytest.mark.parametrize("nx", [12, 24])
 @pytest.mark.parametrize("plot_pts", [11, 32])
-def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
+def test_soundwave_1d(mpi_tmp_path: str, nx: int, plot_pts: int, do_plot: bool = False):
     """Verification test for SPH discretization of isthermal Euler equations.
     A standing sound wave with c_s=1 traveserses the domain once.
     """
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_tmp_path
     out_folders = os.path.join(test_folder, "EulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="soundwave_1d")
 
@@ -157,8 +157,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         assert error < 6e-4
         logger.info("Assertion passed.")
 
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    test_soundwave_1d(nx=12, plot_pts=11, do_plot=True)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_soundwave_1d(out, nx=12, plot_pts=11, do_plot=True)

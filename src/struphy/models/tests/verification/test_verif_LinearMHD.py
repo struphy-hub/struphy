@@ -35,12 +35,12 @@ logger = logging.getLogger("struphy")
         ("Hcurl", True, "implicit"),
     ],
 )
-def test_slab_waves_1d(b_space: str, projected: bool, algo: str, do_plot: bool = False):
+def test_slab_waves_1d(mpi_tmp_path: str, b_space: str, projected: bool, algo: str, do_plot: bool = False):
     # light-weight model instance
     model = LinearMHD(b_space=b_space, projected=projected)
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "verification_tests")
+    test_folder = mpi_tmp_path
     out_folders = os.path.join(test_folder, f"LinearMHD_{b_space}{'_projected' if projected else ''}")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
@@ -122,8 +122,7 @@ def test_slab_waves_1d(b_space: str, projected: bool, algo: str, do_plot: bool =
         assert xp.abs(fits[0][0] - v_slow) < 0.075
         assert xp.abs(fits[1][0] - v_fast) < 0.19
 
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    test_slab_waves_1d("Hdiv", False, algo="implicit", do_plot=True)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_slab_waves_1d(out, "Hdiv", False, algo="implicit", do_plot=True)
