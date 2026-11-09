@@ -292,6 +292,25 @@ def add_energetic_ion_scalars(scalars: dict, mhd, energetic_ions, extra: dict = 
     scalars["n_lost_particles"] = LostMarkersPIC(energetic_ions.var)
 
 
+def check_pressure_coupling_perp(model: StruphyModel):
+    """Warn if the propagators ``push_eta_pc`` and ``pc6d`` of a pressure-coupling hybrid model use different
+    ``use_perp_model``: the energy exchange is exact only if the transport :math:`(\mathbf v + \tilde{\mathbf U}_\perp)
+    \cdot \nabla f_\textnormal{h}` and the pressure coupling use the same :math:`\tilde{\mathbf U}_\perp`.
+
+    Parameters
+    ----------
+    model : StruphyModel
+        Model with the propagators ``push_eta_pc`` (PushEtaPC) and ``pc6d`` (PressureCoupling6D).
+    """
+    perp_eta = model.propagators.push_eta_pc.options.use_perp_model
+    perp_pc = model.propagators.pc6d.options.use_perp_model
+    if perp_eta != perp_pc:
+        logger.warning(
+            f"{type(model).__name__}: use_perp_model differs between push_eta_pc ({perp_eta}) and pc6d ({perp_pc}); "
+            "transport and pressure coupling then use different U_perp and the total energy is not conserved.",
+        )
+
+
 def add_binning_plot(params_path: str, binning_plot: str = "BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))"):
     """Replace the ``saving_params`` of a default parameter file by ``SavingParameters`` with one binning plot of the
     energetic ions (``binning_plot``, Python code).

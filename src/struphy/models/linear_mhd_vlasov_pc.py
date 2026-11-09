@@ -4,7 +4,7 @@ from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_mhd import LinearMHD
 from struphy.models.species import ParticleSpecies
-from struphy.models.utils import add_energetic_ion_scalars
+from struphy.models.utils import add_energetic_ion_scalars, check_pressure_coupling_perp
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
 from struphy.propagators.push_eta_pc import PushEtaPC
@@ -17,8 +17,8 @@ logger = logging.getLogger("struphy")
 class LinearMHDVlasovPC(LinearMHD):
     """Hybrid linear MHD coupled with energetic ions (6D Vlasov) via the pressure-coupling scheme.
 
-    Extends :class:`~struphy.models.LinearMHD` by energetic ions, whose perpendicular pressure tensor enters the MHD
-    momentum equation.
+    Extends :class:`~struphy.models.LinearMHD` by energetic ions, whose pressure force perpendicular to the equilibrium
+    magnetic field enters the MHD momentum equation.
 
     Parameters
     ----------
@@ -143,15 +143,7 @@ class LinearMHDVlasovPC(LinearMHD):
     def post_allocate(self):
         """:meta private:"""
         super().post_allocate()
-
-        # the energy exchange is exact only if the transport and the pressure coupling use the same U_perp
-        perp_eta = self.propagators.push_eta_pc.options.use_perp_model
-        perp_pc = self.propagators.pc6d.options.use_perp_model
-        if perp_eta != perp_pc:
-            logger.warning(
-                f"LinearMHDVlasovPC: use_perp_model differs between push_eta_pc ({perp_eta}) and pc6d ({perp_pc}); "
-                "transport and pressure coupling then use different U_perp and the total energy is not conserved.",
-            )
+        check_pressure_coupling_perp(self)
 
     def _create_scalars(self):
         """:meta private:"""

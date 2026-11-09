@@ -4,7 +4,7 @@ from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.perturbative_mhd_with_q import PerturbativeMHDWithQ
 from struphy.models.species import ParticleSpecies
-from struphy.models.utils import add_energetic_ion_scalars
+from struphy.models.utils import add_energetic_ion_scalars, check_pressure_coupling_perp
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.pressure_coupling_6d import PressureCoupling6D
 from struphy.propagators.push_eta_pc import PushEtaPC
@@ -17,8 +17,8 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
     """Hybrid nonlinear MHD (perturbations of a static equilibrium, :math:`q = \\sqrt p`) coupled with energetic ions
     (6D Vlasov) via the pressure-coupling scheme.
 
-    Extends :class:`~struphy.models.PerturbativeMHDWithQ` by energetic ions, whose perpendicular pressure tensor enters
-    the MHD momentum equation, as in :class:`~struphy.models.LinearMHDVlasovPC`, with the inertia of the total density
+    Extends :class:`~struphy.models.PerturbativeMHDWithQ` by energetic ions, whose pressure force perpendicular to the
+    equilibrium magnetic field enters the MHD momentum equation, as in :class:`~struphy.models.LinearMHDVlasovPC`, with the inertia of the total density
     in the coupling term. The magnetic field is in :math:`H(\\textnormal{div})`.
 
     Parameters
@@ -135,6 +135,11 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
         self.propagators.push_eta_pc.variables.var = self.energetic_ions.var
         self.propagators.push_vxb.variables.ions = self.energetic_ions.var
 
+    def post_allocate(self):
+        """:meta private:"""
+        super().post_allocate()
+        check_pressure_coupling_perp(self)
+
     def _create_scalars(self):
         """:meta private:"""
         scalars = super()._create_scalars()
@@ -159,7 +164,7 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
 
             (\rho_0 + \tilde \rho) \left( \frac{\partial \tilde{\mathbf{U}}}{\partial t}
             + \tilde{\mathbf U} \cdot \nabla \tilde{\mathbf U} \right) + \nabla (2 q_0 \tilde q + \tilde q^2)
-            \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} \color{black}
+            \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \left( \nabla \cdot \mathbb{P}_\textnormal{h} \right)_\perp \color{black}
             = (\nabla \times \tilde{\mathbf{B}}) \times (\mathbf{B}_0 + \tilde{\mathbf B}) + (\nabla \times \mathbf{B}_0) \times \tilde{\mathbf{B}}
 
         Square root of the pressure (adiabatic process):
@@ -181,17 +186,23 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
 
             \frac{\partial f_\textnormal{h}}{\partial t} + (\mathbf{v} \color{blue} + \tilde{\mathbf{U}}_\perp \color{black}) \cdot \nabla f_\textnormal{h} + \left[ \frac{1}{\epsilon} \mathbf{v} \times (\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{blue} - \nabla \tilde{\mathbf{U}}_\perp \cdot \mathbf{v} \color{black} \right] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} = 0
 
-        Perpendicular pressure tensor:
+        Energetic-particle pressure tensor:
 
         .. math::
 
-            \tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp \mathbf{v}_\perp^\top f_\textnormal{h} \, d \mathbf{v}
+            \mathbb{P}_\textnormal{h} = \int_{\mathbb{R}^3} \mathbf{v} \mathbf{v}^\top f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}
+
+        with :math:`(\nabla \cdot \mathbb{P}_\textnormal{h})_i = \sum_k \partial_k (\mathbb{P}_\textnormal{h})_{ki}` and
+        :math:`(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)_k = \sum_i \partial_k \tilde U_{\perp,i} \, v_i`.
 
         Here, :math:`\tilde \rho`, :math:`\tilde{\mathbf U}`, :math:`\tilde q`, :math:`\tilde{\mathbf B}` are the
         perturbed density, velocity, square root of the pressure and magnetic field (not necessarily small), and
         :math:`\rho_0`, :math:`q_0 = \sqrt{p_0}`, :math:`\mathbf B_0` those of a static MHD equilibrium;
-        :math:`\gamma = 5/3`. The subscript :math:`\perp` denotes the components perpendicular to the equilibrium
-        field :math:`\mathbf B_0`. The equations of :class:`~struphy.models.PerturbativeMHDWithQ` are extended by the
+        :math:`\gamma = 5/3`. The subscript :math:`\perp` denotes the projection perpendicular to the equilibrium
+        field, :math:`\mathbf a_\perp = \mathbf a - (\mathbf b_0 \cdot \mathbf a) \mathbf b_0` with
+        :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|` (option ``use_perp_model=True`` of ``push_eta_pc`` and
+        ``pc6d``, the default; with ``use_perp_model=False`` the projection is dropped,
+        :math:`\mathbf a_\perp = \mathbf a`). The equations of :class:`~struphy.models.PerturbativeMHDWithQ` are extended by the
         energetic ions (distribution function :math:`f_\textnormal{h}` in the frame moving with
         :math:`\tilde{\mathbf U}_\perp`, mass number :math:`A_\textnormal{h}`); the terms in blue couple them to the
         MHD equations. Dropping the terms quadratic in the MHD perturbations gives
@@ -200,14 +211,24 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
         **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0`, :math:`\mathbf B \cdot \mathbf n = 0`
         and reflecting or periodic boundaries of the energetic ions):
 
-        Mass perturbation and divergence of the magnetic field:
+        Mass perturbation, number of energetic ions and divergence of the magnetic field:
 
         .. math::
 
             \frac{\textnormal d}{\textnormal d t} \int \tilde \rho \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\textnormal d}{\textnormal d t} \int \int_{\mathbb{R}^3} f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}
+            \, \textnormal d \mathbf x = 0\,, \qquad
             \frac{\partial}{\partial t} \nabla \cdot \tilde{\mathbf B} = 0
 
-        Energy, for an equilibrium with :math:`\nabla q_0 = 0` and :math:`\nabla \times \mathbf B_0 = 0`:
+        Energy, for an equilibrium with :math:`\nabla q_0 = 0` and :math:`\nabla \times \mathbf B_0 = 0`. The pressure
+        coupling exchanges energy between the MHD flow and the energetic ions: the work of
+        :math:`(\nabla \cdot \mathbb{P}_\textnormal{h})_\perp` on the flow and of
+        :math:`-\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v` on the particles are
+        :math:`\pm \int \mathbb{P}_\textnormal{h} : \nabla \tilde{\mathbf U}_\perp \, \textnormal d \mathbf x` (adjoint
+        pair, also in :class:`~struphy.propagators.pressure_coupling_6d.PressureCoupling6D`). The transport with
+        :math:`\tilde{\mathbf U}_\perp` does no work, because the phase-space flow
+        :math:`(\mathbf v + \tilde{\mathbf U}_\perp, \varepsilon^{-1} \mathbf v \times (\mathbf B_0 + \tilde{\mathbf B})
+        - \nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)` is divergence free:
 
         .. math::
 
@@ -245,7 +266,8 @@ class PerturbativeMHDWithQVlasovPC(PerturbativeMHDWithQ):
     @classmethod
     def doc_long_description(cls):
         r"""PerturbativeMHDWithQVlasovPC is the nonlinear counterpart of :class:`~struphy.models.LinearMHDVlasovPC`:
-        the perpendicular pressure tensor of energetic ions, described by a 6D Vlasov equation, enters the full
+        the pressure force (perpendicular to the equilibrium field) of energetic ions, described by a 6D Vlasov
+        equation, enters the full
         (nonlinear) ideal MHD equations for the perturbations of a static equilibrium, written in the square root of
         the pressure, :math:`q = \sqrt p`.
 
