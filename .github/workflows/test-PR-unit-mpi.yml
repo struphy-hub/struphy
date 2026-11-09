@@ -35,13 +35,11 @@ jobs:
     secrets:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}
 
+  # one job for all rank counts: the setup (container, install, compile) took most of the time of each of the
+  # former 4 matrix jobs; every rank count runs, failures are collected and reported at the end of each step
   pic-mpi-tests:
-    name: Marked PIC MPI tests (${{ matrix.n-procs }} ranks)
+    name: Marked PIC MPI tests (1-4 ranks)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        n-procs: [1, 2, 3, 4]
 
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
@@ -75,6 +73,7 @@ jobs:
           env-name: /struphy_fortran_/env_fortran_
 
       - name: Compile Struphy
+        id: compile
         uses: ./.github/actions/compile
         with:
           env-name: /struphy_fortran_/env_fortran_
@@ -83,27 +82,53 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
-          mpirun --oversubscribe -n ${{ matrix.n-procs }} pytest -v --with-mpi -m mpi_pic pic/tests
+          FAILED=""
+          for n in 1 2 3 4; do
+            echo "::group::$n ranks"
+            mpirun --oversubscribe -n $n pytest -v --with-mpi -m mpi_pic pic/tests || FAILED="$FAILED $n"
+            echo "::endgroup::"
+          done
+          if [ -n "$FAILED" ]; then echo "::error::failed on ranks:$FAILED"; exit 1; fi
 
       - name: Run the marker exchange on the fake CuPy
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
-          mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi pic/tests/test_sorting_device.py
+          FAILED=""
+          for n in 1 2 3 4; do
+            echo "::group::$n ranks"
+            mpirun --oversubscribe -n $n env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi pic/tests/test_sorting_device.py || FAILED="$FAILED $n"
+            echo "::endgroup::"
+          done
+          if [ -n "$FAILED" ]; then echo "::error::failed on ranks:$FAILED"; exit 1; fi
 
       - name: Run polar GPU MPI paths on the fake CuPy
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
-          mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi polar/tests/test_polar_cupy.py -k mpi_fake
+          FAILED=""
+          for n in 1 2 3 4; do
+            echo "::group::$n ranks"
+            mpirun --oversubscribe -n $n env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi polar/tests/test_polar_cupy.py -k mpi_fake || FAILED="$FAILED $n"
+            echo "::endgroup::"
+          done
+          if [ -n "$FAILED" ]; then echo "::error::failed on ranks:$FAILED"; exit 1; fi
 
       - name: Run the end-to-end GPU model tests on the fake CuPy
         # 8 elements of degree 3: at most 2 ranks
-        if: matrix.n-procs <= 2
+        if: ${{ !cancelled() && steps.compile.outcome == 'success' }}
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
-          mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py
+          FAILED=""
+          for n in 1 2; do
+            echo "::group::$n ranks"
+            mpirun --oversubscribe -n $n env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py || FAILED="$FAILED $n"
+            echo "::endgroup::"
+          done
+          if [ -n "$FAILED" ]; then echo "::error::failed on ranks:$FAILED"; exit 1; fi
 
   # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
   report-failure:
