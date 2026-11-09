@@ -199,7 +199,8 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd /struphy_fortran_/src/struphy/models/tests/verification
-          mpirun --oversubscribe -n 2 pytest $VERIF_X --with-mpi --durations=20 ${VERIF_MARK:+-m $VERIF_MARK} . || [ $? -eq 5 ]
+          # the main selection must not be empty (exit code 5 fails here, e.g. after renaming the verif_pr marker)
+          mpirun --oversubscribe -n 2 pytest $VERIF_X --with-mpi --durations=20 ${VERIF_MARK:+-m $VERIF_MARK} .
           if [ -n "$VERIF_CHANGED" ]; then
             mpirun --oversubscribe -n 2 pytest -x --with-mpi --durations=20 -m "not verif_pr" $VERIF_CHANGED || [ $? -eq 5 ]
           fi
