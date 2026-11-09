@@ -17,6 +17,9 @@ def test_clone_config(num_elements, Np, num_clones):
         num_clones = 1
     else:
         comm = MPI.COMM_WORLD
+        # CloneConfig aborts MPI (whole test session) if the ranks cannot be split into num_clones clones
+        if comm.Get_size() % num_clones != 0:
+            pytest.skip(f"{comm.Get_size()} ranks cannot be split into {num_clones} clones")
 
     species = "ions"
     params = {

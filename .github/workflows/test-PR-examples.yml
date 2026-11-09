@@ -61,4 +61,12 @@ jobs:
       - name: Run examples tests (parallel)
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          mpirun -n 2 pytest -m examples -xvs --with-mpi /struphy_fortran_/src/struphy
+          mpirun -n 2 pytest -m examples -vs --maxfail=5 --with-mpi /struphy_fortran_/src/struphy
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [check-submodule-changes]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml

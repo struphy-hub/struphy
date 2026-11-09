@@ -2,6 +2,7 @@ import logging
 import os
 
 import struphy
+from struphy.console.unit_test_shards import unit_test_paths
 from struphy.utils.utils import subp_run
 
 logger = logging.getLogger("struphy")
@@ -43,30 +44,8 @@ def struphy_test(
     """
 
     if "unit" in group:
-        list_of_tests = [
-            f"{LIBPATH}/api/tests/",
-            f"{LIBPATH}/bsplines/tests/",
-            f"{LIBPATH}/console/tests/",
-            f"{LIBPATH}/dispersion_relations/tests/",
-            f"{LIBPATH}/feec/tests/",
-            f"{LIBPATH}/fields_background/tests/",
-            f"{LIBPATH}/geometry/tests/",
-            f"{LIBPATH}/initial/tests/",
-            f"{LIBPATH}/io/tests/",
-            f"{LIBPATH}/kinetic_background/tests/",
-            f"{LIBPATH}/linear_algebra/tests/",
-            f"{LIBPATH}/ode/tests/",
-            f"{LIBPATH}/pic/tests/",
-            f"{LIBPATH}/polar/tests/",
-            f"{LIBPATH}/post_processing/tests/",
-            f"{LIBPATH}/propagators/tests/",
-            f"{LIBPATH}/simulation/tests/",
-            # end-to-end GPU tests (NumPy reference, and the CuPy comparison on a GPU or the fake CuPy)
-            f"{LIBPATH}/models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py",
-            f"{LIBPATH}/models/tests/test_gpu_VlasovAmpereOneSpecies.py",
-            f"{LIBPATH}/models/tests/test_scalars.py",
-            f"{LIBPATH}/models/tests/test_splitting_order.py",
-        ]
+        # same test paths as the CI shards
+        list_of_tests = [f"{LIBPATH}/{path}" for path in unit_test_paths()]
 
         if mpi > 1:
             cmd = [

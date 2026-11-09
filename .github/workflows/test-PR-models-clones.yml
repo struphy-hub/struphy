@@ -90,3 +90,11 @@ jobs:
           cd /struphy_fortran_/src/struphy
           mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell
           mpirun --oversubscribe -n 4 pytest -xv -m clones --testmon --with-mpi --nclones 2 models/tests/verification/
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [model-tests-in-container-with-struphy]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml

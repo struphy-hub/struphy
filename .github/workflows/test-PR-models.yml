@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - devel
+  # keeps the testmon data of devel (restored by new PRs) up to date
+  push:
+    branches:
+      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -94,7 +98,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          pytest -x -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/regression/
+          pytest --maxfail=5 -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/regression/
 
       - name: Model tests with MPI
         shell: bash
@@ -104,7 +108,7 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
-          mpirun -oversubscribe -n 2 pytest -x -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/models/tests/regression/
+          mpirun -oversubscribe -n 2 pytest --maxfail=5 -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/models/tests/regression/
 
   # Verification tests run in their own job, in parallel to the model (regression) tests.
   # On pull requests only the core tests marked "verif_pr" run (plus the verification test files changed in the PR);
@@ -131,10 +135,17 @@ jobs:
       - name: Select verification tests
         # PR: the core tests marked "verif_pr" + all tests in the verification files changed by the PR, or importing a
         # changed helper module of the verification folder. The checkout is the PR merge commit, so HEAD^1 is the base.
+        # Push to devel: the core tests only (the push trigger refreshes the testmon data of the model job).
         # Schedule/dispatch: all verification tests.
         # No testmon here: it deactivates its selection when -m is used, and the core set is cheap enough to run always.
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "push" ]; then
+            {
+              echo "VERIF_MARK=verif_pr"
+              echo "VERIF_X=-x"
+              echo "VERIF_CHANGED="
+            } >> "$GITHUB_ENV"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
             git config --global --add safe.directory "$GITHUB_WORKSPACE"
             VDIR=src/struphy/models/tests/verification
             CHANGED=$(git diff --name-only --diff-filter=d HEAD^1 HEAD -- "$VDIR/*.py" | xargs -r -n1 basename)
@@ -204,3 +215,11 @@ jobs:
           if [ -n "$VERIF_CHANGED" ]; then
             mpirun --oversubscribe -n 2 pytest -x --with-mpi --durations=20 -m "not verif_pr" $VERIF_CHANGED || [ $? -eq 5 ]
           fi
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [model-tests-in-container-with-struphy, verification-tests-in-container-with-struphy]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml
