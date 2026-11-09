@@ -5,8 +5,8 @@ This is the single list of test paths used by ``struphy test unit`` and by the C
 
     python -m struphy.console.unit_test_shards shard-2
 
-The paths are relative to the ``struphy`` package folder. Every ``tests/`` folder of the package and every
-``models/tests/test_*.py`` file must be in exactly one shard or in :data:`OTHER_TEST_PATHS`; this is checked by
+The paths are relative to the ``struphy`` package folder. Every ``test_*.py`` file of the package must be in a
+``tests/`` folder and covered by exactly one entry of a shard or of :data:`OTHER_TEST_PATHS`; this is checked by
 ``console/tests/test_unit_test_shards.py``.
 """
 
@@ -21,6 +21,7 @@ UNIT_TEST_SHARDS = {
         "initial/tests/",
         "kinetic_background/tests/",
         "linear_algebra/tests/",
+        "utils/tests/",
         "models/tests/test_diagnostics_on_device.py",
         "models/tests/test_estimate_mem.py",
         "models/tests/test_hasegawa_wakatani.py",

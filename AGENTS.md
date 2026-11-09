@@ -66,10 +66,10 @@ They list the required structure, documentation, registration and tests; CI chec
 
 ## Tests
 
-- CI does **not** auto-discover test folders. When adding a `src/struphy/<pkg>/tests/` folder or a
-  `src/struphy/models/tests/test_*.py` file, add its path (relative to `src/struphy/`) to a shard in
-  `src/struphy/console/unit_test_shards.py`. The CI workflows and `struphy test unit` read that list, and
-  `console/tests/test_unit_test_shards.py` fails if a test path is missing.
+- Test files go into `tests/` folders. CI does **not** auto-discover test folders: when adding a
+  `src/struphy/<pkg>/tests/` folder or a `src/struphy/models/tests/test_*.py` file, add its path (relative to
+  `src/struphy/`) to a shard in `src/struphy/console/unit_test_shards.py`. The CI workflows and `struphy test unit`
+  read that list, and `console/tests/test_unit_test_shards.py` fails if a test file is not covered.
 - Markers must be registered in `pyproject.toml` (`--strict-markers`).
 - Failed scheduled runs and failed runs on `devel` open (or comment on) an issue labelled `ci-failure`.
   Close it once the workflow is green again.
