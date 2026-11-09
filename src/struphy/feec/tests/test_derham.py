@@ -156,5 +156,38 @@ def test_psydac_derham(num_elements, init_kwargs, expected):
     assert derham.to_dict() == derham2.to_dict()
 
 
+@pytest.mark.parametrize("p", [1, 2, 3])
+def test_prepare_eval_tp_fixed_derivatives(p):
+    """The first derivatives of the N- and D-splines from ``prepare_eval_tp_fixed(..., derivatives=True)`` agree with
+    finite differences of the values, in clamped and periodic directions; the spans and values are those of the
+    default call."""
+    import cunumpy as xp
+    from maybempi import MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    # clamped (free and Dirichlet) and periodic directions
+    bcs = (("free", "free"), None, ("dirichlet", "dirichlet"))
+    derham = Derham(
+        TensorProductGrid(num_elements=(8, 6, 6)), DerhamOptions(degree=(p, p, p), bcs=bcs), comm=MPI.COMM_WORLD
+    )
+    # local quadrature points: inside the cells, away from the knots (derivatives of splines jump at the knots)
+    pts = [pt.flatten() for pt in derham.V0splines.quad_grid_pts[0]]
+    spans, bn, bd, dbn, dbd = derham.prepare_eval_tp_fixed(pts, derivatives=True)
+    spans_0, bn_0, bd_0 = derham.prepare_eval_tp_fixed(pts)
+
+    h = 1e-6
+    for d in range(3):
+        assert xp.all(spans[d] == spans_0[d])
+        assert xp.allclose(bn[d], bn_0[d]) and xp.allclose(bd[d], bd_0[d])
+        _, bn_p, bd_p = derham.prepare_eval_tp_fixed([pts[k] + h if k == d else pts[k] for k in range(3)])
+        _, bn_m, bd_m = derham.prepare_eval_tp_fixed([pts[k] - h if k == d else pts[k] for k in range(3)])
+        for der, val_p, val_m in ((dbn[d], bn_p[d], bn_m[d]), (dbd[d], bd_p[d], bd_m[d])):
+            fd = (val_p - val_m) / (2 * h)
+            assert xp.allclose(der, fd, rtol=0.0, atol=1e-5 * max(float(xp.max(xp.abs(fd))), 1.0))
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
