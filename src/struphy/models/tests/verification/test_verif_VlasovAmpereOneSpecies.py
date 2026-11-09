@@ -32,6 +32,7 @@ from struphy.propagators.base import Propagator
 logger = logging.getLogger("struphy")
 
 
+@pytest.mark.verif_pr
 def test_weak_Landau(do_plot: bool = False, exit_before_run: bool = False):
     """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.

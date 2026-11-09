@@ -115,6 +115,7 @@ def test_sound_step_same_as_picard(tmp_path):
         assert rel < 1e-6, (name, rel)
 
 
+@pytest.mark.verif_pr
 def test_energy_conservation(tmp_path):
     """The energy with the auxiliary variables (B^ and p^) is conserved around the sheared slab, where the
     second-order terms (curl B0 and grad p0) are active."""

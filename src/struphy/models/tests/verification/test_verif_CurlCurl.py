@@ -22,6 +22,7 @@ from struphy.models import CurlCurl
 logger = logging.getLogger("struphy")
 
 
+@pytest.mark.verif_pr
 @pytest.mark.parametrize("hfun", ["cos", "sin"])
 def test_curl_curl_1d(hfun, do_plot=False):
     # light-weight model instance

@@ -58,6 +58,7 @@ def _fit_branches(omega, k, power, n_branches, noise_level, order=10):
     return [np.polyfit(k_fit, branch, deg=1) for branch in omega_fit]
 
 
+@pytest.mark.verif_pr
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_light_wave_1d(algo: str, do_plot: bool = False):
     # light-weight model instance
@@ -116,6 +117,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         shutil.rmtree(test_folder)
 
 
+@pytest.mark.verif_pr
 def test_coaxial(do_plot: bool = False):
     # light-weight model instance
     model = Maxwell()
