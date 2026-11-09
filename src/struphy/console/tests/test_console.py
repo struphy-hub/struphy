@@ -66,7 +66,7 @@ def split_command(command):
         ["test", "hybrid", "--mpi", "8"],
     ],
 )
-def test_main(args):
+def test_main(args, monkeypatch):
     # Mock the func call (don't execute it)
     with (
         patch("struphy.console.compile.struphy_compile") as mock_compile,
@@ -82,7 +82,7 @@ def test_main(args):
         }
 
         # Set sys args
-        sys.argv = ["struphy"] + args
+        monkeypatch.setattr(sys, "argv", ["struphy"] + args)
 
         # Call struphy
         try:
@@ -133,19 +133,8 @@ def test_main_options(args_expected, capsys, caplog):
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("model", ["Maxwell"])
 @pytest.mark.parametrize("yes", [True])
-def test_struphy_params(model, yes):
+def test_struphy_params(model, yes, tmp_path, monkeypatch):
+    # the parameter file is written into the current working directory
+    monkeypatch.chdir(tmp_path)
     struphy_params(model, yes=yes)
-
-
-if __name__ == "__main__":
-    # Set test parameters
-    model = "Maxwell"
-    input_abs = os.path.join(libpath, "io/inp/parameters.yml")
-    output_abs = os.path.join(libpath, "io/out/sim_1")
-    batch_abs = os.path.join(libpath, "io/batch/batch_cobra.sh")
-    runtime = 300
-    save_step = 300
-    restart = True
-    cprofile = False
-    likwid = False
-    mpi = 2
+    assert (tmp_path / f"params_{model}.py").exists()

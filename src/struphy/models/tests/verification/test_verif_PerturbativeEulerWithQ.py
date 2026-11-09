@@ -3,6 +3,7 @@ a nonlinear simple sound wave against the exact solution (method of characterist
 convergence order in dt, conservation of mass, and the small-amplitude limit (LinearEulerWithQ)."""
 
 import logging
+import os
 
 import cunumpy as xp
 import numpy as np
@@ -79,7 +80,9 @@ def _model(model_class, weights="midpoint"):
     return model
 
 
-def _simple_wave_run(model_class, dt: float, Tend: float, num_elements: int = 128, weights="midpoint"):
+def _simple_wave_run(
+    out_folders: str, model_class, dt: float, Tend: float, num_elements: int = 128, weights="midpoint"
+):
     """Max error of the velocity (relative to AMP) at Tend against the exact simple wave, and the mass change."""
     model = _model(model_class, weights)
     u0 = lambda x, y, z: _simple_wave_state(x)[0]
@@ -95,7 +98,7 @@ def _simple_wave_run(model_class, dt: float, Tend: float, num_elements: int = 12
 
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders="verification_tests", sim_folder="PerturbativeEulerWithQ"),
+        env=EnvironmentOptions(out_folders=out_folders, sim_folder="PerturbativeEulerWithQ"),
         time_opts=Time(dt=dt, Tend=Tend, split_algo="Strang"),
         domain=domains.Cuboid(),
         equil=equils.HomogenSlab(B0z=1.0, beta=2 * P0, n0=N0),
@@ -118,7 +121,9 @@ def _simple_wave_run(model_class, dt: float, Tend: float, num_elements: int = 12
     return error, abs(n.inner(ones) - mass0)
 
 
-def test_simple_wave():
+def test_simple_wave(
+    mpi_out_folder: str,
+):
     """Nonlinear simple sound wave before the shock: PerturbativeEulerWithQ follows the exact (steepening) solution,
     with errors much smaller than those of the linear model, converging with second order in dt (midpoint weights,
     Strang splitting); mass is conserved."""
@@ -127,11 +132,11 @@ def test_simple_wave():
     Tend = 1.0
     errors = []
     for dt in (0.04, 0.02, 0.01):
-        error, mass_change = _simple_wave_run(PerturbativeEulerWithQ, dt, Tend)
+        error, mass_change = _simple_wave_run(mpi_out_folder, PerturbativeEulerWithQ, dt, Tend)
         errors.append(error)
         logger.info(f"{dt = }: max error of u / A {error:.2e}, mass change {mass_change:.1e}")
         assert mass_change < 1e-13
-    error_lin, _ = _simple_wave_run(LinearEulerWithQ, 0.01, Tend)
+    error_lin, _ = _simple_wave_run(mpi_out_folder, LinearEulerWithQ, 0.01, Tend)
     rates = [np.log2(e0 / e1) for e0, e1 in zip(errors[:-1], errors[1:])]
     logger.info(f"{errors = }, {rates = }, linear model: {error_lin:.2e}")
     assert errors[-1] < 0.02 * error_lin
@@ -139,7 +144,9 @@ def test_simple_wave():
     assert all(rate > 1.8 for rate in rates)
 
 
-def test_small_amplitude_limit():
+def test_small_amplitude_limit(
+    mpi_out_folder: str,
+):
     """The difference between PerturbativeEulerWithQ and LinearEulerWithQ after a few steps is quadratic in the amplitude
     of the perturbation (Colella domain, non-uniform density, constant pressure)."""
     equil = equils.GenericCartesianFluidEquilibrium(
@@ -160,7 +167,7 @@ def test_small_amplitude_limit():
         )
         sim = Simulation(
             model=model,
-            env=EnvironmentOptions(out_folders="verification_tests", sim_folder="PerturbativeEulerWithQ_small"),
+            env=EnvironmentOptions(out_folders=mpi_out_folder, sim_folder="PerturbativeEulerWithQ_small"),
             time_opts=Time(dt=0.05, Tend=0.2),
             domain=domains.Colella(Lx=1.0, Ly=1.0, alpha=0.1, Lz=1.0),
             equil=equil,
@@ -183,5 +190,6 @@ def test_small_amplitude_limit():
 
 
 if __name__ == "__main__":
-    test_simple_wave()
-    test_small_amplitude_limit()
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_simple_wave(out)
+    test_small_amplitude_limit(out)

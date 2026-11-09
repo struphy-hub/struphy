@@ -117,10 +117,9 @@ def struphy():
 
     for flag, message in model_flags:
         if flag:
-            logger.info(message)
-            logger.info(
-                "For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html"
-            )
+            # output the user asked for: print (the struphy logger only shows warnings by default)
+            print(message)
+            print("For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html")
             sys.exit(0)
 
     # load sub-command function
@@ -557,10 +556,10 @@ def print_short_help(parser):
     lines = parser.format_help().splitlines()
     bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
     bool_2 = [i for i, x in enumerate(lines) if "available commands:" in x]
-    logger.info(lines[bool_1[0]])
-    logger.info(lines[bool_1[0] + 1])
+    print(lines[bool_1[0]])
+    print(lines[bool_1[0] + 1])
     for li in lines[bool_2[0] :]:
-        logger.info(li)
+        print(li)
 
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
