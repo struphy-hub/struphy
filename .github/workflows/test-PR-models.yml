@@ -98,17 +98,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          pytest --maxfail=5 -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/regression/ 
-
-      - name: Serial-only verification tests
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
-        # the other verification tests run with 2 MPI below
-        run: |
-          source /struphy_fortran_/env_fortran_/bin/activate
-          cd /struphy_fortran_/src/struphy
-          pytest -x --testmon -m mpi_skip models/tests/verification/
+          pytest --maxfail=5 -m models --testmon-forceselect  /struphy_fortran_/src/struphy/models/tests/regression/
 
       - name: Model tests with MPI
         shell: bash
@@ -120,10 +110,101 @@ jobs:
           mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
           mpirun -oversubscribe -n 2 pytest --maxfail=5 -m models --testmon-forceselect --with-mpi  /struphy_fortran_/src/struphy/models/tests/regression/
 
-      - name: Verification tests with 2 MPI
+  # Verification tests run in their own job, in parallel to the model (regression) tests.
+  # On pull requests only the core tests marked "verif_pr" run (plus the verification test files changed in the PR);
+  # the scheduled (Sunday) and manually dispatched runs run all verification tests.
+  verification-tests-in-container-with-struphy:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # This is crucial!
+          fetch-depth: 5
+
+      - name: Select verification tests
+        # PR: the core tests marked "verif_pr" + all tests in the verification files changed by the PR, or importing a
+        # changed helper module of the verification folder. The checkout is the PR merge commit, so HEAD^1 is the base.
+        # Schedule/dispatch: all verification tests.
+        # No testmon here: it deactivates its selection when -m is used, and the core set is cheap enough to run always.
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git config --global --add safe.directory "$GITHUB_WORKSPACE"
+            VDIR=src/struphy/models/tests/verification
+            CHANGED=$(git diff --name-only --diff-filter=d HEAD^1 HEAD -- "$VDIR/*.py" | xargs -r -n1 basename)
+            FILES=""
+            for f in $CHANGED; do
+              case "$f" in
+                test_verif_*.py) FILES="$FILES $f" ;;
+                __init__.py) ;;
+                *) FILES="$FILES $(cd "$VDIR" && { grep -l -w "${f%.py}" test_verif_*.py || true; } | tr '\n' ' ')" ;;
+              esac
+            done
+            FILES=$(echo $FILES | tr ' ' '\n' | sort -u | xargs)
+            echo "Changed verification test files: ${FILES:-none}"
+            {
+              echo "VERIF_MARK=verif_pr"
+              echo "VERIF_X=-x"
+              echo "VERIF_CHANGED=${FILES}"
+            } >> "$GITHUB_ENV"
+          else
+            {
+              echo "VERIF_MARK="
+              echo "VERIF_X="
+              echo "VERIF_CHANGED="
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          start-dir: /struphy_fortran_
+
+      - name: Reinstall feectools from submodule
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Compile Struphy
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Serial-only verification tests
         shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+        # the other verification tests run with 2 MPI below; exit code 5 = no test selected
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          mpirun --oversubscribe -n 2 pytest -x --testmon --with-mpi  /struphy_fortran_/src/struphy/models/tests/verification/
+          cd /struphy_fortran_/src/struphy/models/tests/verification
+          MARK="mpi_skip${VERIF_MARK:+ and $VERIF_MARK}"
+          pytest $VERIF_X --durations=10 -m "$MARK" . || [ $? -eq 5 ]
+          if [ -n "$VERIF_CHANGED" ]; then
+            pytest -x --durations=10 -m "mpi_skip and not verif_pr" $VERIF_CHANGED || [ $? -eq 5 ]
+          fi
+
+      - name: Verification tests with 2 MPI
+        # also after failed serial tests
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd /struphy_fortran_/src/struphy/models/tests/verification
+          # the main selection must not be empty (exit code 5 fails here, e.g. after renaming the verif_pr marker)
+          mpirun --oversubscribe -n 2 pytest $VERIF_X --with-mpi --durations=20 ${VERIF_MARK:+-m $VERIF_MARK} .
+          if [ -n "$VERIF_CHANGED" ]; then
+            mpirun --oversubscribe -n 2 pytest -x --with-mpi --durations=20 -m "not verif_pr" $VERIF_CHANGED || [ $? -eq 5 ]
+          fi

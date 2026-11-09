@@ -66,6 +66,7 @@ def _global_max(value: float) -> float:
     return value
 
 
+@pytest.mark.verif_pr
 def test_sound_wave_dispersion_1d():
     """Noise in the velocity along z: the space-time spectrum of the pressure has one branch, omega = c_s k."""
     model = _model()

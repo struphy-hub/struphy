@@ -136,8 +136,16 @@ jobs:
       - name: Run verification tests with MPI
         if: matrix.test-type == 'verification' && matrix.shard == 'shard-1'
         shell: bash
+        # all verification tests (PRs run only the core set marked "verif_pr"); no -x, so that one run reports all
+        # failures; the serial-only tests (mpi_skip) are skipped under MPI and run separately below
         run: |
-          mpirun --oversubscribe -n 2 pytest -x --with-mpi --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/verification/
+          mpirun --oversubscribe -n 2 pytest --with-mpi --durations=20 --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/verification/
+
+      - name: Run serial-only verification tests
+        if: ${{ !cancelled() && matrix.test-type == 'verification' && matrix.shard == 'shard-1' }}
+        shell: bash
+        run: |
+          pytest -m mpi_skip --durations=10 --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/verification/
 
       # serial runs of the examples (the PR workflow runs them on 2 ranks); struphy is installed from the wheel,
       # so the examples are taken from the checkout

@@ -198,6 +198,7 @@ markers = [
     # feectools markers, for feectools tests run with this config (e.g. --pyargs feectools...)
     "petsc: requires PETSc",
     "parallel: parallel feectools test",
+    "verif_pr: core verification test that also runs on pull requests (all others run only in the scheduled CI)",
 ]
 # unregistered (e.g. misspelled) markers on tests are collection errors
 addopts = "--strict-markers"

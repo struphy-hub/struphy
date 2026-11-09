@@ -29,6 +29,7 @@ from struphy.propagators.base import Propagator
 logger = logging.getLogger("struphy")
 
 
+@pytest.mark.verif_pr
 def test_delta_f_initial_condition(exit_before_run: bool = False):
     """The delta-f markers must carry the density perturbation alone.
 
@@ -218,6 +219,7 @@ def test_energy_conservation(nclones: int, exit_before_run: bool = False):
         shutil.rmtree(test_folder)
 
 
+@pytest.mark.verif_pr
 def test_initial_poisson_no_background():
     r"""The delta-f markers carry f - f0, so the initial Poisson solve must not subtract the background n0.
 

@@ -29,7 +29,7 @@ logger = logging.getLogger("struphy")
 @pytest.mark.parametrize(
     "b_space, projected, algo",
     [
-        ("Hdiv", False, "implicit"),
+        pytest.param("Hdiv", False, "implicit", marks=pytest.mark.verif_pr),
         ("Hdiv", False, "explicit"),
         ("Hcurl", False, "implicit"),
         ("Hcurl", True, "implicit"),
