@@ -32,6 +32,7 @@ logger = logging.getLogger("struphy")
 set_logging_level(logging.INFO)
 
 
+@pytest.mark.verif_pr
 @pytest.mark.parametrize("nx", [12, 24])
 @pytest.mark.parametrize("plot_pts", [11, 32])
 def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):

@@ -3,6 +3,7 @@ import os
 import shutil
 
 import cunumpy as xp
+import pytest
 from matplotlib import pyplot as plt
 from maybempi import MPI
 
@@ -21,6 +22,7 @@ from struphy.models import Poisson
 logger = logging.getLogger("struphy")
 
 
+@pytest.mark.verif_pr
 def test_poisson_1d(do_plot=False):
     # light-weight model instance
     model = Poisson(with_t_dep_source=True)

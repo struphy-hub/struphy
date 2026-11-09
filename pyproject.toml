@@ -189,4 +189,5 @@ markers = [
     "single",
     "mpi_pic",
     "clones",
+    "verif_pr: core verification test that also runs on pull requests (all others run only in the scheduled CI)",
 ]
