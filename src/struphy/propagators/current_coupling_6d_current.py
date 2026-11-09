@@ -40,6 +40,10 @@ class CurrentCoupling6DCurrent(Propagator):
         \\[2mm]
         &n_\textnormal{h}\mathbf{u}_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}\,\textnormal{d}^3 \mathbf v\,.
 
+    Here, the magnetic field perturbation :math:`\tilde{\mathbf B}` (``b_tilde``, not updated) and the projected
+    equilibrium field :math:`\mathbf B_0` (``projected_equil.b2``) are 2-forms in :math:`H(\textnormal{div})`; see
+    :class:`~struphy.propagators.current_coupling_6d_current_1form.CurrentCoupling6DCurrent1form` for 1-forms.
+
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
@@ -79,13 +83,25 @@ class CurrentCoupling6DCurrent(Propagator):
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
 
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # CurrentCoupling6DCurrent1form), the accumulation kernels (assembled and matrix-free) and the pusher kernel of
+    # each space of u
+    _b_form = "2"
+    _kernels = {
+        "accum": cc_lin_mhd_6d_2,
+        "accum_mf": cc_lin_mhd_6d_2_mf,
+        "Hcurl": push_bxu_Hcurl,
+        "Hdiv": push_bxu_Hdiv,
+        "H1vec": push_bxu_H1vec,
+    }
+
     def __init__(self, b_tilde: FEECVariable = None):
         """
         Parameters
         ----------
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the current
-            coupling term. If ``None``, only the equilibrium field is used.
+            Magnetic perturbation 2-form (``"Hdiv"`` space) entering the current
+            coupling term (not updated). If ``None``, only the equilibrium field is used.
         """
         self.variables = self.Variables()
         self.b_tilde = b_tilde
@@ -164,7 +180,7 @@ class CurrentCoupling6DCurrent(Propagator):
 
         particles = self.variables.ions.particles
         u = self.variables.u.spline.vector
-        self._b_eq = self.projected_equil.b2
+        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
 
         self._info = self.options.solver_params.info
 
@@ -194,7 +210,7 @@ class CurrentCoupling6DCurrent(Propagator):
             self._accumulator = AccumulatorVector(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_6d_2_mf,
+                self._kernels["accum_mf"],
                 self.mass_ops,
                 self.domain.args_domain,
                 filter_params=self.options.filter_params,
@@ -213,7 +229,7 @@ class CurrentCoupling6DCurrent(Propagator):
             self._accumulator = Accumulator(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_6d_2,
+                self._kernels["accum"],
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=True,
@@ -225,7 +241,7 @@ class CurrentCoupling6DCurrent(Propagator):
         # FEM spaces and basis extraction operators for u and b
         u_id = self.derham.space_to_form[self.options.u_space]
         self._EuT = self.derham.extraction_ops[u_id].transpose()
-        self._EbT = self.derham.extraction_ops["2"].transpose()
+        self._EbT = self.derham.extraction_ops[self._b_form].transpose()
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -237,12 +253,8 @@ class CurrentCoupling6DCurrent(Propagator):
         self._u_avg2 = self._EuT.codomain.zeros()
 
         # load particle pusher kernel
-        if self.options.u_space == "Hcurl":
-            kernel = push_bxu_Hcurl
-        elif self.options.u_space == "Hdiv":
-            kernel = push_bxu_Hdiv
-        elif self.options.u_space == "H1vec":
-            kernel = push_bxu_H1vec
+        if self.options.u_space in ("Hcurl", "Hdiv", "H1vec"):
+            kernel = self._kernels[self.options.u_space]
         else:
             raise ValueError(
                 f'{self.options.u_space =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
@@ -294,17 +306,8 @@ class CurrentCoupling6DCurrent(Propagator):
         particles = self.variables.ions.particles
         un = self.variables.u.spline.vector
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        self._b_eq.copy(out=self._b_full1)
-
-        if self.b_tilde is not None:
-            self._b_full1 += self.b_tilde.spline.vector
-
-        # extract coefficients to tensor product space (in-place)
-        self._EbT.dot(self._b_full1, out=self._b_full2)
-
-        # update ghost regions because of non-local access in accumulation kernel!
-        self._b_full2.update_ghost_regions()
+        # total magnetic field in the tensor-product space (in self._b_full2)
+        self._sum_b_full()
 
         self._accumulator(
             self._b_full2[0]._data,
@@ -345,7 +348,20 @@ class CurrentCoupling6DCurrent(Propagator):
             particles.update_weights()
 
         if self._info and self._rank == 0:
-            logger.info(f"Status     for CurrentCoupling6DCurrent: {info['success']}")
-            logger.info(f"Iterations for CurrentCoupling6DCurrent: {info['niter']}")
-            logger.info(f"Maxdiff up for CurrentCoupling6DCurrent: {max_du}")
+            name = self.__class__.__name__
+            logger.info(f"Status     for {name}: {info['success']}")
+            logger.info(f"Iterations for {name}: {info['niter']}")
+            logger.info(f"Maxdiff up for {name}: {max_du}")
             logger.info("")
+
+    def _sum_b_full(self):
+        """Sum up the total magnetic field b_eq + E^T b_tilde in the tensor-product space (in ``self._b_full2``) and
+        update its ghost regions; the projected equilibrium is already a tensor-product vector, only b_tilde is
+        extracted (polar splines)."""
+        self._b_eq.copy(out=self._b_full2)
+
+        if self.b_tilde is not None:
+            self._b_full2 += self._EbT.dot(self.b_tilde.spline.vector, out=self._b_full1)
+
+        # update ghost regions because of non-local access in accumulation kernel!
+        self._b_full2.update_ghost_regions()
