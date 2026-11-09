@@ -3,8 +3,8 @@ import logging
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_mhd import LinearMHD
-from struphy.models.scalars import KineticEnergyPIC, LostMarkersPIC
 from struphy.models.species import ParticleSpecies
+from struphy.models.utils import add_binning_plot, add_energetic_ion_scalars
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
@@ -165,13 +165,7 @@ class LinearMHDVlasovCC(LinearMHD):
     def _create_scalars(self):
         """:meta private:"""
         scalars = super()._create_scalars()
-        en_tot = scalars.pop("en_tot")
-        Ab = self.mhd.mass_number
-        Ah = self.energetic_ions.var.species.mass_number
-        en_f = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
-        scalars["en_f"] = en_f
-        scalars["en_tot"] = en_tot + en_f
-        scalars["n_lost_particles"] = LostMarkersPIC(self.energetic_ions.var)
+        add_energetic_ion_scalars(scalars, self.mhd, self.energetic_ions)
         return scalars
 
     def post_allocate(self):
@@ -185,18 +179,7 @@ class LinearMHDVlasovCC(LinearMHD):
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        new_file = []
-        with open(params_path, "r") as f:
-            for line in f:
-                if "saving_params = " in line:
-                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
-                    new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
-                else:
-                    new_file += [line]
-
-        with open(params_path, "w") as f:
-            for line in new_file:
-                f.write(line)
+        add_binning_plot(params_path)
         return params_path
 
     @classmethod

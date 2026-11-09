@@ -21,6 +21,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.pushing.kernels.push_pc_GXu_full import push_pc_GXu_full
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import velocity_mass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -62,6 +63,11 @@ class PressureCoupling6D(Propagator):
     :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`, or :math:`\mathcal X^\perp` (``Xperp``,
     including the projection perpendicular to :math:`\mathbf b_0`) for ``use_perp_model=True``. Since the same :math:`\mathcal X` enters both
     off-diagonal blocks, the step conserves the discrete energy exactly.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``Options(u_space="Hdiv")``): the inertia is that of the total density, :math:`\rho_0 \to \rho_0 + \tilde
+    \rho^n` (mass matrix :math:`\mathbb M^2_\rho` of :class:`~struphy.propagators.utils.VelocityMass`, assembled at
+    :math:`t^n`; the density does not change in this step).
     """
 
     class Variables:
@@ -100,8 +106,18 @@ class PressureCoupling6D(Propagator):
             assert new.space == "Particles6D"
             self._energetic_ions = new
 
-    def __init__(self):
+    def __init__(self, rho_field: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, ``u_space="Hdiv"`` only). If ``None``, that of
+            :math:`\rho_0`.
+        """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
         self.variables = self.Variables()
+        self.rho_field = rho_field
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -200,9 +216,9 @@ class PressureCoupling6D(Propagator):
             id_Mn = "Mvn"
             id_X = "Xv"
 
-        # call operatros
+        # call operators (with rho_field: _A is the mass matrix of the total density, assembled in __call__)
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
-        _A = getattr(self.mass_ops, id_M)
+        self._velocity_mass, _A = velocity_mass(self, self.options.u_space, self.rho_field)
         if self.options.use_perp_model:
             # Cartesian components of U_perp = U - (b0 . U) b0
             self._X = self.basis_ops.Xperp(self.options.u_space)
@@ -317,6 +333,10 @@ class PressureCoupling6D(Propagator):
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
+
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
 
         # operators
         grad = self.derham.grad
