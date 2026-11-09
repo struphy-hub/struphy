@@ -1,0 +1,40 @@
+name: Reusable workflow to report a failed scheduled/devel run
+
+# Opens an issue "CI failing: <workflow>" (label ci-failure), or comments on the open one, so that failures of
+# scheduled runs and of runs on devel are noticed. Close the issue once the workflow is green again.
+# Usage, as the last job of a workflow:
+#
+#   report-failure:
+#     needs: [job-1, job-2]
+#     if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+#     permissions:
+#       issues: write
+#     uses: ./.github/workflows/reusable-report-failure.yml
+
+on:
+  workflow_call:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the CI failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="CI failing: $WORKFLOW"
+          MSG="The workflow **$WORKFLOW** failed on \`${{ github.ref_name }}\` (event \`${{ github.event_name }}\`, commit ${{ github.sha }}): $RUN_URL"
+          gh label create ci-failure --color B60205 --description "Failed scheduled or devel CI run" 2>/dev/null || true
+          NUMBER=$(gh issue list --state open --label ci-failure --json number,title \
+            --jq "map(select(.title == \"$TITLE\")) | .[0].number // empty")
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --body "Failed again. $MSG"
+          else
+            gh issue create --title "$TITLE" --label ci-failure \
+              --body "$MSG"$'\n\n'"Close this issue once the workflow is green again."
+          fi

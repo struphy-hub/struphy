@@ -208,3 +208,11 @@ jobs:
           if [ -n "$VERIF_CHANGED" ]; then
             mpirun --oversubscribe -n 2 pytest -x --with-mpi --durations=20 -m "not verif_pr" $VERIF_CHANGED || [ $? -eq 5 ]
           fi
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [model-tests-in-container-with-struphy, verification-tests-in-container-with-struphy]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml

@@ -104,3 +104,11 @@ jobs:
           source /struphy_fortran_/env_fortran_/bin/activate
           cd ${{ env.STRUPHY_PATH }}
           mpirun --oversubscribe -n ${{ matrix.n-procs }} env CUNUMPY_FAKE_CUPY=1 pytest -v --with-mpi models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [unit-test-with-mpi, pic-mpi-tests]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml
