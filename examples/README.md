@@ -60,7 +60,7 @@ with `pip install "struphy[pproc]"`.
 | `GyrokineticPoisson` | `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
 | `LinearEuler` | `standing_wave_colella` (standing sound wave in the curvilinear Colella domain) |
 | `LinearMHD` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes), `slab_pulse_2d` |
-| `LinearMHDDriftkineticCC` | `lowmode_tae` (toroidal Alfvén eigenmode driven by energetic ions) |
+| `LinearMHDDriftkineticCC` | `itpa_tae_benchmark` (ITPA TAE driven by 400 keV deuterons, with the `B0` or `Bmax` canonical Maxwellian), `lowmode_tae` (toroidal Alfvén eigenmode driven by energetic ions) |
 | `Poisson` | `gaussian_cube`, `gaussian_hollow_cylinder`, `gaussian_hollow_torus`, `gaussian_on_axis_cylinder`, `gaussian_on_axis_torus` |
 | `ShearAlfven` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes) |
 | `ToyDrift` | `diocotron_instability` |

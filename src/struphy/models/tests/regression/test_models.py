@@ -235,6 +235,30 @@ def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, update_ba
 
 
 @pytest.mark.models
+@pytest.mark.hybrid
+@pytest.mark.parametrize("model_cls_name", ["LinearMHDVlasovCC", "LinearMHDVlasovPC", "LinearMHDDriftkineticCC"])
+def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, update_baselines: bool):
+    """The H(curl) discretizations of the hybrid models of the LinearEuler family (1-form couplings): the flags
+    survive the generated parameter file and the propagators reading the magnetic field are the 1-form ones."""
+    from struphy.io.setup import import_parameters_py
+
+    model = models_utils.get_model_by_name(model_cls_name)(b_space="Hcurl")
+    path = os.path.join(tmp_path, f"params_{model_cls_name}.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params_model = import_parameters_py(path).model
+    assert params_model.params["b_space"] == "Hcurl" and not params_model.params["projected"]
+    assert params_model.em_fields.b_field.space == "Hcurl"
+    for name, prop in params_model.propagators.__dict__.items():
+        if hasattr(prop, "variables") and hasattr(prop.variables, "b"):
+            assert prop.variables.b.space == "Hcurl", name
+    ut.call_test(
+        model=model,
+        case=f"{model_cls_name}-b_space=Hcurl",
+        update_baselines=update_baselines,
+    )
+
+
+@pytest.mark.models
 @pytest.mark.fluid
 @pytest.mark.parametrize("b_space", ["Hdiv", "Hcurl"])
 def test_linear_mhd_inherits_linear_euler(b_space: str, tmp_path):
