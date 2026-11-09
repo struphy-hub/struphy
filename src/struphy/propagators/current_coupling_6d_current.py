@@ -21,6 +21,7 @@ from struphy.pic.pushing.kernels.push_bxu_Hcurl import push_bxu_Hcurl
 from struphy.pic.pushing.kernels.push_bxu_Hdiv import push_bxu_Hdiv
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import velocity_mass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -43,6 +44,12 @@ class CurrentCoupling6DCurrent(Propagator):
     Here, the magnetic field perturbation :math:`\tilde{\mathbf B}` (``b_tilde``, not updated) and the projected
     equilibrium field :math:`\mathbf B_0` (``projected_equil.b2``) are 2-forms in :math:`H(\textnormal{div})`; see
     :class:`~struphy.propagators.current_coupling_6d_current_1form.CurrentCoupling6DCurrent1form` for 1-forms.
+
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``Options(u_space="Hdiv")``): the inertia is that of the total density, :math:`\rho_0 \to \rho_0 + \tilde
+    \rho^n` (mass matrix :math:`\mathbb M^2_\rho` of :class:`~struphy.propagators.utils.VelocityMass`, assembled at
+    :math:`t^n`; the density does not change in this step).
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
@@ -95,16 +102,22 @@ class CurrentCoupling6DCurrent(Propagator):
         "H1vec": push_bxu_H1vec,
     }
 
-    def __init__(self, b_tilde: FEECVariable = None):
+    def __init__(self, b_tilde: FEECVariable = None, rho_field: FEECVariable = None):
         """
         Parameters
         ----------
         b_tilde : FEECVariable, default=None
             Magnetic perturbation 2-form (``"Hdiv"`` space) entering the current
             coupling term (not updated). If ``None``, only the equilibrium field is used.
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, ``u_space="Hdiv"`` only). If ``None``, that of
+            :math:`\rho_0`.
         """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
         self.variables = self.Variables()
         self.b_tilde = b_tilde
+        self.rho_field = rho_field
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -282,14 +295,15 @@ class CurrentCoupling6DCurrent(Propagator):
         )
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
-        _A = getattr(self.mass_ops, "M" + u_id + "n")
+        # (with rho_field: A is the mass matrix of the total density, assembled in __call__)
+        self._velocity_mass, _A = velocity_mass(self, self.options.u_space, self.rho_field)
 
-        # preconditioner
+        # preconditioner (of the equilibrium-density mass matrix)
         if self.options.precond is None:
             pc = None
         else:
             pc_class = getattr(preconditioner, self.options.precond)
-            pc = pc_class(_A)
+            pc = pc_class(getattr(self.mass_ops, "M" + u_id + "n"))
 
         _BC = -1 / 4 * self._A_particles
 
@@ -305,6 +319,10 @@ class CurrentCoupling6DCurrent(Propagator):
         # pointer to old coefficients
         particles = self.variables.ions.particles
         un = self.variables.u.spline.vector
+
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
 
         # total magnetic field in the tensor-product space (in self._b_full2)
         self._sum_b_full()
