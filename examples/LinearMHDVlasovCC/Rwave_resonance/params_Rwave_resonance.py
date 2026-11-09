@@ -175,8 +175,6 @@ model.propagators.push_vxb.options = model.propagators.push_vxb.Options()
 model.propagators.bg_current.options = model.propagators.bg_current.Options()
 model.propagators.sound.options = model.propagators.sound.Options()
 model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
-# include the perturbed field b_tilde in the Lorentz force v x (B0 + b_tilde)
-model.propagators.push_vxb.b2_var = model.em_fields.b_field
 
 # ------------------
 # Initial conditions

@@ -76,7 +76,8 @@ class LinearMHDVlasovCC(LinearMHD):
         Parameters
         ----------
         b_field : FEECVariable, optional
-            Magnetic field perturbation (default: None).
+            Magnetic field perturbation, in the current coupling and added to the equilibrium field in ``push_vxb``
+            (default: None).
         energetic_ions_var : PICVariable, optional
             Markers of the energetic ions, deposited by ``couple_dens`` (default: None).
         b_space : str
@@ -112,8 +113,8 @@ class LinearMHDVlasovCC(LinearMHD):
                 self.couple_dens = CurrentCoupling6DDensity1form(energetic_ions=energetic_ions_var, b_tilde=b_field)
                 self.couple_curr = CurrentCoupling6DCurrent1form(b_tilde=b_field)
             self.push_eta = PushEta()
-            # the equilibrium field only (the perturbation acts through couple_curr)
-            self.push_vxb = PushVxB() if b_space == "Hdiv" else PushVxB1form()
+            # Lorentz force v x (B0 + b_tilde) of the total field
+            self.push_vxb = PushVxB(b2_var=b_field) if b_space == "Hdiv" else PushVxB1form(b1_var=b_field)
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     energetic_ions: EnergeticIons
