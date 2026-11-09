@@ -128,47 +128,34 @@ jobs:
           submodules: true  # This is crucial!
           fetch-depth: 5
 
-      - name: Check .testmondata 1
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
-      - name: Setup cache for testmon
-        uses: actions/cache@v4
-        with:
-          path: |
-            .testmondata-verif
-            .testmondata-verif-mpi
-          key: testmon-verif-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-          restore-keys: |
-            testmon-verif-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-verif-${{ github.ref_name }}
-            testmon-verif-devel
-            testmon-verif-
-
-      - name: Check .testmondata 2
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
       - name: Select verification tests
-        # PR: core tests marked "verif_pr" (with testmon) + all tests in the verification files changed by the PR.
-        # The checkout is the PR merge commit, so HEAD^1 is the base (devel).
-        # Schedule/dispatch: all verification tests; --testmon-noselect records the testmon data for devel.
+        # PR: the core tests marked "verif_pr" + all tests in the verification files changed by the PR, or importing a
+        # changed helper module of the verification folder. The checkout is the PR merge commit, so HEAD^1 is the base.
+        # Schedule/dispatch: all verification tests.
+        # No testmon here: it deactivates its selection when -m is used, and the core set is cheap enough to run always.
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git config --global --add safe.directory "$GITHUB_WORKSPACE"
-            CHANGED=$(git diff --name-only --diff-filter=d HEAD^1 HEAD -- 'src/struphy/models/tests/verification/test_verif_*.py' \
-              | xargs -r -n1 basename | tr '\n' ' ')
-            echo "Changed verification test files: ${CHANGED:-none}"
+            VDIR=src/struphy/models/tests/verification
+            CHANGED=$(git diff --name-only --diff-filter=d HEAD^1 HEAD -- "$VDIR/*.py" | xargs -r -n1 basename)
+            FILES=""
+            for f in $CHANGED; do
+              case "$f" in
+                test_verif_*.py) FILES="$FILES $f" ;;
+                __init__.py) ;;
+                *) FILES="$FILES $(cd "$VDIR" && { grep -l -w "${f%.py}" test_verif_*.py || true; } | tr '\n' ' ')" ;;
+              esac
+            done
+            FILES=$(echo $FILES | tr ' ' '\n' | sort -u | xargs)
+            echo "Changed verification test files: ${FILES:-none}"
             {
               echo "VERIF_MARK=verif_pr"
-              echo "VERIF_TESTMON=--testmon"
               echo "VERIF_X=-x"
-              echo "VERIF_CHANGED=${CHANGED}"
+              echo "VERIF_CHANGED=${FILES}"
             } >> "$GITHUB_ENV"
           else
             {
               echo "VERIF_MARK="
-              echo "VERIF_TESTMON=--testmon-noselect"
               echo "VERIF_X="
               echo "VERIF_CHANGED="
             } >> "$GITHUB_ENV"
@@ -195,28 +182,24 @@ jobs:
 
       - name: Serial-only verification tests
         shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-verif
         # the other verification tests run with 2 MPI below; exit code 5 = no test selected
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           cd /struphy_fortran_/src/struphy/models/tests/verification
           MARK="mpi_skip${VERIF_MARK:+ and $VERIF_MARK}"
-          pytest $VERIF_X $VERIF_TESTMON --durations=10 -m "$MARK" . || [ $? -eq 5 ]
+          pytest $VERIF_X --durations=10 -m "$MARK" . || [ $? -eq 5 ]
           if [ -n "$VERIF_CHANGED" ]; then
             pytest -x --durations=10 -m "mpi_skip and not verif_pr" $VERIF_CHANGED || [ $? -eq 5 ]
           fi
 
       - name: Verification tests with 2 MPI
+        # also after failed serial tests
+        if: ${{ !cancelled() }}
         shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-verif-mpi
-        # init .testmondata with non-MPI call
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
-          mpirun -n 1 pytest -m single --testmon-forceselect -xs --with-mpi --model-name Maxwell /struphy_fortran_/src/struphy
           cd /struphy_fortran_/src/struphy/models/tests/verification
-          mpirun --oversubscribe -n 2 pytest $VERIF_X $VERIF_TESTMON --with-mpi --durations=20 ${VERIF_MARK:+-m $VERIF_MARK} . || [ $? -eq 5 ]
+          mpirun --oversubscribe -n 2 pytest $VERIF_X --with-mpi --durations=20 ${VERIF_MARK:+-m $VERIF_MARK} . || [ $? -eq 5 ]
           if [ -n "$VERIF_CHANGED" ]; then
             mpirun --oversubscribe -n 2 pytest -x --with-mpi --durations=20 -m "not verif_pr" $VERIF_CHANGED || [ $? -eq 5 ]
           fi
