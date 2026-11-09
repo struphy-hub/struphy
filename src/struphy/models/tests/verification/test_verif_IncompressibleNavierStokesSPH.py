@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import numpy as np
@@ -9,7 +8,6 @@ from matplotlib import pyplot as plt
 from maybempi import MPI
 
 from struphy import (
-    BaseUnits,
     BinningPlot,
     BoundaryParameters,
     DerhamOptions,
@@ -36,7 +34,7 @@ set_logging_level(logging.INFO)
 
 
 @pytest.mark.parametrize("nx", [8])
-def test_chorin_projection_periodic_1d(mpi_tmp_path: str, nx: int, do_plot: bool = False):
+def test_chorin_projection_periodic_1d(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the Chorin projection (PoissonSolve + PushVinForceField) in a
     truly 1D periodic domain.
 
@@ -46,7 +44,7 @@ def test_chorin_projection_periodic_1d(mpi_tmp_path: str, nx: int, do_plot: bool
     removing the sinusoidal (compressible) part.
     """
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="chorin_projection_periodic_1d")
 
@@ -141,7 +139,7 @@ def test_chorin_projection_periodic_1d(mpi_tmp_path: str, nx: int, do_plot: bool
 
 
 @pytest.mark.parametrize("nx", [8])
-def test_chorin_projection_reflect_1d(mpi_tmp_path: str, nx: int, do_plot: bool = False):
+def test_chorin_projection_reflect_1d(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the Chorin projection in a closed (reflecting) 1D box.
 
     Initial condition u_x(x) = A*sin(2*pi*x) vanishes at both walls (x=0, x=1).
@@ -151,7 +149,7 @@ def test_chorin_projection_reflect_1d(mpi_tmp_path: str, nx: int, do_plot: bool 
     which is a qualitatively stronger check than the periodic case.
     """
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="chorin_projection_reflect_1d")
 
@@ -243,7 +241,7 @@ def test_chorin_projection_reflect_1d(mpi_tmp_path: str, nx: int, do_plot: bool 
 
 
 @pytest.mark.parametrize("nx", [8])
-def test_channel_noslip_shear_relaxation(mpi_tmp_path: str, nx: int, do_plot: bool = False):
+def test_channel_noslip_shear_relaxation(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the full incompressible propagator chain (viscosity +
     Chorin projection) under no-slip walls.
 
@@ -256,7 +254,7 @@ def test_channel_noslip_shear_relaxation(mpi_tmp_path: str, nx: int, do_plot: bo
     essentially undisturbed.
     """
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="channel_noslip_shear_relaxation")
 

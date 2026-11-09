@@ -1,11 +1,10 @@
-import os
-
 """Verification of PerturbativeMHDWithQ (ideal MHD equations for the perturbations, variable q = sqrt(p)): the
 large-amplitude circularly polarized Alfvén wave (an exact nonlinear solution, propagating undistorted), with the
 weights of the nonlinear terms at t^n (no numerical damping or growth) and at t^{n+1/2}, and the small-amplitude limit
 (LinearMHDWithQ)."""
 
 import logging
+import os
 
 import cunumpy as xp
 import numpy as np
@@ -53,7 +52,7 @@ def _set_options(model, weights="frozen"):
 
 
 @pytest.mark.parametrize("weights", ["frozen", "midpoint"])
-def test_circularly_polarized_alfven_wave(mpi_tmp_path: str, weights: str):
+def test_circularly_polarized_alfven_wave(mpi_out_folder: str, weights: str):
     """B = B0 e_x + A (0, cos 2 pi (x - t), sin 2 pi (x - t)), u = -(B - B0 e_x) / sqrt(rho0) with |B| constant is an
     exact solution of ideal MHD for any amplitude A (v_A = 1): after two periods with A = 0.5 B0 the magnetic field
     agrees with it, and the energy of the perturbation is conserved (no numerical damping or growth with either
@@ -72,7 +71,7 @@ def test_circularly_polarized_alfven_wave(mpi_tmp_path: str, weights: str):
     dt, Tend = 0.02, 2.0
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=mpi_tmp_path, sim_folder=f"PerturbativeMHDWithQ_alfven_{weights}"),
+        env=EnvironmentOptions(out_folders=mpi_out_folder, sim_folder=f"PerturbativeMHDWithQ_alfven_{weights}"),
         time_opts=Time(dt=dt, Tend=Tend, split_algo="Strang"),
         domain=domains.Cuboid(),
         equil=equils.HomogenSlab(B0x=1.0, B0y=0.0, B0z=0.0, beta=0.5, n0=1.0),
@@ -107,7 +106,7 @@ def test_circularly_polarized_alfven_wave(mpi_tmp_path: str, weights: str):
 
 
 def test_small_amplitude_limit(
-    mpi_tmp_path: str,
+    mpi_out_folder: str,
 ):
     """The difference between PerturbativeMHDWithQ and LinearMHDWithQ after a few steps is quadratic in the amplitude
     of the perturbation (homogeneous slab in the Colella domain, all variables perturbed)."""
@@ -127,7 +126,7 @@ def test_small_amplitude_limit(
         model.mhd.density.add_perturbation(perturbations.ModesCos(ms=(1,), amps=(amp,), given_in_basis="physical"))
         sim = Simulation(
             model=model,
-            env=EnvironmentOptions(out_folders=mpi_tmp_path, sim_folder="PerturbativeMHDWithQ_small"),
+            env=EnvironmentOptions(out_folders=mpi_out_folder, sim_folder="PerturbativeMHDWithQ_small"),
             time_opts=Time(dt=0.05, Tend=0.2),
             domain=domains.Colella(Lx=1.0, Ly=1.0, alpha=0.1, Lz=1.0),
             equil=equils.HomogenSlab(B0x=0.3, B0z=1.0, beta=1.0, n0=1.0),

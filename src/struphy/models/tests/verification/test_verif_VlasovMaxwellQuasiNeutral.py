@@ -1,7 +1,6 @@
 import logging
 import math
 import os
-import shutil
 
 import h5py
 import numpy as np
@@ -95,12 +94,12 @@ def _weibel_growth_rate(
     return float(gamma)
 
 
-def test_weibel_growth_rate_quasi_neutral(mpi_tmp_path: str):
+def test_weibel_growth_rate_quasi_neutral(mpi_out_folder: str):
     """Weibel instability in the quasi-neutral limit (lam = 0, no displacement current): the magnetic energy grows
     with the analytical growth rate of the Vlasov-Maxwell system, gamma = 0.02784, which the displacement current does
     not change. With 1e5 full-f markers (antithetic Sobol loading) and dt = 1 the fitted rate is close to the
     analytical one (about 0.5 %), on 1, 2 and 4 MPI ranks."""
-    gamma = _weibel_growth_rate(mpi_tmp_path, lam=0.0, Np=100_000, Tend=160.0, t_fit=(80.0, 150.0))
+    gamma = _weibel_growth_rate(mpi_out_folder, lam=0.0, Np=100_000, Tend=160.0, t_fit=(80.0, 150.0))
     logger.info(f"Weibel growth rate (lam = 0): {gamma = }, analytical {GAMMA_EXACT}")
     assert abs(gamma / GAMMA_EXACT - 1) < 0.07, f"{gamma = } vs. {GAMMA_EXACT = }"
 

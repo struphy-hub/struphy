@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import h5py
@@ -32,7 +31,7 @@ logger = logging.getLogger("struphy")
 
 @pytest.mark.parametrize("quasi_neutral", [True, False])
 def test_ion_acoustic_Landau(
-    mpi_tmp_path: str, quasi_neutral: bool, do_plot: bool = False, exit_before_run: bool = False
+    mpi_out_folder: str, quasi_neutral: bool, do_plot: bool = False, exit_before_run: bool = False
 ):
     r"""Verification test for Landau damping of an ion-acoustic wave along :math:`\mathbf B_0`.
 
@@ -53,7 +52,7 @@ def test_ion_acoustic_Landau(
     model = VlasovPoissonAdiabatic(alpha=2.0, epsilon=1.0)
 
     # environment options
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovPoissonAdiabatic")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"ion_acoustic_qn_{quasi_neutral}")
 
@@ -158,7 +157,7 @@ def test_ion_acoustic_Landau(
 
 
 def test_neutral_full_f_background(
-    mpi_tmp_path: str,
+    mpi_out_folder: str,
 ):
     r"""A uniform full-f plasma of ions with charge number :math:`Z = 2` is neutral, so the potential is at noise level.
 
@@ -168,7 +167,7 @@ def test_neutral_full_f_background(
     """
     model = VlasovPoissonAdiabatic(charge_number=2, mass_number=4.0, alpha=1.0, epsilon=1.0)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovPoissonAdiabatic")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="neutral_full_f")
 

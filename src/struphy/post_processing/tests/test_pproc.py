@@ -18,7 +18,7 @@ PARAMS_PATH = (
 
 
 @pytest.mark.mpi(min_size=2)
-def test_pproc_mpi(mpi_tmp_path: str, show_plot=False):
+def test_pproc_mpi(mpi_out_folder: str, show_plot=False):
 
     def do_plotting(run: Output, from_parallel=False):
         e_field = run.fields.em_fields.e_field.isel(t=0, component=0, eta2=0, eta3=0)
@@ -44,7 +44,7 @@ def test_pproc_mpi(mpi_tmp_path: str, show_plot=False):
 
     test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
 
-    sim: Simulation = test_mod.test_weak_Landau(mpi_tmp_path, do_plot=False, exit_before_run=True)
+    sim: Simulation = test_mod.test_weak_Landau(mpi_out_folder, do_plot=False, exit_before_run=True)
 
     sim.run(one_time_step=True)
     run = Output(sim.env.path_out)
@@ -70,13 +70,13 @@ def test_pproc_mpi(mpi_tmp_path: str, show_plot=False):
 
 
 @pytest.mark.mpi(min_size=2)
-def test_products_are_processed_in_parallel_on_first_use(mpi_tmp_path: str):
+def test_products_are_processed_in_parallel_on_first_use(mpi_out_folder: str):
     """Without pproc(), evaluate() processes on every rank and gives the serial products."""
     import shutil
 
     comm = MPI.COMM_WORLD
     test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
-    sim: Simulation = test_mod.test_weak_Landau(mpi_tmp_path, do_plot=False, exit_before_run=True)
+    sim: Simulation = test_mod.test_weak_Landau(mpi_out_folder, do_plot=False, exit_before_run=True)
     out = sim.run(one_time_step=True)
     if comm.Get_rank() == 0:
         shutil.rmtree(Path(sim.env.path_out) / "post_processing", ignore_errors=True)

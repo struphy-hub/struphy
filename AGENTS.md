@@ -71,9 +71,11 @@ They list the required structure, documentation, registration and tests; CI chec
   `src/struphy/`) to a shard in `src/struphy/console/unit_test_shards.py`. The CI workflows and `struphy test unit`
   read that list, and `console/tests/test_unit_test_shards.py` fails if a test file is not covered.
 - Markers must be registered in `pyproject.toml` (`--strict-markers`).
-- Tests that write output (`Simulation`, `EnvironmentOptions(out_folders=...)`) use the `mpi_tmp_path` fixture
-  (`src/struphy/conftest.py`): a folder per test, the same on all MPI ranks, removed after a passed test. Don't write
-  into the current working directory and don't remove output folders in the test itself.
+- Tests that write output (`Simulation`, `EnvironmentOptions(out_folders=...)`) use the `mpi_out_folder` fixture
+  (`src/struphy/conftest.py`): a folder per test in `$STRUPHY_TEST_TMPDIR` (default: system temp dir), the same on all
+  MPI ranks, removed unless the test failed on some rank (then kept, with its path in a warning). Don't write into the current
+  working directory and don't remove output folders in the test itself. Don't combine it with pytest's `tmp_path`
+  for files that other ranks read (each rank has its own `tmp_path`).
 - NumPy's global random generator is seeded before every test (per rank); use a seed for any other generator.
 - Failed scheduled runs and failed runs on `devel` open (or comment on) an issue labelled `ci-failure`.
   Close it once the workflow is green again.

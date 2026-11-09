@@ -1,10 +1,9 @@
-import os
-
 """Verification of PerturbativeEulerWithQ (compressible Euler equations for the perturbations, variable q = sqrt(p)):
 a nonlinear simple sound wave against the exact solution (method of characteristics, before the shock), with the
 convergence order in dt, conservation of mass, and the small-amplitude limit (LinearEulerWithQ)."""
 
 import logging
+import os
 
 import cunumpy as xp
 import numpy as np
@@ -123,7 +122,7 @@ def _simple_wave_run(
 
 
 def test_simple_wave(
-    mpi_tmp_path: str,
+    mpi_out_folder: str,
 ):
     """Nonlinear simple sound wave before the shock: PerturbativeEulerWithQ follows the exact (steepening) solution,
     with errors much smaller than those of the linear model, converging with second order in dt (midpoint weights,
@@ -133,11 +132,11 @@ def test_simple_wave(
     Tend = 1.0
     errors = []
     for dt in (0.04, 0.02, 0.01):
-        error, mass_change = _simple_wave_run(mpi_tmp_path, PerturbativeEulerWithQ, dt, Tend)
+        error, mass_change = _simple_wave_run(mpi_out_folder, PerturbativeEulerWithQ, dt, Tend)
         errors.append(error)
         logger.info(f"{dt = }: max error of u / A {error:.2e}, mass change {mass_change:.1e}")
         assert mass_change < 1e-13
-    error_lin, _ = _simple_wave_run(mpi_tmp_path, LinearEulerWithQ, 0.01, Tend)
+    error_lin, _ = _simple_wave_run(mpi_out_folder, LinearEulerWithQ, 0.01, Tend)
     rates = [np.log2(e0 / e1) for e0, e1 in zip(errors[:-1], errors[1:])]
     logger.info(f"{errors = }, {rates = }, linear model: {error_lin:.2e}")
     assert errors[-1] < 0.02 * error_lin
@@ -146,7 +145,7 @@ def test_simple_wave(
 
 
 def test_small_amplitude_limit(
-    mpi_tmp_path: str,
+    mpi_out_folder: str,
 ):
     """The difference between PerturbativeEulerWithQ and LinearEulerWithQ after a few steps is quadratic in the amplitude
     of the perturbation (Colella domain, non-uniform density, constant pressure)."""
@@ -168,7 +167,7 @@ def test_small_amplitude_limit(
         )
         sim = Simulation(
             model=model,
-            env=EnvironmentOptions(out_folders=mpi_tmp_path, sim_folder="PerturbativeEulerWithQ_small"),
+            env=EnvironmentOptions(out_folders=mpi_out_folder, sim_folder="PerturbativeEulerWithQ_small"),
             time_opts=Time(dt=0.05, Tend=0.2),
             domain=domains.Colella(Lx=1.0, Ly=1.0, alpha=0.1, Lz=1.0),
             equil=equil,

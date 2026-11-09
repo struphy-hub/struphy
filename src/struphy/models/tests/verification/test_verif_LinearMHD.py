@@ -1,14 +1,11 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
-import numpy as np
 import pytest
 from maybempi import MPI
 
 from struphy import (
-    BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
     Simulation,
@@ -35,12 +32,12 @@ logger = logging.getLogger("struphy")
         ("Hcurl", True, "implicit"),
     ],
 )
-def test_slab_waves_1d(mpi_tmp_path: str, b_space: str, projected: bool, algo: str, do_plot: bool = False):
+def test_slab_waves_1d(mpi_out_folder: str, b_space: str, projected: bool, algo: str, do_plot: bool = False):
     # light-weight model instance
     model = LinearMHD(b_space=b_space, projected=projected)
 
     # environment options
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, f"LinearMHD_{b_space}{'_projected' if projected else ''}")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 

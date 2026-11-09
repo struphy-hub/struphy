@@ -4,7 +4,6 @@ LinearMHD (same unstable modes and growth rate, no spurious unstable or overstab
 
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import numpy as np
@@ -33,12 +32,12 @@ logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("b_space, projected", [("Hdiv", False), ("Hcurl", True)])
-def test_slab_waves_1d(mpi_tmp_path: str, b_space: str, projected: bool):
+def test_slab_waves_1d(mpi_out_folder: str, b_space: str, projected: bool):
     """Noise in the velocity along z in a homogeneous slab: the space-time spectra of u_x and of q have the branches of
     the shear-Alfven wave and of the slow and fast magnetosonic waves."""
     model = LinearMHDWithQ(b_space=b_space, projected=projected)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, f"LinearMHDWithQ_{b_space}{'_projected' if projected else ''}")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
@@ -150,7 +149,7 @@ def _one_step_spectrum(out_folders: str, model_class, dt: float):
     return np.linalg.eigvals(A)
 
 
-def test_screw_pinch_spectrum_agrees_with_linear_mhd(mpi_tmp_path: str, monkeypatch):
+def test_screw_pinch_spectrum_agrees_with_linear_mhd(mpi_out_folder: str, monkeypatch):
     """One-step map in a screw pinch with a pressure gradient (R0 = 20, interchange-type unstable): LinearMHDWithQ has
     the unstable modes of LinearMHD, with the same growth rate, and no spurious unstable or overstable modes (unlike the
     variational q model, whose pressure-gradient drive is split between two energies). The background q step makes the
@@ -162,7 +161,7 @@ def test_screw_pinch_spectrum_agrees_with_linear_mhd(mpi_tmp_path: str, monkeypa
 
     stats = {}
     for model_class in (LinearMHD, LinearMHDWithQ):
-        lam = _one_step_spectrum(mpi_tmp_path, model_class, dt)
+        lam = _one_step_spectrum(mpi_out_folder, model_class, dt)
         mod = np.abs(lam)
         # growth above the solver tolerance level (marginal pairs near omega = 0 have |lambda| - 1 ~ 1e-8)
         growing = mod > 1.0 + 1e-6

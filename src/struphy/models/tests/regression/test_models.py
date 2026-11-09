@@ -63,26 +63,26 @@ def _call_tests(models: list, update_baselines: bool, test_profiling: bool, out_
 
 @pytest.mark.models
 @pytest.mark.toy
-def test_toy(mpi_tmp_path: str, update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Toy"), update_baselines, test_profiling, mpi_tmp_path)
+def test_toy(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Toy"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.fluid
-def test_fluid(mpi_tmp_path: str, update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Fluid"), update_baselines, test_profiling, mpi_tmp_path)
+def test_fluid(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Fluid"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.kinetic
-def test_kinetic(mpi_tmp_path: str, update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Kinetic"), update_baselines, test_profiling, mpi_tmp_path)
+def test_kinetic(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Kinetic"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
-def test_hybrid(mpi_tmp_path: str, update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Hybrid"), update_baselines, test_profiling, mpi_tmp_path)
+def test_hybrid(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Hybrid"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
@@ -108,7 +108,7 @@ def test_variational_perturbative_linear(
     perturbative_model: str,
     crank_nicolson: bool,
     tmp_path,
-    mpi_tmp_path: str,
+    mpi_out_folder: str,
     update_baselines: bool,
     test_profiling: bool = True,
 ):
@@ -147,7 +147,7 @@ def test_variational_perturbative_linear(
         test_profiling=test_profiling,
         case=f"{perturbative_model}-linear-crank_nicolson={crank_nicolson}",
         update_baselines=update_baselines,
-        out_folder=mpi_tmp_path,
+        out_folder=mpi_out_folder,
     )
 
 
@@ -155,7 +155,7 @@ def test_variational_perturbative_linear(
 @pytest.mark.fluid
 @pytest.mark.parametrize("model_cls_name", ["ShearAlfven", "LinearMHD", "LinearMHDWithQ"])
 @pytest.mark.parametrize("projected", [False, True])
-def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, mpi_tmp_path: str, update_baselines: bool):
+def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, mpi_out_folder: str, update_baselines: bool):
     """The H(curl) discretizations of the shear-Alfven models: the flags survive the generated parameter file."""
     from struphy.io.setup import import_parameters_py
 
@@ -169,14 +169,14 @@ def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, mpi_tmp_p
         model=model,
         case=f"{model_cls_name}-b_space=Hcurl-projected={projected}",
         update_baselines=update_baselines,
-        out_folder=mpi_tmp_path,
+        out_folder=mpi_out_folder,
     )
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
 @pytest.mark.parametrize("model_cls_name", ["LinearMHDVlasovCC", "LinearMHDVlasovPC", "LinearMHDDriftkineticCC"])
-def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, mpi_tmp_path: str, update_baselines: bool):
+def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, mpi_out_folder: str, update_baselines: bool):
     """The H(curl) discretizations of the hybrid models of the LinearEuler family (1-form couplings): the flags
     survive the generated parameter file and the propagators reading the magnetic field are the 1-form ones."""
     from struphy.io.setup import import_parameters_py
@@ -194,7 +194,7 @@ def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, mpi_tmp_path: str, 
         model=model,
         case=f"{model_cls_name}-b_space=Hcurl",
         update_baselines=update_baselines,
-        out_folder=mpi_tmp_path,
+        out_folder=mpi_out_folder,
     )
 
 
@@ -235,7 +235,7 @@ def test_linear_mhd_with_q_inherits_linear_euler_with_q(b_space: str, tmp_path):
 @pytest.mark.single
 def test_single_model(
     model_name: str,
-    mpi_tmp_path: str,
+    mpi_out_folder: str,
     update_baselines: bool,
     test_profiling: bool = True,
 ):
@@ -245,7 +245,7 @@ def test_single_model(
         model=model(),
         test_profiling=test_profiling,
         update_baselines=update_baselines,
-        out_folder=mpi_tmp_path,
+        out_folder=mpi_out_folder,
     )
 
 

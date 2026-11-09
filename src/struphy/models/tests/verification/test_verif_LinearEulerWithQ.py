@@ -5,7 +5,6 @@ splitting, and the eigenvalues of the one-step map (on the unit circle)."""
 
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import numpy as np
@@ -58,14 +57,14 @@ def _global_max(value: float) -> float:
     return value
 
 
-def test_sound_wave_dispersion_1d(mpi_tmp_path: str):
+def test_sound_wave_dispersion_1d(mpi_out_folder: str):
     """Noise in the velocity along z: the space-time spectrum of q has one branch, omega = c_s k."""
     model = _model()
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=2, seed=123))
 
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=os.path.join(mpi_tmp_path, "dispersion_1d"), sim_folder="sim"),
+        env=EnvironmentOptions(out_folders=os.path.join(mpi_out_folder, "dispersion_1d"), sim_folder="sim"),
         time_opts=Time(dt=0.15, Tend=90.0),
         domain=domains.Cuboid(r3=60.0),
         equil=equils.HomogenSlab(B0z=1.0, beta=2 * P0, n0=N0),
@@ -115,7 +114,7 @@ def _standing_wave(num_elements: int, dt: float, Tend: float, out_folders: str):
     return run, error, omega
 
 
-def test_standing_wave_colella(mpi_tmp_path: str):
+def test_standing_wave_colella(mpi_out_folder: str):
     """Standing sound wave in the Colella domain: q agrees with the exact solution after a period and its
     error decreases under mesh refinement; the kinetic energy oscillates as en_tot sin^2(omega t) (frequency of the
     eigenmode in the mapped geometry) and en_tot is conserved."""
@@ -126,7 +125,7 @@ def test_standing_wave_colella(mpi_tmp_path: str):
             num_elements,
             dt=period / 100,
             Tend=period,
-            out_folders=os.path.join(mpi_tmp_path, f"colella_{num_elements}"),
+            out_folders=os.path.join(mpi_out_folder, f"colella_{num_elements}"),
         )
         errors.append(error)
         logger.info(f"{num_elements = }: relative L2 error of q after one period {error:.2e}")
@@ -145,7 +144,7 @@ def test_standing_wave_colella(mpi_tmp_path: str):
     assert conservation < 1e-9
 
 
-def test_conservation_nonuniform_density(mpi_tmp_path: str):
+def test_conservation_nonuniform_density(mpi_out_folder: str):
     """Noise in u and q in the Colella domain with a non-uniform equilibrium density rho0(x, y) and constant p0 (an
     equilibrium in force balance): the perturbed energy en_tot and the mass perturbation (sum of the density
     coefficients, periodic domain) are conserved, while energy is exchanged between en_U and en_thermal."""
@@ -164,7 +163,7 @@ def test_conservation_nonuniform_density(mpi_tmp_path: str):
     )
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=os.path.join(mpi_tmp_path, "conservation"), sim_folder="sim"),
+        env=EnvironmentOptions(out_folders=os.path.join(mpi_out_folder, "conservation"), sim_folder="sim"),
         time_opts=Time(dt=0.05, Tend=0.05),
         domain=domains.Colella(Lx=1.0, Ly=1.0, alpha=0.1, Lz=1.0),
         equil=equil,
@@ -203,7 +202,7 @@ def test_conservation_nonuniform_density(mpi_tmp_path: str):
     assert mass < 1e-10
 
 
-def test_time_convergence_order(mpi_tmp_path: str):
+def test_time_convergence_order(mpi_out_folder: str):
     """Self-convergence in dt of the split time stepping, for a non-uniform equilibrium pressure such that the
     background q step does not commute with the sound wave step: the differences of q between
     successive halvings of dt decrease with second order, with either splitting algorithm, since the two steps form one
@@ -225,7 +224,7 @@ def test_time_convergence_order(mpi_tmp_path: str):
         )
         sim = Simulation(
             model=model,
-            env=EnvironmentOptions(out_folders=os.path.join(mpi_tmp_path, "order"), sim_folder=f"steps_{n_steps}"),
+            env=EnvironmentOptions(out_folders=os.path.join(mpi_out_folder, "order"), sim_folder=f"steps_{n_steps}"),
             time_opts=Time(dt=dt, Tend=Tend),
             domain=domains.Colella(Lx=1.0, Ly=1.0, alpha=0.1, Lz=1.0),
             equil=equil,
@@ -243,7 +242,7 @@ def test_time_convergence_order(mpi_tmp_path: str):
     assert all(abs(rate - 2) < 0.1 for rate in rates)
 
 
-def test_one_step_map_unitary(mpi_tmp_path: str):
+def test_one_step_map_unitary(mpi_out_folder: str):
     """Eigenvalues of the one-step map of (u, q) in the Colella domain with a non-uniform density rho0(x, y) and
     constant p0, built column by column: all on the unit circle (to the solver tolerances), at a large time step. The
     force of the sound wave step is the transpose of its q operator, so the step has no numerical damping or growth
@@ -257,7 +256,7 @@ def test_one_step_map_unitary(mpi_tmp_path: str):
     )
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=os.path.join(mpi_tmp_path, "unitary"), sim_folder="sim"),
+        env=EnvironmentOptions(out_folders=os.path.join(mpi_out_folder, "unitary"), sim_folder="sim"),
         time_opts=Time(dt=0.5, Tend=0.5),
         domain=domains.Colella(Lx=1.0, Ly=1.0, alpha=0.1, Lz=1.0),
         equil=equil,

@@ -1,4 +1,3 @@
-import inspect
 import logging
 import os
 import shutil
@@ -63,7 +62,7 @@ def call_test(
         Overwrite the baseline instead of comparing against it.
 
     out_folder : str | None
-        Folder for the parameter file and the output, the same on all ranks (in tests: the ``mpi_tmp_path``
+        Folder for the parameter file and the output, the same on all ranks (in tests: the ``mpi_out_folder``
         fixture). Defaults to the current working directory.
 
     Raises

@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import h5py
@@ -30,7 +29,7 @@ logger = logging.getLogger("struphy")
 
 
 @pytest.mark.verif_pr
-def test_delta_f_initial_condition(mpi_tmp_path: str, exit_before_run: bool = False):
+def test_delta_f_initial_condition(mpi_out_folder: str, exit_before_run: bool = False):
     """The delta-f markers must carry the density perturbation alone.
 
     A ``DeltaFParticles6D`` species solves for :math:`\\delta f = f - f_0`, so its weights
@@ -52,7 +51,7 @@ def test_delta_f_initial_condition(mpi_tmp_path: str, exit_before_run: bool = Fa
 
     model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="delta_f_init")
 
@@ -135,7 +134,7 @@ def test_delta_f_initial_condition(mpi_tmp_path: str, exit_before_run: bool = Fa
 
 
 @pytest.mark.clones
-def test_energy_conservation(mpi_tmp_path: str, nclones: int, exit_before_run: bool = False):
+def test_energy_conservation(mpi_out_folder: str, nclones: int, exit_before_run: bool = False):
     """The field-weights coupling must conserve the total energy ``en_E + en_f``.
 
     With only :class:`~struphy.propagators.push_eta.PushEta` and
@@ -150,7 +149,7 @@ def test_energy_conservation(mpi_tmp_path: str, nclones: int, exit_before_run: b
 
     model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="energy_conservation", num_clones=nclones)
 
@@ -217,7 +216,7 @@ def test_energy_conservation(mpi_tmp_path: str, nclones: int, exit_before_run: b
 
 @pytest.mark.verif_pr
 def test_initial_poisson_no_background(
-    mpi_tmp_path: str,
+    mpi_out_folder: str,
 ):
     r"""The delta-f markers carry f - f0, so the initial Poisson solve must not subtract the background n0.
 
@@ -227,7 +226,7 @@ def test_initial_poisson_no_background(
     """
     model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "LinearVlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_no_background")
 

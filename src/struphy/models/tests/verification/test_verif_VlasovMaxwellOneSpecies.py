@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import pytest
@@ -32,7 +31,7 @@ logger = logging.getLogger("struphy")
     [(True, 0.0, 0.1), (False, 0.0, 0.1), (False, 1.0, 0.5)],
 )
 def test_gauss_error(
-    mpi_tmp_path: str, control_variate: bool, Tend: float, rel_tol: float, nclones: int, exit_before_run: bool = False
+    mpi_out_folder: str, control_variate: bool, Tend: float, rel_tol: float, nclones: int, exit_before_run: bool = False
 ):
     """The ``gauss_error`` diagnostic: right after the initial Poisson solve the weak Gauss law holds, and for
     full-f markers the residual stays at the level of the time stepping.
@@ -52,7 +51,7 @@ def test_gauss_error(
     # alpha^2/epsilon != 1 to check the coefficient of the charge density
     model = VlasovMaxwellOneSpecies(alpha=2.0, epsilon=0.5, measure_gauss_law=True)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovMaxwellOneSpecies")
     env = EnvironmentOptions(
         out_folders=out_folders, sim_folder=f"gauss_error_{control_variate}_{Tend}", num_clones=nclones

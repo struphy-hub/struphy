@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import h5py
@@ -9,7 +8,6 @@ from matplotlib import pyplot as plt
 from maybempi import MPI
 
 from struphy import (
-    BaseUnits,
     BinningPlot,
     BoundaryParameters,
     DerhamOptions,
@@ -33,7 +31,7 @@ logger = logging.getLogger("struphy")
 
 
 @pytest.mark.verif_pr
-def test_weak_Landau(mpi_tmp_path: str, do_plot: bool = False, exit_before_run: bool = False):
+def test_weak_Landau(mpi_out_folder: str, do_plot: bool = False, exit_before_run: bool = False):
     """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.
     """
@@ -41,7 +39,7 @@ def test_weak_Landau(mpi_tmp_path: str, do_plot: bool = False, exit_before_run: 
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     # environment options
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="weak_Landau")
 
@@ -169,7 +167,7 @@ def test_weak_Landau(mpi_tmp_path: str, do_plot: bool = False, exit_before_run: 
 
 @pytest.mark.clones
 @pytest.mark.parametrize("control_variate", [False, True])
-def test_energy_conservation(mpi_tmp_path: str, control_variate: bool, nclones: int, exit_before_run: bool = False):
+def test_energy_conservation(mpi_out_folder: str, control_variate: bool, nclones: int, exit_before_run: bool = False):
     """``en_tot`` is conserved from :math:`t=0` on, with full-f and with delta-f (control variate) weights.
 
     A time step is :class:`~struphy.propagators.push_eta.PushEta` followed by the Crank-Nicolson step
@@ -193,7 +191,7 @@ def test_energy_conservation(mpi_tmp_path: str, control_variate: bool, nclones: 
 
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(
         out_folders=out_folders, sim_folder=f"energy_conservation_cv_{control_variate}", num_clones=nclones
@@ -263,7 +261,7 @@ def test_energy_conservation(mpi_tmp_path: str, control_variate: bool, nclones: 
 
 
 @pytest.mark.clones
-def test_initial_poisson_full_f(mpi_tmp_path: str, nclones: int):
+def test_initial_poisson_full_f(mpi_out_folder: str, nclones: int):
     r"""The initial Poisson solve with full-f markers deposits the charge of :math:`f - f_0` (delta-f weights, no
     background source), i.e. subtracts :math:`n_0` once.
 
@@ -274,7 +272,7 @@ def test_initial_poisson_full_f(mpi_tmp_path: str, nclones: int):
     """
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f", num_clones=nclones)
 
@@ -312,7 +310,7 @@ def test_initial_poisson_full_f(mpi_tmp_path: str, nclones: int):
 
 
 def test_initial_poisson_full_f_noise(
-    mpi_tmp_path: str,
+    mpi_out_folder: str,
 ):
     r"""The initial Poisson solve deposits the delta-f weights also for full-f markers.
 
@@ -323,7 +321,7 @@ def test_initial_poisson_full_f_noise(
     """
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=1.0)
 
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="initial_poisson_full_f_noise")
 

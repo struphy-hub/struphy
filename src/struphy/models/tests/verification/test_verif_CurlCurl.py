@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import pytest
@@ -24,12 +23,12 @@ logger = logging.getLogger("struphy")
 
 @pytest.mark.verif_pr
 @pytest.mark.parametrize("hfun", ["cos", "sin"])
-def test_curl_curl_1d(mpi_tmp_path: str, hfun, do_plot=False):
+def test_curl_curl_1d(mpi_out_folder: str, hfun, do_plot=False):
     # light-weight model instance
     model = CurlCurl(with_t_dep_source=True)
 
     # environment options
-    test_folder = mpi_tmp_path
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "CurlCurl")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"time_source_1d_{hfun}")
 
