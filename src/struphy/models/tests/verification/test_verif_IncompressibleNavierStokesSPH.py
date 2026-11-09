@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import numpy as np
@@ -9,7 +8,6 @@ from matplotlib import pyplot as plt
 from maybempi import MPI
 
 from struphy import (
-    BaseUnits,
     BinningPlot,
     BoundaryParameters,
     DerhamOptions,
@@ -36,7 +34,7 @@ set_logging_level(logging.INFO)
 
 
 @pytest.mark.parametrize("nx", [8])
-def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
+def test_chorin_projection_periodic_1d(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the Chorin projection (PoissonSolve + PushVinForceField) in a
     truly 1D periodic domain.
 
@@ -46,7 +44,7 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
     removing the sinusoidal (compressible) part.
     """
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="chorin_projection_periodic_1d")
 
@@ -139,11 +137,9 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
         )
         logger.info("Chorin projection (periodic 1D) assertions passed.")
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.parametrize("nx", [8])
-def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
+def test_chorin_projection_reflect_1d(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the Chorin projection in a closed (reflecting) 1D box.
 
     Initial condition u_x(x) = A*sin(2*pi*x) vanishes at both walls (x=0, x=1).
@@ -153,7 +149,7 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
     which is a qualitatively stronger check than the periodic case.
     """
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="chorin_projection_reflect_1d")
 
@@ -243,11 +239,9 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
         )
         logger.info("Chorin projection (reflect 1D) assertion passed.")
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.parametrize("nx", [8])
-def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
+def test_channel_noslip_shear_relaxation(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the full incompressible propagator chain (viscosity +
     Chorin projection) under no-slip walls.
 
@@ -260,7 +254,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
     essentially undisturbed.
     """
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="channel_noslip_shear_relaxation")
 
@@ -478,10 +472,9 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         # )
         logger.info("Transverse-velocity assertion passed.")
 
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    # test_chorin_projection_periodic_1d(nx=8, do_plot=True)
-    # test_chorin_projection_reflect_1d(nx=8, do_plot=True)
-    test_channel_noslip_shear_relaxation(nx=8, do_plot=True)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    # test_chorin_projection_periodic_1d(out, nx=8, do_plot=True)
+    # test_chorin_projection_reflect_1d(out, nx=8, do_plot=True)
+    test_channel_noslip_shear_relaxation(out, nx=8, do_plot=True)
