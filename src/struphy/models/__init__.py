@@ -34,6 +34,8 @@ _LAZY_IMPORTS = {
     "Maxwell": "struphy.models.maxwell",
     "PerturbativeEulerWithQ": "struphy.models.perturbative_euler_with_q",
     "PerturbativeMHDWithQ": "struphy.models.perturbative_mhd_with_q",
+    "PerturbativeMHDWithQVlasovCC": "struphy.models.perturbative_mhd_with_q_vlasov_cc",
+    "PerturbativeMHDWithQVlasovPC": "struphy.models.perturbative_mhd_with_q_vlasov_pc",
     "Poisson": "struphy.models.poisson",
     "RandomParticleDiffusion": "struphy.models.random_particle_diffusion",
     "ShearAlfven": "struphy.models.shear_alfven",
@@ -84,6 +86,8 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.maxwell import Maxwell
     from struphy.models.perturbative_euler_with_q import PerturbativeEulerWithQ
     from struphy.models.perturbative_mhd_with_q import PerturbativeMHDWithQ
+    from struphy.models.perturbative_mhd_with_q_vlasov_cc import PerturbativeMHDWithQVlasovCC
+    from struphy.models.perturbative_mhd_with_q_vlasov_pc import PerturbativeMHDWithQVlasovPC
     from struphy.models.poisson import Poisson
     from struphy.models.random_particle_diffusion import RandomParticleDiffusion
     from struphy.models.shear_alfven import ShearAlfven
@@ -133,6 +137,8 @@ __all__ = [
     "Maxwell",
     "PerturbativeEulerWithQ",
     "PerturbativeMHDWithQ",
+    "PerturbativeMHDWithQVlasovCC",
+    "PerturbativeMHDWithQVlasovPC",
     "Poisson",
     "RandomParticleDiffusion",
     "ShearAlfven",
