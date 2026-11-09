@@ -1000,6 +1000,7 @@ class BasisProjectionOperators:
             return cache["mat"][:, :, :, m, n]
 
         return [[lambda e1, e2, e3, m=m, n=n: entry(e1, e2, e3, m, n) for n in range(3)] for m in range(3)]
+
     @property
     def PB1form(self):
         r"""
