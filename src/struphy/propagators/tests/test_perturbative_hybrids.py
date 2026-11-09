@@ -57,9 +57,27 @@ def test_rho_field_wiring():
             make()
 
 
-def _allocate(tmp_path, model, name):
-    """Finite-amplitude perturbations of density, velocity and magnetic field in the Colella domain, energetic ions
-    with a shifted Maxwellian, tight solver tolerances of the coupling steps."""
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("model_class", [LinearMHDVlasovPC, PerturbativeMHDWithQVlasovPC])
+def test_check_pressure_coupling_perp(monkeypatch, model_class):
+    """The pressure-coupling models warn if push_eta_pc and pc6d use different use_perp_model."""
+    import struphy.models.utils as model_utils
+
+    warnings = []
+    monkeypatch.setattr(model_utils.logger, "warning", lambda msg, *args, **kwargs: warnings.append(msg))
+    model = model_class()
+    props = model.propagators
+    model_utils.check_pressure_coupling_perp(model)
+    assert warnings == []
+    props.pc6d.options = props.pc6d.Options(use_perp_model=False)
+    model_utils.check_pressure_coupling_perp(model)
+    assert len(warnings) == 1 and "use_perp_model" in warnings[0]
+
+
+def _allocate(tmp_path, model, name, use_perp_model: bool = True):
+    """Finite-amplitude perturbations of density, velocity and magnetic field in the Colella domain (B0 tilted against
+    the coordinate lines), energetic ions with a shifted Maxwellian, tight solver tolerances of the coupling steps;
+    ``use_perp_model`` of the pressure coupling."""
     model.energetic_ions.set_markers(loading_params=LoadingParameters(Np=2000, seed=1234))
     model.energetic_ions.var.add_background(maxwellians.Maxwellian3D(u1=(0.3, None), vth1=(0.5, None)))
     m = model.mhd
@@ -71,10 +89,13 @@ def _allocate(tmp_path, model, name):
     b = model.em_fields.b_field
     b.add_perturbation(perturbations.ModesCos(ms=(1,), amps=(0.2,), comp=0, given_in_basis="physical"))
     props = model.propagators
+    if hasattr(props, "push_eta_pc"):
+        props.push_eta_pc.options = props.push_eta_pc.Options(use_perp_model=use_perp_model)
     for step in ("couple_dens", "couple_curr", "pc6d"):
         if hasattr(props, step):
             prop = getattr(props, step)
-            prop.options = prop.Options(solver_params=TOL)
+            perp = {"use_perp_model": use_perp_model} if step == "pc6d" else {}
+            prop.options = prop.Options(solver_params=TOL, **perp)
     Simulation(
         model=model,
         env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder=name),
@@ -108,19 +129,20 @@ def _ion_energy(model):
 
 
 @pytest.mark.parametrize(
-    "model_class, step, with_ions",
+    "model_class, step, with_ions, use_perp_model",
     [
-        (PerturbativeMHDWithQVlasovCC, "couple_dens", False),
-        (PerturbativeMHDWithQVlasovCC, "couple_curr", True),
-        (PerturbativeMHDWithQVlasovPC, "pc6d", True),
+        (PerturbativeMHDWithQVlasovCC, "couple_dens", False, True),
+        (PerturbativeMHDWithQVlasovCC, "couple_curr", True, True),
+        (PerturbativeMHDWithQVlasovPC, "pc6d", True, True),
+        (PerturbativeMHDWithQVlasovPC, "pc6d", True, False),
     ],
 )
-def test_energy_conservation_total_density(tmp_path, model_class, step, with_ions):
+def test_energy_conservation_total_density(tmp_path, model_class, step, with_ions, use_perp_model):
     """The coupling steps with the inertia of the total density conserve 1/2 u^T M2_rho u (plus the energy of the
     energetic ions if exchanged) exactly, while the energy of the inertia rho0 alone changes, and the density does
-    not change."""
+    not change. The pressure coupling is tested with and without the projection perpendicular to the (tilted) b0."""
     model = model_class()
-    _allocate(tmp_path, model, f"{model_class.__name__}_{step}")
+    _allocate(tmp_path, model, f"{model_class.__name__}_{step}_{use_perp_model}", use_perp_model=use_perp_model)
     n0 = model.mhd.density.spline.vector.toarray().copy()
     rho = model.mhd.density
 
