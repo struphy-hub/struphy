@@ -238,7 +238,7 @@ class PerturbativeMHDWithQDriftkineticCC(PerturbativeMHDWithQ):
         .. math::
 
             n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu\,, \qquad
-            \mathbf{J}_\textnormal{gc} = \int \frac{f_\textnormal{h}}{B_\parallel^*} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu\,, \qquad
+            \mathbf{J}_\textnormal{gc} = \int f_\textnormal{h} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu\,, \qquad
             \mathbf{M}_\textnormal{gc} = -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
 
         where :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` is the total magnetic field and
@@ -261,15 +261,34 @@ class PerturbativeMHDWithQDriftkineticCC(PerturbativeMHDWithQ):
         (with :math:`\tilde p = 2 q_0 \tilde q`), which already has the total field :math:`\mathbf B` in the
         Lorentz force and the induction equation.
 
-        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and :math:`\mathbf B \cdot \mathbf n = 0`
-        on the boundary, or periodic boundaries):
+        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and
+        :math:`\mathbf B_0 \cdot \mathbf n = \tilde{\mathbf B} \cdot \mathbf n = 0` on the boundary, or periodic
+        boundaries, and periodic or reflecting boundaries for the energetic ions; otherwise, lost markers carry energy
+        out of the domain, see ``n_lost_particles``):
 
-        Mass perturbation and divergence of the magnetic field:
+        Mass perturbation, number of energetic ions (the guiding-center phase-space volume
+        :math:`B_\parallel^* \, \textnormal{d} \mathbf x \, \textnormal{d} v_\parallel \textnormal{d} \mu` is preserved by
+        the flow) and divergence of the magnetic field:
 
         .. math::
 
             \frac{\textnormal d}{\textnormal d t} \int \tilde \rho \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\textnormal d}{\textnormal d t} \int \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel
+            \textnormal{d} \mu \, \textnormal d \mathbf x = 0\,, \qquad
             \frac{\partial}{\partial t} \nabla \cdot \tilde{\mathbf B} = 0
+
+        Energy, for an equilibrium with :math:`\nabla q_0 = 0` and :math:`\nabla \times \mathbf B_0 = 0`. The
+        guiding-center current :math:`\mathbf{J}_\textnormal{gc}` and magnetization :math:`\mathbf{M}_\textnormal{gc}`
+        exchange energy between the MHD flow, the magnetic field and the energetic ions:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \left[ \int \left( \frac{\rho_0 + \tilde \rho}{2} |\tilde{\mathbf U}|^2
+            + \frac{2 q_0 \tilde q + \tilde q^2}{\gamma - 1} + \mathbf B_0 \cdot \tilde{\mathbf B}
+            + \frac 12 |\tilde{\mathbf B}|^2 \right) \textnormal d \mathbf x
+            + \frac{A_\textnormal{h}}{A_\textnormal{b}} \int \int f_\textnormal{h} B_\parallel^* \left( \frac 12
+            v_\parallel^2 + \mu \, \mathbf b_0 \cdot \mathbf B \right) \textnormal{d} v_\parallel \textnormal{d} \mu
+            \, \textnormal d \mathbf x \right] = 0
         """
 
     @classmethod

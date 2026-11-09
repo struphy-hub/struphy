@@ -76,7 +76,8 @@ class LinearMHDVlasovCC(LinearMHD):
         Parameters
         ----------
         b_field : FEECVariable, optional
-            Magnetic field perturbation (default: None).
+            Magnetic field perturbation, in the current coupling and added to the equilibrium field in ``push_vxb``
+            (default: None).
         energetic_ions_var : PICVariable, optional
             Markers of the energetic ions, deposited by ``couple_dens`` (default: None).
         b_space : str
@@ -112,8 +113,8 @@ class LinearMHDVlasovCC(LinearMHD):
                 self.couple_dens = CurrentCoupling6DDensity1form(energetic_ions=energetic_ions_var, b_tilde=b_field)
                 self.couple_curr = CurrentCoupling6DCurrent1form(b_tilde=b_field)
             self.push_eta = PushEta()
-            # the equilibrium field only (the perturbation acts through couple_curr)
-            self.push_vxb = PushVxB() if b_space == "Hdiv" else PushVxB1form()
+            # Lorentz force v x (B0 + b_tilde) of the total field
+            self.push_vxb = PushVxB(b2_var=b_field) if b_space == "Hdiv" else PushVxB1form(b1_var=b_field)
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     energetic_ions: EnergeticIons
@@ -224,6 +225,29 @@ class LinearMHDVlasovCC(LinearMHD):
         where :math:`\mathbf{J}_0 = \nabla\times\mathbf{B}_0`, :math:`\gamma = 5/3`, the equations of
         :class:`~struphy.models.LinearMHD` are extended by the energetic ions; the terms in blue couple them to the MHD
         equations.
+
+        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and :math:`\mathbf B_0 \cdot \mathbf n = 0`
+        on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions;
+        otherwise, lost markers carry energy out of the domain, see ``n_lost_particles``):
+
+        Mass perturbation, number of energetic ions and divergence of the magnetic field:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \int \tilde \rho \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\textnormal d}{\textnormal d t} \int \int_{\mathbb{R}^3} f_\textnormal{h} \, \textnormal{d}^3 \mathbf{v}
+            \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\partial}{\partial t} \nabla \cdot \tilde{\mathbf B} = 0
+
+        Total perturbed energy, for an equilibrium with :math:`\nabla \times \mathbf B_0 = 0` and
+        :math:`\nabla p_0 = 0` (the coupling terms in blue exchange energy between the MHD flow and the energetic ions):
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \left[ \int \left( \frac{\rho_0}{2} |\tilde{\mathbf U}|^2
+            + \frac 12 |\tilde{\mathbf B}|^2 + \frac{\tilde p^2}{2 \gamma p_0} \right) \textnormal d \mathbf x
+            + \frac{A_\textnormal{h}}{2 A_\textnormal{b}} \int \int_{\mathbb{R}^3} |\mathbf v|^2 f_\textnormal{h} \,
+            \textnormal{d}^3 \mathbf{v} \, \textnormal d \mathbf x \right] = 0
         """
 
     @classmethod
