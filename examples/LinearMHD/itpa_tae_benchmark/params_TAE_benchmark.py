@@ -13,12 +13,21 @@ description = """
 Toroidal Alfven eigenmode (TAE) with the LinearMHD model: linear ideal MHD around a static (zero-flow)
 equilibrium, i.e. shear Alfven waves together with the coupling to the magnetosonic waves through the pressure
 and density perturbations. No energetic particles: the TAE is excited by the initial condition, not driven.
-With --b-space Hcurl, the magnetic field is in H(curl) and the implicit shear Alfven step solves a
-curl-curl system for it, preconditioned by Hiptmair-Xu (same physics, same expected frequency; the shear Alfven step
-is not exactly energy conserving and damps the wave numerically). --b-space Hcurl --projected is the version
-with the exactly energy conserving shear Alfven step (mass matrix preconditioner). On 4 MPI ranks, the 1000 time
-steps take about 40 min with --b-space Hdiv and with --b-space Hcurl (2.2 s per step) and about 4 h with
---b-space Hcurl --projected (14 s per step).
+The defaults follow the ShearAlfven version of this benchmark (PR #887). By default (--b-space Hcurl), the magnetic
+field is in H(curl) and the implicit shear Alfven step solves a curl-curl system for it, preconditioned by
+Hiptmair-Xu. This step is not exactly energy conserving and damps the wave numerically, the more the larger the
+time step (ShearAlfven: at t = 300, about 74%, 56% and 28% of the initial energy are left with dt = 0.1, 0.2 (the
+default) and 0.5), while the frequency hardly depends on the time step. --b-space Hcurl --projected is the version
+with the exactly energy conserving shear Alfven step (mass matrix preconditioner, much slower).
+
+With --b-space Hdiv (magnetic field in H(div), implicit solve for the velocity, exactly energy conserving), the
+induction equation uses the commuting projection Pi^1[B0 x u] of the Lorentz drift, whose interpolation error in
+the poloidal direction shifts the parallel wave number k_par ~ m b^2 + n b^3 (contravariant components). Near the
+gap, n q - m nearly cancels, so that a small error in the poloidal part gives a large error in the frequency: on
+the default grid (4.4 elements per wavelength of the m = 10 harmonic) the effective poloidal mode number is about
+2-3% too small, the continuum is shifted and there is no TAE (ShearAlfven: omega about 0.13 at r = 0.5). Hdiv needs
+about 8 elements per poloidal wavelength, e.g. --num-elements 24 88 8 (ShearAlfven: omega = 0.0835, i.e. 4.07e5
+rad/s). The H(curl) version has no such error (weak products with mass matrices).
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -36,8 +45,9 @@ with the velocity unit v_unit (the Alfven velocity of the base units, set by the
 (base units).
 
 Setup (ITPA TAE benchmark). Large-aspect-ratio tokamak with circular flux surfaces (AdhocTorus): major radius
-R0 = 10, minor radius a = 1, toroidal field B0 = 3, safety factor q(r) = 1.71 + 0.16 r^2/a^2, flat number density
-n = 1 and on-axis beta 0.0018. Only the toroidal mode number n = 6 is computed, on a sixth
+R0 = 10, minor radius a = 1, toroidal field B0 = 3, safety factor q(r) = 1.71 + 0.16 r^2/a^2, hydrogen
+bulk with the flat number density 2e19 m^-3 (n = 1 in the density unit, base units n = 0.2) and on-axis beta 0.0018,
+as in the ITPA benchmark (Koenies et al. 2018). Only the toroidal mode number n = 6 is computed, on a sixth
 of the torus (HollowTorus with tor_period = 6 and a hole of radius 0.1): the logical mode number -1 along eta3 is
 the physical n = 6. The velocity is initialized with the m = 10 and m = 11 harmonics, localized around r = 0.5
 (given as 2-form components).
@@ -45,10 +55,13 @@ the physical n = 6. The velocity is initialized with the m = 10 and m = 11 harmo
 Expected result. With n = 6 and m = 10 the gap is at q(r_c) = 21/12 = 1.75, i.e. r_c = 0.5, where n = 1 and
 |B| = 3.0 (flux-surface average), so v_A(r_c) = 3.0 v_unit and
     omega_TAE = 6/21 * 3.0/10 = 0.086 v_unit / x_unit,
-a period of about 73 time units (about 30 kHz with the default base units x_unit = 1 m, B = 1 T, n = 1e20 m^-3 and
-hydrogen, where v_unit = 2.2e6 m/s). The run up to t = 500 covers about 6.8 periods; the pproc script asserts the
-measured frequency within 10% of omega_TAE and shows the energies, the components of the fields and the radial
-profiles of the (m, n) harmonics.
+a period of about 73 time units. With the base units x_unit = 1 m, B = 1 T, n = 2e19 m^-3 and the hydrogen bulk,
+v_unit = 4.88e6 m/s, so omega_TAE = 4.2e5 rad/s (67 kHz). The ITPA benchmark reports the ideal MHD frequencies
+4.01e5 rad/s (CAS3D) and 4.13e5 rad/s (GYGLES). The run up to t = 500 covers about 6.8 periods; the pproc script
+asserts the measured frequency within 10% of omega_TAE and of the benchmark value 4.07e5 rad/s, and shows the
+energies, the components of the fields and the radial profiles of the (m, n) harmonics. With the defaults, the
+2500 time steps take about 70 min on 4 MPI ranks (1.7 s per step) and give omega = 0.0837 (4.08e5 rad/s); about
+38% of the initial energy is left at t = 500 (numerical damping of the H(curl) step).
 
 References:
 - W. W. Heidbrink, "Basic physics of Alfven instabilities in toroidal plasmas", Phys. Plasmas 15, 055501 (2008).
@@ -63,7 +76,8 @@ import logging
 from pathlib import Path
 
 # Command line options
-# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid; `--dt` and `--tend` the time
+# stepping; `--a1` the hole around the axis; `--degree` the spline degrees.
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
@@ -77,10 +91,11 @@ parser.add_argument("--sim-folder", default="sim_data", help="Name of the output
 parser.add_argument("--num-elements", type=int, nargs=3, default=[24, 44, 8], help="Number of elements per direction.")
 parser.add_argument(
     "--b-space",
-    default="Hdiv",
+    default="Hcurl",
     choices=["Hdiv", "Hcurl"],
-    help="Space of the magnetic field (model flag b_space): Hdiv (default, implicit solve for the velocity) or Hcurl "
-    "(implicit curl-curl solve for the magnetic field, numerically damped unless --projected).",
+    help="Space of the magnetic field (model flag b_space): Hcurl (default, implicit curl-curl solve for the magnetic "
+    "field, numerically damped unless --projected) or Hdiv (implicit solve for the velocity, exactly energy "
+    "conserving; needs --num-elements 24 88 8 for the right frequency, see the description).",
 )
 parser.add_argument(
     "--projected",
@@ -100,6 +115,18 @@ parser.add_argument(
     "its default without --projected).",
 )
 parser.add_argument(
+    "--dt",
+    type=float,
+    default=0.2,
+    help="Time step (default 0.2); data is saved about every time unit. With --b-space Hcurl, a smaller time step "
+    "damps less (see the description).",
+)
+parser.add_argument("--tend", type=float, default=500.0, help="End time (default 500, about 6.8 TAE periods).")
+parser.add_argument(
+    "--a1", type=float, default=0.1, help="Radius of the hole around the magnetic axis (default 0.1, in units of a)."
+)
+parser.add_argument("--degree", type=int, nargs=3, default=[3, 3, 3], help="Spline degrees per direction.")
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (num_elements = [8, 32, 4]) and a short run with three saved time steps, for the tests "
@@ -117,8 +144,7 @@ if args.precond in ("MultiGrid", "StiffnessPreconditioner") and args.b_space != 
     parser.error(f"--precond {args.precond} requires --b-space Hdiv.")
 if args.precond == "HiptmairXu" and args.b_space != "Hcurl":
     parser.error("--precond HiptmairXu requires --b-space Hcurl.")
-if args.b_space == "Hcurl":
-    name = f"ITPA TAE benchmark (LinearMHD, b_space=Hcurl{', projected' if args.projected else ''})"
+name = f"ITPA TAE benchmark (LinearMHD, b_space={args.b_space}{', projected' if args.projected else ''})"
 if args.test_run:
     args.num_elements = [8, 32, 4]
 
@@ -151,8 +177,8 @@ from struphy import (
 # ---------------------
 from struphy.models import LinearMHD
 
-# Units
-base_units = BaseUnits()
+# Units of the ITPA benchmark: x_unit = 1 m, B_unit = 1 T and the bulk density 2e19 m^-3 (hydrogen)
+base_units = BaseUnits(x=1.0, B=1.0, n=0.2)
 
 # Model instance
 model = LinearMHD(base_units=base_units, b_space=args.b_space, projected=args.projected)
@@ -168,15 +194,17 @@ model.mhd.pressure.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=args.out_folder, save_step=2, sim_folder=args.sim_folder, max_runtime=350)
+env = EnvironmentOptions(
+    out_folders=args.out_folder, save_step=max(1, round(1.0 / args.dt)), sim_folder=args.sim_folder, max_runtime=470
+)
 
 # Time stepping
-dt = 0.5
+dt = args.dt
 # --test-run: the initial, a middle and a final saved time step
-time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else 500.0)
+time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else args.tend)
 
 # Geometry
-domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=10.0, sfl=False, pol_period=1, tor_period=6)
+domain = domains.HollowTorus(a1=args.a1, a2=1.0, R0=10.0, sfl=False, pol_period=1, tor_period=6)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(
@@ -191,7 +219,7 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 # magnetic field to zero (unphysical, it damps the TAE). With free boundary conditions, u.n = 0 holds weakly in the
 # shear Alfven step and p = 0 weakly in the sound wave step.
 bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "free")
-derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
+derham_opts = DerhamOptions(degree=tuple(args.degree), bcs=(bcs_eta1, None, None))
 
 # Profiling options
 profiling_opts = ProfilingOptions(use_line_profiler=True)

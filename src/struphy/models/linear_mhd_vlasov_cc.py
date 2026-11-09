@@ -8,9 +8,12 @@ from struphy.models.species import ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.current_coupling_6d_current import CurrentCoupling6DCurrent
+from struphy.propagators.current_coupling_6d_current_1form import CurrentCoupling6DCurrent1form
 from struphy.propagators.current_coupling_6d_density import CurrentCoupling6DDensity
+from struphy.propagators.current_coupling_6d_density_1form import CurrentCoupling6DDensity1form
 from struphy.propagators.push_eta import PushEta
 from struphy.propagators.push_vxb import PushVxB
+from struphy.propagators.push_vxb_1form import PushVxB1form
 
 logger = logging.getLogger("struphy")
 
@@ -18,8 +21,8 @@ logger = logging.getLogger("struphy")
 class LinearMHDVlasovCC(LinearMHD):
     """Hybrid linear MHD coupled with energetic ions (6D Vlasov) via the current-coupling scheme.
 
-    Extends :class:`~struphy.models.LinearMHD` (magnetic field in H(div)) by energetic ions, whose density and current
-    enter the MHD momentum equation.
+    Extends :class:`~struphy.models.LinearMHD` by energetic ions, whose density and current enter the MHD momentum
+    equation.
 
     Parameters
     ----------
@@ -33,6 +36,15 @@ class LinearMHDVlasovCC(LinearMHD):
         Mass number (in units of Proton mass) of the energetic ion species (default: 1.0)
     hot_epsilon: float, optional
         Normalized cyclotron period of the energetic ion species. If None, computed from units and charge/mass numbers.
+    b_space: {"Hdiv", "Hcurl"}
+        Space of the magnetic field, as in :class:`~struphy.models.LinearMHD` (default: "Hdiv"). With ``"Hcurl"``, the
+        current coupling and the energetic-ion push use the 1-form field
+        (:class:`~struphy.propagators.current_coupling_6d_density_1form.CurrentCoupling6DDensity1form`,
+        :class:`~struphy.propagators.current_coupling_6d_current_1form.CurrentCoupling6DCurrent1form`,
+        :class:`~struphy.propagators.push_vxb_1form.PushVxB1form`).
+    projected: bool
+        Projected curl-curl shear-Alfvén step, only with ``b_space="Hcurl"``, as in :class:`~struphy.models.LinearMHD`
+        (default: False).
     """
 
     @classmethod
@@ -64,9 +76,13 @@ class LinearMHDVlasovCC(LinearMHD):
         Parameters
         ----------
         b_field : FEECVariable, optional
-            Magnetic field perturbation (default: None).
+            Magnetic field perturbation, in the current coupling and added to the equilibrium field in ``push_vxb``
+            (default: None).
         energetic_ions_var : PICVariable, optional
             Markers of the energetic ions, deposited by ``couple_dens`` (default: None).
+        b_space : str
+            Space of the magnetic field, ``"Hdiv"`` (2-form couplings) or ``"Hcurl"`` (1-form couplings) (default:
+            ``"Hdiv"``).
         **kwargs
             Passed to :class:`LinearMHD.Propagators <struphy.models.LinearMHD.Propagators>`.
         """
@@ -86,13 +102,19 @@ class LinearMHDVlasovCC(LinearMHD):
             self,
             b_field: FEECVariable = None,
             energetic_ions_var: PICVariable = None,
+            b_space: str = "Hdiv",
             **kwargs,
         ):
-            super().__init__(b_field=b_field, **kwargs)
-            self.couple_dens = CurrentCoupling6DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
-            self.couple_curr = CurrentCoupling6DCurrent(b_tilde=b_field)
+            super().__init__(b_field=b_field, b_space=b_space, **kwargs)
+            if b_space == "Hdiv":
+                self.couple_dens = CurrentCoupling6DDensity(energetic_ions=energetic_ions_var, b_tilde=b_field)
+                self.couple_curr = CurrentCoupling6DCurrent(b_tilde=b_field)
+            else:
+                self.couple_dens = CurrentCoupling6DDensity1form(energetic_ions=energetic_ions_var, b_tilde=b_field)
+                self.couple_curr = CurrentCoupling6DCurrent1form(b_tilde=b_field)
             self.push_eta = PushEta()
-            self.push_vxb = PushVxB()
+            # Lorentz force v x (B0 + b_tilde) of the total field
+            self.push_vxb = PushVxB(b2_var=b_field) if b_space == "Hdiv" else PushVxB1form(b1_var=b_field)
 
     # attribute types for IDEs and type checkers: the classes of this model, not those of the parent
     energetic_ions: EnergeticIons
@@ -107,12 +129,14 @@ class LinearMHDVlasovCC(LinearMHD):
         hot_charge_number: int = 1,
         hot_mass_number: float = 1.0,
         hot_epsilon: float = None,
+        b_space: LinearMHD.OptsBSpace = "Hdiv",
+        projected: bool = False,
     ):
         # 0. store input parameters
         self._store_params(locals())
 
-        # 1.-5. see LinearMHD (magnetic field in H(div))
-        super().__init__(base_units, mass_number=mhd_mass_number)
+        # 1.-5. see LinearMHD
+        super().__init__(base_units, mass_number=mhd_mass_number, b_space=b_space, projected=projected)
 
     def _create_species(self):
         """:meta private:"""

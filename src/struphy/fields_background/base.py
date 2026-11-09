@@ -920,6 +920,43 @@ class MHDequilibrium(FluidEquilibriumWithB):
         )
         return j_out, self.domain(*etas, squeeze_out=squeeze_out)
 
+    def gradp1(self, *etas, squeeze_out=False):
+        """1-form components of the pressure gradient on logical cube [0, 1]^3, from central differences of p0."""
+        h = 1e-5
+        out = []
+        for d in range(3):
+            if len(etas) == 1:
+                plus, minus = etas[0].copy(), etas[0].copy()
+                plus[d] = xp.clip(plus[d] + h, 0.0, 1.0)
+                minus[d] = xp.clip(minus[d] - h, 0.0, 1.0)
+                out += [(self.p0(plus) - self.p0(minus)) / (plus[d] - minus[d])]
+            else:
+                plus, minus = list(etas), list(etas)
+                if isinstance(etas[d], float):
+                    plus[d], minus[d] = min(etas[d] + h, 1.0), max(etas[d] - h, 0.0)
+                else:
+                    plus[d] = xp.clip(etas[d] + h, 0.0, 1.0)
+                    minus[d] = xp.clip(etas[d] - h, 0.0, 1.0)
+                delta = xp.asarray(plus[d] - minus[d])
+                if delta.ndim == 1:
+                    delta = delta.reshape([-1 if i == d else 1 for i in range(3)])
+                out += [(self.p0(*plus, squeeze_out=False) - self.p0(*minus, squeeze_out=False)) / delta]
+        out = xp.stack(out, axis=0)
+        return xp.squeeze(out) if squeeze_out else out
+
+    def j_dia2(self, *etas, squeeze_out=False):
+        r"""2-form components of the diamagnetic current :math:`\mathbf B_0 \times \nabla p_0 / |\mathbf B_0|^2`
+        on logical cube [0, 1]^3."""
+        out = xp.cross(
+            self.b1(*etas, squeeze_out=False),
+            self.gradp1(*etas, squeeze_out=False),
+            axisa=0,
+            axisb=0,
+            axisc=0,
+        )
+        out = out / self.absB0(*etas, squeeze_out=False) ** 2
+        return xp.squeeze(out) if squeeze_out else out
+
     def u1(self, *etas, squeeze_out=False):
         """1-form components of mean velocity evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         return self.j1(
@@ -1041,6 +1078,15 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
     def j2_3(self, *etas, squeeze_out=False):
         return self.j2(*etas, squeeze_out=squeeze_out)[2]
+
+    def j_dia2_1(self, *etas, squeeze_out=False):
+        return self.j_dia2(*etas, squeeze_out=squeeze_out)[0]
+
+    def j_dia2_2(self, *etas, squeeze_out=False):
+        return self.j_dia2(*etas, squeeze_out=squeeze_out)[1]
+
+    def j_dia2_3(self, *etas, squeeze_out=False):
+        return self.j_dia2(*etas, squeeze_out=squeeze_out)[2]
 
     def jv_1(self, *etas, squeeze_out=False):
         return self.jv(*etas, squeeze_out=squeeze_out)[0]
