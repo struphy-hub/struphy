@@ -8,6 +8,7 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
+from struphy.feec.toroidal_fourier import ToroidalFourierSolver
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.schur_solver import SchurSolver
@@ -258,14 +259,18 @@ class ShearAlfvenPropagator(Propagator):
         self._schur_precond_dt = None
         # the requested preconditioner, or the fallback if the Kronecker one is not possible here
         self._precond = preconditioner.ShearAlfvenSchurPreconditioner.resolve(
-            self.options.precond, self.derham, self.options.algo, self.options.solver, self.options.u_space
+            self.options.precond,
+            self.derham,
+            self.options.algo,
+            self.options.solver,
+            self.options.u_space,
         )
         if self._precond == "StiffnessPreconditioner":
             # Kronecker operators (built once, independent of dt)
             self._schur_precond = preconditioner.ShearAlfvenSchurPreconditioner(
                 self.derham, self.mass_ops, self.basis_ops, _T, id_M, exb_correction=self.options.exb_correction
             )
-        if self._precond in (None, "MultiGrid", "StiffnessPreconditioner"):
+        if self._precond in (None, "MultiGrid", "StiffnessPreconditioner", "ToroidalFourierPreconditioner"):
             pc = None
         else:
             pc_class = getattr(preconditioner, self._precond)
@@ -350,6 +355,13 @@ class ShearAlfvenPropagator(Propagator):
         # changes
         if self._precond == "StiffnessPreconditioner" and dt != self._schur_precond_dt:
             self._schur_solver.precond = self._schur_precond.build(dt)
+            self._schur_precond_dt = dt
+
+        # the exact inverse of the Schur operator for axisymmetric equilibria (toroidal Fourier modes), rebuilt when
+        # dt changes
+        if self._precond == "ToroidalFourierPreconditioner" and dt != self._schur_precond_dt:
+            schur = self._schur_solver.A - dt**2 * self._schur_solver.BC
+            self._schur_solver.precond = ToroidalFourierSolver(schur)
             self._schur_precond_dt = dt
 
     @profile

@@ -1986,8 +1986,13 @@ class ShearAlfvenSchurPreconditioner:
         """The preconditioner to use for the option ``precond`` of a shear Alfven propagator:
         ``"StiffnessPreconditioner"`` only if its requirements hold (implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"``,
         ``u_space="Hdiv"`` and :meth:`supported`), else the mass matrix preconditioner of the velocity space
-        (``"PolarMassMatrixPreconditioner"`` with polar splines), with a warning. Other options are returned as
-        they are."""
+        (``"PolarMassMatrixPreconditioner"`` with polar splines), with a warning. ``"ToroidalFourierPreconditioner"``
+        (:class:`~struphy.feec.toroidal_fourier.ToroidalFourierSolver`, exact for axisymmetric equilibria) needs the implicit algorithm and a periodic eta_3 direction.
+        Other options are returned as they are."""
+        if precond == "ToroidalFourierPreconditioner":
+            assert algo == "implicit", 'precond="ToroidalFourierPreconditioner" needs algo="implicit".'
+            assert derham.spl_kind[2], 'precond="ToroidalFourierPreconditioner" needs a periodic eta_3 direction.'
+            return precond
         if precond != "StiffnessPreconditioner":
             return precond
         missing = []
