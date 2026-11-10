@@ -59,7 +59,7 @@ def test_stiffness_preconditioner_options():
     assert ShearAlfvenSchurPreconditioner.resolve("MultiGrid", polar, **ok) == "MultiGrid"
 
 
-def polar_step(tmp_path, precond, monkeypatch, dt=0.5):
+def polar_step(out_folder, precond, monkeypatch, dt=0.5):
     """One implicit shear Alfven step on a polar cylinder with the preconditioner ``precond``: the propagator, the
     energies before and after, the new velocity and the numbers of PCG iterations."""
     from struphy import domains
@@ -76,7 +76,7 @@ def polar_step(tmp_path, precond, monkeypatch, dt=0.5):
     )
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder=f"polar_{precond}"),
+        env=EnvironmentOptions(out_folders=out_folder, sim_folder=f"polar_{precond}"),
         domain=domains.IGAPolarCylinder(num_elements=(4, 6), degree=(2, 2), a=1.0, Lz=4.0),
         equil=equils.ScrewPinch(a=1.0, R0=4.0 / (2 * xp.pi), B0=1.0),
         grid=grids.TensorProductGrid(num_elements=(4, 6, 4)),
@@ -108,7 +108,7 @@ def polar_step(tmp_path, precond, monkeypatch, dt=0.5):
     return shear_alf, energy_0, energy(), shear_alf.variables.u.spline.vector.toarray(), niter
 
 
-def test_shear_alfven_polar_preconditioners(tmp_path, monkeypatch):
+def test_shear_alfven_polar_preconditioners(mpi_out_folder, monkeypatch):
     """With polar splines, the default preconditioner is the 2D x 1D Kronecker preconditioner of the Schur operator
     and the toroidal Fourier preconditioner is exact for the (axisymmetric) screw pinch: both give the step of the polar
     mass matrix preconditioner with fewer iterations, and the step conserves the energy (issue #810)."""
@@ -117,7 +117,7 @@ def test_shear_alfven_polar_preconditioners(tmp_path, monkeypatch):
 
     results = {}
     for precond in ("PolarMassMatrixPreconditioner", "StiffnessPreconditioner", "ToroidalFourierPreconditioner"):
-        shear_alf, e_0, e_1, u, niter = polar_step(tmp_path, precond, monkeypatch)
+        shear_alf, e_0, e_1, u, niter = polar_step(mpi_out_folder, precond, monkeypatch)
         assert abs(e_1 - e_0) < 1e-8 * e_0
         results[precond] = (u, niter[0])
         if precond == "StiffnessPreconditioner":

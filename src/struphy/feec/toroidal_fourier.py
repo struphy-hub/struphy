@@ -35,6 +35,7 @@ import numpy as np
 import scipy.linalg as sla
 from feectools.linalg.basic import LinearOperator, Vector
 from feectools.linalg.stencil import StencilVector
+from maybempi import MPI
 
 logger = logging.getLogger("struphy")
 
@@ -174,18 +175,28 @@ class ToroidalFourierSolver(LinearOperator):
         scale = max((np.abs(M).max() for M in mats.values()), default=1.0)
         self._factors = {}
         self._cholesky = True
+        self._hermitian = True
         for n, M in mats.items():
             idx = np.flatnonzero(constrained)
             M[idx, :] = 0.0
             M[:, idx] = 0.0
             M[idx, idx] = scale
-            try:
-                self._factors[n] = ("cho", sla.cho_factor(M, lower=False, check_finite=False))
-            except np.linalg.LinAlgError:
+            # Cholesky only for Hermitian matrices (it reads one triangle), else LU
+            hermitian = np.allclose(M, M.conj().T, rtol=0.0, atol=1e-10 * scale)
+            self._hermitian = self._hermitian and hermitian
+            factor = None
+            if hermitian:
+                try:
+                    factor = ("cho", sla.cho_factor(M, lower=False, check_finite=False))
+                except np.linalg.LinAlgError:
+                    pass
+            if factor is None:
                 self._cholesky = False
-                self._factors[n] = ("lu", sla.lu_factor(M, check_finite=False))
+                factor = ("lu", sla.lu_factor(M, check_finite=False))
+            self._factors[n] = factor
         if L.comm is not None:
-            self._cholesky = L.comm.allreduce(self._cholesky, op=_mpi_land())
+            self._cholesky = L.comm.allreduce(self._cholesky, op=MPI.LAND)
+            self._hermitian = L.comm.allreduce(self._hermitian, op=MPI.LAND)
         self._constrained = constrained
         self._n_constrained = int(constrained.sum())
 
@@ -199,12 +210,13 @@ class ToroidalFourierSolver(LinearOperator):
             APr = A.dot(Pr)
             APr -= r
             self._residual = float(np.sqrt(APr.inner(APr) / r.inner(r)))
-        logger.info(
-            f"ToroidalFourierSolver: {L.n_pol} poloidal unknowns ({self._n_constrained} constrained), "
-            f"{L.n3} toroidal coefficients, {n_modes} toroidal mode numbers, "
-            f"{'Cholesky' if self._cholesky else 'LU'} factorizations"
-            + ("" if self._residual is None else f", relative residual on a random vector {self._residual:.2e}")
-        )
+        if rank == 0:
+            logger.info(
+                f"ToroidalFourierSolver: {L.n_pol} poloidal unknowns ({self._n_constrained} constrained), "
+                f"{L.n3} toroidal coefficients, {n_modes} toroidal mode numbers, "
+                f"{'Cholesky' if self._cholesky else 'LU'} factorizations"
+                + ("" if self._residual is None else f", relative residual on a random vector {self._residual:.2e}")
+            )
 
     @property
     def domain(self):
@@ -235,8 +247,15 @@ class ToroidalFourierSolver(LinearOperator):
     def toarray(self):
         raise NotImplementedError()
 
+    @property
+    def symmetric(self) -> bool:
+        """Whether the Fourier blocks of the operator are Hermitian (then the operator and its inverse are symmetric)."""
+        return self._hermitian
+
     def transpose(self, conjugate: bool = False):
-        """The inverse of a symmetric operator is symmetric."""
+        """The inverse of a symmetric operator is symmetric (not implemented for non-symmetric operators)."""
+        if not self._hermitian:
+            raise NotImplementedError("The transpose is only available for symmetric operators.")
         return self
 
     def dot(self, v: Vector, out: Vector | None = None) -> Vector:
@@ -253,7 +272,7 @@ class ToroidalFourierSolver(LinearOperator):
             else:
                 Xhat[:, n] = sla.lu_solve(fac, b, check_finite=False)
         if L.comm is not None:
-            Xhat = L.comm.allreduce(Xhat)
+            L.comm.Allreduce(MPI.IN_PLACE, Xhat, op=MPI.SUM)
         X = np.fft.irfft(Xhat, n=L.n3, axis=1)
         if out is None:
             out = self._space.zeros()
@@ -263,9 +282,3 @@ class ToroidalFourierSolver(LinearOperator):
 
     def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
         return self.dot(rhs, out=out)
-
-
-def _mpi_land():
-    from maybempi import MPI
-
-    return MPI.LAND
