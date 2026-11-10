@@ -12,6 +12,7 @@ from struphy.models.species import (
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.propagators.variational_density_evolve import VariationalDensityEvolve
 from struphy.propagators.variational_linear_alfven_evolve import VariationalLinearAlfvenEvolve
 from struphy.propagators.variational_linear_sound_evolve import VariationalLinearSoundEvolve
@@ -44,9 +45,9 @@ class VariationalPerturbativeMHD(StruphyModel):
         weights of the second-order terms, option ``weights``) instead of the Picard iteration of ``variat_pb``
         (default: False)
     u_space: str
-        Space of the velocity, ``"H1vec"`` (vector field) or, only for the linear model with one linear solve per
-        substep (``linear=True``, ``crank_nicolson=True``), ``"Hdiv"`` (2-form, as in
-        :class:`~struphy.models.linear_mhd.LinearMHD`) (default: ``"H1vec"``)
+        Space of the velocity, ``"H1vec"`` (vector field) or ``"Hdiv"`` (2-form, as in
+        :class:`~struphy.models.linear_mhd.LinearMHD`; for the nonlinear model, and for the linear model with one
+        linear solve per substep, ``linear=True``, ``crank_nicolson=True``) (default: ``"H1vec"``)
     """
 
     @classmethod
@@ -101,8 +102,9 @@ class VariationalPerturbativeMHD(StruphyModel):
             elif linear:
                 self.variat_pb = VariationalPBEvolve(div_u=div_u, u2=u2, pt3=pt3, bt2=bt2)
             else:
-                self.variat_mom = VariationalMomentumAdvection()
-                self.variat_pb = VariationalPBEvolve(pt3=pt3, bt2=bt2)
+                # rho: the density perturbation, for the mass matrix of the total density of a velocity in Hdiv
+                self.variat_mom = VariationalMomentumAdvection(rho=rho)
+                self.variat_pb = VariationalPBEvolve(pt3=pt3, bt2=bt2, rho=rho)
             # the linear model heats the auxiliary pressure p-hat; the nonlinear one heats the pressure (full_p)
             if with_viscosity:
                 self.variat_viscous = VariationalViscosity(rho=rho, pt3=pt3 if linear else None)
@@ -124,9 +126,9 @@ class VariationalPerturbativeMHD(StruphyModel):
         if crank_nicolson and not linear:
             raise ValueError(f"{self.__class__.__name__}: crank_nicolson=True needs linear=True.")
         assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
-        assert u_space == "H1vec" or (linear and crank_nicolson), (
-            'u_space="Hdiv" is only available for the linear model with one linear solve per substep '
-            "(linear=True, crank_nicolson=True)."
+        assert u_space == "H1vec" or not linear or crank_nicolson, (
+            'u_space="Hdiv" is available for the nonlinear model and for the linear model with one linear solve per '
+            "substep (linear=True, crank_nicolson=True)."
         )
 
         # 0. store input parameters
@@ -176,10 +178,14 @@ class VariationalPerturbativeMHD(StruphyModel):
             self.propagators.variat_resist.variables.b = self.em_fields.b_field
 
         # 5. define scalars to be tracked during simulation
-        # the velocity mass matrix of the propagators (density-weighted)
-        kinetic_energy = BilinearEnergyFEEC(
-            self.mhd.velocity, bilinear_form_name="M2n" if u_space == "Hdiv" else "WMMnew"
-        )
+        # the velocity mass matrix of the propagators (density-weighted): M2n for the linear model with a velocity in
+        # Hdiv, the mass matrix of the total density (rho_0 + rho) for the nonlinear one
+        if u_space == "Hdiv" and not linear:
+            kinetic_energy = FunctionScalarFEEC(self._compute_en_U_hdiv)
+        else:
+            kinetic_energy = BilinearEnergyFEEC(
+                self.mhd.velocity, bilinear_form_name="M2n" if u_space == "Hdiv" else "WMMnew"
+            )
         magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
         # int B0 . B-hat, as int J0 . A-hat with one linear solve per substep
         if crank_nicolson:
@@ -266,6 +272,17 @@ class VariationalPerturbativeMHD(StruphyModel):
 
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
+        # nonlinear model with a velocity in Hdiv: mass matrix of the total density for the kinetic energy
+        if self.params["u_space"] == "Hdiv" and not self.params["linear"]:
+            self._velocity_mass = VelocityMass(
+                Propagator.derham,
+                Propagator.domain,
+                Propagator.mass_ops,
+                Propagator.projected_equil,
+                rho_field=self.mhd.density,
+            )
+            self._tmp_M_u = Propagator.derham.V2pol.zeros()
+
     @property
     def _thermo_propagator(self):
         """The propagator that advances the pressure (its options hold gamma)."""
@@ -275,6 +292,12 @@ class VariationalPerturbativeMHD(StruphyModel):
 
     def _compute_en_mag_2(self):
         return self.propagators.variat_lin_alfven.second_order_energy()
+
+    def _compute_en_U_hdiv(self):
+        """Kinetic energy 1/2 u^T M^2_rho u with the total density rho_0 + rho (velocity in Hdiv)."""
+        self._velocity_mass.update()
+        u = self.mhd.velocity.spline.vector
+        return 0.5 * u.inner(self._velocity_mass.M_rho.dot(u, out=self._tmp_M_u))
 
     def _compute_en_thermo(self):
         pt3 = self.diagnostics.pt3.spline.vector
@@ -302,6 +325,16 @@ class VariationalPerturbativeMHD(StruphyModel):
                 elif "pressure.add_background" in line and linear:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
+                elif (
+                    line.startswith("derham_opts = DerhamOptions()") and self.params["u_space"] == "Hdiv" and not linear
+                ):
+                    # the bracket of the momentum advection with a velocity in Hdiv needs the degree p >= 2 (except in
+                    # periodic directions with one element)
+                    new_file += [
+                        "# velocity in Hdiv: the momentum advection needs degree >= 2 (except in periodic directions "
+                        "with one element)\n",
+                        "derham_opts = DerhamOptions(degree=(2, 2, 1))\n",
+                    ]
                 else:
                     new_file += [line]
 
@@ -382,6 +415,14 @@ class VariationalPerturbativeMHD(StruphyModel):
         which equals :math:`\int \mu \nabla \mathbf u : \nabla \mathbf v` up to boundary terms.
         The curl is the weak curl, as the current of the resistivity, so the wall condition is perfect slip,
         :math:`(\nabla \times \mathbf u) \times \mathbf n = 0`, and the tangential velocity at the wall stays free.
+
+        **Velocity in** :math:`H(\textnormal{div})` **for the nonlinear model** (``u_space="Hdiv"``): the advection of
+        the momentum (the commutator of the Euler-Poincaré equations) is discretized with the vector fields acting as
+        derivations on an auxiliary space that contains the contravariant velocity components, so that the
+        bracket needs no projection (:class:`~struphy.feec.variational_utilities.HdivBracketOperator`). It needs the degree :math:`p \geq 2`,
+        except in periodic directions with one element, and no polar splines. The velocity mass matrix is the 2-form
+        mass matrix of the total density :math:`\rho_0 + \tilde\rho`, and the energy is conserved up to the solver
+        tolerances, as with the velocity in :math:`(H^1)^3`.
         """
 
     @classmethod
@@ -417,10 +458,13 @@ class VariationalPerturbativeMHD(StruphyModel):
         5. :class:`~struphy.propagators.variational_resistivity.VariationalResistivity` (if :attr:`with_resistivity` is True)
 
         The option ``model`` of the variational propagators is ``"perturbative"`` (``"full_p"`` for the dissipative
-        ones), or ``"linear"`` (``"linear_p"``) if :attr:`linear` is True. With ``u_space="Hdiv"`` the propagators use
-        the velocity mass matrix :attr:`~struphy.feec.mass.WeightedMassOperators.M2n` and, for the equilibrium terms,
-        the basis projection operators of :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`
-        and :class:`~struphy.propagators.magnetosonic.Magnetosonic`.
+        ones), or ``"linear"`` (``"linear_p"``) if :attr:`linear` is True. With ``u_space="Hdiv"`` the propagators of the
+        linear model use the velocity mass matrix :attr:`~struphy.feec.mass.WeightedMassOperators.M2n` and, for the
+        equilibrium terms, the basis projection operators of
+        :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` and
+        :class:`~struphy.propagators.magnetosonic.Magnetosonic`; those of the nonlinear model use the 2-form mass
+        matrix of the total density (:class:`~struphy.propagators.utils.VelocityMass`) and the transport operators of
+        :mod:`~struphy.feec.variational_utilities` with ``u_space="Hdiv"``.
         """
         doc = rf"""**1. VariationalDensityEvolve:**
 
@@ -472,6 +516,7 @@ class VariationalPerturbativeMHD(StruphyModel):
             linear_model = VariationalPerturbativeMHD(linear=True)
             linear_cn_model = VariationalPerturbativeMHD(linear=True, crank_nicolson=True)
             linear_model_hdiv = VariationalPerturbativeMHD(linear=True, crank_nicolson=True, u_space="Hdiv")
+            model_hdiv = VariationalPerturbativeMHD(u_space="Hdiv")
             model.mhd.pressure
             model.em_fields.b_field
         """
@@ -484,7 +529,9 @@ class VariationalPerturbativeMHD(StruphyModel):
         - linear MHD waves and instabilities (``linear=True``)
         - comparing linear and perturbative variational formulations
         - comparing the variational linear MHD with the velocity in :math:`H(\textnormal{div})`
-          (``u_space="Hdiv"``) with :class:`~struphy.models.linear_mhd.LinearMHD`"""
+          (``u_space="Hdiv"``) with :class:`~struphy.models.linear_mhd.LinearMHD`
+        - perturbative nonlinear MHD in toroidal geometries with the velocity in :math:`H(\textnormal{div})`
+          (``u_space="Hdiv"``), whose wall condition is only :math:`\mathbf u \cdot \mathbf n = 0`"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
