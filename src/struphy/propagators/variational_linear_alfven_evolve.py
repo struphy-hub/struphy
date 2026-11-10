@@ -5,11 +5,14 @@ from typing import Literal
 from line_profiler import profile
 
 from struphy.feec.preconditioner import MassMatrixPreconditioner
-from struphy.feec.variational_utilities import Hdiv0_transport_operator, alfven_schur_preconditioner
+from struphy.feec.variational_utilities import (
+    Hdiv0_transport_operator,
+    TransportAdjointMatrix,
+    alfven_schur_preconditioner,
+)
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
-from struphy.propagators.utils import EquilibriumCurrentTerm
 from struphy.propagators.variational_linear_base import VariationalLinearEvolve
 from struphy.utils.utils import check_option
 
@@ -85,14 +88,12 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
     which conserves the energy exactly for any weight :math:`\mathbf b^w`. The option ``weights`` sets it:
 
     - ``"midpoint"`` (default): :math:`\mathbf b^w = \mathbf b^{n+\frac12}`, second order in time. The force
-      :math:`\mathbb T[\mathbf b^w]^\top \mathbb M^2 \mathbf b_0` is linear in :math:`\mathbf b^w` but not available as a
-      matrix; the system is solved by a Newton iteration on :math:`(\mathbf u^{n+1}, \mathbf b^{n+1})` with the exact
-      residual and the approximate matrix :math:`\mathbb W` of :math:`\int \mathbf v \cdot (\mathbf j_0 \times
-      \mathbf B)` (:class:`~struphy.propagators.utils.EquilibriumCurrentTerm`) in place of its derivative
+      :math:`\mathbb T[\mathbf b^w]^\top \mathbb M^2 \mathbf b_0 = -\mathbb F \mathbf b^w` is linear in
+      :math:`\mathbf b^w`, with the matrix :math:`\mathbb F` assembled once
+      (:class:`~struphy.feec.variational_utilities.TransportAdjointMatrix`), so the step is one linear solve
       (:class:`~struphy.propagators.variational_linear_base.VariationalLinearEvolve`, Schur complement
-      :math:`\mathbb M^v_{\rho_0} + \frac{\Delta t^2}{4} (\mathbb T_0^\top \mathbb M^2 + \mathbb W) \mathbb T_0`, not
-      symmetric, ``solver="rpbicgstab"``). :math:`\mathbb W` only affects the convergence, not the solution
-      (relative tolerance 1e-12).
+      :math:`\mathbb M^v_{\rho_0} + \frac{\Delta t^2}{4} (\mathbb T_0^\top \mathbb M^2 - \mathbb F) \mathbb T_0`, not
+      symmetric, ``solver="rpbicgstab"``).
     - ``"frozen"``: :math:`\mathbf b^w = \mathbf b^n`, first order in time: the force is explicit and one linear solve
       with the symmetric, constant shear-Alfvén Schur complement :math:`\mathbb M^v_{\rho_0} + \frac{\Delta t^2}{4}
       \mathbb T_0^\top \mathbb M^2 \mathbb T_0` gives the exact solution; ``schur_precond`` provides a Kronecker
@@ -241,8 +242,6 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         self._T0T.update_coeffs(self.projected_equil.b2)
 
         self._midpoint = self.options.weights == "midpoint"
-        self._newton_tol = 1e-12
-        self._newton_maxiter = 30
         self._init_second_order_term()
 
         self._allocate_schur_solver(
@@ -252,7 +251,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             self.derham.V2pol,
             self.options.solver,
             self.options.solver_params,
-            R=self._R if self._midpoint else None,
+            R=self._F if self._midpoint else None,
         )
 
         # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
@@ -270,20 +269,17 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         self._tmp_bn12 = b.space.zeros()
         self._tmp_fb = b.space.zeros()
         self._tmp_M2b = b.space.zeros()
-        self._tmp_du = u.space.zeros()
-        self._tmp_fu3 = u.space.zeros()
 
     def _init_second_order_term(self):
         r"""Second-order term :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}` (Galerkin Hodge star): the transport
-        :math:`\mathbb T[\mathbf b^w]` of :math:`\hat{\mathbf b}`, whose adjoint applied to :math:`\mathbb M^2 \mathbf
-        b_0` is the force, and the matrix :math:`\mathbb W` (``-self._R``) of :math:`\int \mathbf v \cdot (\mathbf
-        j_0 \times \mathbf B)`, used only in the Newton matrix as an approximation of the derivative of that force."""
-        self._R = EquilibriumCurrentTerm(self.derham, self.domain, self.mass_ops, self.projected_equil, self._u_space).R
+        :math:`\mathbb T[\mathbf b^w]` of :math:`\hat{\mathbf b}`, and the matrix :math:`\mathbb F` of its adjoint applied
+        to the linear form :math:`-\mathbb M^2 \mathbf b_0`, the force
+        (:class:`~struphy.feec.variational_utilities.TransportAdjointMatrix`)."""
         self._Tw = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
-        self._TwT = self._Tw.T
         # linear form of the second-order energy b0^T M2 b-hat (with the sign of the force term)
         self._lf0 = self.mass_ops.M2.dot(self.projected_equil.b2)
         self._lf0 *= -1.0
+        self._F = TransportAdjointMatrix(self.derham, self.domain, self.mass_ops, self._u_space, self._lf0)
 
     def prepare_time_step(self, dt: float):
         """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
@@ -302,66 +298,35 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         un = self.variables.u.spline.vector
         bn = self.variables.b.spline.vector
 
-        # Newton iteration on (u^{n+1}, b^{n+1}): the residual has the exact force T[b^w]^T M2 b0 of the second-order
-        # term, the Newton matrix W instead of its derivative; with weights b^n the force is explicit and one solve
-        # is exact
-        un1 = un.copy(out=self._tmp_un1)
-        bn1 = bn.copy(out=self._tmp_bn1)
-        if not self._midpoint:
-            self._Tw.update_coeffs(bn)
-            self._TwT.update_coeffs(bn)
-        err0 = None
-        for it in range(self._newton_maxiter):
-            un12 = un.copy(out=self._tmp_un12)
-            un12 += un1
-            un12 *= 0.5
-            bn12 = bn.copy(out=self._tmp_bn12)
-            bn12 += bn1
-            bn12 *= 0.5
-            if self._midpoint:
-                self._Tw.update_coeffs(bn12)
-                self._TwT.update_coeffs(bn12)
-            # momentum: M (u1 - un) + dt (-T0^T M2 b^{n+1/2} - T[b^w]^T M2 b0)
-            du = un1.copy(out=self._tmp_du)
-            du -= un
-            f_u = self._Mrho.dot(du, out=self._tmp_fu)
-            M2b = self.mass_ops.M2.dot(bn12, out=self._tmp_M2b)
-            M2b *= -1.0
-            g = self._T0T.dot(M2b, out=self._tmp_fu2)
-            g += self._TwT.dot(self._lf0, out=self._tmp_fu3)
-            g *= dt
-            f_u += g
-            # induction: b1 - bn + dt T0 u^{n+1/2}
-            f_b = self._T0.dot(un12, out=self._tmp_fb)
-            f_b *= dt
-            f_b += bn1
-            f_b -= bn
-            if self._midpoint:
-                err = (f_u.inner(f_u) + f_b.inner(f_b)) ** 0.5
-                if err0 is None:
-                    err0 = err
-                if err <= self._newton_tol * err0 or err == 0.0:
-                    break
-            elif it == 1:
-                break
-            incr = self._solve_increment(dt, f_u, f_b)
-            un1 -= incr[0]
-            bn1 -= incr[1]
-        else:
-            logger.warning(f"{self.__class__.__name__}: Newton iteration not converged ({err / err0:.2e}).")
-        if self._info:
-            logger.info(f"{self.__class__.__name__}: {it} Newton iterations")
+        # residual at (u^n, b^n): the force -T0^T M2 b^n + F b^n and the induction T0 u^n (times dt); with the matrix F
+        # of the second-order force in the Schur system (midpoint weights) or the force explicit (frozen weights), one
+        # linear solve is exact
+        M2b = self.mass_ops.M2.dot(bn, out=self._tmp_M2b)
+        M2b *= -1.0
+        f_u = self._T0T.dot(M2b, out=self._tmp_fu)
+        f_u += self._F.dot(bn, out=self._tmp_fu2)
+        f_u *= dt
+        f_b = self._T0.dot(un, out=self._tmp_fb)
+        f_b *= dt
 
-        # second-order field with the same weight: b-hat += -dt T[b^w] u^{n+1/2} (T[b^w] is set to b^w above)
+        incr = self._solve_increment(dt, f_u, f_b)
+        un1 = un.copy(out=self._tmp_un1)
+        un1 -= incr[0]
+        bn1 = bn.copy(out=self._tmp_bn1)
+        bn1 -= incr[1]
+
+        # second-order field with the same weight: b-hat += -dt T[b^w] u^{n+1/2}
         if self._bt2 is not None:
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
             if self._midpoint:
-                bn12 = bn.copy(out=self._tmp_bn12)
-                bn12 += bn1
-                bn12 *= 0.5
-                self._Tw.update_coeffs(bn12)
+                bw = bn.copy(out=self._tmp_bn12)
+                bw += bn1
+                bw *= 0.5
+            else:
+                bw = bn
+            self._Tw.update_coeffs(bw)
             db = self._Tw.dot(un12, out=self._tmp_fb)
             db *= dt
             self._bt2 -= db

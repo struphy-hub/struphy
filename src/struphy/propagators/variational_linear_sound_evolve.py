@@ -5,7 +5,11 @@ from typing import Literal
 from line_profiler import profile
 
 from struphy.feec.mass import L2Projector
-from struphy.feec.variational_utilities import Pressure_transport_operator, dot_normalized
+from struphy.feec.variational_utilities import (
+    Pressure_transport_operator,
+    PressureTransportAdjointMatrix,
+    dot_normalized,
+)
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
@@ -94,13 +98,11 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
 
       which conserves the energy exactly for any weight :math:`\mathbf p^w`. The option ``weights`` sets it. With
       ``"midpoint"`` (default), :math:`\mathbf p^w = \mathbf p^{n+\frac12}`, the implicit midpoint rule, second order in
-      time with implicit sound waves: the force is linear in :math:`\mathbf p^w` but not available as a matrix, so the
-      system is solved by a Newton iteration on :math:`(\mathbf u^{n+1}, \mathbf p^{n+1})` with the exact residual and
-      its weak form :math:`\mathbb S[\mathbf p]^\top \hat{\mathbf l} \approx -(\mathbb D \mathcal U^v)^\top \mathbb M^3
-      \mathbf p` (the force :math:`\int p\, \nabla \cdot \mathbf v`) in the matrix
+      time with implicit sound waves. The force :math:`\mathbb S[\mathbf p^w]^\top \hat{\mathbf l} = \mathbb A
+      \mathbf p^w` is linear in :math:`\mathbf p^w`, with the matrix :math:`\mathbb A` assembled once
+      (:class:`~struphy.feec.variational_utilities.PressureTransportAdjointMatrix`), so the step is one linear solve
       (:class:`~struphy.propagators.variational_linear_base.VariationalLinearEvolve`, Schur complement
-      :math:`\mathbb M^v_{\rho_0} + \frac{\Delta t^2}{4} (\mathbb D \mathcal U^v)^\top \mathbb M^3 \mathbb S[p_0]`, not
-      symmetric), which only affects the convergence (relative tolerance 1e-12). With ``"frozen"``,
+      :math:`\mathbb M^v_{\rho_0} - \frac{\Delta t^2}{4} \mathbb A\, \mathbb S[p_0]`, not symmetric). With ``"frozen"``,
       :math:`\mathbf p^w = \mathbf p^n`: the velocity is advanced with one mass-matrix solve, then the pressure. The
       sound waves are then explicit and not stable for any :math:`\Delta t`: the amplitude of a sound wave of
       frequency :math:`\omega_s` grows by :math:`|\lambda|^2 = 1 + (\Delta t\, \omega_s)^2 / 2` per step (first order
@@ -299,11 +301,10 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             # term), as in VariationalPBEvolve: the force is the adjoint S[p^w]^T of the transport of p-hat
             self._lf0 = L2Projector("L2", self.mass_ops).get_dofs(self.domain.jacobian_det)
             self._lf0 *= -1.0 / (self._gamma - 1.0)
-            # weak form -(D U^v)^T M3 of the derivative of that force, only for the Newton matrix (the sign inside the
-            # composition: a Schur solver rescales an outer ScaledLinearOperator with dt)
-            self._R = self._div_u.T @ (-1.0 * self.mass_ops.M3)
-            self._newton_tol = 1e-12
-            self._newton_maxiter = 30
+            # the matrix A of p -> S[p]^T l: the force is linear in the weight, A p^w (assembled once, exact)
+            self._A = PressureTransportAdjointMatrix(
+                self.derham, self.domain, self.mass_ops, self.basis_ops, self._u_space, kappa, self._lf0
+            )
 
         self._midpoint = self.options.weights == "midpoint"
 
@@ -328,7 +329,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
                 self.derham.V3pol,
                 self.options.solver,
                 self.options.solver_params,
-                R=self._R,
+                R=self._A,
             )
         else:
             self._allocate_mass_solver(self.options.solver, self.options.solver_params)
@@ -373,50 +374,23 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             un12 += un1
             un12 *= 0.5
         elif self._midpoint:
-            # Newton iteration on (u^{n+1}, p^{n+1}) with the exact force S[p^{n+1/2}]^T l of the second-order pressure
-            # in the residual and its weak form R in the matrix
+            # residual at (u^n, p^n): the force A p^n = S[p^n]^T l and S0 u^n (times dt); with A in the Schur system the
+            # midpoint system is solved exactly by one linear solve
+            f_u = self._A.dot(sn, out=self._tmp_fu)
+            f_u *= dt
+            f_s = self._S0.dot(un, out=self._tmp_fs)
+            f_s *= dt
+            incr = self._solve_increment(dt, f_u, f_s)
             un1 = un.copy(out=self._tmp_un1)
+            un1 -= incr[0]
             sn1 = sn.copy(out=self._tmp_sn1)
-            err0 = None
-            for it in range(self._newton_maxiter):
-                un12 = un.copy(out=self._tmp_un12)
-                un12 += un1
-                un12 *= 0.5
-                sn12 = sn.copy(out=self._tmp_sn12)
-                sn12 += sn1
-                sn12 *= 0.5
-                self._SsT.update_coeffs(sn12)
-                # momentum: M (u1 - un) + dt S[p^{n+1/2}]^T l
-                du = un1.copy(out=self._tmp_du)
-                du -= un
-                f_u = self._Mrho.dot(du, out=self._tmp_fu)
-                g = self._SsT.dot(self._lf0, out=self._tmp_fu2)
-                g *= dt
-                f_u += g
-                # pressure: p1 - pn + dt S0 u^{n+1/2}
-                f_s = self._S0.dot(un12, out=self._tmp_fs)
-                f_s *= dt
-                f_s += sn1
-                f_s -= sn
-                err = (f_u.inner(f_u) + f_s.inner(f_s)) ** 0.5
-                if err0 is None:
-                    err0 = err
-                if err <= self._newton_tol * err0 or err == 0.0:
-                    break
-                incr = self._solve_increment(dt, f_u, f_s)
-                un1 -= incr[0]
-                sn1 -= incr[1]
-            else:
-                logger.warning(f"{self.__class__.__name__}: Newton iteration not converged ({err / err0:.2e}).")
-            if self._info:
-                logger.info(f"{self.__class__.__name__}: {it} Newton iterations")
+            sn1 -= incr[1]
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
         else:
             # velocity: M (u^{n+1} - u^n) = -dt S[p^n]^T l, with the pressure at t^n only
-            self._SsT.update_coeffs(sn)
-            f_u = self._SsT.dot(self._lf0, out=self._tmp_fu)
+            f_u = self._A.dot(sn, out=self._tmp_fu)
             f_u *= dt
             # normalized right-hand side: the tolerance of the linear solver is relative to it
             if self.options.relative_tol:
