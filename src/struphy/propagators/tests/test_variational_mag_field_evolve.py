@@ -2,6 +2,7 @@ import cunumpy as xp
 from maybempi import MPI
 
 from struphy import domains
+from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
@@ -58,6 +59,8 @@ def test_linear_model_is_linearisation_of_full_model():
     Propagator.derham = derham
     Propagator.domain = domain
     Propagator.mass_ops = mass_ops
+    # set here, not left over from another test (the velocity metric needs it)
+    Propagator.basis_ops = BasisProjectionOperators(derham, domain)
 
     # unit density
     mass_ops.WMMnew.spline_functions["l2_field"].vector = derham.P3(lambda x, y, z: 1.0 + 0 * x)

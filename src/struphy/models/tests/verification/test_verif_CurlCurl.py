@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import pytest
@@ -24,12 +23,12 @@ logger = logging.getLogger("struphy")
 
 @pytest.mark.verif_pr
 @pytest.mark.parametrize("hfun", ["cos", "sin"])
-def test_curl_curl_1d(hfun, do_plot=False):
+def test_curl_curl_1d(mpi_out_folder: str, hfun, do_plot=False):
     # light-weight model instance
     model = CurlCurl(with_t_dep_source=True)
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "CurlCurl")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"time_source_1d_{hfun}")
 
@@ -101,8 +100,7 @@ def test_curl_curl_1d(hfun, do_plot=False):
         logger.info(f"{err =}")
         assert err < 1e-4
 
-        shutil.rmtree(os.path.join(out_folders, env.sim_folder))
-
 
 if __name__ == "__main__":
-    test_curl_curl_1d("sin", do_plot=True)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_curl_curl_1d(out, "sin", do_plot=True)

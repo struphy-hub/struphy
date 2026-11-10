@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import numpy as np
@@ -12,7 +11,6 @@ from scipy.signal import argrelextrema
 from scipy.special import jv, yn
 
 from struphy import (
-    BaseUnits,
     DerhamOptions,
     EnvironmentOptions,
     Simulation,
@@ -60,12 +58,12 @@ def _fit_branches(omega, k, power, n_branches, noise_level, order=10):
 
 @pytest.mark.verif_pr
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
-def test_light_wave_1d(algo: str, do_plot: bool = False):
+def test_light_wave_1d(mpi_out_folder: str, algo: str, do_plot: bool = False):
     # light-weight model instance
     model = Maxwell()
 
     # set environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
 
@@ -114,16 +112,14 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         c_light_speed = 1.0
         assert xp.abs(fits[0][0] - c_light_speed) < 0.02
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.verif_pr
-def test_coaxial(do_plot: bool = False):
+def test_coaxial(mpi_out_folder: str, do_plot: bool = False):
     # light-weight model instance
     model = Maxwell()
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="coaxial")
 
@@ -275,9 +271,8 @@ def test_coaxial(do_plot: bool = False):
         assert rel_err_Er < 0.0021, f"Assertion for electric (E_r) field Maxwell failed: {rel_err_Er =}"
         logger.info(f"Assertion for electric field Maxwell passed ({rel_err_Er =}).")
 
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    test_light_wave_1d(algo="explicit", do_plot=True)
-    test_coaxial(do_plot=True)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_light_wave_1d(out, algo="explicit", do_plot=True)
+    test_coaxial(out, do_plot=True)
