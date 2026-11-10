@@ -9,7 +9,6 @@ set_logging_level(logging.WARNING)
 logger = logging.getLogger("struphy")
 
 
-@pytest.mark.mpi_skip
 def test_gyro_maxwellian_2d(do_plot=False):
 
     from struphy import LoadingParameters, Simulation, equils, maxwellians

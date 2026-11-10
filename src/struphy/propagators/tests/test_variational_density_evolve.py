@@ -7,7 +7,6 @@ from struphy import set_logging_level
 set_logging_level(logging.WARNING)
 
 
-@pytest.mark.mpi_skip
 def test_variational_density_evolve_barotropic_newton():
     """Barotropic Newton iteration of VariationalDensityEvolve converges quadratically (exact Jacobian)."""
 
