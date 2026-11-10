@@ -160,7 +160,7 @@ exclude = ["*.md"]
 [tool.ruff.lint]
 # Ruff's pre-0.16 default rules (pyflakes and basic pycodestyle errors), plus
 # "I": import sorting (replaces isort), fixed with `ruff check --fix`
-select = ["E4", "E7", "E9", "F", "I"]
+select = ["E4", "E7", "E9", "F", "I", "W605"]  # W605: invalid escape sequences (SyntaxWarning)
 ignore = [
     "E265",
     "E402",
