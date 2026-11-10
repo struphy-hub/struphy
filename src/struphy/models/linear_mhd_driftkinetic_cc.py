@@ -6,9 +6,14 @@ from scope_profiler import ProfileManager
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
 from struphy.models.linear_mhd import LinearMHD
-from struphy.models.scalars import FunctionScalarPIC, KineticEnergyPIC, LostMarkersPIC
+from struphy.models.scalars import FunctionScalarPIC
 from struphy.models.species import ParticleSpecies
-from struphy.models.utils import magnetic_discretization_doc
+from struphy.models.utils import (
+    add_energetic_ion_scalars,
+    energetic_ion_mu_energy,
+    magnetic_discretization_doc,
+    set_guiding_center_push_algos,
+)
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.particles import Particles5D
 from struphy.propagators.base import Propagator
@@ -27,12 +32,6 @@ from struphy.propagators.shear_alfven_curl_curl_current_coupling_5d import Shear
 from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
 
 logger = logging.getLogger("struphy")
-
-# algorithms of the guiding-center pushers in the default parameter file: the energy-conserving discrete gradient
-# methods of the reference discretization, second order (implicit mid-point) for the drift perpendicular to b0, first
-# order (Itoh-Abe) with Newton iterations for the parallel motion
-PUSH_BXE_ALGO = "discrete_gradient_2nd_order"
-PUSH_PARALLEL_ALGO = "discrete_gradient_1st_order_newton"
 
 
 class LinearMHDDriftkineticCC(LinearMHD):
@@ -256,15 +255,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
     def _create_scalars(self):
         """:meta private:"""
         scalars = super()._create_scalars()
-        en_tot = scalars.pop("en_tot")
-        Ab = self.mhd.mass_number
-        Ah = self.energetic_ions.var.species.mass_number
-        en_fv = KineticEnergyPIC(self.energetic_ions.var, normalization=Ah / Ab)
         en_fB = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
-        scalars["en_fv"] = en_fv
-        scalars["en_fB"] = en_fB
-        scalars["en_tot"] = en_tot + en_fv + en_fB
-        scalars["n_lost_particles"] = LostMarkersPIC(self.energetic_ions.var)
+        add_energetic_ion_scalars(scalars, self.mhd, self.energetic_ions, extra={"en_fB": en_fB}, kinetic_name="en_fv")
         if self.params["energy_budget"]:
             scalars["en_refill"] = FunctionScalarPIC(self._compute_en_refill, self.energetic_ions.var)
             scalars["en_weight"] = FunctionScalarPIC(self._compute_en_weight, self.energetic_ions.var)
@@ -272,19 +264,9 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
     def generate_default_parameter_file(self, path=None, prompt=True):
         """The default parameter file, with the algorithms of the reference discretization for the guiding-center
-        pushers (``PUSH_BXE_ALGO``, ``PUSH_PARALLEL_ALGO``)."""
+        pushers (:data:`~struphy.models.utils.GC_PUSH_ALGOS`)."""
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
-        with open(params_path, "r") as f:
-            lines = f.readlines()
-        algos = {"push_bxe": PUSH_BXE_ALGO, "push_parallel": PUSH_PARALLEL_ALGO}
-        for i, line in enumerate(lines):
-            for prop, algo in algos.items():
-                if f"model.propagators.{prop}.Options()" in line:
-                    lines[i] = line.replace(
-                        f"model.propagators.{prop}.Options()", f'model.propagators.{prop}.Options(algo="{algo}")'
-                    )
-        with open(params_path, "w") as f:
-            f.writelines(lines)
+        set_guiding_center_push_algos(params_path)
         return params_path
 
     def post_allocate(self):
@@ -293,7 +275,6 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
         # parallel component of the magnetic field perturbation (2-form or 1-form), a 0-form
         self._PB = Propagator.basis_ops.PB if self._b_space == "Hdiv" else Propagator.basis_ops.PB1form
-        self._PBb = self._PB.codomain.zeros()
 
         accfilter = self.propagators.shear_alf._ACC.accfilter
         self._b_par_filter = accfilter if accfilter.params.use_filter == "fourier_in_tor" else None
@@ -337,18 +318,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
         return self.energetic_ions.var.particles.weight_energy[0] * Ah / Ab
 
     def _compute_en_fB(self):
-        Ab = self.mhd.mass_number
-        Ah = self.energetic_ions.var.species.mass_number
-        particles = self.energetic_ions.var.particles
-        self._PBb = self._b_par()
-        particles.save_magnetic_energy(self._PBb)
-
-        return (
-            particles.markers[5, particles.valid_mks].dot(
-                particles.markers[8, particles.valid_mks],
-            )
-            * Ah
-            / Ab
+        return energetic_ion_mu_energy(
+            self.mhd, self.energetic_ions, self._PB, self.em_fields.b_field, b_par_filter=self._b_par_filter
         )
 
     @classmethod
@@ -389,26 +360,51 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
         .. math::
 
-            n_\textnormal{gc} = \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu
-
-        .. math::
-
-            \mathbf{J}_\textnormal{gc} = \int \frac{f_\textnormal{h}}{B_\parallel^*} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
-
-        .. math::
-
-            \mathbf{M}_\textnormal{gc} = -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            n_\textnormal{gc} &= \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            \\[2mm]
+            \mathbf{J}_\textnormal{gc} &= \int f_\textnormal{h} \left( v_\parallel \mathbf{B}^* - \mathbf{b}_0 \times \mathbf{E}^* \right) \, \textnormal{d} v_\parallel \textnormal{d} \mu
+            \\[2mm]
+            \mathbf{M}_\textnormal{gc} &= -\int f_\textnormal{h} B_\parallel^* \mu \mathbf{b}_0 \, \textnormal{d} v_\parallel \textnormal{d} \mu
 
         where
 
         .. math::
 
-            B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*
+            B^*_\parallel &= \mathbf{b}_0 \cdot \mathbf{B}^*
             \\[2mm]
             \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0
             \\[2mm]
             \mathbf{E}^* &= -\tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla (\mathbf{b}_0 \cdot \mathbf{B})
+            \\[2mm]
+            \mathbf{B} &= \mathbf{B}_0 + \tilde{\mathbf{B}}
 
+        **Conserved quantities** (for :math:`\tilde{\mathbf U} \cdot \mathbf n = 0` and
+        :math:`\mathbf B_0 \cdot \mathbf n = \tilde{\mathbf B} \cdot \mathbf n = 0` on the boundary, or periodic boundaries, and periodic or reflecting boundaries for the energetic ions;
+        otherwise, lost markers carry energy out of the domain, see ``n_lost_particles``):
+
+        Mass perturbation, number of energetic ions (the guiding-center phase-space volume
+        :math:`B_\parallel^* \, \textnormal{d} \mathbf x \, \textnormal{d} v_\parallel \textnormal{d} \mu` is preserved by
+        the flow) and divergence of the magnetic field:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \int \tilde \rho \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\textnormal d}{\textnormal d t} \int \int f_\textnormal{h} B_\parallel^* \, \textnormal{d} v_\parallel
+            \textnormal{d} \mu \, \textnormal d \mathbf x = 0\,, \qquad
+            \frac{\partial}{\partial t} \nabla \cdot \tilde{\mathbf B} = 0
+
+        Total perturbed energy, for an equilibrium with :math:`\nabla \times \mathbf B_0 = 0` and
+        :math:`\nabla p_0 = 0`, with :math:`\gamma = 5/3`. The guiding-center current
+        :math:`\mathbf{J}_\textnormal{gc}` and magnetization :math:`\mathbf{M}_\textnormal{gc}` exchange energy between
+        the MHD flow, the magnetic field and the energetic ions:
+
+        .. math::
+
+            \frac{\textnormal d}{\textnormal d t} \left[ \int \left( \frac{\rho_0}{2} |\tilde{\mathbf U}|^2
+            + \frac 12 |\tilde{\mathbf B}|^2 + \frac{\tilde p^2}{2 \gamma p_0} \right) \textnormal d \mathbf x
+            + \frac{A_\textnormal{h}}{A_\textnormal{b}} \int \int f_\textnormal{h} B_\parallel^* \left( \frac 12
+            v_\parallel^2 + \mu \, \mathbf b_0 \cdot \mathbf B \right) \textnormal{d} v_\parallel \textnormal{d} \mu
+            \, \textnormal d \mathbf x \right] = 0
         """
 
     @classmethod

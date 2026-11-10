@@ -47,7 +47,6 @@ def test_stiffness_preconditioner_options():
     assert ShearAlfvenSchurPreconditioner.resolve("MultiGrid", polar, **ok) == "MultiGrid"
 
 
-@pytest.mark.mpi_skip
 def test_stiffness_preconditioner_polar_fallback(tmp_path):
     """With polar splines, the default preconditioner falls back to the polar mass matrix preconditioner, and the
     implicit step works and conserves the energy (issue #810)."""

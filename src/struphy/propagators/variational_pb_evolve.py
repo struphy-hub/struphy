@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from feectools.linalg.basic import IdentityOperator
+from feectools.linalg.basic import IdentityOperator, ScaledLinearOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
@@ -17,6 +17,8 @@ from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
     NewtonConvergence,
     Pressure_transport_operator,
+    PressureTransportAdjointMatrix,
+    TransportAdjointMatrix,
     alfven_schur_preconditioner,
     dot_normalized,
     inv_norm2,
@@ -25,6 +27,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -92,6 +95,73 @@ class VariationalPBEvolve(Propagator):
 
     The weights of the transport operators are taken at :math:`t^n` (in all equations, which conserves the
     energy); the step is therefore only first-order accurate in time.
+
+    **Velocity in** :math:`H(\textnormal{div})` (``model="perturbative"``): :math:`\mathbf u` is a 2-form with vanishing
+    normal component at the boundary. The scheme is the same, with the mass matrix of the total density
+    :math:`\mathbb M^2_\rho` (:class:`~struphy.propagators.utils.VelocityMass` with the constructor argument ``rho``,
+    assembled at the beginning of the step) instead of :math:`\mathbb M^v[\hat\rho_h^n]`, and the transport operators
+    :class:`~struphy.feec.variational_utilities.Hdiv0_transport_operator` and
+    :class:`~struphy.feec.variational_utilities.Pressure_transport_operator` with ``u_space="Hdiv"``
+    (:math:`\hat\Pi^1[(\hat{\mathbf B}^2 \times \vec{\boldsymbol\Lambda}^2)/\sqrt g]`,
+    :math:`\hat\Pi^2[\hat p^3 \vec{\boldsymbol\Lambda}^2/\sqrt g]` and :math:`\mathbb D` without
+    :math:`\mathcal U^v`). Not available with polar splines.
+
+    **Perturbative model** (``model="perturbative"``): the conserved energy is
+    :math:`\frac12 \mathbf u^\top \mathbb M^v_\rho \mathbf u + \frac12 \mathbf b^\top \mathbb M^2 \mathbf b
+    + \mathbf b_0^\top \mathbb M^2 \hat{\mathbf b} + \int \hat p / (\gamma - 1)`, the expansion of the energy of the full
+    model (Galerkin Hodge star :math:`\mathbb M^2` throughout) without the terms linear in the perturbation, whose forces
+    (the equilibrium force) are dropped. The auxiliary second-order variables :math:`\hat p` (``pt3``) and
+    :math:`\hat{\mathbf b}` (``bt2``) are advanced with the part of the transport of :math:`\mathbf p` and :math:`\mathbf b`
+    that has the perturbations :math:`\mathbf p^w`, :math:`\mathbf b^w` as weights; the forces are the adjoints of these
+    transports. The equilibrium transport (weights :math:`\mathbf B_0`, :math:`p_0`) is as above, and
+
+    .. math::
+
+        \begin{align}
+        &\mathbb M^v_\rho \frac{\mathbf u^{n+1}-\mathbf u^n}{\Delta t}
+        - (\mathbb T[\mathbf B_0] + \mathbb T[\mathbf b^w])^\top \mathbb M^2 \mathbf b^{n+\frac12}
+        - \mathbb T[\mathbf b^w]^\top \mathbb M^2 \mathbf b_0
+        - \mathbb S[\mathbf p^w]^\top \hat l^3(\tfrac{g}{\gamma-1}) = 0 \,,
+        \\[2mm]
+        &\frac{\mathbf b^{n+1}-\mathbf b^n}{\Delta t} + (\mathbb T[\mathbf B_0] + \mathbb T[\mathbf b^w])
+        \mathbf u^{n+\frac12} = 0 \,, \qquad
+        \frac{\mathbf p^{n+1}-\mathbf p^n}{\Delta t} + (\mathbb S[p_0] + \mathbb S[\mathbf p^w])
+        \mathbf u^{n+\frac12} = 0 \,,
+        \\[2mm]
+        &\frac{\hat{\mathbf b}^{n+1}-\hat{\mathbf b}^n}{\Delta t} + \mathbb T[\mathbf b^w] \mathbf u^{n+\frac12} = 0
+        \,, \qquad
+        \frac{\hat{\mathbf p}^{n+1}-\hat{\mathbf p}^n}{\Delta t} + \mathbb S[\mathbf p^w] \mathbf u^{n+\frac12} = 0 \,,
+        \end{align}
+
+    with :math:`\mathbb T[\bar{\mathbf B}] = \mathbb C \hat\Pi^1[\hat{\bar{\mathbf B}} \times
+    \vec{\boldsymbol\Lambda}^v]` and :math:`\mathbb S[\bar p]` the pressure transport above. The second-order magnetic
+    term :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}` has no wall defect: :math:`\hat{\mathbf b} = \mathbb C
+    \hat{\mathbf a}` with :math:`\hat{\mathbf a}` the sum of the projections :math:`\hat\Pi^1[\hat{\mathbf b}^w \times
+    \mathbf u]`, which have zero tangential trace (the degrees of freedom on a wall edge integrate the tangential
+    component of :math:`\mathbf B^w \times \mathbf u`, zero for :math:`\mathbf B^w \cdot \mathbf n = \mathbf u \cdot
+    \mathbf n = 0`), so :math:`\mathbf b_0^\top \mathbb M^2 \mathbb C \hat{\mathbf a} = \hat{\mathbf a}^\top
+    \mathbb C^\top \mathbb M^2 \mathbf b_0` is the weak curl of :math:`\mathbf b_0` tested only against fields of zero
+    tangential trace, on which it is exact; the current is never used as a field. The energy is conserved for any
+    weights. The option ``weights`` sets them:
+
+    - ``"midpoint"`` (default): :math:`\mathbf b^w = \mathbf b^{n+\frac12}`, :math:`\mathbf p^w =
+      \mathbf p^{n+\frac12}`, the implicit midpoint rule. At small amplitude the step is that of the linear model with
+      midpoint weights
+      (:class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve` and
+      :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve`, which use the same
+      operators, up to the splitting): sound waves and second-order terms
+      are implicit. The Newton matrix contains the derivatives of these linear terms,
+      :math:`\mathbb M^v_\rho - \frac{\Delta t^2}{4} \mathbb A\, \mathbb S[p_0]` in the upper left block, with the
+      matrix :math:`\mathbb A` of the pressure force :math:`\mathbf p \mapsto \mathbb S[\mathbf p]^\top \hat{\mathbf l}`
+      (:class:`~struphy.feec.variational_utilities.PressureTransportAdjointMatrix`), and :math:`\frac{\Delta t}{2}
+      \mathbb F` in the upper right block, the exact derivative of the second-order magnetic force
+      :math:`\mathbb T[\mathbf b]^\top \mathbb M^2 \mathbf b_0 = -\mathbb F \mathbf b`, which is linear in
+      :math:`\mathbf b` (:class:`~struphy.feec.variational_utilities.TransportAdjointMatrix`); it is not symmetric
+      (``solver="rpbicgstab"``).
+      The weights are updated in every iteration, which stops when also the pressure has converged.
+    - ``"frozen"``: :math:`\mathbf b^w = \mathbf b^n`, :math:`\mathbf p^w = \mathbf p^n`. The pressure force and the
+      force of the equilibrium current are then explicit, and sound waves grow for :math:`\Delta t\, \omega_s
+      \gtrsim 1`.
     """
 
     class Variables:
@@ -102,7 +172,7 @@ class VariationalPBEvolve(Propagator):
         p : FEECVariable
             Pressure variable in ``"L2"`` space.
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space.
+            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space for ``model="perturbative"``.
         b : FEECVariable
             Magnetic-field variable in ``"Hdiv"`` space.
         """
@@ -129,7 +199,7 @@ class VariationalPBEvolve(Propagator):
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1vec"
+            assert new.space in ("H1vec", "Hdiv")
             self._u = new
 
         @property
@@ -148,6 +218,7 @@ class VariationalPBEvolve(Propagator):
         u2: FEECVariable = None,
         pt3: FEECVariable = None,
         bt2: FEECVariable = None,
+        rho: FEECVariable = None,
     ):
         r"""
         Parameters
@@ -162,7 +233,13 @@ class VariationalPBEvolve(Propagator):
         bt2 : FEECVariable, default=None
             Auxiliary second-order magnetic field :math:`\mathbf B_2` (``"Hdiv"`` space) of the linear and perturbative
             models, advected by the magnetic perturbation. It enters only the energy, not the momentum equation.
+        rho : FEECVariable, default=None
+            Density perturbation :math:`\tilde\rho` (``"L2"`` space, not updated) of the mass matrix
+            :math:`\mathbb M^2_\rho` (total density :math:`\rho_0 + \tilde\rho`) of a velocity in ``"Hdiv"``;
+            None for :math:`\mathbb M^2_{\rho_0}`. Not used for a velocity in ``"H1vec"``.
         """
+        assert rho is None or (isinstance(rho, FEECVariable) and rho.space == "L2")
+        self._rho = rho
         self.variables = self.Variables()
         self.div_u = div_u
         self.u2 = u2
@@ -179,8 +256,13 @@ class VariationalPBEvolve(Propagator):
             Pressure-magnetic coupled model variant.
         gamma : float, default=5/3
             Adiabatic index.
-        solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Linear solver for implicit substeps.
+        weights : {"frozen", "midpoint"}, default=None
+            Weights of the terms with the perturbations of ``model="perturbative"`` (see above): at :math:`t^n`
+            (``"frozen"``) or at :math:`t^{n+1/2}` (``"midpoint"``). None gives ``"midpoint"`` for
+            ``"perturbative"`` and ``"frozen"`` otherwise (the only choice for the other models).
+        solver : {"pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"}, default=None
+            Linear solver of the Newton system; None gives ``"rpbicgstab"`` for midpoint weights (not symmetric) and
+            ``"pcg"`` otherwise.
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
         solver_params : SolverParameters, default=None
@@ -195,7 +277,8 @@ class VariationalPBEvolve(Propagator):
             block, or the Kronecker (fast diagonalization) preconditioner of the whole shear-Alfven Schur operator
             :math:`\mathbb M^v[\rho_0] + \frac{\Delta t^2}{4} \mathbb T_0^\top \mathbb M^2 \mathbb T_0`
             (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, built from the equilibrium for
-            each time step in :meth:`prepare_time_step`). The latter needs ``model="linear"``, ``solver="pcg"``,
+            each time step in :meth:`prepare_time_step`; for ``model="perturbative"`` it approximates the Schur
+            operator of the Newton step). The latter needs ``model="linear"`` or ``"perturbative"``, ``solver="pcg"``,
             tensor-product splines and the global commuting projectors; otherwise the mass-matrix preconditioner is
             used (with a warning).
         exb_correction : bool, default=True
@@ -207,10 +290,13 @@ class VariationalPBEvolve(Propagator):
         # specific literals
         OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
         OptsModel = Literal["full_p", "linear", "perturbative"]
+        OptsWeights = Literal["frozen", "midpoint"]
+        OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"]
         # propagator options
         model: OptsModel = "full_p"
         gamma: float = 5.0 / 3.0
-        solver: LiteralOptions.OptsSymmSolver = "pcg"
+        weights: OptsWeights = None
+        solver: OptsSolver = None
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
@@ -220,7 +306,18 @@ class VariationalPBEvolve(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
-            check_option(self.solver, LiteralOptions.OptsSymmSolver)
+            if self.weights is None:
+                self.weights = "midpoint" if self.model == "perturbative" else "frozen"
+            check_option(self.weights, self.OptsWeights)
+            assert self.model == "perturbative" or self.weights == "frozen", (
+                'weights="midpoint" is only available for model="perturbative".'
+            )
+            if self.solver is None:
+                self.solver = "rpbicgstab" if self.weights == "midpoint" else "pcg"
+            check_option(self.solver, self.OptsSolver)
+            assert self.weights == "frozen" or self.solver in ("pbicgstab", "rpbicgstab"), (
+                f'weights="midpoint" needs solver="rpbicgstab" or "pbicgstab" (not symmetric), got {self.solver!r}.'
+            )
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             check_option(self.schur_precond, self.OptsSchurPrecond)
 
@@ -250,6 +347,7 @@ class VariationalPBEvolve(Propagator):
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
         self._gamma = self.options.gamma
+        self._midpoint = self.options.weights == "midpoint"
 
         if self.div_u is None:
             self._divu = None
@@ -273,15 +371,34 @@ class VariationalPBEvolve(Propagator):
 
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
-        # assembly of WMMnew happens in VariationalDensityEvolve
-        self._Mrho = self.mass_ops.WMMnew
+        self._u_space = self.variables.u.space
+        self._u_form = self.derham.space_to_form[self._u_space]
+        if self._u_space == "Hdiv":
+            assert self._model == "perturbative", (
+                f'A velocity in "Hdiv" needs model="perturbative", got {self._model!r}.'
+            )
+            assert not self.derham.polar_splines, 'A velocity in "Hdiv" is not available with polar splines.'
+            # mass matrix of the total density, assembled at the beginning of each step
+            self._velocity_mass = VelocityMass(
+                self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=self._rho
+            )
+            self._Mrho = self._velocity_mass.M_rho
+        else:
+            # assembly of WMMnew happens in VariationalDensityEvolve
+            self._Mrho = self.mass_ops.WMMnew
         self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
 
         # Projector
         self._initialize_projectors_and_mass()
 
         # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
-        self._schur_pc = alfven_schur_preconditioner(self, [] if self._model == "linear" else ['model="linear"'])
+        # built from the equilibrium: exact for the Schur operator of the linear model, an approximation (still a fixed
+        # linear preconditioner) for the perturbative one
+        self._schur_pc = alfven_schur_preconditioner(
+            self,
+            [] if self._model in ("linear", "perturbative") else ['model="linear" or "perturbative"'],
+            u_space=self._u_space,
+        )
         self._schur_pc_dt = None
 
         # bunch of temporaries to avoid allocating in the loop
@@ -315,6 +432,9 @@ class VariationalPBEvolve(Propagator):
 
         self._tmp_p_advection = p.space.zeros()
         self._tmp_p_advection2 = p.space.zeros()
+        self._tmp_bw = b.space.zeros()
+        self._tmp_pw = p.space.zeros()
+        self._tmp_pn1_old = p.space.zeros()
 
         self._create_linear_form_p()
 
@@ -331,6 +451,8 @@ class VariationalPBEvolve(Propagator):
     def __call__(self, dt):
         # preconditioner for the current time step (no-op unless dt changed since the setup)
         self.prepare_time_step(dt)
+        if self._u_space == "Hdiv":
+            self._velocity_mass.update()
         # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
         self._Mrho_pc.refresh()
 
@@ -352,6 +474,9 @@ class VariationalPBEvolve(Propagator):
 
         self._update_Pib(bn)
         self._update_Projp(pn)
+        perturbative = self._model == "perturbative"
+        # weights of the terms with the perturbation: b^n, p^n, or the midpoint values of the current iterate
+        bw, pw = bn, pn
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
@@ -377,8 +502,22 @@ class VariationalPBEvolve(Propagator):
             # pn12 += pn1
             # pn12 *= 0.5
 
-            # self._update_Pib()
-            # self._update_Projp()
+            if perturbative and self._midpoint:
+                bw = bn.copy(out=self._tmp_bw)
+                bw += bn1
+                bw *= 0.5
+                self._update_Pib(bw)
+                # pressure at the current velocity iterate (the nonlinear transport with the weight of the previous
+                # iterate), so that the pressure force follows the velocity as assumed in the Newton matrix
+                p_advection = self._transop_p0.dot(un12, out=self._tmp_p_advection)
+                p_advection += self._transop_p.dot(un12, out=self._tmp_p_advection2)
+                p_advection *= dt
+                pn1 = pn.copy(out=self._tmp_pn1)
+                pn1 -= p_advection
+                pw = pn.copy(out=self._tmp_pw)
+                pw += pn1
+                pw *= 0.5
+                self._update_Projp(pw)
             # Update the linear form
             self._update_linear_form_dl_db(bn, bn1)
 
@@ -412,16 +551,15 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_advection,
                 )
 
-                advection += self.curlPibT.dot(
-                    self._linear_form_dl_db0,
-                    out=self._tmp_advection2,
-                )
+                # second-order magnetic term b0^T M2 b-hat: the force is the adjoint of the transport of b-hat
+                advection += self.curlPibT.dot(self._linear_form_dl_db0, out=self._tmp_advection2)
 
                 advection += self.curlPibT.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection2,
                 )
 
+                # pressure force: adjoint of the transport S[p^w] of the perturbation (energy of the auxiliary pressure)
                 advection += self._transop_pT.dot(self._linear_form_dl_dp, out=self._tmp_advection2)
 
                 b_advection = self.curlPib.dot(
@@ -481,11 +619,18 @@ class VariationalPBEvolve(Propagator):
             mn_diff -= mn
             mn_diff += advection
 
+            if perturbative and self._midpoint:
+                pn1.copy(out=self._tmp_pn1_old)
             pn1 = pn.copy(out=self._tmp_pn1)
             pn1 -= p_advection
 
-            # Get error
-            stop = conv.stop(self._get_error(mn_diff, bn_diff), it)
+            # Get error (with midpoint weights also the change of the pressure, which is a weight)
+            err = self._get_error(mn_diff, bn_diff)
+            if perturbative and self._midpoint:
+                dp = self._tmp_pn1_old
+                dp -= pn1
+                err = max(err, self.mass_ops.M3.dot_inner(dp, dp))
+            stop = conv.stop(err, it)
 
             if self._info:
                 logger.info(f"iteration : {it} relative error : {conv.err}")
@@ -529,6 +674,7 @@ class VariationalPBEvolve(Propagator):
         # Update the 2nd order variables
 
         if self._pt3 is not None:
+            # the part of the pressure transport with the perturbation as weight (p^n or p^{n+1/2})
             p_advection = self._transop_p.dot(
                 un12,
                 out=self._tmp_p_advection,
@@ -547,9 +693,11 @@ class VariationalPBEvolve(Propagator):
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
-        self.curlPib = Hdiv0_transport_operator(self.derham)
+        self.curlPib = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         self.curlPibT = self.curlPib.T
-        self._transop_p = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
+        self._transop_p = Pressure_transport_operator(
+            self.derham, self.domain, self.basis_ops.Uv, self._gamma, u_space=self._u_space
+        )
         self._transop_pT = self._transop_p.T
 
         integration_grid = [grid_1d.flatten() for grid_1d in self.derham.V3splines.quad_grid_pts[0]]
@@ -564,13 +712,14 @@ class VariationalPBEvolve(Propagator):
 
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
-        # Inverse mass matrix needed to compute the error
+        # Inverse mass matrix of the velocity space (Mv or M2) needed to compute the error
+        M_u = self.mass_ops.M2 if self._u_space == "Hdiv" else self.mass_ops.Mv
         self.pc_Mv = preconditioner.MassMatrixPreconditioner(
-            self.mass_ops.Mv,
+            M_u,
             dim_reduce=None,
         )
         self._inv_Mv = inverse(
-            self.mass_ops.Mv,
+            M_u,
             "pcg",
             pc=self.pc_Mv,
             tol=1e-10,
@@ -581,7 +730,7 @@ class VariationalPBEvolve(Propagator):
         self._I2 = IdentityOperator(self.derham.V2pol)
 
         Jacs = BlockVectorSpace(
-            self.derham.Vvpol,
+            getattr(self.derham, f"V{self._u_form}pol"),
             self.derham.V2pol,
         )
 
@@ -608,10 +757,36 @@ class VariationalPBEvolve(Propagator):
             self._full_curlPib = self.curlPib0 + self.curlPib
             self._full_curlPibT = self.curlPibT0 + self.curlPibT
 
+            # second-order magnetic term b0^T M2 b-hat (Galerkin Hodge star, as the full-f energy): its force is the adjoint
+            # of the transport of b-hat applied to this linear form
             self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
 
             self._mdt2_pc_curlPibT_M = 2 * (self._full_curlPibT @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self._full_curlPib
+            if self._midpoint:
+                # exact derivatives of the linear terms with midpoint weights: the second-order magnetic force in the
+                # upper right block (the matrix F of b -> T[b]^T l_b, linear in b) and the sound waves in the upper left
+                # block, -A S[p0] with the matrix A of p -> S[p]^T l_p (the pressure force)
+                F = TransportAdjointMatrix(
+                    self.derham, self.domain, self.mass_ops, self._u_space, self._linear_form_dl_db0
+                )
+                self._dt2_R = ScaledLinearOperator(F.domain, F.codomain, 1.0, F)
+                self._J01 = self._mdt2_pc_curlPibT_M + self._dt2_R
+                A = PressureTransportAdjointMatrix(
+                    self.derham,
+                    self.domain,
+                    self.mass_ops,
+                    self.basis_ops,
+                    self._u_space,
+                    self._gamma,
+                    # the linear form of int p-hat / (gamma - 1) (as _create_linear_form_p, which runs later)
+                    L2Projector("L2", self.mass_ops).get_dofs(self.domain.jacobian_det) * (-1.0 / (self._gamma - 1.0)),
+                )
+                # the sign inside the composition: the outer ScaledLinearOperator absorbs an outer scalar, and its scalar
+                # is set to dt^2/4 in _get_jacobian
+                sound = (-1.0 * A) @ self._transop_p0
+                self._dt2_sound = ScaledLinearOperator(sound.domain, sound.codomain, 1.0, sound)
+                self._J00 = self._Mrho + self._dt2_sound
 
         else:
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT @ self.mass_ops.M2)
@@ -626,8 +801,9 @@ class VariationalPBEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
 
-        self._Jacobian[0, 0] = self._Mrho
-        self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
+        midpoint = self._model == "perturbative" and self._midpoint
+        self._Jacobian[0, 0] = self._J00 if midpoint else self._Mrho
+        self._Jacobian[0, 1] = self._J01 if midpoint else self._mdt2_pc_curlPibT_M
         self._Jacobian[1, 0] = self._dt2_curlPib
         self._Jacobian[1, 1] = self._I2
 
@@ -659,7 +835,7 @@ class VariationalPBEvolve(Propagator):
         self.curlPibT.update_coeffs(b)
 
     def _create_Pib0(self):
-        self.curlPib0 = Hdiv0_transport_operator(self.derham)
+        self.curlPib0 = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         self.curlPibT0 = self.curlPib0.T
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
@@ -672,7 +848,9 @@ class VariationalPBEvolve(Propagator):
     def _create_transop0(self):
         """Update the weights of the `BasisProjectionOperator`"""
 
-        self._transop_p0 = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
+        self._transop_p0 = Pressure_transport_operator(
+            self.derham, self.domain, self.basis_ops.Uv, self._gamma, u_space=self._u_space
+        )
         self._transop_p0T = self._transop_p0.T
         self._transop_p0.update_coeffs(self.projected_equil.p3)
         self._transop_p0T.update_coeffs(self.projected_equil.p3)
@@ -700,7 +878,7 @@ class VariationalPBEvolve(Propagator):
 
     def _get_error(self, mn_diff, bn_diff):  # , pn_diff):
         # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
-        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops[self._u_form].dot(mn_diff))
         err_b = self.mass_ops.M2.dot_inner(bn_diff, bn_diff)
         # weak_pn_diff = self.mass_ops.M3.dot(
         #     pn_diff,
@@ -716,3 +894,6 @@ class VariationalPBEvolve(Propagator):
     def _get_jacobian(self, dt):
         self._mdt2_pc_curlPibT_M._scalar = -dt / 2
         self._dt2_curlPib._scalar = dt / 2
+        if self._model == "perturbative" and self._midpoint:
+            self._dt2_R._scalar = dt / 2
+            self._dt2_sound._scalar = dt**2 / 4

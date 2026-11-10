@@ -39,10 +39,15 @@ and **ask whether to add it to that family** as a child, before writing code. Th
 - **LinearEuler family** (zero-flow equilibrium): `LinearEuler` → `LinearMHD` → `LinearMHDVlasovCC`,
   `LinearMHDVlasovPC`, `LinearMHDDriftkineticCC` (hybrid models with energetic ions).
 - **LinearEulerWithQ family** (zero-flow equilibrium, variable q = sqrt(p)): `LinearEulerWithQ` →
-  `LinearMHDWithQ` → `PerturbativeMHDWithQ`; `LinearEulerWithQ` → `PerturbativeEulerWithQ` (the nonlinear terms,
-  shared by the two through utilities in `utils.py`). Shares the equilibrium scalars and the magnetic field with the
-  LinearEuler family through utilities in `utils.py`.
+  `LinearMHDWithQ` → `PerturbativeMHDWithQ` → `PerturbativeMHDWithQVlasovCC`, `PerturbativeMHDWithQVlasovPC`,
+  `PerturbativeMHDWithQDriftkineticCC` (hybrid models, the coupling steps of the LinearEuler hybrids with the inertia
+  of the total density);
+  `LinearEulerWithQ` → `PerturbativeEulerWithQ` (the nonlinear terms, shared by the two through utilities in
+  `utils.py`). Shares the equilibrium scalars, the magnetic field and the energetic-ion scalars with the LinearEuler
+  family through utilities in `utils.py`.
 - **Maxwell family**: `Maxwell` → `ColdPlasma` → `ColdPlasmaVlasov`.
+- **Variational MHD family** (zero-flow equilibrium, variational discretization, pressure): `VariationalLinearMHD` →
+  `VariationalPerturbativeMHD` (the nonlinear terms in the perturbations: momentum advection and `VariationalNonlinearPBEvolve`).
 - **SPH family**: `ColdEulerSPH` → `EulerSPH` → `ViscousEulerSPH`; `ColdEulerSPH` → `IncompressibleNavierStokesSPH`.
 
 A parent model is the base of everything below it, so it must be well tested: verification tests against analytic
@@ -162,6 +167,9 @@ and the convergence order of the time stepping. When a new family is created, ad
 - `struphy params <Name>` must produce a valid `params_<Name>.py`.
 - Add a verification test against an analytic or reference result where possible, and where the test is not too expensive. Name it:
   `src/struphy/models/tests/verification/test_verif_<Name>.py` (e.g. `test_verif_Maxwell.py`). It is collected by folder.
+  On pull requests CI runs only the verification tests marked `@pytest.mark.verif_pr` plus all tests in the
+  verification files the PR changes; the full set runs in the scheduled CI on `devel`. Mark a test `verif_pr` only if it
+  is cheap (≲ 20 s on 2 ranks) and covers core code not yet covered by the other `verif_pr` tests.
 - Add at least one example in `examples/<Name>/<case>/params_<case>.py`, with optional `pproc_<case>.py` and
   `regress_<case>.py`. Follow an existing example: module docstring, `name`, a `description` (summary, Physics, Setup,
   Expected result, References) and the argparse options (e.g. `--test-run`).

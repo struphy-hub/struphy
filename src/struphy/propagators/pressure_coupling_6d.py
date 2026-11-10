@@ -15,14 +15,13 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.marker_operator_pressure_dot import marker_operator_pressure_dot
-from struphy.pic.accumulation.kernels.pc_lin_mhd_6d import pc_lin_mhd_6d
 from struphy.pic.accumulation.kernels.pc_lin_mhd_6d_full import pc_lin_mhd_6d_full
 from struphy.pic.accumulation.kernels.pc_lin_mhd_6d_mf import pc_lin_mhd_6d_mf
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
-from struphy.pic.pushing.kernels.push_pc_GXu import push_pc_GXu
 from struphy.pic.pushing.kernels.push_pc_GXu_full import push_pc_GXu_full
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import velocity_mass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -35,12 +34,22 @@ class PressureCoupling6D(Propagator):
 
     .. math::
 
-        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = - \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} \cdot \mathbf V \,\textrm d \mathbf x
+        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = \frac{A_\textnormal{h}}{A_\textnormal{b}} \int_\Omega \mathbb{P}_\textnormal{h} : \nabla \mathbf V_\perp \,\textrm d \mathbf x
         \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
         \\[2mm]
         &\frac{\partial f_\textnormal{h}}{\partial t} - \left(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf{v} \right) \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
         \\[2mm]
-        &\tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}_\perp \mathbf{v}_\perp^\top \,\textnormal{d}^3 \mathbf v\,.
+        &\mathbb{P}_\textnormal{h} = \int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v} \mathbf{v}^\top \,\textnormal{d}^3 \mathbf v\,,
+
+    with :math:`\mathbb{P}_\textnormal{h} : \nabla \mathbf V_\perp = \sum_{k,i} (\mathbb{P}_\textnormal{h})_{ki} \, \partial_k V_{\perp,i}`
+    and :math:`(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf v)_k = \sum_i \partial_k \tilde U_{\perp,i} \, v_i`, in Cartesian
+    components. The index :math:`\perp` denotes the projection perpendicular to the equilibrium magnetic field,
+    :math:`\mathbf a_\perp = \mathbf a - (\mathbf b_0 \cdot \mathbf a) \mathbf b_0` with
+    :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|` (``use_perp_model=True``, default); with
+    ``use_perp_model=False``, :math:`\mathbf a_\perp = \mathbf a`. In strong form, the first equation reads
+    :math:`\rho_0 \partial_t \tilde{\mathbf U} = - \frac{A_\textnormal{h}}{A_\textnormal{b}} (\nabla \cdot \mathbb{P}_\textnormal{h})_\perp`. Both equations contain :math:`\int \mathbb{P}_\textnormal{h} : \nabla \tilde{\mathbf U}_\perp
+    \,\textrm d \mathbf x` with opposite signs, so the substep conserves
+    :math:`\frac 12 \int \rho_0 |\tilde{\mathbf U}|^2 \,\textrm d \mathbf x + \frac{A_\textnormal{h}}{2 A_\textnormal{b}} \iint |\mathbf v|^2 f_\textnormal{h} \,\textnormal{d}^3 \mathbf v \,\textrm d \mathbf x`.
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
@@ -48,7 +57,17 @@ class PressureCoupling6D(Propagator):
 
         \begin{bmatrix} u^{n+1} - u^n \\ V^{n+1} - V^n \end{bmatrix}
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n)^{-1} V^\top (\bar {\mathcal X})^\top \mathbb G^\top (\bar {\mathbf \Lambda}^1)^\top \bar {DF}^{-1} \\ - {DF}^{-\top} \bar {\mathbf \Lambda}^1 \mathbb G \bar {\mathcal X} V (\mathbb M^n)^{-1} & 0 \end{bmatrix}
-        \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} \,.
+        \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} \,,
+
+    where :math:`\mathcal X` is ``X1``, ``X2`` or ``Xv`` of
+    :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`, or :math:`\mathcal X^\perp` (``Xperp``,
+    including the projection perpendicular to :math:`\mathbf b_0`) for ``use_perp_model=True``. Since the same :math:`\mathcal X` enters both
+    off-diagonal blocks, the step conserves the discrete energy exactly.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``Options(u_space="Hdiv")``): the inertia is that of the total density, :math:`\rho_0 \to \rho_0 + \tilde
+    \rho^n` (mass matrix :math:`\mathbb M^2_\rho` of :class:`~struphy.propagators.utils.VelocityMass`, assembled at
+    :math:`t^n`; the density does not change in this step).
     """
 
     class Variables:
@@ -87,12 +106,22 @@ class PressureCoupling6D(Propagator):
             assert new.space == "Particles6D"
             self._energetic_ions = new
 
-    def __init__(self):
+    def __init__(self, rho_field: FEECVariable = None):
+        """
+        Parameters
+        ----------
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, ``u_space="Hdiv"`` only). If ``None``, that of
+            :math:`\rho_0`.
+        """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
         self.variables = self.Variables()
+        self.rho_field = rho_field
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`PressureCoupling6D`.
+        r"""Configuration options for :class:`PressureCoupling6D`.
 
         Parameters
         ----------
@@ -118,8 +147,11 @@ class PressureCoupling6D(Propagator):
             If ``None``, defaults to ``FilterParameters()``.
 
         use_perp_model : bool, default=True
-            If ``True``, use the perpendicular pressure-coupling model;
-            otherwise use the full-model kernels.
+            If ``True``, couple only the velocity perpendicular to the equilibrium magnetic field,
+            :math:`\tilde{\mathbf U}_\perp = \tilde{\mathbf U} - (\mathbf b_0 \cdot \tilde{\mathbf U}) \mathbf b_0`
+            (:meth:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Xperp`);
+            otherwise couple the full velocity. Use the same value in
+            :class:`~struphy.propagators.push_eta_pc.PushEtaPC`.
 
         matrix_free : bool, default=True
             Apply the 3x3 block particle matrix matrix-free, with its filling :math:`w_p G^{-1}(\boldsymbol \eta_p)`
@@ -184,10 +216,14 @@ class PressureCoupling6D(Propagator):
             id_Mn = "Mvn"
             id_X = "Xv"
 
-        # call operatros
+        # call operators (with rho_field: _A is the mass matrix of the total density, assembled in __call__)
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
-        _A = getattr(self.mass_ops, id_M)
-        self._X = getattr(self.basis_ops, id_X)
+        self._velocity_mass, _A = velocity_mass(self, self.options.u_space, self.rho_field)
+        if self.options.use_perp_model:
+            # Cartesian components of U_perp = U - (b0 . U) b0
+            self._X = self.basis_ops.Xperp(self.options.u_space)
+        else:
+            self._X = getattr(self.basis_ops, id_X)
         self._XT = self._X.transpose()
         grad = self.derham.grad
         gradT = grad.transpose()
@@ -200,12 +236,9 @@ class PressureCoupling6D(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Call the accumulation and Pusher class
-        if self.options.use_perp_model:
-            accum_ker = pc_lin_mhd_6d
-            pusher_ker = push_pc_GXu
-        else:
-            accum_ker = pc_lin_mhd_6d_full
-            pusher_ker = push_pc_GXu_full
+        # the perpendicular projection is in self._X, the kernels use all three velocity components
+        accum_ker = pc_lin_mhd_6d_full
+        pusher_ker = push_pc_GXu_full
 
         # define Accumulator and arguments
         particles = self.variables.energetic_ions.particles
@@ -214,7 +247,7 @@ class PressureCoupling6D(Propagator):
             # the three vectors, and the filling of the matrices per marker (in the first free columns of the marker array)
             column = particles.args_markers.first_free_idx
             assert particles.n_cols_aux >= 6, "matrix_free needs 6 free (auxiliary) marker columns."
-            n_v = 2 if self.options.use_perp_model else 3
+            n_v = 3
             self._args_accum = (n_v, column)
             self._ACC = AccumulatorVector(
                 particles,
@@ -300,6 +333,10 @@ class PressureCoupling6D(Propagator):
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
+
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
 
         # operators
         grad = self.derham.grad

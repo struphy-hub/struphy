@@ -1,5 +1,5 @@
 """Toroidal Alfven eigenmode (TAE) with low mode numbers for the linear variational MHD model in the pressure
-(VariationalPerturbativeMHD with linear=True, without viscosity and resistivity): an n = 1 shear Alfven wave in the
+(VariationalLinearMHD, without viscosity and resistivity): an n = 1 shear Alfven wave in the
 gap of the Alfven continuum at the crossing of the m = 1 and m = 2 branches (q = 1.5, r = 0.5) in a tokamak of aspect
 ratio 5. The same case as examples/LinearMHD/lowmode_tae, for the comparison of the variational discretization with
 the (non-variational) LinearMHD models."""
@@ -10,10 +10,10 @@ the (non-variational) LinearMHD models."""
 # Please fill in a verbal description of the simulation.
 # It will be printed at the beginning of the simulation and can be used to keep track of the different runs.
 
-name = "Low-mode TAE (VariationalPerturbativeMHD, linear)"
+name = "Low-mode TAE (VariationalLinearMHD)"
 description = """
-Toroidal Alfven eigenmode (TAE) with low mode numbers with the linear variational MHD model VariationalPerturbativeMHD
-with linear=True, here without viscosity and resistivity, i.e. ideal linear MHD around a static (zero-flow)
+Toroidal Alfven eigenmode (TAE) with low mode numbers with the linear variational MHD model VariationalLinearMHD,
+here without viscosity and resistivity, i.e. ideal linear MHD around a static (zero-flow)
 equilibrium: shear Alfven waves together with the coupling to the magnetosonic waves through the pressure and density
 perturbations. Its unknowns are the perturbations of the density, of the pressure and of the magnetic field with
 respect to the equilibrium (which enters through `equil`), and the velocity (in H1vec). No energetic particles: the
@@ -45,9 +45,8 @@ n = 1. The velocity is initialized with divergence-free m = 1 and m = 2 harmonic
 projection is replaced by its closest (Mv norm) discretely divergence-free field, a change of the order of the
 interpolation error (logged as delta_rel; switched off with --no-div-free). The projection is a CG solve without
 preconditioner: on the 16 x 16 x 8 grid it stops at its iteration limit with |div u| reduced from 5.7e-5 to 2.6e-9.
-The variational propagators run with model="linear" and their default
-(Newton/Picard) solver options. The weights of the transport operators are taken at t^n: first order in time, like
-LinearMHD (Crank-Nicolson substeps, Lie-Trotter splitting); the step is energy conserving.
+The variational propagators (one linear solve per substep) run with midpoint weights of the second-order terms by
+default (second order in the substeps, Lie-Trotter splitting); the step is energy conserving.
 
 Expected result. With n = 1 and m = 1 the gap is at q(r_c) = 3/2, i.e. r_c = 0.5, where n = 1 and |B| = 1.0
 (flux-surface average), so v_A(r_c) = 1.0 v_unit and
@@ -89,21 +88,16 @@ parser.add_argument(
     help="Keep the plain H1vec projection of the initial velocity (not exactly divergence-free in the scheme).",
 )
 parser.add_argument(
-    "--crank-nicolson",
-    action="store_true",
-    help="One linear solve per substep (variat_lin_alfven and variat_lin_sound) instead of the Picard iteration.",
-)
-parser.add_argument(
     "--u-space",
     default="H1vec",
     choices=["H1vec", "Hdiv"],
-    help="Space of the velocity: H1vec (vector field) or Hdiv (2-form, as LinearMHD; needs --crank-nicolson).",
+    help="Space of the velocity: H1vec (vector field) or Hdiv (2-form, as LinearMHD).",
 )
 parser.add_argument(
     "--schur-precond",
     default="StiffnessPreconditioner",
     choices=["MassMatrixPreconditioner", "StiffnessPreconditioner"],
-    help="With --crank-nicolson: preconditioner of the shear Alfven Schur system, of the mass matrix or the Kronecker "
+    help="Preconditioner of the shear Alfven Schur system, of the mass matrix or the Kronecker "
     "(fast diagonalization) preconditioner of the whole Schur operator (default, as LinearMHD).",
 )
 parser.add_argument(
@@ -116,19 +110,19 @@ parser.add_argument(
     "--tol",
     type=float,
     default=1e-8,
-    help="With --crank-nicolson: tolerance of the linear solves (default 1e-8, relative to the right-hand side).",
+    help="Tolerance of the linear solves (default 1e-8, relative to the right-hand side).",
 )
 parser.add_argument(
     "--weights",
     default="midpoint",
     choices=["midpoint", "frozen"],
-    help="With --crank-nicolson: weight of the second-order terms at t^(n+1/2) (default, energy conserving without "
+    help="Weight of the second-order terms at t^(n+1/2) (default, energy conserving without "
     "numerical damping or growth) or at t^n (first order; unstable sound waves for the p model).",
 )
 parser.add_argument(
     "--abs-tol",
     action="store_true",
-    help="With --crank-nicolson: absolute tolerance of the linear solves (as LinearMHD) instead of relative.",
+    help="Absolute tolerance of the linear solves (as LinearMHD) instead of relative.",
 )
 parser.add_argument(
     "--dt",
@@ -137,8 +131,6 @@ parser.add_argument(
     help="Time step (default 0.5); the data is saved every 2 time units, or every step for dt > 2.",
 )
 args, _ = parser.parse_known_args()
-if args.u_space == "Hdiv" and not args.crank_nicolson:
-    parser.error("--u-space Hdiv needs --crank-nicolson.")
 if args.test_run:
     args.num_elements = [8, 8, 4]
 
@@ -169,7 +161,7 @@ from struphy.linear_algebra.solver import SolverParameters
 # ---------------------
 # Instance of the model
 # ---------------------
-from struphy.models import VariationalPerturbativeMHD
+from struphy.models import VariationalLinearMHD
 
 # adiabatic index (the one of LinearMHD)
 gamma = 5.0 / 3.0
@@ -178,12 +170,10 @@ gamma = 5.0 / 3.0
 base_units = BaseUnits()
 
 # Model instance: linear and ideal (no viscosity, no resistivity), as LinearMHD
-model = VariationalPerturbativeMHD(
+model = VariationalLinearMHD(
     base_units=base_units,
-    linear=True,
     with_viscosity=False,
     with_resistivity=False,
-    crank_nicolson=args.crank_nicolson,
     u_space=args.u_space,
 )
 
@@ -244,23 +234,20 @@ sim = Simulation(
 # ------------------
 # Propagator options
 # ------------------
-# linear=True needs the "linear" variants of the variational propagators (checked by the model)
+# the linear model needs the "linear" variants of the variational propagators (checked by the model)
 
 model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model="linear", gamma=gamma)
-if args.crank_nicolson:
-    # one linear solve per substep, energy conserving (midpoint or frozen weights of the second-order terms)
-    solver_params = SolverParameters(tol=args.tol)
-    model.propagators.variat_lin_alfven.options = model.propagators.variat_lin_alfven.Options(
-        weights=args.weights,
-        schur_precond=args.schur_precond,
-        solver_params=solver_params,
-        relative_tol=not args.abs_tol,
-    )
-    model.propagators.variat_lin_sound.options = model.propagators.variat_lin_sound.Options(
-        model="linear_p", gamma=gamma, weights=args.weights, solver_params=solver_params, relative_tol=not args.abs_tol
-    )
-else:
-    model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model="linear", gamma=gamma)
+# one linear solve per substep, energy conserving (midpoint or frozen weights of the second-order terms)
+solver_params = SolverParameters(tol=args.tol)
+model.propagators.variat_lin_alfven.options = model.propagators.variat_lin_alfven.Options(
+    weights=args.weights,
+    schur_precond=args.schur_precond,
+    solver_params=solver_params,
+    relative_tol=not args.abs_tol,
+)
+model.propagators.variat_lin_sound.options = model.propagators.variat_lin_sound.Options(
+    model="linear_p", gamma=gamma, weights=args.weights, solver_params=solver_params, relative_tol=not args.abs_tol
+)
 
 # ------------------
 # Initial conditions

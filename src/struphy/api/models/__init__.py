@@ -29,6 +29,9 @@ from struphy.models.linear_vlasov_maxwell_one_species import (
 from struphy.models.maxwell import Maxwell
 from struphy.models.perturbative_euler_with_q import PerturbativeEulerWithQ
 from struphy.models.perturbative_mhd_with_q import PerturbativeMHDWithQ
+from struphy.models.perturbative_mhd_with_q_driftkinetic_cc import PerturbativeMHDWithQDriftkineticCC
+from struphy.models.perturbative_mhd_with_q_vlasov_cc import PerturbativeMHDWithQVlasovCC
+from struphy.models.perturbative_mhd_with_q_vlasov_pc import PerturbativeMHDWithQVlasovPC
 from struphy.models.poisson import Poisson
 from struphy.models.random_particle_diffusion import RandomParticleDiffusion
 from struphy.models.shear_alfven import ShearAlfven
@@ -36,6 +39,7 @@ from struphy.models.toy_drift import ToyDrift
 from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
 from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
 from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
+from struphy.models.variational_linear_mhd import VariationalLinearMHD
 from struphy.models.variational_mhd import VariationalMHD
 from struphy.models.variational_mhd_with_p import VariationalMHD_with_p
 from struphy.models.variational_mhd_with_q import VariationalMHD_with_q
@@ -77,6 +81,9 @@ __all__ = [
     "LinearMHDWithQ",
     "PerturbativeEulerWithQ",
     "PerturbativeMHDWithQ",
+    "PerturbativeMHDWithQDriftkineticCC",
+    "PerturbativeMHDWithQVlasovCC",
+    "PerturbativeMHDWithQVlasovPC",
     "LinearVlasovAmpereOneSpecies",
     "LinearVlasovMaxwellOneSpecies",
     "Maxwell",
@@ -90,6 +97,7 @@ __all__ = [
     "VariationalMHD",
     "VariationalMHD_with_p",
     "VariationalMHD_with_q",
+    "VariationalLinearMHD",
     "VariationalPerturbativeMHD",
     "VariationalPerturbativeMHD_with_q",
     "VariationalPressurelessFluid",
