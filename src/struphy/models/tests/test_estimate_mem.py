@@ -41,6 +41,7 @@ def test_simulation_estimate_mem_returns_total():
             return 30
 
     sim = Simulation.__new__(Simulation)
+    sim._comm = None
     sim._grid = object()
     sim._derham_opts = object()
     sim._clone_config = None

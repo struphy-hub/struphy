@@ -2,9 +2,9 @@
 
 Operators of a velocity 2-form weighted with the total density :math:`\\rho = \\rho_0 + \\tilde \\rho` of the
 perturbative models (density 3-form evolving in time), on the quadrature grid of the mass matrices
-(:class:`HdivDensityOperators`, :class:`VelocityMass`), and the second-order magnetic term of the linear and perturbative
-variational models with the equilibrium current of the dual complex (:class:`EquilibriumCurrentTerm`) and their
-second-order pressure term in weak form (:class:`WeakPressureTerm`)."""
+(:class:`HdivDensityOperators`, :class:`VelocityMass`, :func:`velocity_mass`), and the second-order magnetic term
+of the linear and perturbative variational models with the equilibrium current of the dual complex
+(:class:`EquilibriumCurrentTerm`)."""
 
 import logging
 
@@ -325,6 +325,42 @@ class EquilibriumCurrentTerm:
         h0 = self._inv_M1.dot(K.dot(b0)).copy()
         J0 = self._derham.curl_bcfree.dot(h0)
         return self._inv_M1.dot(K.dot(J0)).copy()
+
+
+def velocity_mass(propagator, u_space: str, rho_field=None):
+    r"""Mass matrix of the inertia of a velocity :math:`\tilde{\mathbf U}` in ``u_space``, for the propagators of the
+    linear and perturbative models: :math:`\mathbb M^{\alpha}_{\rho_0}` (``mass_ops.M{alpha}n``), or the mass matrix
+    :math:`\mathbb M^2_\rho` of the total density :math:`\rho = \rho_0 + \tilde \rho` if ``rho_field`` is given
+    (only for ``u_space="Hdiv"``).
+
+    Parameters
+    ----------
+    propagator : Propagator
+        The propagator (for ``derham``, ``domain``, ``mass_ops`` and ``projected_equil``).
+    u_space : str
+        Space of the velocity, ``"Hcurl"``, ``"Hdiv"`` or ``"H1vec"``.
+    rho_field : FEECVariable, optional
+        Density perturbation (``"L2"`` space, not updated by the propagator).
+
+    Returns
+    -------
+    vel_mass : VelocityMass | None
+        For ``u_space="Hdiv"``; call its :meth:`VelocityMass.update` at the beginning of each step (no-op without
+        ``rho_field``). None for the other spaces.
+    M : WeightedMassOperator
+        The mass matrix (the same object after each update).
+    """
+    assert rho_field is None or u_space == "Hdiv", 'rho_field (total-density inertia) needs u_space="Hdiv".'
+    if u_space != "Hdiv":
+        return None, getattr(propagator.mass_ops, "M" + propagator.derham.space_to_form[u_space] + "n")
+    vel_mass = VelocityMass(
+        propagator.derham,
+        propagator.domain,
+        propagator.mass_ops,
+        propagator.projected_equil if rho_field is not None else None,
+        rho_field=rho_field,
+    )
+    return vel_mass, vel_mass.M_rho
 
 
 def extracted_ones(derham: Derham, form: str) -> Vector:

@@ -903,6 +903,104 @@ class BasisProjectionOperators:
 
         return self._PB
 
+    def Pperp(self, space_id: str):
+        r"""Basis projection operator onto the vector fields perpendicular to the equilibrium magnetic field,
+
+        .. math::
+
+            \mathcal P^\perp_{(\mu, ijk), (\nu, mno)} := \hat \Pi^n_{(\mu, ijk)} \left[ \left( T^{-1}
+            (\mathbb 1 - \mathbf b_0 \mathbf b_0^\top) \, T \right)_{\mu \nu} \Lambda^n_{(\nu, mno)} \right]\,,
+
+        where :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|` (Cartesian components) and :math:`T` maps the
+        components of the space to Cartesian components: :math:`T = DF^{-\top}` for ``"Hcurl"``,
+        :math:`T = DF / \sqrt g` for ``"Hdiv"`` and :math:`T = DF` for ``"H1vec"``. Domain and codomain are the same
+        space; the operator maps :math:`\mathbf U` to its projection :math:`\mathbf U_\perp = \mathbf U -
+        (\mathbf b_0 \cdot \mathbf U) \mathbf b_0`, projected back into the space.
+
+        Parameters
+        ----------
+        space_id : str
+            ``"Hcurl"``, ``"Hdiv"`` or ``"H1vec"``.
+        """
+        assert space_id in ("Hcurl", "Hdiv", "H1vec"), f"{space_id =} not valid."
+        if not hasattr(self, "_Pperp"):
+            self._Pperp = {}
+
+        if space_id not in self._Pperp:
+
+            def mat(e1, e2, e3):
+                # T^{-1} (1 - b0 b0^T) T, the factors 1/sqrt(g) of Hdiv cancel
+                if space_id == "Hcurl":
+                    left, right = self.DFT(e1, e2, e3), self.DFinvT(e1, e2, e3)
+                else:
+                    left, right = self.DFinv(e1, e2, e3), self.DF(e1, e2, e3)
+                return left @ self._b0_perp(e1, e2, e3) @ right
+
+            self._Pperp[space_id] = self.create_basis_op(
+                self._matrix_fun(mat), space_id, space_id, name=f"Pperp_{space_id}"
+            )
+
+        return self._Pperp[space_id]
+
+    def Xperp(self, space_id: str):
+        r"""Basis projection operator to the Cartesian components of the vector field perpendicular to the equilibrium
+        magnetic field, as 0-forms,
+
+        .. math::
+
+            \mathcal X^\perp_{(\mu, ijk), (\nu, mno)} := \hat \Pi^{0, \mu}_{ijk} \left[ \left(
+            (\mathbb 1 - \mathbf b_0 \mathbf b_0^\top) \, T \right)_{\mu \nu} \Lambda^n_{(\nu, mno)} \right]\,,
+
+        with :math:`\mathbf b_0` and :math:`T` as in :meth:`Pperp`. It is ``X1``, ``X2`` or ``Xv`` followed by the
+        projection perpendicular to :math:`\mathbf b_0`, and costs the same as these.
+
+        Parameters
+        ----------
+        space_id : str
+            ``"Hcurl"``, ``"Hdiv"`` or ``"H1vec"`` (the domain; the codomain is ``"H1vec"``).
+        """
+        assert space_id in ("Hcurl", "Hdiv", "H1vec"), f"{space_id =} not valid."
+        if not hasattr(self, "_Xperp"):
+            self._Xperp = {}
+
+        if space_id not in self._Xperp:
+
+            def mat(e1, e2, e3):
+                # (1 - b0 b0^T) T
+                if space_id == "Hcurl":
+                    T = self.DFinvT(e1, e2, e3)
+                elif space_id == "Hdiv":
+                    T = self.DF(e1, e2, e3) / self.sqrt_g(e1, e2, e3)[..., None, None]
+                else:
+                    T = self.DF(e1, e2, e3)
+                return self._b0_perp(e1, e2, e3) @ T
+
+            self._Xperp[space_id] = self.create_basis_op(
+                self._matrix_fun(mat), space_id, "H1vec", name=f"Xperp_{space_id}"
+            )
+
+        return self._Xperp[space_id]
+
+    def _b0_perp(self, e1, e2, e3):
+        """The projection matrix :math:`1 - b_0 b_0^T` (Cartesian) at the evaluation points, shape (n1, n2, n3, 3, 3)."""
+        b = xp.moveaxis(self.weights["eq_mhd"].unit_b_cart(e1, e2, e3)[0], 0, -1)
+        return xp.eye(3) - b[..., :, None] * b[..., None, :]
+
+    @staticmethod
+    def _matrix_fun(mat):
+        """3x3 nested list of the entries of the matrix-valued callable ``mat`` (last two axes), for create_basis_op.
+        ``mat`` is evaluated once per set of evaluation points, not once per entry."""
+        cache = {}
+
+        def entry(e1, e2, e3, m, n):
+            pts = cache.get("pts")
+            if pts is None or not all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(pts, (e1, e2, e3))):
+                cache["pts"] = (e1.copy(), e2.copy(), e3.copy())
+                cache["mat"] = mat(e1, e2, e3)
+            return cache["mat"][:, :, :, m, n]
+
+        return [[lambda e1, e2, e3, m=m, n=n: entry(e1, e2, e3, m, n) for n in range(3)] for m in range(3)]
+
     @property
     def PB1form(self):
         r"""
