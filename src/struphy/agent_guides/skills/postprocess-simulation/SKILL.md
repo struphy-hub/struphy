@@ -99,7 +99,7 @@ at most `max_frames`, evenly spaced; the same color scale, view and image size i
 saved spline coefficients (no `pproc` needed):
 
 ```python
-from struphy.post_processing.frames import frames_to_video, write_3d_frames, write_slice_frames
+from struphy.post_processing.frames import frames_to_video, write_3d_frames, write_slice_frames, write_videos
 
 # radial component (normalized basis) in the poloidal plane of a torus or cylinder
 write_slice_frames(out, "mhd/velocity", "frames/u_r_rz", component=0, label="u_r")
@@ -112,7 +112,8 @@ write_videos(out, "mhd/velocity", "frames", component=0, prefix="u_r", label="u_
 
 Options: `component=None` for the magnitude of a vector field, `basis` (`"norm"` default, `"1"`, `"2"`, `"v"`,
 `"physical"`), `plane` (`"rz"` for tori and cylinders, `"xy"`, `"xz"`, `"yz"`; for other domains than Cuboid,
-Colella, Orthogonal, cylinders and tori the logical mid-surfaces `"eta1"`, `"eta2"`, `"eta3"`), `clim` (None: one
+Colella, Orthogonal, cylinders and tori the logical mid-surfaces `"eta3"`, `"eta2"`; `"rz"` for other tori such
+as Tokamak), `clim` (None: one
 scale over all frames, `"frame"`, or `(vmin, vmax)`), `steps`, `max_frames` (default 500). The titles show the time
 as `t = <t>/<end time>`. The frames go to `frame_0000.png`, ... with `frames.txt` (step and time per frame); they are
 written on rank 0 only.

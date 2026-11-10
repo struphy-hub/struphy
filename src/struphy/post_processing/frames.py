@@ -7,9 +7,11 @@
   :func:`struphy.post_processing.plot_3d.plot_field_3d`), with PyVista;
 * :func:`write_videos`: the standard videos of a field (its planes and both 3D views).
 
-Any domain works: the planes are those of :func:`struphy.post_processing.slices.physical_planes` (e.g. ``rz`` for
-tori and cylinders, ``xy``, ``xz``, ``yz`` for a slab, i.e. a Cuboid, or Colella), and the 3D cutaway removes a
-wedge around the vertical axis through the center of the domain (the axis of a torus).
+The planes are those of :func:`struphy.post_processing.slices.physical_planes`: ``rz`` for tori and cylinders,
+``xy``, ``xz``, ``yz`` for a slab (a Cuboid), Colella or Orthogonal, the logical mid-surfaces ``eta3``, ``eta2`` for
+other domains; domains covering only part of the poloidal angle have none (:func:`write_videos` then writes the 3D
+views only). The 3D cutaway works for any domain: it removes a wedge around the vertical axis through the center of
+the domain (the axis of a torus).
 
 What is shown is the same for both: a scalar field, one ``component`` of a vector field in a ``basis`` (``"norm"``
 by default: the components along the normalized logical basis vectors, e.g. the radial and poloidal components in a
@@ -37,6 +39,7 @@ The frames are written by the process of rank 0 only (the other ranks of an MPI 
 
 import shutil
 import subprocess
+import warnings
 from pathlib import Path
 
 import cunumpy as xp
@@ -255,7 +258,8 @@ def write_slice_frames(
     basis : str | None
         Basis of ``component``: ``"norm"`` (default), ``"1"``, ``"2"``, ``"v"`` or ``"physical"`` (Cartesian).
     plane : str
-        The plane, one of :func:`struphy.post_processing.slices.physical_planes` (``"xy"``, ``"xz"``, ``"yz"``, or
+        The plane, one of :func:`struphy.post_processing.slices.physical_planes` (``"eta1"``, ``"eta2"``, ``"eta3"``
+        for the domains without physical planes; else ``"xy"``, ``"xz"``, ``"yz"``, or
         ``"rz"`` for cylinders and tori).
     phi : float
         Angle of the poloidal plane ``rz``.
@@ -491,7 +495,7 @@ def write_3d_frames(
     copies = int(domain.params.get("tor_period", 1)) if toroidal else 1
     cells = out.grid.num_elements
     if points_per_cell is None:
-        points_per_cell = int(np.clip(np.floor((MAX_POINTS_3D / (copies * np.prod(cells))) ** (1 / 3)), 1, 4))
+        points_per_cell = int(np.clip(np.floor(np.cbrt(MAX_POINTS_3D / (copies * np.prod(cells))) + 1e-9), 1, 4))
     etas = {e: np.linspace(0.0, 1.0, points_per_cell * n + 1) for e, n in zip(("eta1", "eta2", "eta3"), cells)}
 
     def frame_grid(n):
@@ -600,12 +604,17 @@ def write_videos(
     Returns
     -------
     dict[str, list[Path]]
-        The frames of each video, by the name of its subfolder.
+        The frames of each video, by the name of its subfolder (empty lists on the ranks other than 0).
     """
     prefix = prefix or name.split("/")[-1]
     if planes is None:
-        available = physical_planes(out.domain, all_planes=True)
-        planes = ["rz"] if "rz" in available else list(physical_planes(out.domain))
+        try:
+            available = physical_planes(out.domain, all_planes=True)
+            planes = ["rz"] if "rz" in available else list(physical_planes(out.domain))
+        except ValueError as error:
+            # e.g. a domain covering only part of the poloidal angle: the 3D views only
+            warnings.warn(f"No videos in planes: {error}", stacklevel=2)
+            planes = []
     common = dict(
         component=component, basis=basis, label=label, max_frames=max_frames, steps=steps, clim=clim, cmap=cmap
     )

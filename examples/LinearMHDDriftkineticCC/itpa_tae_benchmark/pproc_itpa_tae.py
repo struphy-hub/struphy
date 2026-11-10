@@ -383,7 +383,8 @@ def main(path_out=None, save_figs=True, compare=None, fit_window=FIT_WINDOW, fra
             max_frames=max_frames,
         )
         for video, files in videos.items():
-            print(f"{len(files)} frames of {video} in {os.path.join(results_dir, 'frames', video)}")
+            if files:  # (empty on the ranks other than 0)
+                print(f"{len(files)} frames of {video} in {os.path.join(results_dir, 'frames', video)}")
 
     if not save_figs:
         plt.show()
