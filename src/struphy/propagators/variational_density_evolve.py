@@ -167,7 +167,7 @@ class VariationalDensityEvolve(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VariationalDensityEvolve`.
+        r"""Configuration options for :class:`VariationalDensityEvolve`.
 
         Parameters
         ----------
