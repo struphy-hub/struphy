@@ -1,0 +1,142 @@
+name: Coverage of the unit tests
+
+# Weekly, informational: line coverage of the Python code of struphy by the serial unit tests (the shards of
+# src/struphy/console/unit_test_shards.py). The kernels are compiled (Fortran), so their lines are not measured.
+# The report is in the summary of the "combine" job; the HTML report is an artifact.
+
+on:
+  schedule:
+    # run at 3 a.m. on Sunday (after the other scheduled runs)
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests-with-coverage:
+    name: Coverage (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["shard-1", "shard-2", "shard-3", "shard-4"]
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 5
+
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          start-dir: /struphy_fortran_
+
+      - name: Reinstall feectools from submodule
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Compile Struphy
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Run the unit tests with coverage
+        # not every test needs to pass for a coverage report
+        continue-on-error: true
+        env:
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          pip install pytest-cov
+          # serial run, as in the serial unit test workflow
+          pip uninstall -y mpi4py
+          TEST_FILES=$(python -m struphy.console.unit_test_shards ${{ matrix.shard }})
+          cd $STRUPHY_PATH
+          COVERAGE_FILE=$GITHUB_WORKSPACE/.coverage.${{ matrix.shard }} \
+            pytest -q -p no:testmon -p no:cacheprovider --cov=struphy --cov-report= $TEST_FILES
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.shard }}
+          path: .coverage.${{ matrix.shard }}
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  combine:
+    needs: unit-tests-with-coverage
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+
+    # the same paths as in the test jobs (/struphy_fortran_/src/struphy), needed to read the sources
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 5
+
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+
+      - name: Combine and report
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          pip install coverage
+          coverage combine .coverage.shard-*
+          coverage report --skip-covered --sort=cover > coverage.txt || true
+          coverage html -d coverage_html || true
+          {
+            echo "## Line coverage of the Python code by the serial unit tests"
+            echo
+            echo "Kernels are compiled and not measured. Files with full coverage are not listed."
+            echo
+            echo '```'
+            tail -n 1 coverage.txt
+            echo
+            head -n 2 coverage.txt
+            # the 60 least covered files
+            sed -n '3,62p' coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage_html
