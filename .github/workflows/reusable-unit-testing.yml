@@ -118,7 +118,8 @@ jobs:
           env-name: /struphy_fortran_/env_fortran_
 
       - name: Test plasma-plots integration
-        if: matrix.shard == 'shard-2'
+        # with post_processing/tests (shard list in src/struphy/console/unit_test_shards.py)
+        if: matrix.shard == 'shard-1'
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           python -m pytest "$STRUPHY_PATH/post_processing/tests/test_plasma_plots_integration.py" -v
