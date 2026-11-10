@@ -301,6 +301,8 @@ def add_field_mesh(plotter, mesh, scalars, cmap, clim, show_scalar_bar=False, sc
         cmap=cmap,
         clim=clim,
         smooth_shading=True,
+        # sharp edges (e.g. of a slab or of the cutaway) shaded as edges, not smoothed over
+        split_sharp_edges=True,
         # lighting that keeps the colors of the colormap on surfaces facing the light (zero stays light gray)
         ambient=0.2,
         diffuse=0.8,

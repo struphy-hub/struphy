@@ -26,7 +26,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
-from struphy.post_processing.frames import write_3d_frames, write_slice_frames
+from struphy.post_processing.frames import write_videos
 from struphy.post_processing.plot_3d import plot_field_3d
 from struphy.post_processing.slices import plot_physical_slices
 
@@ -178,26 +178,20 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, frames=True, max_frames=500):
 
     if frames:
         # frames of videos of the radial velocity u_r (the first component in the normalized basis, radial for the
-        # circular flux surfaces of the HollowTorus) in the poloidal plane and in 3D, at most max_frames saved time
-        # steps, written to <path_out>/results/frames/<folder>/frame_*.png
-        frames_dir = os.path.join(results_dir, "frames")
-        videos = (
-            (write_slice_frames, "u_r_rz", {}),
-            (write_3d_frames, "u_r_3d_cut", {"view": "cut"}),
-            (write_3d_frames, "u_r_3d", {"view": "domain"}),
+        # circular flux surfaces of the HollowTorus): the poloidal plane and two 3D views, at most max_frames saved
+        # time steps, in <path_out>/results/frames/u_r_rz, u_r_3d_cut and u_r_3d (frame_*.png)
+        videos = write_videos(
+            run,
+            "mhd/velocity",
+            os.path.join(results_dir, "frames"),
+            component=0,
+            basis="norm",
+            prefix="u_r",
+            label="radial velocity u_r",
+            max_frames=max_frames,
         )
-        for writer, folder, options in videos:
-            files = writer(
-                run,
-                "mhd/velocity",
-                os.path.join(frames_dir, folder),
-                component=0,
-                basis="norm",
-                label="radial velocity u_r",
-                max_frames=max_frames,
-                **options,
-            )
-            print(f"{len(files)} frames in {os.path.join(frames_dir, folder)}")
+        for video, files in videos.items():
+            print(f"{len(files)} frames of {video} in {os.path.join(results_dir, 'frames', video)}")
 
     if not save_figs:
         plt.show()

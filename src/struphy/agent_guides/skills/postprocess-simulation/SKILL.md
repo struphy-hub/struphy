@@ -106,12 +106,16 @@ write_slice_frames(out, "mhd/velocity", "frames/u_r_rz", component=0, label="u_r
 # 3D with a cutaway; view="cut" (camera on the cut face) or "domain" (whole domain)
 write_3d_frames(out, "mhd/velocity", "frames/u_r_3d", component=0, view="domain", label="u_r")
 frames_to_video("frames/u_r_rz")  # frames/u_r_rz.mp4, needs ffmpeg
+# or all standard videos at once: frames/u_r_rz (or u_r_xy, u_r_xz, u_r_yz for a slab), frames/u_r_3d_cut, frames/u_r_3d
+write_videos(out, "mhd/velocity", "frames", component=0, prefix="u_r", label="u_r")
 ```
 
 Options: `component=None` for the magnitude of a vector field, `basis` (`"norm"` default, `"1"`, `"2"`, `"v"`,
-`"physical"`), `plane` (`"xy"`, `"xz"`, `"yz"`, `"rz"`), `clim` (None: one scale over all frames, `"frame"`, or
-`(vmin, vmax)`), `steps`, `max_frames` (default 500). The frames go to `frame_0000.png`, ... with `frames.txt`
-(step and time per frame); they are written on rank 0 only.
+`"physical"`), `plane` (`"rz"` for tori and cylinders, `"xy"`, `"xz"`, `"yz"`; for other domains than Cuboid,
+Colella, Orthogonal, cylinders and tori the logical mid-surfaces `"eta1"`, `"eta2"`, `"eta3"`), `clim` (None: one
+scale over all frames, `"frame"`, or `(vmin, vmax)`), `steps`, `max_frames` (default 500). The titles show the time
+as `t = <t>/<end time>`. The frames go to `frame_0000.png`, ... with `frames.txt` (step and time per frame); they are
+written on rank 0 only.
 
 ## Common pitfalls
 

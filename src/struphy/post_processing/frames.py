@@ -4,7 +4,12 @@
 * :func:`write_slice_frames`: the field in a physical plane (e.g. the poloidal plane ``rz`` of a torus, see
   :func:`struphy.post_processing.slices.physical_planes`), with matplotlib;
 * :func:`write_3d_frames`: the field in the 3D domain with a cutaway (see
-  :func:`struphy.post_processing.plot_3d.plot_field_3d`), with PyVista.
+  :func:`struphy.post_processing.plot_3d.plot_field_3d`), with PyVista;
+* :func:`write_videos`: the standard videos of a field (its planes and both 3D views).
+
+Any domain works: the planes are those of :func:`struphy.post_processing.slices.physical_planes` (e.g. ``rz`` for
+tori and cylinders, ``xy``, ``xz``, ``yz`` for a slab, i.e. a Cuboid, or Colella), and the 3D cutaway removes a
+wedge around the vertical axis through the center of the domain (the axis of a torus).
 
 What is shown is the same for both: a scalar field, one ``component`` of a vector field in a ``basis`` (``"norm"``
 by default: the components along the normalized logical basis vectors, e.g. the radial and poloidal components in a
@@ -24,6 +29,8 @@ Example (a pproc script)::
     write_slice_frames(run, "mhd/velocity", "frames/u_r_rz", component=0, label="u_r")
     write_3d_frames(run, "mhd/velocity", "frames/u_r_3d", component=0, label="u_r")
     frames_to_video("frames/u_r_rz")  # frames/u_r_rz.mp4, needs ffmpeg
+    # or all standard videos at once: frames/u_r_rz, frames/u_r_3d_cut, frames/u_r_3d
+    write_videos(run, "mhd/velocity", "frames", component=0, prefix="u_r", label="u_r")
 
 The frames are written by the process of rank 0 only (the other ranks of an MPI run return an empty list).
 """
@@ -61,6 +68,8 @@ from struphy.post_processing.plot_3d import (
 from struphy.post_processing.slices import BASES, evaluate_plane, physical_planes, rotate
 
 VECTOR_FORMS = ("1", "2", "v")
+# default resolution of write_3d_frames: at most this many points of the 3D grid (with the copies of a torus sector)
+MAX_POINTS_3D = 1e6
 # the values of the first pass of write_3d_frames are kept for the second one up to this size in bytes
 FIRST_PASS_CACHE = 200e6
 
@@ -92,8 +101,9 @@ def _steps_and_times(out: Output, steps, max_frames):
 
 
 def _time_title(out: Output, t) -> str:
+    """``t = <t>/<end time of the run> [unit]``, for the orientation in a video."""
     unit = out.time_unit
-    return f"t = {t:.4g}" + (f" {unit}" if unit else "")
+    return f"t = {t:.4g}/{saved_times(out)[-1]:.4g}" + (f" {unit}" if unit else "")
 
 
 def _finite(values):
@@ -407,7 +417,7 @@ def write_3d_frames(
     cmap=None,
     label=None,
     azimuth=None,
-    points_per_cell=4,
+    points_per_cell=None,
     view="cut",
     window_size=(1200, 1200),
     margin=10,
@@ -447,8 +457,9 @@ def write_3d_frames(
         Azimuth (angle about the vertical axis, in radians) of the face of the cut that the camera looks at; by
         default that of the largest absolute value over all frames. It is moved to the middle between two planes of
         the evaluation grid (see :func:`struphy.post_processing.plot_3d.off_grid_azimuth`).
-    points_per_cell : int
-        Evaluation points per cell of the simulation grid in each direction.
+    points_per_cell : int | None
+        Evaluation points per cell of the simulation grid in each direction; by default as many as possible (at
+        most 4) with at most :data:`MAX_POINTS_3D` points in the 3D grid (of the full torus).
     view : str
         ``"cut"``: the camera frames the cut (for a torus its face at ``azimuth``, a poloidal cross-section) and some
         of the domain around it, see ``context``; ``"domain"``: the whole domain.
@@ -475,13 +486,13 @@ def write_3d_frames(
         return []
     steps, times = _steps_and_times(out, steps, max_frames)
     label = label or field_label(out, name, component, basis)
-    etas = {
-        e: np.linspace(0.0, 1.0, points_per_cell * n + 1)
-        for e, n in zip(("eta1", "eta2", "eta3"), out.grid.num_elements)
-    }
     domain = out.domain
     toroidal = any(cls.__name__ in TORUS_DOMAINS for cls in type(domain).__mro__)
     copies = int(domain.params.get("tor_period", 1)) if toroidal else 1
+    cells = out.grid.num_elements
+    if points_per_cell is None:
+        points_per_cell = int(np.clip(np.floor((MAX_POINTS_3D / (copies * np.prod(cells))) ** (1 / 3)), 1, 4))
+    etas = {e: np.linspace(0.0, 1.0, points_per_cell * n + 1) for e, n in zip(("eta1", "eta2", "eta3"), cells)}
 
     def frame_grid(n):
         """The structured grid of the domain (the full torus) with the arrays of :func:`_grid_values`."""
@@ -540,6 +551,72 @@ def write_3d_frames(
         _save_figure(fig, files[-1], width, height)
     _write_index(folder, steps, times)
     return files
+
+
+def write_videos(
+    out: Output,
+    name,
+    folder,
+    *,
+    component=None,
+    basis=None,
+    label=None,
+    prefix=None,
+    planes=None,
+    views=("cut", "domain"),
+    max_frames=500,
+    steps=None,
+    clim=None,
+    cmap=None,
+    slice_options=None,
+    options_3d=None,
+) -> dict[str, list[Path]]:
+    """Write the frames of the standard videos of the FEEC field ``name``: one per physical plane
+    (:func:`write_slice_frames`) and one per 3D view (:func:`write_3d_frames`), into the subfolders
+    ``<prefix>_<plane>``, ``<prefix>_3d_cut`` (view ``"cut"``) and ``<prefix>_3d`` (view ``"domain"``) of ``folder``.
+
+    Parameters
+    ----------
+    out : Output
+        Output of the run.
+    name : str
+        Raw FEEC field, ``"species/variable"`` (e.g. ``"mhd/velocity"``).
+    folder : str | Path
+        Folder of the videos.
+    component, basis, label, max_frames, steps, clim, cmap :
+        As in :func:`write_slice_frames` and :func:`write_3d_frames`.
+    prefix : str | None
+        Start of the names of the subfolders (default: the name of the variable).
+    planes : list[str] | None
+        Physical planes (see :func:`struphy.post_processing.slices.physical_planes`); by default the poloidal plane
+        ``rz`` of tori and cylinders, else all planes of the domain.
+    views : tuple[str, ...]
+        3D views, ``"cut"`` and/or ``"domain"``.
+    slice_options : dict | None
+        Further keyword arguments of :func:`write_slice_frames` (e.g. ``points_per_cell``, ``dpi``).
+    options_3d : dict | None
+        Further keyword arguments of :func:`write_3d_frames` (e.g. ``window_size``, ``azimuth``).
+
+    Returns
+    -------
+    dict[str, list[Path]]
+        The frames of each video, by the name of its subfolder.
+    """
+    prefix = prefix or name.split("/")[-1]
+    if planes is None:
+        available = physical_planes(out.domain, all_planes=True)
+        planes = ["rz"] if "rz" in available else list(physical_planes(out.domain))
+    common = dict(
+        component=component, basis=basis, label=label, max_frames=max_frames, steps=steps, clim=clim, cmap=cmap
+    )
+    videos = {}
+    for plane in planes:
+        sub = f"{prefix}_{plane}"
+        videos[sub] = write_slice_frames(out, name, Path(folder) / sub, plane=plane, **common, **(slice_options or {}))
+    for view in views:
+        sub = f"{prefix}_3d_cut" if view == "cut" else f"{prefix}_3d"
+        videos[sub] = write_3d_frames(out, name, Path(folder) / sub, view=view, **common, **(options_3d or {}))
+    return videos
 
 
 def frames_to_video(folder, output=None, fps=25, crf=18) -> Path:

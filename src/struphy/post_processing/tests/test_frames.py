@@ -1,4 +1,4 @@
-"""Frames of videos of FEEC fields (struphy.post_processing.frames) from a short run on a torus."""
+"""Frames of videos of FEEC fields (struphy.post_processing.frames) from short runs on a torus and other domains."""
 
 import shutil
 
@@ -19,15 +19,23 @@ from struphy.post_processing.frames import (
     saved_times,
     write_3d_frames,
     write_slice_frames,
+    write_videos,
 )
 
 N_SAVED = 4  # saved time steps of the run (the initial one and three time steps)
 
 
-def short_torus_run(out_folder, polar=False) -> Output:
+def short_torus_run(out_folder, polar=False, domain=None) -> Output:
     """A Maxwell run of three time steps on a coarse torus (with ``polar``, an IGAPolarTorus with polar splines, which
-    has an axis), with an m = 1, n = 1 electric field (2-form)."""
+    has an axis; or on ``domain``), with an m = 1, n = 1 electric field (2-form)."""
     from struphy.models import Maxwell
+
+    if domain is None:
+        domain = (
+            domains.IGAPolarTorus(num_elements=(4, 9), degree=(2, 2), a=1.0, R0=3.0, tor_period=1)
+            if polar
+            else domains.HollowTorus(a1=0.2, a2=1.0, R0=3.0, tor_period=1)
+        )
 
     model = Maxwell(base_units=BaseUnits())
     model.em_fields.e_field.save_data = True
@@ -37,9 +45,7 @@ def short_torus_run(out_folder, polar=False) -> Output:
         params_path=__file__,
         env=EnvironmentOptions(out_folders=out_folder, sim_folder="sim_frames"),
         time_opts=Time(dt=0.05, Tend=(N_SAVED - 1) * 0.05),
-        domain=domains.IGAPolarTorus(num_elements=(4, 9), degree=(2, 2), a=1.0, R0=3.0, tor_period=1)
-        if polar
-        else domains.HollowTorus(a1=0.2, a2=1.0, R0=3.0, tor_period=1),
+        domain=domain,
         grid=grids.TensorProductGrid(num_elements=(4, 9 if polar else 8, 4)),
         # polar splines: clamped in eta1 (free on the axis, Dirichlet at the boundary)
         derham_opts=DerhamOptions(degree=(2, 2, 1), bcs=(("free", "dirichlet"), None, None), polar_splines=True)
@@ -187,3 +193,27 @@ def test_frame_helpers():
     for clim in ("global", (1.0, 0.0), np.array([1.0, 0.0]), (0.0, 1.0, 2.0)):
         with pytest.raises(ValueError):
             _check_clim(clim)
+
+
+@pytest.mark.parametrize(
+    "domain",
+    [domains.Cuboid(r1=2.0, r2=1.0, r3=3.0), domains.Colella(Lx=2.0, Ly=1.0, alpha=0.1, Lz=3.0)],
+    ids=["slab", "colella"],
+)
+def test_videos_on_other_domains(mpi_out_folder, domain):
+    """All standard videos (the planes xy, xz, yz and both 3D views) of a slab and of the Colella mapping."""
+    run = short_torus_run(mpi_out_folder, domain=domain)
+    videos = write_videos(
+        run,
+        "em_fields/e_field",
+        run.path_out / "frames",
+        component=0,
+        prefix="e1",
+        max_frames=2,
+        options_3d={"window_size": (300, 300)},
+    )
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        assert set(videos) == {"e1_xy", "e1_xz", "e1_yz", "e1_3d_cut", "e1_3d"}
+        for files in videos.values():
+            check_frames(files, 2)
+    MPI.COMM_WORLD.Barrier()
