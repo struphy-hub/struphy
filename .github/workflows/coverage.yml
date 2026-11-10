@@ -1,0 +1,178 @@
+name: Coverage of the unit tests
+
+# Weekly, informational: line coverage of the Python code of struphy by the serial unit tests (the shards of
+# src/struphy/console/unit_test_shards.py) and the model regression tests (much of the model and propagator code is
+# tested only there). The verification tests are not included (too slow for a serial run). The kernels are compiled
+# (Fortran), so their lines are not measured. The report is in the summary of the "combine" job, the HTML report is
+# an artifact; on devel, the total is written to the branch "badges" (coverage.json) for the badge in README.md.
+
+on:
+  schedule:
+    # run at 3 a.m. on Sunday (after the other scheduled runs)
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests-with-coverage:
+    name: Coverage (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # the unit test shards and the model regression tests
+        shard: ["shard-1", "shard-2", "shard-3", "shard-4", "models"]
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 5
+
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Get submodule diff
+        uses: ./.github/actions/submodule-diff
+        with:
+          start-dir: /struphy_fortran_
+
+      - name: Reinstall feectools from submodule
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/feectools-submodule
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Compile Struphy
+        uses: ./.github/actions/compile
+        with:
+          env-name: /struphy_fortran_/env_fortran_
+
+      - name: Run the tests with coverage
+        # not every test needs to pass for a coverage report
+        continue-on-error: true
+        env:
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          pip install pytest-cov
+          # serial run, as in the serial unit test workflow
+          pip uninstall -y mpi4py
+          if [ "${{ matrix.shard }}" = "models" ]; then
+            TEST_ARGS="-m models models/tests/regression/"
+          else
+            TEST_ARGS=$(python -m struphy.console.unit_test_shards ${{ matrix.shard }})
+          fi
+          cd $STRUPHY_PATH
+          COVERAGE_FILE=$GITHUB_WORKSPACE/.coverage.${{ matrix.shard }} \
+            pytest -q -p no:testmon -p no:cacheprovider --cov=struphy --cov-report= $TEST_ARGS
+
+      - name: Upload coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.shard }}
+          path: .coverage.${{ matrix.shard }}
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  combine:
+    needs: unit-tests-with-coverage
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    outputs:
+      total: ${{ steps.report.outputs.total }}
+
+    # the same paths as in the test jobs (/struphy_fortran_/src/struphy), needed to read the sources
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 5
+
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+
+      - name: Combine and report
+        id: report
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          pip install coverage
+          # shards without data (failed before writing any) are skipped by the glob
+          coverage combine .coverage.shard-* || { echo "no coverage data" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          coverage report --skip-covered --sort=cover --format=markdown > coverage.md || true
+          echo "total=$(coverage report --format=total)" >> "$GITHUB_OUTPUT"
+          coverage html -d coverage_html || true
+          {
+            echo "## Line coverage of the Python code by the unit and model regression tests"
+            echo
+            echo "Kernels are compiled and not measured; tests in subprocesses are not measured."
+            echo "Files with full coverage are not listed."
+            echo
+            # the total, then the table header and the 60 least covered files
+            grep -F '**TOTAL**' coverage.md || true
+            echo
+            head -n 62 coverage.md | grep -vF '**TOTAL**'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage_html
+
+  # the total for the badge in README.md (shields.io endpoint reading coverage.json of the branch "badges")
+  badge:
+    needs: combine
+    if: ${{ !cancelled() && needs.combine.outputs.total != '' && github.ref == 'refs/heads/devel' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Write coverage.json to the branch badges
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TOTAL: ${{ needs.combine.outputs.total }}
+        run: |
+          if [ "$TOTAL" -ge 80 ]; then color=brightgreen; elif [ "$TOTAL" -ge 60 ]; then color=yellow; else color=orange; fi
+          mkdir badges && cd badges
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          if git fetch -q --depth 1 origin badges; then git checkout -q -b badges FETCH_HEAD; else git checkout -q --orphan badges; fi
+          echo "{\"schemaVersion\": 1, \"label\": \"coverage\", \"message\": \"${TOTAL}%\", \"color\": \"${color}\"}" > coverage.json
+          cat coverage.json
+          git add coverage.json
+          git diff --cached --quiet || git commit -q -m "coverage ${TOTAL}% (${{ github.sha }})"
+          git push -q origin HEAD:badges

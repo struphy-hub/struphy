@@ -130,7 +130,7 @@ def _fit(t, s, omegas):
 
 @pytest.mark.parametrize(
     "lam, exb_current, dt, n_steps",
-    [(0.0, False, 0.5, 160), (0.0, True, 0.5, 160), (1.0, False, 0.1, 400)],
+    [pytest.param(0.0, False, 0.5, 160, marks=pytest.mark.verif_pr), (0.0, True, 0.5, 160), (1.0, False, 0.1, 400)],
 )
 def test_shear_alfven_wave(lam, exb_current, dt, n_steps):
     roots = _dispersion_roots(lam, exb_current)

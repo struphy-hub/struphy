@@ -5,6 +5,7 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
+# mpi_skip: the NumPy variants convert the operators to dense/sparse arrays (serial only)
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("method_for_solving", ["SaddlePointSolverUzawaNumpy", "SaddlePointSolverGMRES"])
 @pytest.mark.parametrize("num_elements", [[12, 8, 1]])

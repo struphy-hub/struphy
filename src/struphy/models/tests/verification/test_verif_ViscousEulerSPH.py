@@ -1,15 +1,12 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
 from maybempi import MPI
 
 from struphy import (
-    BaseUnits,
     BinningPlot,
     BoundaryParameters,
     EnvironmentOptions,
@@ -25,7 +22,6 @@ from struphy import (
     perturbations,
     set_logging_level,
 )
-from struphy.initial.base import GenericPerturbation
 from struphy.models import ViscousEulerSPH
 
 logger = logging.getLogger("struphy")
@@ -34,14 +30,14 @@ set_logging_level(logging.INFO)
 
 @pytest.mark.parametrize("nx", [8])
 @pytest.mark.parametrize("plot_pts", [21])
-def test_damped_sound_wave(nx: int, plot_pts: int, do_plot: bool = False):
+def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = False):
     """Verification test for SPH discretization of viscous isothermal Euler equations.
     A standing sound wave decays at rate mu*k^2/2.
     The numerical decay rate is extracted from local maxima of the current, analogous to Landau damping.
     """
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "ViscousEulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="damped_soundwave_1d")
 
@@ -228,18 +224,16 @@ def test_damped_sound_wave(nx: int, plot_pts: int, do_plot: bool = False):
         )
         logger.info("Damped sound wave decay rate assertion passed.")
 
-        # shutil.rmtree(test_folder)
-
 
 @pytest.mark.parametrize("nx", [8])
 @pytest.mark.parametrize("plot_pts", [11])
-def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
+def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = False):
     """Verification test for SPH discretization of isthermal Euler equations.
     A standing sound wave with c_s=1 is damped at the rate mu*k^2/2 by viscosity.
     """
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "ViscousEulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="velocity_diffusion")
 
@@ -438,12 +432,10 @@ def test_velocity_diffusion(nx: int, plot_pts: int, do_plot: bool = False):
         )
         logger.info("Decay rate assertion passed.")
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.parametrize("nx", [8])
 @pytest.mark.parametrize("plot_pts", [21])
-def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_png: bool = False):
+def test_hagen_poiseuille(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = False, create_png: bool = False):
     """Verification test for SPH viscosity tensor in 2D Hagen-Poiseuille channel flow.
 
     Channel geometry: x ∈ [0, 1] periodic (flow direction), y ∈ [0, 1] no-slip walls.
@@ -452,7 +444,7 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
     """
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "ViscousEulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="hagen_poiseuille")
 
@@ -686,13 +678,10 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
         )
         logger.info("Hagen-Poiseuille U_max assertion passed.")
 
-        # shutil.rmtree(test_folder)
 
-
-@pytest.mark.mpi_skip
 @pytest.mark.parametrize("nx", [8])
 @pytest.mark.parametrize("plot_pts", [21])
-def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bool = False):
+def test_dam_break(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = False, create_png: bool = False):
     """2D dam break: a dense fluid column (left half, x < r1/2) released in a
     closed box with reflective walls, driven by pressure gradient and gravity.
 
@@ -701,7 +690,7 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
     """
 
     # environment options
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "ViscousEulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="dam_break")
 
@@ -901,7 +890,8 @@ def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bo
 
 
 if __name__ == "__main__":
-    # test_velocity_diffusion(nx=8, plot_pts=11, do_plot=True)
-    # test_damped_sound_wave(nx=8, plot_pts=21, do_plot=True)
-    # test_hagen_poiseuille(nx=8, plot_pts=21, do_plot=True, create_png=True)
-    test_dam_break(nx=8, plot_pts=21, do_plot=True, create_png=True)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    # test_velocity_diffusion(out, nx=8, plot_pts=11, do_plot=True)
+    # test_damped_sound_wave(out, nx=8, plot_pts=21, do_plot=True)
+    # test_hagen_poiseuille(out, nx=8, plot_pts=21, do_plot=True, create_png=True)
+    test_dam_break(out, nx=8, plot_pts=21, do_plot=True, create_png=True)

@@ -102,7 +102,7 @@ def test_full_step_energy(thermo: str, schur_precond: str):
 def test_hdiv_needs_linear_cn():
     """The q model: u_space="Hdiv" is rejected for the linear model without crank_nicolson=True, for the nonlinear
     model and with dissipation. (VariationalLinearMHD and VariationalPerturbativeMHD accept it, see
-    test_variational_linear_dissipative.py and test_variational_perturbative_hdiv.py.)"""
+    test_variational_linear_dissipative.py and test_verif_VariationalPerturbativeMHD.py.)"""
     from struphy.models import VariationalLinearMHD, VariationalPerturbativeMHD, VariationalPerturbativeMHD_with_q
 
     ideal = {"with_viscosity": False, "with_resistivity": False}

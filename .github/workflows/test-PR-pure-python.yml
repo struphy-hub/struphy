@@ -205,4 +205,12 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          mpirun -n 2 pytest -m single --testmon-forceselect -o "$TESTMON_IGNORE" -xs --with-mpi --model-name ViscousEulerSPH  $STRUPHY_PATH 
+          mpirun -n 2 pytest -m single --testmon-forceselect -o "$TESTMON_IGNORE" -xs --with-mpi --model-name ViscousEulerSPH  $STRUPHY_PATH
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [model-tests-in-container-with-reqs]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml

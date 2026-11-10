@@ -3,9 +3,10 @@ on:
   # pull_request:
   #   branches:
   #     - devel
-  schedule:
-    # run at 1 a.m. every night
-    - cron: "0 1 * * *"
+  # nightly schedule disabled: the self-hosted runners (Raven, Viper, Pitagora) did not pick up the jobs
+  # (39 of 40 runs cancelled, Oct-Nov 2026); re-enable once the runners are back
+  # schedule:
+  #   - cron: "0 1 * * *"
   workflow_dispatch:
 
 jobs:

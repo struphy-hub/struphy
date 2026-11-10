@@ -1,6 +1,6 @@
-"""The perturbative VariationalPerturbativeMHD with the velocity in H(div) (u_space="Hdiv"): energy conservation, the
-energy balance of the viscous step, agreement with the velocity in H1vec, and the stability of sound waves at large
-time steps."""
+"""Verification of the nonlinear VariationalPerturbativeMHD with the velocity in H(div) (u_space="Hdiv"): energy
+conservation, the energy balance of the viscous step, agreement with the velocity in H1vec, and the stability of
+sound waves at large time steps."""
 
 import numpy as np
 import pytest
@@ -74,9 +74,8 @@ def _scalars(model, names):
     return {k: float(model.scalars.host_value(k)[0]) for k in names}
 
 
-@pytest.mark.models
-@pytest.mark.fluid
-@pytest.mark.parametrize("map_name", ["Cuboid", "HollowTorus"])
+# the Cuboid case is the core test that also runs on pull requests
+@pytest.mark.parametrize("map_name", [pytest.param("Cuboid", marks=pytest.mark.verif_pr), "HollowTorus"])
 def test_hdiv_energy_conservation(map_name):
     """The total energy of the ideal nonlinear model is conserved, while energy is exchanged between kinetic,
     magnetic and thermal parts."""
@@ -94,8 +93,6 @@ def test_hdiv_energy_conservation(map_name):
     assert s1["en_mag_1"] > 1e-3 * s0["en_U"]
 
 
-@pytest.mark.models
-@pytest.mark.fluid
 def test_hdiv_viscous_heating():
     """The viscous step dissipates kinetic energy into the pressure, conserving their sum."""
     model, _ = _model("Hdiv", "Cuboid", mu=0.05)
@@ -108,8 +105,6 @@ def test_hdiv_viscous_heating():
     assert abs((s1["en_thermo_l1"] - s0["en_thermo_l1"]) - dissipated) < 1e-8 * s0["en_U"], f"{s0 = }, {s1 = }"
 
 
-@pytest.mark.models
-@pytest.mark.fluid
 def test_hdiv_agrees_with_h1vec():
     """The velocities in H(div) and in H1vec are consistent discretizations: their results agree up to the
     discretization error, which decreases under refinement."""
