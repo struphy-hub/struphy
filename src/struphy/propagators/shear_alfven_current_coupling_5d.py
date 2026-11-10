@@ -111,7 +111,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             self._b = new
 
     def __init__(self, energetic_ions: PICVariable = None, rho_field: FEECVariable = None, nonlinear: bool = None):
-        """
+        r"""
         Parameters
         ----------
         energetic_ions : PICVariable, default=None
