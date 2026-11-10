@@ -157,7 +157,13 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             assert new.space == "L2"
             self._s = new
 
-    def __init__(self, div_u: FEECVariable = None, u2: FEECVariable = None, pt3: FEECVariable = None):
+    def __init__(
+        self,
+        div_u: FEECVariable = None,
+        u2: FEECVariable = None,
+        pt3: FEECVariable = None,
+        rho: FEECVariable = None,
+    ):
         r"""
         Parameters
         ----------
@@ -168,11 +174,17 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         pt3 : FEECVariable, default=None
             Auxiliary second-order variable :math:`\hat s` (``"L2"`` space), advanced with
             :math:`\partial_t \hat s + \mathcal S^\kappa_s(\mathbf u) = 0`. It enters only the energy.
+        rho : FEECVariable, default=None
+            Density perturbation :math:`\tilde\rho` (``"L2"`` space, not updated) of the perturbative model: with a
+            velocity in ``"Hdiv"`` the velocity mass matrix is then :math:`\mathbb M^2_\rho` of the total density
+            :math:`\rho_0 + \tilde\rho` (re-assembled in every step) instead of :math:`\mathbb M^2_{\rho_0}`.
         """
+        assert rho is None or (isinstance(rho, FEECVariable) and rho.space == "L2")
         self.variables = self.Variables()
         self.div_u = div_u
         self.u2 = u2
         self.pt3 = pt3
+        self._rho_field = rho
 
     @dataclass(repr=False)
     class Options(OptionsBase):
