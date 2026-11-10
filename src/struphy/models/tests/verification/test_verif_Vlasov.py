@@ -66,7 +66,11 @@ def _errors(out_folder: str, domain_name: str, B0z: float, n_steps: int, T: floa
     m = p.markers[:, p.valid_mks]
     x = domain(m[0:3], remove_outside=False)
     err_x = err_v = err_speed = 0.0
+    missing = 0
     for k, i in enumerate(m[-1]):
+        if int(i) not in init:
+            missing += 1
+            continue
         x0, v0 = init[int(i)]
         x_ex, v_ex = _helix(x0, v0, t, B0z)
         dx = x[:, k] - x_ex
@@ -74,8 +78,13 @@ def _errors(out_folder: str, domain_name: str, B0z: float, n_steps: int, T: floa
         err_x = max(err_x, np.max(np.abs(dx)))
         err_v = max(err_v, np.max(np.abs(m[3:6, k] - v_ex)))
         err_speed = max(err_speed, abs(np.linalg.norm(m[3:6, k]) - np.linalg.norm(v0)))
+    n_markers = m.shape[1]
     if comm.Get_size() > 1:
         err_x, err_v, err_speed = (comm.allreduce(e, op=MPI.MAX) for e in (err_x, err_v, err_speed))
+        missing, n_markers = (comm.allreduce(c, op=MPI.SUM) for c in (missing, n_markers))
+    # checked on all ranks after the reductions (an assertion on one rank only would hang the others)
+    assert missing == 0, f"{missing} markers of the run are not in the initial state"
+    assert n_markers == len(init), f"markers lost: {n_markers} of {len(init)}"
     return err_x, err_v, err_speed
 
 
@@ -91,7 +100,7 @@ def test_helix_orbits(mpi_out_folder: str, domain_name: str, B0z: float):
         assert err_v < 1e-12, "the Lorentz-force step is an exact rotation"
         assert err_speed < 1e-12, "the kinetic energy of each marker is conserved"
         errs.append(err_x)
-    # measured (Cuboid): 1.3e-3, 3.3e-4, 8.3e-5
+    # measured: Cuboid 1.3e-3, 3.3e-4, 8.3e-5 (2nd order); Colella 9e-6, 5.8e-7, 3.6e-8 (4th order)
     assert errs[-1] < 2e-4
     assert errs[0] / errs[1] > 3.5 and errs[1] / errs[2] > 3.5, f"not second order: {errs}"
 

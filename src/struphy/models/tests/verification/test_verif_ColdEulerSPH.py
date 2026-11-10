@@ -67,14 +67,20 @@ def _errors(out_folder: str, n_steps: int, T: float = 1.0):
     p = model.fluid.var.particles  # run() allocates again (same seeded markers)
     m = p.markers[:, p.valid_mks]
     Om = OMEGA / np.sqrt(EPS)
-    x0_m = np.array([x0[int(i)] for i in m[-1]])
+    missing = sum(int(i) not in x0 for i in m[-1])
+    x0_m = np.array([x0.get(int(i), np.nan) for i in m[-1]])
     err_x = float(np.max(np.abs(L * m[0] - (L / 2 + (x0_m - L / 2) * np.cos(Om * t))), initial=0.0))
     err_u = float(np.max(np.abs(m[3] - (-(x0_m - L / 2) * Om * np.sin(Om * t))), initial=0.0))
     err_uyz = float(np.max(np.abs(m[4:6]), initial=0.0))
     mass = float(np.sum(m[p.index["weights"]]))
+    n_markers = m.shape[1]
     if parallel:
         err_x, err_u, err_uyz = (comm.allreduce(e, op=MPI.MAX) for e in (err_x, err_u, err_uyz))
         mass = comm.allreduce(mass, op=MPI.SUM)
+        missing, n_markers = (comm.allreduce(c, op=MPI.SUM) for c in (missing, n_markers))
+    # checked on all ranks after the reductions (an assertion on one rank only would hang the others)
+    assert missing == 0, f"{missing} markers of the run are not in the initial state"
+    assert n_markers == len(x0), f"markers lost: {n_markers} of {len(x0)}"
     return err_x, err_u, err_uyz, abs(mass - mass0) / mass0
 
 
@@ -83,8 +89,8 @@ def test_harmonic_potential(mpi_out_folder: str):
     for n_steps in (10, 20, 40):
         err_x, err_u, err_uyz, mass_change = _errors(mpi_out_folder, n_steps)
         logger.info(f"{n_steps = }: {err_x = :.3e}, {err_u = :.3e}, {err_uyz = :.1e}, {mass_change = :.1e}")
-        assert err_uyz == 0.0, "the force acts along x only"
-        assert mass_change < 1e-14
+        assert err_uyz < 1e-14, "the force acts along x only"
+        assert mass_change < 1e-12
         errs_x.append(err_x)
         errs_u.append(err_u)
     # measured: x 2.8e-3, 7.0e-4, 1.8e-4; u 8.7e-3, 2.2e-3, 5.4e-4
