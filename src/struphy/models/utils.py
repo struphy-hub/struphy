@@ -6,7 +6,7 @@ from feectools.linalg.block import BlockVector
 import struphy.models as models
 from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel, apply_splitting_order
-from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
+from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, KineticEnergyPIC, LostMarkersPIC
 from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
@@ -257,6 +257,135 @@ def add_perturbative_scalars(scalars: dict, mhd, energies: PerturbativeEnergies)
     scalars["en_q2"] = BilinearEnergyFEEC(mhd.sqrt_p, bilinear_form_name="M3", normalization=2 / (GAMMA - 1))
     scalars["en_internal"] = FunctionScalarFEEC(energies.en_internal)
     scalars["en_tot"] = FunctionScalarFEEC(energies.en_tot)
+
+
+## hybrid MHD models with energetic ions (LinearMHD* and PerturbativeMHDWithQ* hybrids)
+
+
+def add_energetic_ion_scalars(scalars: dict, mhd, energetic_ions, extra: dict = None, kinetic_name: str = "en_f"):
+    """Add the scalars of the energetic ions to those of the fluid model: their kinetic energy ``en_f`` (normalized
+    with the mass ratio :math:`A_\\textnormal{h} / A_\\textnormal{b}`), further energies ``extra`` (e.g. the magnetic
+    moment energy of guiding centers), the total energy ``en_tot`` (the fluid one plus all of them, kept last) and the
+    number of lost markers ``n_lost_particles``.
+
+    Parameters
+    ----------
+    scalars : dict
+        Scalars of the fluid model (with ``en_tot``), modified in place.
+    mhd : FluidSpecies
+        The fluid species ``mhd`` of the model (for the bulk mass number).
+    energetic_ions : ParticleSpecies
+        The energetic ions (species with the PIC variable ``var``).
+    extra : dict, optional
+        Further energies of the energetic ions (name -> scalar), added after ``en_f`` and to ``en_tot``.
+    kinetic_name : str
+        Name of the kinetic energy scalar (default ``"en_f"``).
+    """
+    en_tot = scalars.pop("en_tot")
+    Ab = mhd.mass_number
+    Ah = energetic_ions.var.species.mass_number
+    energies = {kinetic_name: KineticEnergyPIC(energetic_ions.var, normalization=Ah / Ab), **(extra or {})}
+    for name, energy in energies.items():
+        scalars[name] = energy
+        en_tot = en_tot + energy
+    scalars["en_tot"] = en_tot
+    scalars["n_lost_particles"] = LostMarkersPIC(energetic_ions.var)
+
+
+def check_pressure_coupling_perp(model: StruphyModel):
+    r"""Warn if the propagators ``push_eta_pc`` and ``pc6d`` of a pressure-coupling hybrid model use different
+    ``use_perp_model``: the energy exchange is exact only if the transport :math:`(\mathbf v + \tilde{\mathbf U}_\perp)
+    \cdot \nabla f_\textnormal{h}` and the pressure coupling use the same :math:`\tilde{\mathbf U}_\perp`.
+
+    Parameters
+    ----------
+    model : StruphyModel
+        Model with the propagators ``push_eta_pc`` (PushEtaPC) and ``pc6d`` (PressureCoupling6D).
+    """
+    perp_eta = model.propagators.push_eta_pc.options.use_perp_model
+    perp_pc = model.propagators.pc6d.options.use_perp_model
+    if perp_eta != perp_pc:
+        logger.warning(
+            f"{type(model).__name__}: use_perp_model differs between push_eta_pc ({perp_eta}) and pc6d ({perp_pc}); "
+            "transport and pressure coupling then use different U_perp and the total energy is not conserved.",
+        )
+
+
+def add_binning_plot(params_path: str, binning_plot: str = "BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))"):
+    """Replace the ``saving_params`` of a default parameter file by ``SavingParameters`` with one binning plot of the
+    energetic ions (``binning_plot``, Python code).
+
+    Parameters
+    ----------
+    params_path : str
+        Path of the parameter file (modified in place).
+    binning_plot : str
+        Python code of the :class:`~struphy.io.options.BinningPlot`.
+    """
+    new_file = []
+    with open(params_path, "r") as f:
+        for line in f:
+            if "saving_params = " in line:
+                new_file += [f"\nbinplot = {binning_plot}\n"]
+                new_file += ["saving_params = SavingParameters(binning_plots=(binplot,))\n\n"]
+            else:
+                new_file += [line]
+
+    with open(params_path, "w") as f:
+        for line in new_file:
+            f.write(line)
+
+
+# algorithms of the guiding-center pushers in the default parameter files of the drift-kinetic hybrids: the
+# energy-conserving discrete gradient methods of the reference discretization, second order (implicit mid-point) for
+# the drift perpendicular to b0, first order (Itoh-Abe) with Newton iterations for the parallel motion
+GC_PUSH_ALGOS = {"push_bxe": "discrete_gradient_2nd_order", "push_parallel": "discrete_gradient_1st_order_newton"}
+
+
+def set_guiding_center_push_algos(params_path: str, algos: dict = GC_PUSH_ALGOS):
+    """Set the algorithms of the guiding-center pushers in a default parameter file, ``Options()`` ->
+    ``Options(algo=...)``.
+
+    Parameters
+    ----------
+    params_path : str
+        Path of the parameter file (modified in place).
+    algos : dict
+        Propagator name -> ``algo`` (default :data:`GC_PUSH_ALGOS`).
+    """
+    with open(params_path, "r") as f:
+        lines = f.readlines()
+    for i, line in enumerate(lines):
+        for prop, algo in algos.items():
+            if f"model.propagators.{prop}.Options()" in line:
+                lines[i] = line.replace(
+                    f"model.propagators.{prop}.Options()", f'model.propagators.{prop}.Options(algo="{algo}")'
+                )
+    with open(params_path, "w") as f:
+        f.writelines(lines)
+
+
+def energetic_ion_mu_energy(mhd, energetic_ions, PB, b_field: FEECVariable) -> float:
+    """Magnetic-moment energy of the guiding centers, :math:`\\frac{A_\\textnormal{h}}{A_\\textnormal{b}} \\sum_p w_p
+    \\mu_p |\\mathbf B|(\\boldsymbol \\eta_p)`, with the parallel component of the magnetic field perturbation
+    ``PB b_field`` (local to this process, valid markers only; the weights carry the :math:`1/N_p`).
+
+    Parameters
+    ----------
+    mhd : FluidSpecies
+        The fluid species ``mhd`` of the model (for the bulk mass number).
+    energetic_ions : ParticleSpecies
+        The energetic ions (species with the ``Particles5D`` variable ``var``).
+    PB : LinearOperator
+        Parallel projection of the magnetic field perturbation to a 0-form (``basis_ops.PB`` or ``PB1form``).
+    b_field : FEECVariable
+        The magnetic field perturbation.
+    """
+    Ab = mhd.mass_number
+    Ah = energetic_ions.var.species.mass_number
+    particles = energetic_ions.var.particles
+    particles.save_magnetic_energy(PB.dot(b_field.spline.vector))
+    return particles.markers[5, particles.valid_mks].dot(particles.markers[8, particles.valid_mks]) * Ah / Ab
 
 
 if __name__ == "__main__":

@@ -28,6 +28,14 @@ Mass Operators (bilinear forms)
     :show-inheritance:
     :exclude-members: __init__
 
+Quadrature
+^^^^^^^^^^
+
+.. automodule:: struphy.feec.quadrature
+    :members:
+    :show-inheritance:
+    :exclude-members: __init__
+
 
 Projection of spline functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

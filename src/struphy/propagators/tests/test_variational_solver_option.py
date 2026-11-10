@@ -7,7 +7,6 @@ from struphy import set_logging_level
 set_logging_level(logging.WARNING)
 
 
-@pytest.mark.mpi_skip
 @pytest.mark.parametrize("solver", ["pcg", "cg"])
 def test_variational_barotropic_solver_option(solver):
     """Options.solver selects the mass-matrix solvers of VariationalDensityEvolve and VariationalMomentumAdvection."""

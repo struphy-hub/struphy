@@ -17,8 +17,8 @@ from struphy.feec.basis_projection_ops import (
     prepare_projection_of_basis,
 )
 from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
-from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
 from struphy.feec.psydac_derham import Derham
+from struphy.feec.quadrature import QuadratureIntegrator
 
 logger = logging.getLogger("struphy")
 
@@ -301,130 +301,6 @@ class BracketOperator(LinearOperator):
         return out
 
 
-class QuadratureIntegrator:
-    r"""Integrals of functions given at the local quadrature points against the basis functions of a space,
-    without metric coefficients,
-
-    .. math::
-
-        v_{\mu,ijk} = \int_{[0,1]^3} \Lambda_{\mu,ijk}(\boldsymbol\eta)\, f_\mu(\boldsymbol\eta) \,\textnormal d\boldsymbol\eta\,,
-
-    computed with the Gauss-Legendre quadrature of the mass matrices of ``derham``. The values :math:`f_\mu` are
-    given on the tensor-product grid of the local quadrature points (the flattened ``quad_grid_pts``), as returned by
-    :meth:`~struphy.feec.psydac_derham.SplineFunction.eval_tp_fixed_loc` on that grid. The result is a tensor-product
-    vector (no boundary conditions, no polar extraction).
-
-    Parameters
-    ----------
-    derham : Derham
-        Discrete de Rham sequence (not polar).
-
-    space_id : str
-        Space of the basis functions ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
-    """
-
-    def __init__(self, derham: Derham, space_id: str):
-        assert not derham.polar_splines, "QuadratureIntegrator is not available for polar splines."
-        attr = derham.spline_attributes[space_id]
-        self._fem_spaces = attr.tensor_spaces
-        self._wts = attr.quad_grid_wts
-        self._spans = attr.quad_grid_spans
-        self._bases = attr.quad_grid_bases
-        self._space = derham.coeff_spaces[derham.space_to_form[space_id]]
-
-    @property
-    def space(self):
-        """The coefficient space of the result."""
-        return self._space
-
-    def integrate(self, values: list, out=None):
-        """Integrate the values (one array per component) against the basis functions.
-
-        Parameters
-        ----------
-        values : list[xp.ndarray]
-            Function values at the local quadrature points, one array per component of the space.
-
-        out : StencilVector | BlockVector, optional
-            Output vector in :attr:`space`.
-
-        Returns
-        -------
-        StencilVector | BlockVector
-            The integrals.
-        """
-        assert len(values) == len(self._fem_spaces)
-        if out is None:
-            out = self.space.zeros()
-        else:
-            assert out.space == self.space
-
-        blocks = [out] if len(self._fem_spaces) == 1 else out.blocks
-        for fem_space, spans, wts, bases, vals, block in zip(
-            self._fem_spaces, self._spans, self._wts, self._bases, values, blocks
-        ):
-            block._data[:] = 0.0
-            kernel_3d_vec(
-                *spans,
-                *fem_space.degree,
-                *[int(start) for start in fem_space.coeff_space.starts],
-                *fem_space.coeff_space.pads,
-                *wts,
-                *bases,
-                vals,
-                block._data,
-            )
-
-        out.exchange_assembly_data()
-        out.update_ghost_regions()
-        return out
-
-
-def eval_bases_with_derivatives(derham: Derham, pts: list) -> tuple:
-    r"""Knot spans, values and first derivatives of the non-vanishing N- and D-splines of ``derham`` at the points
-    ``pts`` (three 1d arrays), in the format of :meth:`~struphy.feec.psydac_derham.Derham.prepare_eval_tp_fixed`
-    (for :meth:`~struphy.feec.psydac_derham.SplineFunction.eval_tp_fixed_loc`).
-
-    Returns
-    -------
-    spans, bn, bd, dbn, dbd : tuple
-        Each a 3-tuple (one entry per direction); ``bn``, ``dbn`` of format (point, :math:`p+1`) and ``bd``, ``dbd``
-        of format (point, :math:`p`).
-    """
-    from struphy.bsplines import bsplines_kernels
-
-    spans, bns, bds = derham.prepare_eval_tp_fixed(pts)
-
-    dbns, dbds = [], []
-    for etas, space_1d in zip(pts, derham.V0fem.spaces):
-        tn = xp.to_numpy(space_1d.knots)
-        pn = space_1d.degree
-        etas = xp.to_numpy(etas)
-        dbn = np.zeros((etas.size, pn + 1), dtype=float)
-        dbd = np.zeros((etas.size, pn), dtype=float)
-        left = np.zeros(max(pn, 1), dtype=float)
-        right = np.zeros(max(pn, 1), dtype=float)
-        vals_n = np.zeros(pn + 1, dtype=float)
-        vals_d = np.zeros(pn, dtype=float)
-        for n in range(etas.size):
-            # as in prepare_eval_tp_fixed: avoid 1. --> 0. for clamped splines
-            eta = etas[n] % (1.0 + 1e-14)
-            span = bsplines_kernels.find_span(tn, pn, eta)
-            if pn >= 1:
-                bsplines_kernels.basis_funs_1st_der(tn, pn, eta, span, left, right, vals_n)
-                dbn[n] = vals_n
-            if pn >= 2:
-                # D-splines: B-splines of degree pn - 1 scaled as in bsplines_kernels.b_d_splines_slim
-                bsplines_kernels.basis_funs_1st_der(tn, pn - 1, eta, span, left, right, vals_d)
-                for il in range(pn):
-                    vals_d[pn - 1 - il] *= pn / (tn[span - il + pn] - tn[span - il])
-                dbd[n] = vals_d
-        dbns += [xp.to_cunumpy(dbn)]
-        dbds += [xp.to_cunumpy(dbd)]
-
-    return spans, bns, bds, tuple(dbns), tuple(dbds)
-
-
 class HdivBracketOperator(LinearOperator):
     r"""Bracket of the variational momentum advection for a velocity 2-form :math:`\mathbf u \in H(\textnormal{div})`:
     the skew-symmetric linear map
@@ -552,7 +428,7 @@ class HdivBracketOperator(LinearOperator):
         assert self._s.shape == self._shape
 
         # values (and first derivatives) of the basis functions of the 2-forms and 3-forms at the quadrature points
-        spans, bn, bd, dbn, dbd = eval_bases_with_derivatives(derham, pts)
+        spans, bn, bd, dbn, dbd = derham.prepare_eval_tp_fixed(pts, derivatives=True)
         self._spans = spans
         # component k of the 2-forms: N-splines in direction k, D-splines in the others
         self._bases_2 = [[bn[d] if d == k else bd[d] for d in range(3)] for k in range(3)]

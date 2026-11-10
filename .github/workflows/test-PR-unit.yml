@@ -25,3 +25,11 @@ jobs:
       n-procs: 1
     secrets:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [unit-test-serial]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml
