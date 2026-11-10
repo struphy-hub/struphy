@@ -179,7 +179,8 @@ def derivative_operator(derham, derivative: str) -> KroneckerBlockOperator:
     forms = {"grad": ("H1", "Hcurl"), "curl": ("Hcurl", "Hdiv"), "div": ("Hdiv", "L2")}
     assert derivative in forms, f"derivative must be one of {tuple(forms)}, got {derivative!r}."
     dom, cod = forms[derivative]
-    op = getattr(derham, f"{derivative}_bcfree")
+    # the tensor-product derivative (also with polar splines, where the polar extraction is applied by the caller)
+    op = getattr(derham, f"{derivative}_tp")
     if isinstance(op, BlockLinearOperator):
         items = [((r, c), op[r, c]) for r in range(op.n_block_rows) for c in range(op.n_block_cols)]
     else:
@@ -213,6 +214,8 @@ def basis_projection_operator(op, derham, rtol: float = 1e-10) -> KroneckerBlock
     histopolation on the extended Greville grid with ``derham.nquads_proj`` Gauss points per cell, split at the breaks
     for even degree) and its essential boundary
     conditions (the boundary degrees of freedom and coefficients are zero). This is exact for constant weights.
+    With polar splines, the operator is approximated on the parent tensor-product spaces (the polar extraction is
+    applied by the caller).
     """
     from struphy.feec.basis_projection_ops import BasisProjectionOperator
 
@@ -224,10 +227,10 @@ def basis_projection_operator(op, derham, rtol: float = 1e-10) -> KroneckerBlock
     if any(w is not None and not callable(w) for row in op._weights for w in row):
         raise NotImplementedError("Weights given as arrays are not supported (separable approximation of callables).")
     P, V = op._P, op._V
-    assert not P.is_polar, "Polar splines are not supported."
     dom, cod = op._domain_symbolic_name, op._codomain_symbolic_name
-    dom_comps = _component_spaces(V)
-    cod_comps = _component_spaces(P.space)
+    # with polar splines: the operator on the parent tensor-product spaces (the polar extraction is applied by the user)
+    dom_comps = _component_spaces(derham.fem_spaces[dom] if P.is_polar else V)
+    cod_comps = _component_spaces(derham.fem_spaces[cod] if P.is_polar else P.space)
     src_bc = _essential_bc(op._V_boundary_op, dom, len(dom_comps))
     tgt_bc = _essential_bc(op._P_boundary_op, cod, len(cod_comps))
 
@@ -395,3 +398,16 @@ def _values(space: SplineSpace, x: np.ndarray) -> np.ndarray:
         ),
         dtype=float,
     )
+
+
+def mass_matrix_1d(row: SplineSpace, col: SplineSpace, nquad: int | None = None) -> np.ndarray:
+    r"""Dense unweighted 1d mass matrix :math:`\int \Lambda^\textnormal{row}_i \Lambda^\textnormal{col}_j \, \textnormal d \eta`
+    of two 1d spline spaces on the same breaks (e.g. B- and M-splines), by Gauss-Legendre quadrature per cell."""
+    breaks = np.asarray(row.breaks, dtype=float)
+    assert np.allclose(breaks, np.asarray(col.breaks, dtype=float)), "The 1d spaces need the same breaks."
+    nq = nquad or max(row.degree, col.degree) + 1
+    nodes, wts = np.polynomial.legendre.leggauss(nq)
+    h = np.diff(breaks)
+    x = (breaks[:-1, None] + (nodes[None, :] + 1.0) / 2.0 * h[:, None]).ravel()
+    w = (wts[None, :] / 2.0 * h[:, None]).ravel()
+    return _values(row, x).T @ (w[:, None] * _values(col, x))

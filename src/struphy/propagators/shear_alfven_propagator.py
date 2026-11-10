@@ -156,12 +156,19 @@ class ShearAlfvenPropagator(Propagator):
             (fast diagonalization) preconditioner (``"StiffnessPreconditioner"``, the default,
             :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`: block Jacobi in the velocity
             components with the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows if
-            ``exb_correction``, see there). Both need the implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"``. The Kronecker
-            preconditioner also needs ``u_space="Hdiv"``, tensor-product splines (no polar splines) and the global
-            commuting projectors; otherwise ``"StiffnessPreconditioner"`` falls back (with a warning) to
-            ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). The Schur operator
-            depends on the time step, so these preconditioners are built in the setup (:meth:`prepare_time_step`) and
-            updated if the time step changes.
+            ``exb_correction``, see there; with polar splines its 2D x 1D version,
+            :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner`, which couples the poloidal
+            components and needs no correction). Both need the implicit algorithm with ``solver="pcg"`` or
+            ``"pcg_sr"``. The Kronecker preconditioner also needs ``u_space="Hdiv"`` and the global commuting
+            projectors; otherwise ``"StiffnessPreconditioner"`` falls back (with a warning) to
+            ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). The option
+            ``"ToroidalFourierPreconditioner"`` (:class:`~struphy.feec.toroidal_fourier.ToroidalFourierSolver`) is the
+            exact inverse of the Schur operator if it is invariant under shifts in a periodic :math:`\eta_3` (e.g. an
+            axisymmetric equilibrium in a torus or cylinder, with tensor-product or polar splines), by an FFT in
+            :math:`\eta_3` and one dense poloidal factorization per toroidal mode number (the setup applies the Schur
+            operator once per poloidal unknown, for moderate poloidal resolution); for other equilibria it is an
+            approximation, so do not use it e.g. for stellarators. The Schur operator depends on the time step, so these
+            preconditioners are built in the setup (:meth:`prepare_time_step`) and updated if the time step changes.
             The multigrid preconditioner is experimental: on the TAE example (HollowTorus, 8x32x4) it needs more PCG
             iterations than the mass matrix preconditioner and is much slower (the smoother does not treat the large
             kernel of the curl term on 2-forms). The Kronecker preconditioner (with ``exb_correction``) needs about 11
