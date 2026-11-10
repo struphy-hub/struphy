@@ -17,6 +17,8 @@ from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
     NewtonConvergence,
     Pressure_transport_operator,
+    PressureTransportAdjointMatrix,
+    TransportAdjointMatrix,
     alfven_schur_preconditioner,
     dot_normalized,
     inv_norm2,
@@ -25,7 +27,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
-from struphy.propagators.utils import EquilibriumCurrentTerm, VelocityMass
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -149,13 +151,12 @@ class VariationalPBEvolve(Propagator):
       :class:`~struphy.propagators.variational_linear_sound_evolve.VariationalLinearSoundEvolve`, which use the same
       operators, up to the splitting): sound waves and second-order terms
       are implicit. The Newton matrix contains the derivatives of these linear terms,
-      :math:`\mathbb M^v_\rho + \frac{\Delta t^2}{4} (\mathbb D \mathcal U^v)^\top \mathbb M^3 \mathbb S[p_0]` in the
-      upper left block (with the weak form :math:`\mathbb S[\mathbf p]^\top \hat l^3 \approx -(\mathbb D
-      \mathcal U^v)^\top \mathbb M^3 \mathbf p` of the derivative of the pressure force) and :math:`\frac{\Delta t}{2}
-      \mathbb W` in the upper right block, with :math:`\mathbb W` the matrix of :math:`\int \mathbf v \cdot
-      (\mathbf j_0 \times \mathbf B)` (an approximation of the derivative of the force
-      :math:`\mathbb T[\mathbf b]^\top \mathbb M^2 \mathbf b_0`, with the values at the quadrature points of the
-      current of the dual complex, :class:`~struphy.propagators.utils.EquilibriumCurrentTerm`); it is not symmetric
+      :math:`\mathbb M^v_\rho - \frac{\Delta t^2}{4} \mathbb A\, \mathbb S[p_0]` in the upper left block, with the
+      matrix :math:`\mathbb A` of the pressure force :math:`\mathbf p \mapsto \mathbb S[\mathbf p]^\top \hat{\mathbf l}`
+      (:class:`~struphy.feec.variational_utilities.PressureTransportAdjointMatrix`), and :math:`\frac{\Delta t}{2}
+      \mathbb F` in the upper right block, the exact derivative of the second-order magnetic force
+      :math:`\mathbb T[\mathbf b]^\top \mathbb M^2 \mathbf b_0 = -\mathbb F \mathbf b`, which is linear in
+      :math:`\mathbf b` (:class:`~struphy.feec.variational_utilities.TransportAdjointMatrix`); it is not symmetric
       (``solver="rpbicgstab"``).
       The weights are updated in every iteration, which stops when also the pressure has converged.
     - ``"frozen"``: :math:`\mathbf b^w = \mathbf b^n`, :math:`\mathbf p^w = \mathbf p^n`. The pressure force and the
@@ -756,25 +757,34 @@ class VariationalPBEvolve(Propagator):
             self._full_curlPib = self.curlPib0 + self.curlPib
             self._full_curlPibT = self.curlPibT0 + self.curlPibT
 
+            # second-order magnetic term b0^T M2 b-hat (Galerkin Hodge star, as the full-f energy): its force is the adjoint
+            # of the transport of b-hat applied to this linear form
             self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
-            # second-order magnetic term b0^T M2 b-hat (Galerkin Hodge star, as the full-f energy); W, the force
-            # int v . (j0 x b) with the values of the current of the dual complex at the quadrature points, is used only
-            # in the Newton matrix (as an approximation of the derivative of the force T[b]^T M2 b0)
-            self._R_j0 = EquilibriumCurrentTerm(
-                self.derham, self.domain, self.mass_ops, self.projected_equil, self._u_space
-            ).R
 
             self._mdt2_pc_curlPibT_M = 2 * (self._full_curlPibT @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self._full_curlPib
             if self._midpoint:
-                # derivatives of the linear terms with midpoint weights: the force of the equilibrium current in
-                # the upper right block, the sound waves in the upper left block, (D U)^T M3 S[p0], with the weak
-                # form S[p]^T l ~ -(D U)^T M3 p of the derivative of the pressure force (only the convergence of the
-                # Newton iteration depends on it, not its solution)
-                self._dt2_R = ScaledLinearOperator(self._R_j0.domain, self._R_j0.codomain, 1.0, self._R_j0)
+                # exact derivatives of the linear terms with midpoint weights: the second-order magnetic force in the
+                # upper right block (the matrix F of b -> T[b]^T l_b, linear in b) and the sound waves in the upper left
+                # block, -A S[p0] with the matrix A of p -> S[p]^T l_p (the pressure force)
+                F = TransportAdjointMatrix(
+                    self.derham, self.domain, self.mass_ops, self._u_space, self._linear_form_dl_db0
+                )
+                self._dt2_R = ScaledLinearOperator(F.domain, F.codomain, 1.0, F)
                 self._J01 = self._mdt2_pc_curlPibT_M + self._dt2_R
-                div_u = self.derham.div if self._u_space == "Hdiv" else self.derham.div @ self.basis_ops.Uv
-                sound = div_u.T @ self.mass_ops.M3 @ self._transop_p0
+                A = PressureTransportAdjointMatrix(
+                    self.derham,
+                    self.domain,
+                    self.mass_ops,
+                    self.basis_ops,
+                    self._u_space,
+                    self._gamma,
+                    # the linear form of int p-hat / (gamma - 1) (as _create_linear_form_p, which runs later)
+                    L2Projector("L2", self.mass_ops).get_dofs(self.domain.jacobian_det) * (-1.0 / (self._gamma - 1.0)),
+                )
+                # the sign inside the composition: the outer ScaledLinearOperator absorbs an outer scalar, and its scalar
+                # is set to dt^2/4 in _get_jacobian
+                sound = (-1.0 * A) @ self._transop_p0
                 self._dt2_sound = ScaledLinearOperator(sound.domain, sound.codomain, 1.0, sound)
                 self._J00 = self._Mrho + self._dt2_sound
 
