@@ -29,6 +29,9 @@ def _maxwell(out_folder: str, sim_folder: str, Tend: float, restart: bool = Fals
     model = Maxwell()
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=124))
+    if restart:
+        # another initial condition: the restarted run matches only if it starts from the checkpoint
+        model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.5, comp=2, seed=125))
     return Simulation(
         model=model,
         env=EnvironmentOptions(out_folders=out_folder, sim_folder=sim_folder, restart=restart),
@@ -42,7 +45,8 @@ def _maxwell(out_folder: str, sim_folder: str, Tend: float, restart: bool = Fals
 def _vlasov_ampere(out_folder: str, sim_folder: str, Tend: float, restart: bool = False) -> Simulation:
     model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
     model.kinetic_ions.set_markers(
-        loading_params=LoadingParameters(ppc=50, seed=1234),
+        # another seed for the restarted run: it matches only if it starts from the checkpoint
+        loading_params=LoadingParameters(ppc=50, seed=4321 if restart else 1234),
         weights_params=WeightsParameters(control_variate=True),
         sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1), do_sort=True),
         bufsize=0.4,
@@ -67,7 +71,8 @@ def _vlasov_ampere(out_folder: str, sim_folder: str, Tend: float, restart: bool 
 
 def _run_straight_and_restarted(make_sim, out_folder: str, n_steps: int = 4):
     """The model of a run straight to n_steps dt, and the model of a run to n_steps/2 dt that is continued to
-    n_steps dt by a new Simulation restarting from its checkpoint."""
+    n_steps dt by a new Simulation restarting from its checkpoint. The restarted Simulation is set up with a different
+    initial condition (see make_sim), so that a restart that is ignored does not go unnoticed."""
     T = n_steps * DT
     straight = make_sim(out_folder, "straight", T)
     straight.run()
