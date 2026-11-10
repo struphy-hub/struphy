@@ -13,6 +13,7 @@ from pathlib import Path
 
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--a1` the radius of the hole around the magnetic axis (default 0.01).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # `--setup profiling` selects the setup of the profiling runs of submit_lowmode_tae_cpu_vs_gpu.py.
 # Unknown flags are ignored so that a driver can forward other parameters as well.
@@ -79,6 +80,9 @@ parser.add_argument(
     help="Small resolution (num_elements = [8, 8, 4], 2000 markers) and a short run with three saved time steps, for "
     "the tests (test_examples.py).",
 )
+parser.add_argument(
+    "--a1", type=float, default=0.01, help="Radius of the hole around the magnetic axis (default 0.01, in units of a)."
+)
 args, _ = parser.parse_known_args()
 profiling = args.setup == "profiling"
 # steps of the profiling setup: the first one includes one-time work (CUDA module loads, allocations)
@@ -111,7 +115,7 @@ fraction of omega_TAE, roughly proportional to the energetic-ion density.
 
 Setup. Tokamak with circular flux surfaces and the MHD equilibrium of the ShearAlfven low-mode example (AdhocTorus,
 R0 = 5, a = 1, B0 = 1, q(r) = 1.25 + r^2, flat bulk density, beta 0.0018) on the full torus (HollowTorus with a
-hole of radius 0.1), grid {args.num_elements} with cubic splines, time step {args.dt} up to t = {args.tend}. The
+hole of radius {args.a1}), grid {args.num_elements} with cubic splines, time step {args.dt} up to t = {args.tend}. The
 compressional MHD (sound wave, background current and pressure steps of LinearMHD) is included. Energetic deuterons (mass number 2, so A_h/A_b = 2) with the
 normalized cyclotron period epsilon = {args.epsilon} (gyro-radius at the Alfven speed in units of the minor radius;
 set explicitly, since the default units give 0.046, i.e. drift-orbit widths of a large fraction of the minor radius
@@ -127,8 +131,9 @@ Fourier filter keeping only n = 1, which removes the marker noise in the other t
 The TAE is seeded by a small m = 1, 2 velocity perturbation localized at the gap (as in the ShearAlfven example).
 
 Expected result. After the initial transient, the TAE (the (m, n) = (1, 1) and (2, 1) harmonics of the radial
-velocity at r_c) oscillates with omega close to omega_TAE = 0.067 and grows exponentially. With the defaults, the run (to
-t = 800) gave omega = 0.0619 (0.92 omega_TAE) and gamma = 0.0026 (gamma/omega = 0.04); four times the energetic-ion
+velocity at r_c) oscillates with omega close to omega_TAE = 0.067 and grows exponentially. With the earlier
+defaults sigma = 0.15 and a1 = 0.1 (not re-measured with the present ones), the run (to t = 800) gave
+omega = 0.0619 (0.92 omega_TAE) and gamma = 0.0026 (gamma/omega = 0.04); four times the energetic-ion
 density (--nh 0.02) excites an energetic-particle mode below the gap instead (omega = 0.046, gamma = 0.006). On 4 MPI
 ranks the run takes about 2 s per time step, about 30 min for the default end time. The pproc script
 measures omega (asserted within 10% of omega_TAE) and the growth rate gamma from the MHD kinetic energy
@@ -218,7 +223,7 @@ else:
 
 # Geometry
 a, R0 = 1.0, 5.0
-domain = domains.HollowTorus(a1=0.1, a2=a, R0=R0, sfl=False, pol_period=1, tor_period=1)
+domain = domains.HollowTorus(a1=args.a1, a2=a, R0=R0, sfl=False, pol_period=1, tor_period=1)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(
@@ -332,7 +337,7 @@ model.energetic_ions.var.add_background(
 # seed of the TAE: the m = 1 and m = 2 harmonics (n = 1: logical mode number -1 along eta3) of the velocity, Gaussian
 # around the gap, as divergence-free 2-form components (see the ShearAlfven low-mode example)
 eta1_c = (R_C - domain.params["a1"]) / (domain.params["a2"] - domain.params["a1"])
-sigma, amp = 0.15, args.seed
+sigma, amp = 0.1, args.seed
 ms = (1, 2)
 model.mhd.velocity.add_perturbation(
     perturbations.TorusModesSin(
