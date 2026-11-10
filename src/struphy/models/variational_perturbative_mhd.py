@@ -38,9 +38,11 @@ class VariationalPerturbativeMHD(VariationalLinearMHD):
 
     class Propagators(VariationalLinearMHD.Propagators):
         """Propagators of :class:`~struphy.models.variational_linear_mhd.VariationalLinearMHD`, with the velocity mass
-        matrix of the total density, plus ``variat_mom`` (advection of the momentum) and ``variat_nonlinear`` (the
-        nonlinear terms of the magnetic field and the pressure). The linear steps and the nonlinear one are integrated
-        symmetrically (``strang_groups``), the nonlinear one in the middle.
+        matrix of the total density and the sound step with the total pressure as transport weight
+        (``total_weight=True``, which closes the nonlinear sound coupling inside one implicit step), plus
+        ``variat_mom`` (advection of the momentum) and ``variat_nonlinear`` (the nonlinear terms of the magnetic
+        field). The linear steps and the nonlinear one are integrated symmetrically (``strang_groups``), the nonlinear
+        one in the middle.
 
         Parameters
         ----------
@@ -77,7 +79,9 @@ class VariationalPerturbativeMHD(VariationalLinearMHD):
             )
             # the linear steps with the velocity mass matrix of the total density
             self.variat_lin_alfven = VariationalLinearAlfvenEvolve(bt2=bt2, rho=rho)
-            self.variat_lin_sound = VariationalLinearSoundEvolve(div_u=div_u, u2=u2, pt3=pt3, rho=rho)
+            self.variat_lin_sound = VariationalLinearSoundEvolve(
+                div_u=div_u, u2=u2, pt3=pt3, rho=rho, total_weight=True
+            )
             self.variat_mom = VariationalMomentumAdvection(rho=rho)
             self.variat_nonlinear = VariationalNonlinearPBEvolve(rho=rho)
             # the nonlinear model heats the pressure (full_p)
@@ -119,7 +123,6 @@ class VariationalPerturbativeMHD(VariationalLinearMHD):
         props.variat_mom.variables.u = self.mhd.velocity
         props.variat_nonlinear.variables.u = self.mhd.velocity
         props.variat_nonlinear.variables.b = self.em_fields.b_field
-        props.variat_nonlinear.variables.p = self.mhd.pressure
 
     def _kinetic_energy(self):
         """The kinetic energy with the mass matrix of the total density (rho_0 + rho)."""
@@ -140,12 +143,6 @@ class VariationalPerturbativeMHD(VariationalLinearMHD):
     def post_allocate(self):
         """:meta private:"""
         super().post_allocate()
-        gamma = self.propagators.variat_lin_sound.options.gamma
-        if self.propagators.variat_nonlinear.options.gamma != gamma:
-            raise ValueError(
-                f"variat_nonlinear.Options(gamma={self.propagators.variat_nonlinear.options.gamma}) must match the "
-                f"gamma={gamma} of variat_lin_sound."
-            )
         # velocity in Hdiv: mass matrix of the total density for the kinetic energy
         if self._u_space == "Hdiv":
             self._velocity_mass = VelocityMass(

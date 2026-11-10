@@ -1,6 +1,6 @@
 """VariationalNonlinearPBEvolve (the nonlinear terms of the perturbative variational MHD model): the substep alone
 conserves the kinetic plus the first-order magnetic energy (implicit midpoint rule, Picard iteration), with the
-velocity in H1vec and in H(div), and it does nothing without magnetic and pressure perturbations."""
+velocity in H1vec and in H(div), and it does nothing without a magnetic perturbation."""
 
 import logging
 
@@ -75,10 +75,9 @@ def test_nonlinear_substep_energy(u_space: str):
 
 @pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
 def test_nonlinear_substep_without_perturbations(u_space: str):
-    """Without magnetic and pressure perturbations the nonlinear terms vanish: the state does not change."""
+    """Without a magnetic perturbation the nonlinear terms vanish: the state does not change (also with a pressure
+    perturbation, whose nonlinear transport is in the sound step)."""
     model = _setup(u_space, amp_b=0.0)
-    model.mhd.pressure.spline.vector *= 0.0
-    model.mhd.pressure.spline.vector.update_ghost_regions()
     x0 = [v.spline.vector.copy() for v in (model.mhd.velocity, model.em_fields.b_field, model.mhd.pressure)]
     model.propagators.variat_nonlinear(0.05)
     for x, v in zip(x0, (model.mhd.velocity, model.em_fields.b_field, model.mhd.pressure)):
