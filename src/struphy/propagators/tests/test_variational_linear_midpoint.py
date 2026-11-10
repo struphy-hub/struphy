@@ -163,5 +163,41 @@ def test_midpoint_options(prop_name: str):
         Options(weights="implicit", **kwargs)
 
 
+@pytest.mark.parametrize("dirichlet", [False, True])
+@pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
+def test_alfven_midpoint_one_solve(u_space: str, dirichlet: bool):
+    """One linear solve of the Alfven step with midpoint weights satisfies the midpoint equations with the exact,
+    matrix-free second-order force T[b^{n+1/2}]^T M2 b0 (the matrix of TransportAdjointMatrix makes the system
+    linear and exact)."""
+    from struphy.feec.variational_utilities import Hdiv0_transport_operator
+    from struphy.propagators.base import Propagator
+
+    model = _setup("p", u_space, weights="midpoint", dirichlet=dirichlet)
+    prop = model.propagators.variat_lin_alfven
+    mass_ops = Propagator.mass_ops
+    dt = 0.1
+    un = model.mhd.velocity.spline.vector.copy()
+    bn = model.em_fields.b_field.spline.vector.copy()
+    prop(dt)
+    un1 = model.mhd.velocity.spline.vector
+    bn1 = model.em_fields.b_field.spline.vector
+
+    u12 = (un + un1) * 0.5
+    b12 = (bn + bn1) * 0.5
+    TwT = Hdiv0_transport_operator(Propagator.derham, u_space=u_space, phys_domain=Propagator.domain).T
+    TwT.update_coeffs(b12)
+    lf0 = mass_ops.M2.dot(Propagator.projected_equil.b2) * (-1.0)
+    # momentum and induction residuals of the midpoint rule
+    res_u = prop._Mrho.dot(un1 - un) + (prop._T0T.dot(mass_ops.M2.dot(b12) * (-1.0)) + TwT.dot(lf0)) * dt
+    res_b = bn1 - bn + prop._T0.dot(u12) * dt
+    u_form = Propagator.derham.space_to_form[u_space]
+    res_u = Propagator.derham.boundary_ops[u_form].dot(res_u)
+    scale_u = prop._Mrho.dot(un1 - un)
+    rel_u = np.sqrt(res_u.inner(res_u) / scale_u.inner(scale_u))
+    rel_b = np.sqrt(res_b.inner(res_b) / (bn1 - bn).inner(bn1 - bn))
+    assert rel_u < 1e-9, rel_u
+    assert rel_b < 1e-9, rel_b
+
+
 if __name__ == "__main__":
     test_p_sound_stable()
