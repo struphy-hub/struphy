@@ -169,11 +169,11 @@ def test_accum_poisson(num_elements, degree, bcs, mapping, num_clones, Np=10000,
     particles.initialize_weights()
 
     if show_plot:
-        # collective (sums the binning over the ranks): called on all ranks, plotted on rank 0
+        # collective (sums the binning over the ranks): called on all ranks, plotted on rank 0 only
         components = [False] * 6
         components[0] = True  # show only the spatial distribution (ignore velocities)
         bin_edges = [xp.linspace(0.0, 1.0, 50)]
-        particles.show_distribution_function(components=components, bin_edges=bin_edges, do_plot=mpi_rank == 0)
+        particles.show_distribution_function(components=components, bin_edges=bin_edges, do_plot=True)
 
     _sqrtg = float(domain.jacobian_det(0.5, 0.5, 0.5, squeeze_out=True))
 

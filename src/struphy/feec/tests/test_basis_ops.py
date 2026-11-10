@@ -5,15 +5,10 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
-def _inner(a, b):
-    """Global scalar product of two coefficient vectors (Stencil/BlockVector or PolarVector)."""
-    return a.dot(b) if hasattr(a, "pol") else a.inner(b)
-
-
 def _assert_adjoint(name, op, x, y, rtol=1e-10, **kwargs):
     """y . (A x) == (A^T y) . x for the operator A, its transpose and vectors x (domain), y (codomain)."""
-    lhs = _inner(y, op.dot(x, **kwargs))
-    rhs = _inner(op.transpose().dot(y, **kwargs), x)
+    lhs = y.inner(op.dot(x, **kwargs))
+    rhs = op.transpose().dot(y, **kwargs).inner(x)
     logger.info(f"{name}: y.(A x) = {lhs}, (A^T y).x = {rhs}")
     assert abs(lhs) > 0.0, f"{name}: zero result"
     assert abs(lhs - rhs) <= rtol * max(abs(lhs), abs(rhs)), f"{name}: {lhs = } vs {rhs = }"

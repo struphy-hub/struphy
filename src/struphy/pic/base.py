@@ -1745,7 +1745,7 @@ class Particles(metaclass=ABCMeta):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
         This routine is mainly for de-bugging. It is collective (the binning is summed over all processes and clones),
-        so call it on all ranks; restrict ``do_plot`` to one rank.
+        so call it on all ranks; the plot is shown on rank 0 of ``MPI.COMM_WORLD`` only.
 
         Parameters
         ----------
@@ -1757,7 +1757,7 @@ class Particles(metaclass=ABCMeta):
             List of bin edges (resolution) having the length of True entries in components.
 
         do_plot : bool
-            Whether to show the plot (default: False).
+            Whether to show the plot (default: False); only rank 0 plots.
 
         Returns
         -------
@@ -1786,6 +1786,9 @@ class Particles(metaclass=ABCMeta):
             if comm is not None and comm.Get_size() > 1:
                 comm.Allreduce(MPI.IN_PLACE, f_slice, op=MPI.SUM)
                 comm.Allreduce(MPI.IN_PLACE, df_slice, op=MPI.SUM)
+
+        # plot on one rank only
+        do_plot = do_plot and MPI.COMM_WORLD.Get_rank() == 0
 
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
 
