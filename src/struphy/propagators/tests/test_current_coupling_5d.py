@@ -13,7 +13,6 @@ PROPAGATORS = {
 }
 
 
-@pytest.mark.mpi_skip
 @pytest.mark.parametrize("name", list(PROPAGATORS))
 def test_current_coupling_5d_without_b_tilde(name: str):
     """One step of the 5D current-coupling propagators with b_tilde=None equals one with b_tilde=0."""

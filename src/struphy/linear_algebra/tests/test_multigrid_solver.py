@@ -77,6 +77,8 @@ class _SmootherAsOperator(LinearOperator):
         return out
 
 
+# mpi_skip below: the dense reference matrices (_assemble_dense) are compared with x.toarray(), which holds only
+# the local entries under MPI
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("bcs", [DIRICHLET, PERIODIC])
 def test_diagonal(bcs):
