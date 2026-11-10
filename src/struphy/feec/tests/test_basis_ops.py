@@ -5,6 +5,15 @@ import pytest
 logger = logging.getLogger("struphy")
 
 
+def _assert_adjoint(name, op, x, y, rtol=1e-10, **kwargs):
+    """y . (A x) == (A^T y) . x for the operator A, its transpose and vectors x (domain), y (codomain)."""
+    lhs = y.inner(op.dot(x, **kwargs))
+    rhs = op.transpose().dot(y, **kwargs).inner(x)
+    logger.info(f"{name}: y.(A x) = {lhs}, (A^T y).x = {rhs}")
+    assert abs(lhs) > 0.0, f"{name}: zero result"
+    assert abs(lhs - rhs) <= rtol * max(abs(lhs), abs(rhs)), f"{name}: {lhs = } vs {rhs = }"
+
+
 @pytest.mark.parametrize("num_elements", [[8, 12, 4]])
 @pytest.mark.parametrize("degree", [[2, 3, 2]])
 @pytest.mark.parametrize(
@@ -183,82 +192,15 @@ def test_some_basis_ops(num_elements, degree, bcs, mapping):
     x1_st.update_ghost_regions()
     x2_st.update_ghost_regions()
     x3_st.update_ghost_regions()
+    x0vec_st.update_ghost_regions()
 
-    MPI_COMM.Barrier()
-
-    # TODO: invent some tests, because there are no asserts a the moment.
-
-    # operator K3 (V3 --> V3)
-    if mpi_rank == 0:
-        logger.info("\nK3 (V3 --> V3, Identity operator in this case):")
-
-    res_PSY = OPS_PSY.K3.dot(x3_st)
-
-    K3T = OPS_PSY.K3.transpose()
-    res_PSY = K3T.dot(x3_st)
-
-    MPI_COMM.Barrier()
-
-    # operator K0 (V0 --> V0)
-    if mpi_rank == 0:
-        logger.info("\nK0 (V0 --> V0, Identity operator in this case):")
-
-    res_PSY = OPS_PSY.K0.dot(x0_st)
-
-    K10T = OPS_PSY.K0.transpose()
-    res_PSY = K10T.dot(x0_st)
-
-    MPI_COMM.Barrier()
-
-    # operator Q1 (V1 --> V2)
-    if mpi_rank == 0:
-        logger.info("\nQ1 (V1 --> V2):")
-
-    res_PSY = OPS_PSY.Q1.dot(x1_st)
-
-    MPI_COMM.Barrier()
-
-    Q1T = OPS_PSY.Q1.transpose()
-    res_PSY = Q1T.dot(x2_st)
-
-    MPI_COMM.Barrier()
-
-    # operator W1 (V1 --> V1)
-    if mpi_rank == 0:
-        logger.info("\nW1 (V1 --> V1, Identity operator in this case):")
-
-    res_PSY = OPS_PSY.W1.dot(x1_st)
-
-    MPI_COMM.Barrier()
-
-    W1T = OPS_PSY.W1.transpose()
-    res_PSY = W1T.dot(x1_st)
-
-    MPI_COMM.barrier()
-
-    # operator Q2 (V2 --> V2)
-    if mpi_rank == 0:
-        logger.info("\nQ2 (V2 --> V2, Identity operator in this case):")
-
-    res_PSY = OPS_PSY.Q2.dot(x2_st)
-
-    MPI_COMM.Barrier()
-
-    Q2T = OPS_PSY.Q2.transpose()
-    res_PSY = Q2T.dot(x2_st)
-
-    MPI_COMM.Barrier()
-
-    # operator X1 (V1 --> V0 x V0 x V0)
-    if mpi_rank == 0:
-        logger.info("\nX1 (V1 --> V0 x V0 x V0):")
-
-    res_PSY = OPS_PSY.X1.dot(x1_st)
-
-    MPI_COMM.Barrier()
-
-    X1T = OPS_PSY.X1.transpose()
-    res_PSY = X1T.dot(x0vec_st)
+    # operator, input vector (domain), output-space vector (codomain)
+    _assert_adjoint("K3 (V3 -> V3)", OPS_PSY.K3, x3_st, x3_st)
+    _assert_adjoint("K0 (V0 -> V0)", OPS_PSY.K0, x0_st, x0_st)
+    _assert_adjoint("Q1 (V1 -> V2)", OPS_PSY.Q1, x1_st, x2_st)
+    _assert_adjoint("W1 (V1 -> V1)", OPS_PSY.W1, x1_st, x1_st)
+    _assert_adjoint("Q2 (V2 -> V2)", OPS_PSY.Q2, x2_st, x2_st)
+    _assert_adjoint("X1 (V1 -> V0vec)", OPS_PSY.X1, x1_st, x0vec_st)
 
 
 @pytest.mark.parametrize("num_elements", [[6, 9, 7]])
@@ -376,154 +318,11 @@ def test_basis_ops_polar(num_elements, degree, bcs, mapping, show_plots=False):
     #                              MHD velocity is a 2-form
     # ================================================================================
 
-    # ===== operator K3 (V3 --> V3) ============
-    mpi_comm.Barrier()
-
-    logger.info("\nOperator K (V3 --> V3):")
-
-    r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10)
-
-    mpi_comm.Barrier()
-
-    r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10)
-
-    # ===== operator Q2 (V2 --> V2) ============
-    mpi_comm.Barrier()
-
-    logger.info("\nOperator Q2 (V2 --> V2):")
-
-    r_psy = mhd_ops_psy.Q2.dot(x2_pol_psy, tol=1e-10)
-
-    mpi_comm.Barrier()
-
-    r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10)
-
-    # ===== operator T2 (V2 --> V1) ============
-    mpi_comm.Barrier()
-
-    logger.info("\nOperator T2 (V2 --> V1):")
-
-    r_psy = mhd_ops_psy.T2.dot(x2_pol_psy, tol=1e-10)
-
-    mpi_comm.Barrier()
-
-    r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10)
-
-    # ===== operator S2 (V2 --> V2) ============
-    mpi_comm.Barrier()
-
-    logger.info("\nOperator S2 (V2 --> V2):")
-
-    r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10)
-
-    mpi_comm.Barrier()
-
-    r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10)
-
-
-def assert_ops(mpi_rank, res_PSY, res_STR, MPI_COMM=None):
-    """
-    TODO
-    """
-
-    import cunumpy as xp
-
-    if MPI_COMM is not None:
-        MPI_COMM.Barrier()
-
-    # logger.info(f'Rank {mpi_rank} | ')
-    # logger.info(f'Rank {mpi_rank} | res_PSY.shape   : {res_PSY.shape}')
-    # logger.info(f'Rank {mpi_rank} | res_PSY[:].shape: {res_PSY[:].shape}')
-    # logger.info(f'Rank {mpi_rank} | res_STR.shape   : {res_STR.shape}')
-
-    # logger.info(f'Rank {mpi_rank} | res_PSY starts & ends:')
-    # logger.info([
-    #     res_PSY.starts[0], res_PSY.ends[0] + 1,
-    #     res_PSY.starts[1], res_PSY.ends[1] + 1,
-    #     res_PSY.starts[2], res_PSY.ends[2] + 1,
-    # ])
-
-    # logger.info(f'Rank {mpi_rank} | res_PSY starts & ends:')
-    # logger.info([
-    #     res_PSY.starts[0], res_PSY.ends[0] + 1,
-    #     res_PSY.starts[1], res_PSY.ends[1] + 1,
-    #     res_PSY.starts[2], res_PSY.ends[2] + 1,
-    # ])
-
-    # if MPI_COMM is not None: MPI_COMM.Barrier()
-
-    # logger.info(f'Rank {mpi_rank} | res_PSY (local slice at starts[0]):')
-    # logger.info(res_PSY[
-    #     res_PSY.starts[0],
-    #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
-    #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
-    # ])
-
-    # logger.info(f'Rank {mpi_rank} | res_STR (local slice at starts[0]):')
-    # logger.info(res_STR[
-    #     res_PSY.starts[0],
-    #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
-    #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
-    # ])
-    # logger.info(f'Rank {mpi_rank} | ')
-
-    # for n in range(res_PSY.ends[0] + 1):
-
-    #     logger.info(f'Rank {mpi_rank} | dof_PSY (local slice at starts[0] + {n}):')
-    #     logger.info(dof_PSY[
-    #         res_PSY.starts[0] + n,
-    #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
-    #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
-    #     ])
-
-    #     logger.info(f'Rank {mpi_rank} | dof_STR (local slice at starts[0] + {n}):')
-    #     logger.info(dof_STR[
-    #         res_PSY.starts[0] + n,
-    #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
-    #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
-    #     ])
-    #     logger.info(f'Rank {mpi_rank} | ')
-
-    # if MPI_COMM is not None: MPI_COMM.Barrier()
-
-    logger.info(
-        "Rank %s | Maximum absolute diference (result):\n%s",
-        mpi_rank,
-        xp.max(
-            xp.abs(
-                res_PSY[
-                    res_PSY.starts[0] : res_PSY.ends[0] + 1,
-                    res_PSY.starts[1] : res_PSY.ends[1] + 1,
-                    res_PSY.starts[2] : res_PSY.ends[2] + 1,
-                ]
-                - res_STR[
-                    res_PSY.starts[0] : res_PSY.ends[0] + 1,
-                    res_PSY.starts[1] : res_PSY.ends[1] + 1,
-                    res_PSY.starts[2] : res_PSY.ends[2] + 1,
-                ],
-            ),
-        ),
-    )
-
-    if MPI_COMM is not None:
-        MPI_COMM.Barrier()
-
-    # Compare results. (Works only for num_elements=[N, N, N] so far! TODO: Find this bug!)
-    assert xp.allclose(
-        res_PSY[
-            res_PSY.starts[0] : res_PSY.ends[0] + 1,
-            res_PSY.starts[1] : res_PSY.ends[1] + 1,
-            res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        ],
-        res_STR[
-            res_PSY.starts[0] : res_PSY.ends[0] + 1,
-            res_PSY.starts[1] : res_PSY.ends[1] + 1,
-            res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        ],
-    )
-
-    if MPI_COMM is not None:
-        MPI_COMM.Barrier()
+    # operator, input vector (domain), output-space vector (codomain); the polar projections are solved to 1e-10
+    _assert_adjoint("K3 (V3 -> V3)", mhd_ops_psy.K3, x3_pol_psy, x3_pol_psy, rtol=1e-6, tol=1e-10)
+    _assert_adjoint("Q2 (V2 -> V2)", mhd_ops_psy.Q2, x2_pol_psy, x2_pol_psy, rtol=1e-6, tol=1e-10)
+    _assert_adjoint("T2 (V2 -> V1)", mhd_ops_psy.T2, x2_pol_psy, x1_pol_psy, rtol=1e-6, tol=1e-10)
+    _assert_adjoint("S2 (V2 -> V2)", mhd_ops_psy.S2, x2_pol_psy, x2_pol_psy, rtol=1e-6, tol=1e-10)
 
 
 def test_transposed_update_weights_drops_zero_blocks():
