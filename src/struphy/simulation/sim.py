@@ -8,6 +8,7 @@ import importlib
 import inspect
 import json
 import logging
+import math
 import os
 import shutil
 import textwrap
@@ -808,7 +809,6 @@ class Simulation(SimulationBase):
                         self.time_state["index"][0] = file["restart/time/index"][-1]
                         start_step = file["restart/time/index"][-1]
 
-                    total_steps = int(round((Tend - float(self.time_state["value"][0])) / dt))
                     logger.info(f"""\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     RESTARTing from:
     self.time_state["value"][0]={float(self.time_state["value"][0])}
@@ -817,8 +817,15 @@ class Simulation(SimulationBase):
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     """)
                 else:
-                    total_steps = int(round(Tend / dt))
                     start_step = 0
+
+                # number of time steps from the start time (0 or the checkpoint time) to (at least) Tend, counted, not
+                # found by comparing the time: a sum of time steps can end a round-off below Tend (e.g. Tend = 2 pi,
+                # dt = 2 pi / 25), which gave an extra step; the time is t_start + k dt (no accumulated round-off)
+                start_step = int(start_step)
+                t_start = float(self.time_state["value"][0])
+                t_start_sec = float(self.time_state["value_sec"][0])
+                total_steps = max(0, math.ceil((Tend - t_start) / dt - 1e-9))
 
                 total_steps_str = str(total_steps)
 
@@ -862,9 +869,8 @@ class Simulation(SimulationBase):
             while True:
                 self.Barrier()
 
-                # stop time loop? The time is a sum of dt rounded to 14 digits: it can end just below Tend (e.g. Tend
-                # = 2 pi, dt = 2 pi / 25), which must not give an extra step; a round-off margin avoids that.
-                break_cond_1 = float(self.time_state["value"][0]) >= Tend - 1e-12 * max(abs(Tend), dt)
+                # stop time loop?
+                break_cond_1 = int(self.time_state["index"][0]) - start_step >= total_steps
                 break_cond_2 = run_time_now > self.env.max_runtime
 
                 if break_cond_1 or break_cond_2:
@@ -892,11 +898,10 @@ class Simulation(SimulationBase):
                     logger.info(message)
                     logger.info("")
 
-                # update time and index (round time to 10 decimals for a clean time grid!)
-                self.time_state["value"][0] = round(float(self.time_state["value"][0]) + dt, 14)
-                self.time_state["value_sec"][0] = round(
-                    float(self.time_state["value_sec"][0]) + dt * float(self.model.units.t), 14
-                )
+                # update time and index (t_start + k dt, rounded to 14 decimals for a clean time grid)
+                k = int(self.time_state["index"][0]) + 1 - start_step
+                self.time_state["value"][0] = round(t_start + k * dt, 14)
+                self.time_state["value_sec"][0] = round(t_start_sec + k * dt * float(self.model.units.t), 14)
                 self.time_state["index"][0] += 1
 
                 # perform one time step dt
