@@ -802,27 +802,34 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     x2_pol_psy.pol = [xp.random.rand(x2_pol_psy.pol[n].shape[0], x2_pol_psy.pol[n].shape[1]) for n in range(3)]
     x3_pol_psy.pol = [xp.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
 
-    # apply boundary conditions to old STRUPHY
-    x0_pol_str = x0_pol_psy.toarray(True)
-    x1_pol_str = x1_pol_psy.toarray(True)
-    x2_pol_str = x2_pol_psy.toarray(True)
-    x3_pol_str = x3_pol_psy.toarray(True)
+    # second vectors (y) for the symmetry checks
+    xp.random.seed(4711)
+    y_pol = []
+    for x_pol in (x0_pol_psy, x1_pol_psy, x2_pol_psy, x3_pol_psy):
+        y = x_pol.copy()
+        y.pol = [xp.random.rand(*a.shape) for a in x_pol.pol]
+        y_pol += [y]
 
-    r0_pol_psy = mass_mats.M0.dot(x0_pol_psy, apply_bc=True)
-    r1_pol_psy = mass_mats.M1.dot(x1_pol_psy, apply_bc=True)
-    r2_pol_psy = mass_mats.M2.dot(x2_pol_psy, apply_bc=True)
-    r3_pol_psy = mass_mats.M3.dot(x3_pol_psy, apply_bc=True)
+    # the polar mass matrices are symmetric and positive definite, with and without boundary conditions
+    cases = [
+        ("M0", mass_mats.M0, x0_pol_psy, y_pol[0]),
+        ("M1", mass_mats.M1, x1_pol_psy, y_pol[1]),
+        ("M2", mass_mats.M2, x2_pol_psy, y_pol[2]),
+        ("M3", mass_mats.M3, x3_pol_psy, y_pol[3]),
+        ("M2n", mass_mats.M2n, x2_pol_psy, y_pol[2]),
+    ]
+    for name, M, x, y in cases:
+        for apply_bc in (False, True):
+            yMx = y.dot(M.dot(x, apply_bc=apply_bc))
+            xMy = x.dot(M.dot(y, apply_bc=apply_bc))
+            xMx = x.dot(M.dot(x, apply_bc=apply_bc))
+            logger.info(f"{name} ({apply_bc = }): {yMx = }, {xMy = }, {xMx = }")
+            assert abs(yMx - xMy) <= 1e-10 * max(abs(yMx), abs(xMy)), f"{name} not symmetric ({apply_bc = })"
+            assert xMx > 0.0, f"{name} not positive ({apply_bc = })"
 
-    rn_pol_psy = mass_mats.M2n.dot(x2_pol_psy, apply_bc=True)
-    rJ_pol_psy = mass_mats.M2J.dot(x2_pol_psy, apply_bc=True)
-
-    # perfrom matrix-vector products (without boundary conditions)
-    r0_pol_psy = mass_mats.M0.dot(x0_pol_psy, apply_bc=False)
-    r1_pol_psy = mass_mats.M1.dot(x1_pol_psy, apply_bc=False)
-    r2_pol_psy = mass_mats.M2.dot(x2_pol_psy, apply_bc=False)
-    r3_pol_psy = mass_mats.M3.dot(x3_pol_psy, apply_bc=False)
-
-    logger.info(f"Rank {mpi_rank} | All tests passed!")
+    # M2J (weighted with the equilibrium current) is assembled and applies to polar vectors
+    rJ = mass_mats.M2J.dot(x2_pol_psy, apply_bc=True)
+    assert xp.all(xp.isfinite(rJ.toarray()))
 
 
 @pytest.mark.parametrize("num_elements", [[8, 12, 6]])

@@ -1774,6 +1774,18 @@ class Particles(metaclass=ABCMeta):
 
         f_slice, df_slice = self.binning(components, bin_edges)
 
+        # binning() is local to the process: sum over all processes (and clones) before comparing with the
+        # initial condition
+        f_slice = np.ascontiguousarray(xp.to_numpy(f_slice))
+        df_slice = np.ascontiguousarray(xp.to_numpy(df_slice))
+        comms = [self.mpi_comm]
+        if self.clone_config is not None:
+            comms += [self.clone_config.inter_comm]
+        for comm in comms:
+            if comm is not None and comm.Get_size() > 1:
+                comm.Allreduce(MPI.IN_PLACE, f_slice, op=MPI.SUM)
+                comm.Allreduce(MPI.IN_PLACE, df_slice, op=MPI.SUM)
+
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
 
         indices = np.nonzero(components)[0]

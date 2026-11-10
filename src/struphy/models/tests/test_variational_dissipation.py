@@ -1,8 +1,10 @@
+import numpy as np
 import pytest
 from maybempi import MPI
 
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, grids, perturbations
 from struphy.models import VariationalMHD, VariationalPerturbativeMHD_with_q
+from struphy.models.variables import FEECVariable
 
 
 def _run(model, tmp_path):
@@ -15,7 +17,20 @@ def _run(model, tmp_path):
         equil=equils.HomogenSlab(),
         grid=grids.TensorProductGrid(num_elements=(8, 4, 1)),
     )
+    sim.allocate()
+    variables = [
+        v
+        for species in (model.mhd, getattr(model, "em_fields", None))
+        if species is not None
+        for v in vars(species).values()
+        if isinstance(v, FEECVariable)
+    ]
+    before = [v.spline.vector.toarray().copy() for v in variables]
     sim.run()
+    after = [v.spline.vector.toarray() for v in variables]
+    assert all(np.all(np.isfinite(a)) for a in after)
+    # the perturbation is resolved by the grid: the state is not an equilibrium and evolves
+    assert any(not np.array_equal(a, b) for a, b in zip(after, before))
 
 
 @pytest.mark.models
@@ -32,7 +47,7 @@ def test_linear_q_viscosity_resistivity(fast, tmp_path):
     props.variat_resist.options = props.variat_resist.Options(model="linear_q", eta=0.1, fast=fast)
     model.mhd.density.add_background(FieldsBackground())
     model.mhd.sqrt_p.add_background(FieldsBackground())
-    model.mhd.sqrt_p.add_perturbation(perturbations.TorusModesCos())
+    model.mhd.sqrt_p.add_perturbation(perturbations.ModesCos(ls=(1,), amps=(0.1,)))
     _run(model, tmp_path)
 
 
@@ -47,5 +62,5 @@ def test_full_viscosity_resistivity(tmp_path):
     props.variat_resist.options = props.variat_resist.Options(model="full", eta=0.1, eta_a=0.1)
     model.mhd.density.add_background(FieldsBackground())
     model.mhd.entropy.add_background(FieldsBackground())
-    model.mhd.entropy.add_perturbation(perturbations.TorusModesCos())
+    model.mhd.entropy.add_perturbation(perturbations.ModesCos(ls=(1,), amps=(0.1,)))
     _run(model, tmp_path)

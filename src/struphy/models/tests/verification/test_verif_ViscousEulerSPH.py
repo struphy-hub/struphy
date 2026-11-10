@@ -689,7 +689,6 @@ def test_hagen_poiseuille(nx: int, plot_pts: int, do_plot: bool = False, create_
         # shutil.rmtree(test_folder)
 
 
-@pytest.mark.mpi_skip
 @pytest.mark.parametrize("nx", [8])
 @pytest.mark.parametrize("plot_pts", [21])
 def test_dam_break(nx: int, plot_pts: int, do_plot: bool = False, create_png: bool = False):
