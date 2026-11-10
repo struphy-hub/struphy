@@ -92,6 +92,27 @@ With `pip install "struphy[pproc]"` (package plasma-plots), creating an `Output`
 
 To compare runs: `Output.compare(out_a, out_b, "em_fields/phi")` returns an `xarray.Dataset`.
 
+## Videos of fields
+
+`struphy.post_processing.frames` writes the frames of a video of a raw FEEC field (one PNG per saved time step,
+at most `max_frames`, evenly spaced; the same color scale, view and image size in all frames), evaluated from the
+saved spline coefficients (no `pproc` needed):
+
+```python
+from struphy.post_processing.frames import frames_to_video, write_3d_frames, write_slice_frames
+
+# radial component (normalized basis) in the poloidal plane of a torus or cylinder
+write_slice_frames(out, "mhd/velocity", "frames/u_r_rz", component=0, label="u_r")
+# 3D with a cutaway; view="cut" (camera on the cut face) or "domain" (whole domain)
+write_3d_frames(out, "mhd/velocity", "frames/u_r_3d", component=0, view="domain", label="u_r")
+frames_to_video("frames/u_r_rz")  # frames/u_r_rz.mp4, needs ffmpeg
+```
+
+Options: `component=None` for the magnitude of a vector field, `basis` (`"norm"` default, `"1"`, `"2"`, `"v"`,
+`"physical"`), `plane` (`"xy"`, `"xz"`, `"yz"`, `"rz"`), `clim` (None: one scale over all frames, `"frame"`, or
+`(vmin, vmax)`), `steps`, `max_frames` (default 500). The frames go to `frame_0000.png`, ... with `frames.txt`
+(step and time per frame); they are written on rank 0 only.
+
 ## Common pitfalls
 
 - Don't re-run or re-import the simulation to get results; open the output folder.
