@@ -14,6 +14,7 @@ from pathlib import Path
 
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--a1` the radius of the hole around the magnetic axis (default 0.01).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # `--setup profiling` selects the setup of the profiling runs (as in the example of LinearMHDDriftkineticCC).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
@@ -80,6 +81,9 @@ parser.add_argument(
     help="Small resolution (num_elements = [8, 8, 4], 2000 markers) and a short run with three saved time steps, for "
     "the tests (test_examples.py).",
 )
+parser.add_argument(
+    "--a1", type=float, default=0.01, help="Radius of the hole around the magnetic axis (default 0.01, in units of a)."
+)
 args, _ = parser.parse_known_args()
 profiling = args.setup == "profiling"
 # steps of the profiling setup: the first one includes one-time work (CUDA module loads, allocations)
@@ -114,7 +118,7 @@ fraction of omega_TAE, roughly proportional to the energetic-ion density.
 
 Setup. Tokamak with circular flux surfaces and the MHD equilibrium of the ShearAlfven low-mode example (AdhocTorus,
 R0 = 5, a = 1, B0 = 1, q(r) = 1.25 + r^2, flat bulk density, beta 0.0018) on the full torus (HollowTorus with a
-hole of radius 0.1), grid {args.num_elements} with cubic splines, time step {args.dt} up to t = {args.tend}. The
+hole of radius {args.a1}), grid {args.num_elements} with cubic splines, time step {args.dt} up to t = {args.tend}. The
 compressional MHD (sound wave and background steps, nonlinear sound wave terms, advection) is included. Energetic deuterons (mass number 2, so A_h/A_b = 2) with the
 normalized cyclotron period epsilon = {args.epsilon} (gyro-radius at the Alfven speed in units of the minor radius;
 set explicitly, since the default units give 0.046, i.e. drift-orbit widths of a large fraction of the minor radius
@@ -223,7 +227,7 @@ else:
 
 # Geometry
 a, R0 = 1.0, 5.0
-domain = domains.HollowTorus(a1=0.1, a2=a, R0=R0, sfl=False, pol_period=1, tor_period=1)
+domain = domains.HollowTorus(a1=args.a1, a2=a, R0=R0, sfl=False, pol_period=1, tor_period=1)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(
@@ -337,7 +341,7 @@ model.energetic_ions.var.add_background(
 # seed of the TAE: the m = 1 and m = 2 harmonics (n = 1: logical mode number -1 along eta3) of the velocity, Gaussian
 # around the gap, as divergence-free 2-form components (see the ShearAlfven low-mode example)
 eta1_c = (R_C - domain.params["a1"]) / (domain.params["a2"] - domain.params["a1"])
-sigma, amp = 0.15, args.seed
+sigma, amp = 0.1, args.seed
 ms = (1, 2)
 model.mhd.velocity.add_perturbation(
     perturbations.TorusModesSin(
