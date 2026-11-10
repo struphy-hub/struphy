@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+import numpy as np
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
@@ -82,7 +83,17 @@ class VariationalDensityEvolve(Propagator):
         \\[2mm]
         \end{align}
 
-    where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
+    with the weight :math:`\hat\rho^w = \hat\rho^n` of the transport operator (``weights="frozen"``) or the midpoint
+    :math:`\hat\rho^w = (\hat\rho^n + \hat\rho^{n+1})/2` (``weights="midpoint"``, the default for
+    ``model="perturbative"``), in place of :math:`\hat\rho^n` in :math:`\hat\Pi^2[\hat\rho^n \vec{\boldsymbol \Lambda}^v]`
+    above (for the :math:`\delta f` models, the total density :math:`\hat\rho_0 + \hat\rho^w`). The same operator
+    appears in both equations, so the energy is conserved with either weight; the midpoint weight makes the step
+    symmetric in time (self-adjoint), hence second order in time inside a Strang splitting. With midpoint weights the
+    Newton matrix below does not contain the derivative of the transport operator with respect to its weight, so the
+    iteration converges linearly (with a contraction factor of order :math:`\Delta t\, |\mathbf u|`) to the exact
+    solution of the scheme; the weight is updated in every iteration.
+
+    Here :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
 
     .. math::
         \hat{l}^3(f)_{ijk}=\int_{\hat{\Omega}} f \Lambda^3_{ijk} \textrm d \boldsymbol \eta
@@ -156,7 +167,7 @@ class VariationalDensityEvolve(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VariationalDensityEvolve`.
+        r"""Configuration options for :class:`VariationalDensityEvolve`.
 
         Parameters
         ----------
@@ -165,10 +176,20 @@ class VariationalDensityEvolve(Propagator):
         gamma : float, default=5/3
             Adiabatic index.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Linear solver for the mass-matrix solves
-            (the non-symmetric Jacobian is always solved with "pbicgstab").
+            Linear solver for the mass-matrix solves.
+        jacobian_solver : {"pbicgstab", "rpbicgstab", "gmres"}, default="pbicgstab"
+            Solver of the Schur complement of the non-symmetric Newton system (preconditioned with the
+            density-weighted mass matrix, except ``"gmres"``, which has no preconditioner). Its non-symmetric part grows
+            with the flow CFL number :math:`\Delta t\, |\mathbf u|\, k_{\max}`; when it is of order ten, BiCGStab
+            can break down, which raises an error. ``"gmres"`` does not break down this way, but needs many
+            iterations without preconditioner (not tested at large flow CFL numbers in 3D).
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
+        weights : {"frozen", "midpoint"}, default=None
+            Density weight of the transport operator: at :math:`t^n` (``"frozen"``, first order in time) or at
+            :math:`t^{n+1/2}` (``"midpoint"``, symmetric step, second order in a Strang splitting). None gives
+            ``"midpoint"`` for ``model="perturbative"`` and ``"frozen"`` otherwise. Not used by the linear models
+            (``"linear"``, ``"linear_q"``), whose weight is the equilibrium density.
         solver_params : SolverParameters, default=None
             Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
@@ -189,17 +210,24 @@ class VariationalDensityEvolve(Propagator):
             "linear_q",
             "perturbative_q",
         ]
+        OptsJacobianSolver = Literal["pbicgstab", "rpbicgstab", "gmres"]
         # propagator options
         model: OptsModel = "barotropic"
         gamma: float = 5.0 / 3.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        weights: LiteralOptions.OptsTimeWeights = None
+        jacobian_solver: OptsJacobianSolver = "pbicgstab"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
 
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
+            if self.weights is None:
+                self.weights = "midpoint" if self.model == "perturbative" else "frozen"
+            check_option(self.weights, LiteralOptions.OptsTimeWeights)
+            check_option(self.jacobian_solver, self.OptsJacobianSolver)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
@@ -232,6 +260,7 @@ class VariationalDensityEvolve(Propagator):
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
+        self._midpoint = self.options.weights == "midpoint"
 
         self._info = self.options.nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
@@ -387,13 +416,14 @@ class VariationalDensityEvolve(Propagator):
             un12 += un1
             un12 *= 0.5
 
-            # rhon12 = rhon.copy(out=self._tmp_rhon12)
-            # rhon12 += rhon1
-            # rhon12 *= 0.5
-            # if self._model == "perturbative":
-            #     rhon12 += self.projected_equil.n3
-
-            # self._update_Pirho(rhon12)
+            if self._midpoint:
+                # density weight of the transport operator at t^{n+1/2}, from the current iterate
+                rhon12 = rhon.copy(out=self._tmp_rhon12)
+                rhon12 += rhon1
+                rhon12 *= 0.5
+                if self._model in ["perturbative", "perturbative_q"]:
+                    rhon12 += self.projected_equil.n3
+                self._update_Pirho(rhon12)
 
             # Update the linear form
             self._update_linear_form_dl_drho(rhon, rhon1, un, un1, s)
@@ -440,6 +470,13 @@ class VariationalDensityEvolve(Propagator):
             incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
+            if not np.isfinite(incr.inner(incr)):
+                raise RuntimeError(
+                    f"VariationalDensityEvolve: the linear solver of the Newton system ({self.options.jacobian_solver}) "
+                    f"broke down (non-finite Newton increment, solver info {self._inv_Jacobian._solver._info}). This "
+                    "happens for large flow CFL numbers dt |u| k_max (of order ten); reduce the time step. "
+                    'Options(jacobian_solver="gmres") may help, but it has no preconditioner and is slow in 3D.'
+                )
             un1 -= incr[0]
             rhon1 -= incr[1]
 
@@ -536,10 +573,11 @@ class VariationalDensityEvolve(Propagator):
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
+        jac_solver = self.options.jacobian_solver
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
-            "pbicgstab",
-            pc=self._Mrho_inv,
+            jac_solver,
+            pc=None if jac_solver == "gmres" else self._Mrho_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,

@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
+import numpy as np
 from line_profiler import profile
 
 from struphy.feec.mass import L2Projector
@@ -11,7 +12,7 @@ from struphy.feec.variational_utilities import (
     dot_normalized,
 )
 from struphy.io.options import LiteralOptions, OptionsBase
-from struphy.linear_algebra.solver import SolverParameters
+from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.variational_linear_base import VariationalLinearEvolve
 from struphy.utils.utils import check_option
@@ -108,6 +109,27 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
       frequency :math:`\omega_s` grows by :math:`|\lambda|^2 = 1 + (\Delta t\, \omega_s)^2 / 2` per step (first order
       in time).
 
+    **Total pressure as transport weight** (constructor argument ``total_weight=True``, ``"linear_p"``; used by the
+    perturbative model :class:`~struphy.models.VariationalPerturbativeMHD`): the pressure
+    perturbation is transported with the total pressure :math:`p_0 + \tilde p` as weight,
+
+    .. math::
+
+        \frac{\mathbf p^{n+1} - \mathbf p^n}{\Delta t} + \left(\mathbb S[p_0] + \mathbb S[\mathbf p^{n+\frac12}]\right)
+        \mathbf u^{n+\frac12} = 0 \,,
+
+    with the momentum equation and the update of :math:`\hat{\mathbf p}` as above. The term
+    :math:`\mathbb S[\mathbf p^{n+\frac12}]\, \mathbf u^{n+\frac12}`, quadratic in the perturbations, is then in the
+    same implicit step as the force :math:`-\nabla \tilde p` that it drives: the sound waves of the total pressure are
+    implicit. If it were in a separate substep (without force), the splitting of this coupling would be explicit
+    and unstable for the grid-scale sound waves (:math:`\omega_s \Delta t \gtrsim 2`) as soon as
+    :math:`\tilde p` is a finite fraction of :math:`p_0`. The energy is conserved as above (the weight of the
+    transport of :math:`\mathbf p` does not enter it). The step is solved by a Picard iteration on the weight
+    :math:`\mathbf w = \mathbf p^{n+\frac12}` (``Options.nonlin_solver``), with one linear solve per iteration (the
+    Schur complement with :math:`\mathbb S[p_0] + \mathbb S[\mathbf w]`); the step depends only on the total pressure
+    :math:`p_0 + \tilde p`, not on how it is split into equilibrium and perturbation. With ``weights="frozen"`` the
+    transport weight is :math:`p_0 + \mathbf p^n` (explicit, first order, as the force).
+
     For ``"linear_q"`` the weight :math:`\mathbf q^n` at :math:`t^n` is the same in the momentum equation and in the
     update of :math:`\hat{\mathbf q}`, which makes the step energy conserving; it is first order in time, stable for
     :math:`\gamma \leq 2`, with a numerical damping of order :math:`\Delta t\, \omega_s^2` for :math:`\gamma < 2`
@@ -157,7 +179,14 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             assert new.space == "L2"
             self._s = new
 
-    def __init__(self, div_u: FEECVariable = None, u2: FEECVariable = None, pt3: FEECVariable = None):
+    def __init__(
+        self,
+        div_u: FEECVariable = None,
+        u2: FEECVariable = None,
+        pt3: FEECVariable = None,
+        rho: FEECVariable = None,
+        total_weight: bool = False,
+    ):
         r"""
         Parameters
         ----------
@@ -168,11 +197,21 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         pt3 : FEECVariable, default=None
             Auxiliary second-order variable :math:`\hat s` (``"L2"`` space), advanced with
             :math:`\partial_t \hat s + \mathcal S^\kappa_s(\mathbf u) = 0`. It enters only the energy.
+        rho : FEECVariable, default=None
+            Density perturbation :math:`\tilde\rho` (``"L2"`` space, not updated) of the perturbative model: with a
+            velocity in ``"Hdiv"`` the velocity mass matrix is then :math:`\mathbb M^2_\rho` of the total density
+            :math:`\rho_0 + \tilde\rho` (re-assembled in every step) instead of :math:`\mathbb M^2_{\rho_0}`.
+        total_weight : bool, default=False
+            Transport the pressure perturbation with the total pressure :math:`p_0 + \tilde p` as weight (perturbative
+            model, ``"linear_p"``), instead of :math:`p_0` (linear model).
         """
+        assert rho is None or (isinstance(rho, FEECVariable) and rho.space == "L2")
+        self.total_weight = total_weight
         self.variables = self.Variables()
         self.div_u = div_u
         self.u2 = u2
         self.pt3 = pt3
+        self._rho_field = rho
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -201,6 +240,10 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             its norm.
         info : bool, default=False
             Log the information of the linear solver in every step.
+        nonlin_solver : NonlinearSolverParameters, default=None
+            Controls of the Picard iteration on the weight with ``total_weight=True``: it stops when the change of the
+            weight is below ``tol`` times the change of the pressure in the step (:math:`L^2` norms); at most
+            ``maxiter`` iterations. None gives ``tol=1e-10``, ``maxiter=100``.
         relative_tol : bool, default=True
             Whether the tolerance of ``solver_params`` is relative to the norm of the right-hand side (the residual at
             :math:`t^n`, normalized before the solve), or absolute, as in the non-variational propagators (e.g.
@@ -221,6 +264,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         precond: OptsPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         info: bool = False
+        nonlin_solver: NonlinearSolverParameters = None
         relative_tol: bool = True
 
         def __post_init__(self):
@@ -247,6 +291,8 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
+            if self.nonlin_solver is None:
+                self.nonlin_solver = NonlinearSolverParameters(tol=1e-10, maxiter=100)
 
     @property
     def options(self) -> Options:
@@ -307,6 +353,13 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             )
 
         self._midpoint = self.options.weights == "midpoint"
+        if self.total_weight:
+            assert self._model == "linear_p", 'total_weight=True needs model="linear_p".'
+            # transport with the perturbation as weight, added to the equilibrium transport in the Schur system
+            self._Sw = Pressure_transport_operator(
+                self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
+            )
+            self._S_total = self._S0 + self._Sw
 
         if self._model == "linear_q":
             S0T = self._S0.T
@@ -323,7 +376,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         elif self._midpoint:
             # the pressure enters the momentum equation only through the second-order term
             self._allocate_schur_solver(
-                self._S0,
+                self._S_total if self.total_weight else self._S0,
                 None,
                 1.0,
                 self.derham.V3pol,
@@ -344,6 +397,8 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         self._tmp_fs = s.space.zeros()
         self._tmp_M3s = s.space.zeros()
         self._tmp_du = u.space.zeros()
+        if self.total_weight:
+            self._tmp_w, self._tmp_dw, self._tmp_M3dw, self._tmp_fs2 = (s.space.zeros() for _ in range(4))
 
     @profile
     def __call__(self, dt):
@@ -373,6 +428,8 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
+        elif self.total_weight and self._midpoint:
+            un1, sn1, un12 = self._solve_total_weight(dt, un, sn)
         elif self._midpoint:
             # residual at (u^n, p^n): the force A p^n = S[p^n]^T l and S0 u^n (times dt); with A in the Schur system the
             # midpoint system is solved exactly by one linear solve
@@ -404,8 +461,10 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
-            # pressure with the midpoint velocity
-            s_advection = self._S0.dot(un12, out=self._tmp_fs)
+            # pressure with the midpoint velocity (and the weight p0 + p^n with total_weight)
+            if self.total_weight:
+                self._Sw.update_coeffs(sn)
+            s_advection = (self._S_total if self.total_weight else self._S0).dot(un12, out=self._tmp_fs)
             s_advection *= dt
             sn1 = sn.copy(out=self._tmp_sn1)
             sn1 -= s_advection
@@ -434,3 +493,49 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             self._pt3.update_ghost_regions()
 
         self.update_feec_variables(u=un1, s=sn1)
+
+    def _solve_total_weight(self, dt, un, sn):
+        """The midpoint step with the transport weight p0 + p^{n+1/2}: Picard iteration on the weight w, one linear
+        solve per iteration (the system of the midpoint step with S0 + S[w] instead of S0)."""
+        M3 = self.mass_ops.M3
+        tol = self.options.nonlin_solver.tol
+        maxiter = self.options.nonlin_solver.maxiter
+        w = sn.copy(out=self._tmp_w)
+        err = np.inf
+        for it in range(maxiter):
+            self._Sw.update_coeffs(w)
+            # residual at (u^n, p^n): the force A p^n and (S0 + S[w]) u^n (times dt)
+            f_u = self._A.dot(sn, out=self._tmp_fu)
+            f_u *= dt
+            f_s = self._S_total.dot(un, out=self._tmp_fs)
+            f_s *= dt
+            incr = self._solve_increment(dt, f_u, f_s)
+            un1 = un.copy(out=self._tmp_un1)
+            un1 -= incr[0]
+            sn1 = sn.copy(out=self._tmp_sn1)
+            sn1 -= incr[1]
+            # new weight p^{n+1/2} and its change, relative to the change of p in the step
+            dw = w.copy(out=self._tmp_dw)
+            w = sn.copy(out=self._tmp_w)
+            w += sn1
+            w *= 0.5
+            dw -= w
+            dp = sn1.copy(out=self._tmp_fs2)
+            dp -= sn
+            step = dp.inner(M3.dot(dp, out=self._tmp_M3dw))
+            change = dw.inner(M3.dot(dw, out=self._tmp_M3dw))
+            err = np.sqrt(change / step) if step > 0.0 else 0.0
+            if err < tol:
+                break
+        else:
+            if self.rank == 0:
+                logger.warning(
+                    f"{self.__class__.__name__}: Picard iteration on the weight not converged in {maxiter} "
+                    f"iterations (relative change {err:.2e})."
+                )
+        if self._info:
+            logger.info(f"{self.__class__.__name__}: {it + 1} Picard iterations, relative change {err:.2e}")
+        un12 = un.copy(out=self._tmp_un12)
+        un12 += un1
+        un12 *= 0.5
+        return un1, sn1, un12

@@ -8,6 +8,7 @@ from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import dot_normalized
 from struphy.linear_algebra.schur_solver import SchurSolverFull
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 
 logger = logging.getLogger("struphy")
 
@@ -58,13 +59,25 @@ class VariationalLinearEvolve(Propagator):
 
     def _allocate_mass(self, precond: str | None):
         """The density-weighted mass matrix of the velocity and its preconditioner: WMMnew (assembled in
-        VariationalDensityEvolve), or M2n (constant) for a velocity in Hdiv."""
+        VariationalDensityEvolve), or, for a velocity in Hdiv, M2n (constant) or, with the density perturbation
+        ``self._rho_field`` (perturbative model), the mass matrix of the total density (re-assembled in every step)."""
         self._u_space = self.variables.u.space
-        self._Mrho = self.mass_ops.M2n if self._u_space == "Hdiv" else self.mass_ops.WMMnew
+        rho_field = getattr(self, "_rho_field", None)
+        if self._u_space == "Hdiv":
+            self._velocity_mass = VelocityMass(
+                self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=rho_field
+            )
+            self._Mrho = self._velocity_mass.M_rho
+        else:
+            self._velocity_mass = None
+            self._Mrho = self.mass_ops.WMMnew
         self._Mrho_pc = None if precond is None else MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
 
     def _refresh_mass_pc(self):
-        """Update the preconditioner if WMMnew was re-assembled since the last step."""
+        """Re-assemble the mass matrix of the total density (perturbative model with a velocity in Hdiv), and update
+        the preconditioner if the mass matrix (also WMMnew, re-assembled in VariationalDensityEvolve) changed."""
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
         if self._Mrho_pc is not None:
             self._Mrho_pc.refresh()
 

@@ -1,5 +1,6 @@
 """Linear variational MHD with the velocity in H(div) (``u_space="Hdiv"``): exact energy conservation (up to the
-solver tolerance) of the propagators with one linear solve per substep (``crank_nicolson=True``) of the ideal models.
+solver tolerance) of the propagators with one linear solve per substep of the ideal models (``VariationalLinearMHD``
+and the q model with ``crank_nicolson=True``).
 The visco-resistive p model with u in H(div) is tested in test_variational_linear_dissipative.py."""
 
 import logging
@@ -21,10 +22,13 @@ def _setup(thermo: str, schur_precond: str = "MassMatrixPreconditioner"):
     (non-uniform B0, p0, n0) and a random initial perturbation."""
     from struphy import DerhamOptions, FieldsBackground, Simulation, domains, equils, grids, perturbations
     from struphy.linear_algebra.solver import SolverParameters
-    from struphy.models import VariationalPerturbativeMHD, VariationalPerturbativeMHD_with_q
+    from struphy.models import VariationalLinearMHD, VariationalPerturbativeMHD_with_q
 
-    model_class = VariationalPerturbativeMHD_with_q if thermo == "q" else VariationalPerturbativeMHD
-    model = model_class(linear=True, crank_nicolson=True, u_space="Hdiv", with_viscosity=False, with_resistivity=False)
+    ideal = {"with_viscosity": False, "with_resistivity": False}
+    if thermo == "q":
+        model = VariationalPerturbativeMHD_with_q(linear=True, crank_nicolson=True, u_space="Hdiv", **ideal)
+    else:
+        model = VariationalLinearMHD(u_space="Hdiv", **ideal)
     thermo_var = model.mhd.sqrt_p if thermo == "q" else model.mhd.pressure
 
     sim = Simulation(
@@ -95,32 +99,26 @@ def test_full_step_energy(thermo: str, schur_precond: str):
 
 
 @pytest.mark.mpi_skip
-@pytest.mark.parametrize("cls_name", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
-def test_hdiv_needs_linear_cn(cls_name: str):
-    """u_space="Hdiv" is rejected for the linear models without crank_nicolson=True and for the nonlinear q model
-    (the nonlinear p model accepts it, see test_verif_VariationalPerturbativeMHD.py); for the q model also with
-    dissipation (the p model accepts it, see test_variational_linear_dissipative.py)."""
-    from struphy import models
+def test_hdiv_needs_linear_cn():
+    """The q model: u_space="Hdiv" is rejected for the linear model without crank_nicolson=True, for the nonlinear
+    model and with dissipation. (VariationalLinearMHD and VariationalPerturbativeMHD accept it, see
+    test_variational_linear_dissipative.py and test_verif_VariationalPerturbativeMHD.py.)"""
+    from struphy.models import VariationalLinearMHD, VariationalPerturbativeMHD, VariationalPerturbativeMHD_with_q
 
-    model_class = getattr(models, cls_name)
     ideal = {"with_viscosity": False, "with_resistivity": False}
-    if cls_name == "VariationalPerturbativeMHD_with_q":
-        with pytest.raises(AssertionError):
-            model_class(u_space="Hdiv", **ideal)
-    else:
-        model_class(u_space="Hdiv", **ideal)
     with pytest.raises(AssertionError):
-        model_class(linear=True, u_space="Hdiv", **ideal)
-    if cls_name == "VariationalPerturbativeMHD_with_q":
-        with pytest.raises(AssertionError):
-            model_class(linear=True, crank_nicolson=True, u_space="Hdiv")
-        with pytest.raises(AssertionError):
-            model_class(linear=True, crank_nicolson=True, u_space="Hdiv", with_viscosity=False)
-    else:
-        model_class(linear=True, crank_nicolson=True, u_space="Hdiv")
+        VariationalPerturbativeMHD_with_q(u_space="Hdiv", **ideal)
     with pytest.raises(AssertionError):
-        model_class(linear=True, crank_nicolson=True, u_space="Hcurl", **ideal)
-    model_class(linear=True, crank_nicolson=True, u_space="Hdiv", **ideal)
+        VariationalPerturbativeMHD_with_q(linear=True, u_space="Hdiv", **ideal)
+    with pytest.raises(AssertionError):
+        VariationalPerturbativeMHD_with_q(linear=True, crank_nicolson=True, u_space="Hdiv")
+    with pytest.raises(AssertionError):
+        VariationalPerturbativeMHD_with_q(linear=True, crank_nicolson=True, u_space="Hcurl", **ideal)
+    VariationalPerturbativeMHD_with_q(linear=True, crank_nicolson=True, u_space="Hdiv", **ideal)
+    for model_class in (VariationalLinearMHD, VariationalPerturbativeMHD):
+        model_class(u_space="Hdiv")
+        with pytest.raises(AssertionError):
+            model_class(u_space="Hcurl")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Post-process and plot the low-mode TAE run (VariationalPerturbativeMHD, linear).
+"""Post-process and plot the low-mode TAE run (VariationalLinearMHD).
 
 Run as ``python pproc_lowmode_tae.py [path_out] [flags of params_lowmode_tae.py] [--show]``. The standard
 plots of the examples (slices in the physical planes and 3D views of the fields) are made at the first, middle and
