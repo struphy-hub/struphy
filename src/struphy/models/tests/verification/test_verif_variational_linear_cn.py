@@ -5,8 +5,8 @@ crank_nicolson=True``), i.e. of
 :class:`~struphy.models.variational_perturbative_mhd.VariationalPerturbativeMHD`:
 
 1. with the weights at t^n (``weights="frozen"``), the Alfvén step agrees with the step of VariationalPBEvolve
-   (linear) without pressure perturbation, around the sheared slab, where the term with curl B0 is active, up to the
-   quadrature of the second-order term (weak form against the projector-based transport operator);
+   (linear) without pressure perturbation, around the sheared slab, where the term with curl B0 is active (both use
+   the force T[b]^T M2 b0 of the second-order term, the adjoint of its transport);
 2. with the weights at t^n, the sound step is the step of VariationalPBEvolve (linear) for a sound wave along B0,
    where the magnetic field is not perturbed;
 3. the energy with the auxiliary variables is conserved around the sheared slab;
@@ -69,9 +69,9 @@ def _perturb_sound(amp, Lz):
 
 def test_alfven_step_same_as_pb(tmp_path):
     r"""One step of VariationalLinearAlfvenEvolve gives the velocity, the magnetic field and B^ of one step of
-    VariationalPBEvolve (linear), whose pressure force vanishes for a zero pressure perturbation, up to the quadrature
-    of the second-order term: weak form :math:`\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)` and
-    :math:`\hat{\mathbf B} = \nabla \times \mathbf A` against the projector-based transport operator."""
+    VariationalPBEvolve (linear), whose pressure force vanishes for a zero pressure perturbation: both have the force
+    :math:`\mathbb T[\mathbf b]^\top \mathbb M^2 \mathbf b_0` of the second-order term and advance
+    :math:`\hat{\mathbf B}` with the same transport operator."""
     setup, dt, perturb = sheared_slab(), 0.05, _perturb_u_and_b(0.05)
 
     model = allocate_ideal(tmp_path, "cn", linear_cn(VariationalPerturbativeMHD), setup, dt, perturb, weights="frozen")
