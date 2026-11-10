@@ -4,7 +4,6 @@ LinearMHD (same unstable modes and growth rate, no spurious unstable or overstab
 
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import numpy as np
@@ -33,12 +32,12 @@ logger = logging.getLogger("struphy")
 
 
 @pytest.mark.parametrize("b_space, projected", [("Hdiv", False), ("Hcurl", True)])
-def test_slab_waves_1d(b_space: str, projected: bool):
+def test_slab_waves_1d(mpi_out_folder: str, b_space: str, projected: bool):
     """Noise in the velocity along z in a homogeneous slab: the space-time spectra of u_x and of q have the branches of
     the shear-Alfven wave and of the slow and fast magnetosonic waves."""
     model = LinearMHDWithQ(b_space=b_space, projected=projected)
 
-    test_folder = os.path.join(os.getcwd(), "verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, f"LinearMHDWithQ_{b_space}{'_projected' if projected else ''}")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
@@ -86,8 +85,6 @@ def test_slab_waves_1d(b_space: str, projected: bool):
         assert xp.abs(fits[0][0] - v_slow) < 0.075
         assert xp.abs(fits[1][0] - v_fast) < 0.19
 
-        shutil.rmtree(test_folder)
-
 
 def _schur_call_relative(self, xn, Byn, dt, out=None):
     """SchurSolver.__call__ with the solve for the normalized right-hand side (relative tolerance), such that the
@@ -109,7 +106,7 @@ def _schur_call_relative(self, xn, Byn, dt, out=None):
     return x, self._solver._info
 
 
-def _one_step_spectrum(model_class, dt: float):
+def _one_step_spectrum(out_folders: str, model_class, dt: float):
     """Eigenvalues of the one-step map (model.integrate) of (u, b, p or q) in the screw pinch R0 = 20 (exact
     equilibrium with a pressure gradient balanced by the current), 4 x 4 x 4 elements, degree 3."""
     model = model_class()
@@ -126,7 +123,7 @@ def _one_step_spectrum(model_class, dt: float):
     sim = Simulation(
         model=model,
         env=EnvironmentOptions(
-            out_folders=os.path.join(os.getcwd(), "verification_tests", "LinearMHDWithQ_spectrum"),
+            out_folders=out_folders,
             sim_folder=model_class.__name__,
         ),
         time_opts=Time(dt=dt, Tend=dt),
@@ -152,7 +149,7 @@ def _one_step_spectrum(model_class, dt: float):
     return np.linalg.eigvals(A)
 
 
-def test_screw_pinch_spectrum_agrees_with_linear_mhd(monkeypatch):
+def test_screw_pinch_spectrum_agrees_with_linear_mhd(mpi_out_folder: str, monkeypatch):
     """One-step map in a screw pinch with a pressure gradient (R0 = 20, interchange-type unstable): LinearMHDWithQ has
     the unstable modes of LinearMHD, with the same growth rate, and no spurious unstable or overstable modes (unlike the
     variational q model, whose pressure-gradient drive is split between two energies). The background q step makes the
@@ -164,7 +161,7 @@ def test_screw_pinch_spectrum_agrees_with_linear_mhd(monkeypatch):
 
     stats = {}
     for model_class in (LinearMHD, LinearMHDWithQ):
-        lam = _one_step_spectrum(model_class, dt)
+        lam = _one_step_spectrum(mpi_out_folder, model_class, dt)
         mod = np.abs(lam)
         # growth above the solver tolerance level (marginal pairs near omega = 0 have |lambda| - 1 ~ 1e-8)
         growing = mod > 1.0 + 1e-6
@@ -179,9 +176,7 @@ def test_screw_pinch_spectrum_agrees_with_linear_mhd(monkeypatch):
     assert abs(rate_q - rate_lin) < 0.01 * rate_lin
     assert overstable_q == 0
 
-    MPI.COMM_WORLD.Barrier()
-    shutil.rmtree(os.path.join(os.getcwd(), "verification_tests", "LinearMHDWithQ_spectrum"), ignore_errors=True)
-
 
 if __name__ == "__main__":
-    test_slab_waves_1d("Hdiv", False)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_slab_waves_1d(out, "Hdiv", False)

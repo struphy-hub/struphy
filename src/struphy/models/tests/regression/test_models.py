@@ -39,12 +39,14 @@ def test_all_models_expose_new_doc_api():
             )
 
 
-def _call_tests(models: list, update_baselines: bool, test_profiling: bool):
+def _call_tests(models: list, update_baselines: bool, test_profiling: bool, out_folder: str):
     """Test all models with default arguments; report the regression mismatches of all models at the end."""
     mismatches = []
     for model in models:
         try:
-            ut.call_test(model=model(), test_profiling=test_profiling, update_baselines=update_baselines)
+            ut.call_test(
+                model=model(), test_profiling=test_profiling, update_baselines=update_baselines, out_folder=out_folder
+            )
         except ur.RegressionMismatch as e:
             mismatches.append(str(e))
         except Exception as e:
@@ -61,26 +63,26 @@ def _call_tests(models: list, update_baselines: bool, test_profiling: bool):
 
 @pytest.mark.models
 @pytest.mark.toy
-def test_toy(update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Toy"), update_baselines, test_profiling)
+def test_toy(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Toy"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.fluid
-def test_fluid(update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Fluid"), update_baselines, test_profiling)
+def test_fluid(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Fluid"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.kinetic
-def test_kinetic(update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Kinetic"), update_baselines, test_profiling)
+def test_kinetic(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Kinetic"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
-def test_hybrid(update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Hybrid"), update_baselines, test_profiling)
+def test_hybrid(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Hybrid"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
@@ -127,7 +129,12 @@ def test_variational_perturbative_hdiv(tmp_path, update_baselines: bool, test_pr
 @pytest.mark.parametrize("perturbative_model", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
 @pytest.mark.parametrize("crank_nicolson", [False, True])
 def test_variational_perturbative_linear(
-    perturbative_model: str, crank_nicolson: bool, tmp_path, update_baselines: bool, test_profiling: bool = True
+    perturbative_model: str,
+    crank_nicolson: bool,
+    tmp_path,
+    mpi_out_folder: str,
+    update_baselines: bool,
+    test_profiling: bool = True,
 ):
     """The linear version (linear=True) of the perturbative models, with the Picard propagators or with one linear
     solve per substep (crank_nicolson=True): the default parameter file keeps the flags and sets the linear variants
@@ -164,6 +171,7 @@ def test_variational_perturbative_linear(
         test_profiling=test_profiling,
         case=f"{perturbative_model}-linear-crank_nicolson={crank_nicolson}",
         update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
     )
 
 
@@ -171,7 +179,7 @@ def test_variational_perturbative_linear(
 @pytest.mark.fluid
 @pytest.mark.parametrize("model_cls_name", ["ShearAlfven", "LinearMHD", "LinearMHDWithQ"])
 @pytest.mark.parametrize("projected", [False, True])
-def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, update_baselines: bool):
+def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, mpi_out_folder: str, update_baselines: bool):
     """The H(curl) discretizations of the shear-Alfven models: the flags survive the generated parameter file."""
     from struphy.io.setup import import_parameters_py
 
@@ -185,13 +193,14 @@ def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, update_ba
         model=model,
         case=f"{model_cls_name}-b_space=Hcurl-projected={projected}",
         update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
     )
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
 @pytest.mark.parametrize("model_cls_name", ["LinearMHDVlasovCC", "LinearMHDVlasovPC", "LinearMHDDriftkineticCC"])
-def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, update_baselines: bool):
+def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, mpi_out_folder: str, update_baselines: bool):
     """The H(curl) discretizations of the hybrid models of the LinearEuler family (1-form couplings): the flags
     survive the generated parameter file and the propagators reading the magnetic field are the 1-form ones."""
     from struphy.io.setup import import_parameters_py
@@ -209,6 +218,7 @@ def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, update_baselines: b
         model=model,
         case=f"{model_cls_name}-b_space=Hcurl",
         update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
     )
 
 
@@ -249,6 +259,7 @@ def test_linear_mhd_with_q_inherits_linear_euler_with_q(b_space: str, tmp_path):
 @pytest.mark.single
 def test_single_model(
     model_name: str,
+    mpi_out_folder: str,
     update_baselines: bool,
     test_profiling: bool = True,
 ):
@@ -258,10 +269,11 @@ def test_single_model(
         model=model(),
         test_profiling=test_profiling,
         update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
     )
 
 
 if __name__ == "__main__":
-    test_toy(update_baselines=False)
-    test_fluid(update_baselines=False)
-    test_single_model("Maxwell", update_baselines=False)
+    test_toy(os.getcwd(), update_baselines=False)
+    test_fluid(os.getcwd(), update_baselines=False)
+    test_single_model("Maxwell", os.getcwd(), update_baselines=False)

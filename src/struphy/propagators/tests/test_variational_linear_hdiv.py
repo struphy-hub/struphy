@@ -98,7 +98,7 @@ def test_full_step_energy(thermo: str, schur_precond: str):
 @pytest.mark.parametrize("cls_name", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
 def test_hdiv_needs_linear_cn(cls_name: str):
     """u_space="Hdiv" is rejected for the linear models without crank_nicolson=True and for the nonlinear q model
-    (the nonlinear p model accepts it, see test_variational_perturbative_hdiv.py); for the q model also with
+    (the nonlinear p model accepts it, see test_verif_VariationalPerturbativeMHD.py); for the q model also with
     dissipation (the p model accepts it, see test_variational_linear_dissipative.py)."""
     from struphy import models
 
