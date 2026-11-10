@@ -805,8 +805,14 @@ def test_mass_polar(num_elements, degree, bcs, mapping, show_plots=False):
     # second vectors (y) for the symmetry checks
     xp.random.seed(4711)
     y_pol = []
-    for x_pol in (x0_pol_psy, x1_pol_psy, x2_pol_psy, x3_pol_psy):
+    for x_pol, fem, seed in (
+        (x0_pol_psy, derham.V0fem, 2001),
+        (x1_pol_psy, derham.V1fem, 2002),
+        (x2_pol_psy, derham.V2fem, 2003),
+        (x3_pol_psy, derham.V3fem, 2004),
+    ):
         y = x_pol.copy()
+        y.tp = create_equal_random_arrays(fem, seed=seed, flattened=True)[1]
         y.pol = [xp.random.rand(*a.shape) for a in x_pol.pol]
         y_pol += [y]
 

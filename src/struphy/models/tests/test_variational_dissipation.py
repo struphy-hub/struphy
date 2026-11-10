@@ -28,9 +28,16 @@ def _run(model, tmp_path):
     before = [v.spline.vector.toarray().copy() for v in variables]
     sim.run()
     after = [v.spline.vector.toarray() for v in variables]
-    assert all(np.all(np.isfinite(a)) for a in after)
+    finite = all(np.all(np.isfinite(a)) for a in after)
     # the perturbation is resolved by the grid: the state is not an equilibrium and evolves
-    assert any(not np.array_equal(a, b) for a, b in zip(after, before))
+    changed = any(not np.array_equal(a, b) for a, b in zip(after, before))
+    comm = MPI.COMM_WORLD
+    if comm.Get_size() > 1:
+        # the same outcome on all ranks (rank-local coefficients)
+        finite = bool(comm.allreduce(int(finite), op=MPI.MIN))
+        changed = bool(comm.allreduce(int(changed), op=MPI.MAX))
+    assert finite
+    assert changed
 
 
 @pytest.mark.models

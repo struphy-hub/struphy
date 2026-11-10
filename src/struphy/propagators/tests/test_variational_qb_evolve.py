@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import pytest
+from maybempi import MPI
 
 from struphy import set_logging_level
 
@@ -60,9 +61,14 @@ def test_variational_qb_evolve_step(linearize: bool, info: bool, name: str):
     prop(0.01)
     after = coeffs()
 
-    for key, value in after.items():
-        assert np.all(np.isfinite(value)), f"{name}: {key} not finite after one step"
-    changed = [key for key in after if not np.array_equal(after[key], before[key])]
+    finite = all(np.all(np.isfinite(value)) for value in after.values())
+    changed = any(not np.array_equal(after[key], before[key]) for key in after)
+    comm = MPI.COMM_WORLD
+    if comm.Get_size() > 1:
+        # the same outcome on all ranks (rank-local coefficients)
+        finite = bool(comm.allreduce(int(finite), op=MPI.MIN))
+        changed = bool(comm.allreduce(int(changed), op=MPI.MAX))
+    assert finite, f"{name}: variables not finite after one step"
     assert changed, f"{name}: one step changed no variable"
 
 

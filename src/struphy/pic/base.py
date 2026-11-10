@@ -1744,7 +1744,8 @@ class Particles(metaclass=ABCMeta):
     def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray], do_plot=False):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
-        This routine is mainly for de-bugging.
+        This routine is mainly for de-bugging. It is collective (the binning is summed over all processes and clones),
+        so call it on all ranks; restrict ``do_plot`` to one rank.
 
         Parameters
         ----------
@@ -1791,7 +1792,8 @@ class Particles(metaclass=ABCMeta):
         indices = np.nonzero(components)[0]
 
         if n_dim == 1:
-            plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
+            if do_plot:
+                plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
             i = int(indices[0])
             resol = bin_centers[0]
             integrate_resol = [0.5, 0.5, 0.5] + [32] * self.vdim
