@@ -71,6 +71,8 @@ They list the required structure, documentation, registration and tests; CI chec
   `src/struphy/`) to a shard in `src/struphy/console/unit_test_shards.py`. The CI workflows and `struphy test unit`
   read that list, and `console/tests/test_unit_test_shards.py` fails if a test file is not covered.
 - Markers must be registered in `pyproject.toml` (`--strict-markers`).
+- The weekly workflow `coverage.yml` reports the line coverage of the Python code by the unit tests (job summary and
+  HTML artifact; kernels are compiled and not measured). Run it on a branch with `gh workflow run coverage.yml --ref <branch>`.
 - Tests that write output (`Simulation`, `EnvironmentOptions(out_folders=...)`) use the `mpi_out_folder` fixture
   (`src/struphy/conftest.py`): a folder per test in `$STRUPHY_TEST_TMPDIR` (default: system temp dir), the same on all
   MPI ranks, removed unless the test failed on some rank (then kept, with its path in a warning). Don't write into the current
