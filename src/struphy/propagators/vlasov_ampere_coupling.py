@@ -127,7 +127,7 @@ class VlasovAmpereCoupling(Propagator):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`.
+        r"""Configuration options for :class:`~struphy.propagators.vlasov_ampere_coupling.VlasovAmpereCoupling`.
 
         Parameters
         ----------
