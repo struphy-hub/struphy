@@ -862,8 +862,9 @@ class Simulation(SimulationBase):
             while True:
                 self.Barrier()
 
-                # stop time loop?
-                break_cond_1 = float(self.time_state["value"][0]) >= Tend
+                # stop time loop? The time is a sum of dt rounded to 14 digits: it can end just below Tend (e.g. Tend
+                # = 2 pi, dt = 2 pi / 25), which must not give an extra step; a round-off margin avoids that.
+                break_cond_1 = float(self.time_state["value"][0]) >= Tend - 1e-12 * max(abs(Tend), dt)
                 break_cond_2 = run_time_now > self.env.max_runtime
 
                 if break_cond_1 or break_cond_2:
