@@ -12,42 +12,43 @@ The paths are relative to the ``struphy`` package folder. Every ``test_*.py`` fi
 
 import sys
 
+# balanced by run time (full CI runs, 2 ranks): propagators/tests alone take about 17 min
 UNIT_TEST_SHARDS = {
     "shard-1": [
+        "api/tests/",
         "bsplines/tests/",
         "console/tests/",
+        "dispersion_relations/tests/",
         "fields_background/tests/",
         "geometry/tests/",
         "initial/tests/",
+        "io/tests/",
         "kinetic_background/tests/",
         "linear_algebra/tests/",
+        "post_processing/tests/",
+        "simulation/tests/",
         "utils/tests/",
         "models/tests/test_diagnostics_on_device.py",
         "models/tests/test_estimate_mem.py",
         "models/tests/test_hasegawa_wakatani.py",
         "models/tests/test_variational_dissipation.py",
         "models/tests/test_variational_divdiv.py",
-    ],
-    "shard-2": [
-        "api/tests/",
-        "propagators/tests/",
-        "ode/tests/",
-        "polar/tests/",
-        "post_processing/tests/",
-        "dispersion_relations/tests/",
-        "io/tests/",
-        "simulation/tests/",
         # end-to-end GPU tests (NumPy reference, and the CuPy comparison on a GPU or the fake CuPy)
         "models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py",
         "models/tests/test_gpu_VlasovAmpereOneSpecies.py",
         "models/tests/test_scalars.py",
         "models/tests/test_splitting_order.py",
     ],
+    "shard-2": [
+        "propagators/tests/",
+    ],
     "shard-3": [
         "feec/tests/",
     ],
     "shard-4": [
         "pic/tests/",
+        "ode/tests/",
+        "polar/tests/",
     ],
 }
 
