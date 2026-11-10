@@ -39,7 +39,7 @@ with the velocity unit v_unit (the Alfven velocity of the base units, set by the
 Setup. Tokamak with circular flux surfaces (AdhocTorus): major radius R0 = 5, minor radius a = 1, toroidal field
 B0 = 1, safety factor q(r) = 1.25 + r^2/a^2 (q = 1.5 at r = 0.5), flat number density n = 1 (as in the ITPA
 benchmark of Koenies et al. 2018) and on-axis beta 0.0018, gamma = 5/3 (as in LinearMHD). The full torus is computed
-(HollowTorus with tor_period = 1 and a hole of radius 0.1): the logical mode number -1 along eta3 is the physical
+(HollowTorus with tor_period = 1 and a hole of radius a1 = 0.01, flag --a1): the logical mode number -1 along eta3 is the physical
 n = 1. The velocity is initialized with divergence-free m = 1 and m = 2 harmonics, localized around r = 0.5 (given as
 2-form components, projected on H1vec) and then made discretely divergence-free in the sense of the scheme
 (div Uv u = 0, as in LinearMHD where the commuting projection to H(div) is exactly divergence-free): the H1vec
@@ -134,6 +134,9 @@ parser.add_argument(
     action="store_true",
     help="With --crank-nicolson: absolute tolerance of the linear solves (as LinearMHD) instead of relative.",
 )
+parser.add_argument(
+    "--a1", type=float, default=0.01, help="Radius of the hole around the magnetic axis (default 0.01, in units of a)."
+)
 args, _ = parser.parse_known_args()
 if args.u_space == "Hdiv" and not args.crank_nicolson:
     parser.error("--u-space Hdiv needs --crank-nicolson.")
@@ -205,7 +208,7 @@ dt = 0.5
 time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else 600.0)
 
 # Geometry
-domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=5.0, sfl=False, pol_period=1, tor_period=1)
+domain = domains.HollowTorus(a1=args.a1, a2=1.0, R0=5.0, sfl=False, pol_period=1, tor_period=1)
 
 # Fluid equilibrium (enters the linear model through the projected equilibrium, not as a background of the variables)
 equil = equils.AdhocTorus(
@@ -277,7 +280,7 @@ else:
 # radius r_c = 0.5 of the gap), as 2-form components: divergence free for the poloidal amplitude amp / (2 pi m)
 # ("d_exp" is the derivative of "exp")
 eta1_c = (0.5 - domain.params["a1"]) / (domain.params["a2"] - domain.params["a1"])
-sigma, amp = 0.15, 1e-3
+sigma, amp = 0.1, 1e-3
 ms = (1, 2)
 perturbation_radial = perturbations.TorusModesSin(
     ms=ms,
