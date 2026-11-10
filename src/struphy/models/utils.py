@@ -341,7 +341,7 @@ def add_binning_plot(params_path: str, binning_plot: str = "BinningPlot(slice='e
 # for the parallel motion; with the two pushers in a symmetric (Strang) block of the splitting, the guiding-center
 # push is second order in time, which keeps the delta-f weights of an equilibrium f0(P_phi, epsilon, mu) small
 # (issue #882; the first-order Itoh-Abe method "discrete_gradient_1st_order_newton" for the parallel motion gives a
-# delta-f energy drift of first order in dt and is not cheaper)
+# delta-f energy drift of first order in dt and was not cheaper per time step in the ITPA TAE example)
 GC_PUSH_ALGOS = {"push_bxe": "discrete_gradient_2nd_order", "push_parallel": "discrete_gradient_2nd_order"}
 
 

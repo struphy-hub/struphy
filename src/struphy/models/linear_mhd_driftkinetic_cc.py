@@ -387,9 +387,9 @@ class LinearMHDDriftkineticCC(LinearMHD):
         method ``algo="discrete_gradient_2nd_order"`` (implicit mid-point) for both guiding-center pushers,
         ``push_bxe`` and ``push_parallel``. The two pushers form one symmetric block of the splitting
         (``strang_groups``: ``push_bxe`` with ``dt/2``, ``push_parallel`` with ``dt``,
-        ``push_bxe`` with ``dt/2``), so that the guiding-center push is second order in time also with
-        ``split_algo="LieTrotter"``: each pusher alone does not conserve the constants of motion of the equilibrium
-        ``f0``, and a first-order splitting of the two (or a first-order pusher, e.g.
+        ``push_bxe`` with ``dt/2``), so that this block (not the whole Lie-Trotter step) is second order in time
+        also with ``split_algo="LieTrotter"``: each pusher alone does not conserve the constants of motion of the
+        equilibrium ``f0``, and a first-order splitting of the two (or a first-order pusher, e.g.
         ``"discrete_gradient_1st_order_newton"``) creates spurious delta-f weights and a drift of the delta-f energy
         ``en_fv + en_fB`` of first order in ``dt`` (issue #882). The explicit Runge-Kutta methods
         (``algo="explicit"``) are cheaper but not energy conserving. With ``magnetosonic_cross_b0=True``,
