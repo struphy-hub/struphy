@@ -35,6 +35,7 @@ from pathlib import Path
 import cunumpy as xp
 import h5py
 import numpy as np
+import pyvista as pv
 from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
@@ -60,21 +61,63 @@ from struphy.post_processing.plot_3d import (
 from struphy.post_processing.slices import BASES, evaluate_plane, physical_planes, rotate
 
 VECTOR_FORMS = ("1", "2", "v")
+# the values of the first pass of write_3d_frames are kept for the second one up to this size in bytes
+FIRST_PASS_CACHE = 200e6
 
 
 def saved_times(out: Output) -> np.ndarray:
-    """The times of all saved time steps of the run (from the raw output, no post-processing needed)."""
+    """The times of all saved time steps of the run (from the raw output, no post-processing needed), in the time
+    units of ``out`` (see :meth:`Output.with_time_units`)."""
     with h5py.File(out.path_out / "data" / "data_proc0.hdf5", "r") as file:
-        return np.asarray(file["time/value"][:], dtype=float).reshape(-1)
+        return np.asarray(file["time/value"][:], dtype=float).reshape(-1) * out.time_scale
 
 
 def frame_steps(out: Output, max_frames=500) -> list[int]:
-    """Positions of at most ``max_frames`` saved time steps, evenly spaced over the run, with the first and the last
-    one: all saved time steps if there are not more than ``max_frames``."""
+    """Positions of at most ``max_frames`` saved time steps, evenly spaced over the run, with the first and (for
+    ``max_frames`` > 1) the last one: all saved time steps if there are not more than ``max_frames``."""
+    if int(max_frames) < 1:
+        raise ValueError(f"max_frames must be at least 1, got {max_frames}.")
     count = len(saved_times(out))
     if count <= max_frames:
         return list(range(count))
     return sorted({int(n) for n in np.round(np.linspace(0, count - 1, max_frames))})
+
+
+def _steps_and_times(out: Output, steps, max_frames):
+    """The positions of the saved time steps of the frames (``steps``, else :func:`frame_steps`) and their times."""
+    steps = frame_steps(out, max_frames) if steps is None else [int(n) for n in steps]
+    if not steps:
+        raise ValueError("No time steps for the frames.")
+    return steps, saved_times(out)[steps]
+
+
+def _time_title(out: Output, t) -> str:
+    unit = out.time_unit
+    return f"t = {t:.4g}" + (f" {unit}" if unit else "")
+
+
+def _finite(values):
+    """``values`` (eta1 along the first axis) as floats, with the non-finite values at eta1 = 0 (the singular axis
+    of polar domains, e.g. of a Tokamak or a HollowTorus with a1 = 0) replaced by those of the next ring of points
+    and the remaining non-finite values by NaN (not shown, ignored by the color scale)."""
+    values = np.array(values, dtype=float)
+    if values.ndim > 0 and values.shape[0] > 1:
+        values[0] = np.where(np.isfinite(values[0]), values[0], values[1])
+    values[~np.isfinite(values)] = np.nan
+    return values
+
+
+def _evaluate_uncached(out: Output, n, evaluate):
+    """``evaluate()`` without keeping the spline functions of the saved time step ``n`` in the cache of ``out``
+    (unless they were there before): the cache would hold all fields of up to ``max_frames`` time steps."""
+    cache = getattr(out, "_spline_snapshots", None)
+    key = n % len(saved_times(out))
+    cached = cache is not None and key in cache
+    try:
+        return evaluate()
+    finally:
+        if cache is not None and not cached:
+            cache.pop(key, None)
 
 
 def field_label(out: Output, name, component=None, basis=None) -> str:
@@ -103,16 +146,29 @@ def _limits(clim, values, vmin, vmax, cmap):
     """Colormap and color limits of a frame with ``values``: the fixed ``clim`` ``(vmin, vmax)``, else from the range
     of ``values`` (``clim="frame"``) or the range ``vmin``, ``vmax`` of all frames (``clim`` None), see
     :func:`struphy.post_processing.plot_3d.default_colormap`."""
-    if clim is not None and clim != "frame":
-        return cmap or default_colormap(*clim)[0], tuple(clim)
+    if clim is not None and not isinstance(clim, str):
+        return cmap or default_colormap(*clim)[0], (float(clim[0]), float(clim[1]))
     if clim == "frame":
-        vmin, vmax = float(np.nanmin(values)), float(np.nanmax(values))
-    default_cmap, limits = default_colormap(vmin, vmax)
-    return cmap or default_cmap, limits
+        vmin, vmax = _range(values)
+    default_cmap, (lo, hi) = default_colormap(vmin, vmax)
+    if lo == hi:
+        # a field that is zero (or constant) everywhere
+        delta = abs(lo) or 1.0
+        lo, hi = lo - delta, hi + delta
+    return cmap or default_cmap, (lo, hi)
+
+
+def _range(values):
+    """Smallest and largest value, ignoring NaN; (0, 0) if all values are NaN."""
+    if np.all(np.isnan(values)):
+        return 0.0, 0.0
+    return float(np.nanmin(values)), float(np.nanmax(values))
 
 
 def _check_clim(clim):
-    if not (clim is None or clim == "frame" or (len(clim) == 2 and clim[0] < clim[1])):
+    if clim is None or (isinstance(clim, str) and clim == "frame"):
+        return
+    if isinstance(clim, str) or len(clim) != 2 or not clim[0] < clim[1]:
         raise ValueError(f'clim must be None, "frame" or (vmin, vmax) with vmin < vmax, got {clim!r}.')
 
 
@@ -224,18 +280,19 @@ def write_slice_frames(
     if plane not in planes:
         raise ValueError(f"No plane {plane!r} for {type(out.domain).__name__}; available: {list(planes)}.")
     plane_def = planes[plane]
-    steps = frame_steps(out, max_frames) if steps is None else list(steps)
-    times = saved_times(out)[steps]
+    steps, times = _steps_and_times(out, steps, max_frames)
     kind, components = _kind(out, name, component, basis)
     label = label or field_label(out, name, component, basis)
     n_pts = points_per_cell * max(out.grid.num_elements) + 1
 
     values = []
     for n in steps:
-        num, _, coords = evaluate_plane(out, out.domain, name, n, None, plane_def, n_pts, kind, components)
-        values.append(num[component] if components else num)
-    vmin = min(float(np.nanmin(v)) for v in values)
-    vmax = max(float(np.nanmax(v)) for v in values)
+        num, _, coords = _evaluate_uncached(
+            out, n, lambda: evaluate_plane(out, out.domain, name, n, None, plane_def, n_pts, kind, components)
+        )
+        values.append(_finite(num[component] if components else num))
+    vmin = min(_range(v)[0] for v in values)
+    vmax = max(_range(v)[1] for v in values)
 
     axis = ("eta1", "eta2", "eta3").index(plane_def.cut)
     h, v = coords[plane_def.hlabel], coords[plane_def.vlabel]
@@ -263,7 +320,7 @@ def write_slice_frames(
         ax.set_aspect("equal")
         ax.set_xlabel(plane_def.hlabel)
         ax.set_ylabel(plane_def.vlabel)
-        ax.set_title(f"{label}, {plane_def.hlabel}-{plane_def.vlabel} plane ({plane_def.where}), t = {t:.4g}")
+        ax.set_title(f"{label}, {plane_def.hlabel}-{plane_def.vlabel} plane ({plane_def.where}), {_time_title(out, t)}")
         files.append(folder / _frame_name(k, len(steps)))
         _save_figure(fig, files[-1], width_px, height_px)
     _write_index(folder, steps, times)
@@ -279,15 +336,15 @@ def _grid_values(out: Output, name, n, etas, component, basis):
     vector = form in VECTOR_FORMS
     physical = vector and (component is None or basis == "physical")
     representation = form if physical else (basis or "norm") if vector else None
-    data = out.evaluate(name, t=n, representation=representation, **etas)
+    data = _evaluate_uncached(out, n, lambda: out.evaluate(name, t=n, representation=representation, **etas))
     xyz = tuple(data.coords[c].values for c in ("X", "Y", "Z"))
     if not vector:
-        return {"values": data.values}, xyz
+        return {"values": _finite(data.values)}, xyz
     if not physical:
-        return {"values": data.isel(component=component).values}, xyz
+        return {"values": _finite(data.isel(component=component).values)}, xyz
     grids = [data.coords[e].values for e in ("eta1", "eta2", "eta3")]
     cartesian = out.domain.push([data.isel(component=k).values for k in range(3)], *grids, kind=form)
-    cartesian = [np.asarray(xp.to_numpy(c)) for c in cartesian]
+    cartesian = [_finite(xp.to_numpy(c)) for c in cartesian]
     if component is None:
         return {"values": np.linalg.norm(np.stack(cartesian), axis=0)}, xyz
     return {f"c{k + 1}": c for k, c in enumerate(cartesian)}, xyz
@@ -416,8 +473,7 @@ def write_3d_frames(
         raise ValueError(f'view must be "cut" or "domain", got {view!r}.')
     if MPI.COMM_WORLD.Get_rank() != 0:
         return []
-    steps = frame_steps(out, max_frames) if steps is None else list(steps)
-    times = saved_times(out)[steps]
+    steps, times = _steps_and_times(out, steps, max_frames)
     label = label or field_label(out, name, component, basis)
     etas = {
         e: np.linspace(0.0, 1.0, points_per_cell * n + 1)
@@ -430,8 +486,6 @@ def write_3d_frames(
     def frame_grid(n):
         """The structured grid of the domain (the full torus) with the arrays of :func:`_grid_values`."""
         arrays, xyz = _grid_values(out, name, n, etas, component, basis)
-        import pyvista as pv
-
         grid = pv.StructuredGrid(*xyz)
         for key, value in arrays.items():
             grid.point_data[key] = np.asarray(value, dtype=float).reshape(-1, order="F")
@@ -440,18 +494,27 @@ def write_3d_frames(
         grid = repeat_around_axis(grid, copies, cartesian)
         return grid, np.asarray(_shown(grid.point_data, component))
 
-    # first pass: the range of the values and the point of the largest absolute value over all frames
+    # first pass: the range of the values and the point of the largest absolute value over all frames (the values
+    # are kept for the second pass if they are not too large)
     vmin, vmax, peak, peak_point = np.inf, -np.inf, -1.0, None
+    first_pass = {}
     for n in steps:
         grid, values = frame_grid(n)
-        vmin, vmax = min(vmin, float(np.nanmin(values))), max(vmax, float(np.nanmax(values)))
-        i = int(np.nanargmax(np.abs(values)))
-        if abs(values[i]) > peak:
-            peak, peak_point = abs(values[i]), grid.points[i]
+        if len(steps) * values.nbytes <= FIRST_PASS_CACHE:
+            first_pass[n] = values
+        low, high = _range(values)
+        vmin, vmax = min(vmin, low), max(vmax, high)
+        if not np.all(np.isnan(values)):
+            i = int(np.nanargmax(np.abs(values)))
+            if abs(values[i]) > peak:
+                peak, peak_point = abs(values[i]), grid.points[i]
+
+    def frame_values(n):
+        return first_pass[n] if n in first_pass else frame_grid(n)[1]
 
     center, diagonal = cut_center(grid, toroidal)
     if azimuth is None:
-        azimuth = peak_azimuth(peak_point[None], [1.0], center, diagonal)
+        azimuth = 0.0 if peak_point is None else peak_azimuth(peak_point[None], [1.0], center, diagonal)
     # not through a plane of grid points, which would leave dark specks of degenerate cells
     azimuth = off_grid_azimuth(grid.points, center, azimuth)
     # coincident points merged once; the values of each frame are taken from the nearest point of the grid
@@ -465,15 +528,13 @@ def write_3d_frames(
         return image, frame_cmap, limits
 
     # the crop box, the same for all frames (the rendered domain does not change): that of the first frame
-    _, values = frame_grid(steps[0])
-    top, bottom, left, right = crop_box(render(values)[0], margin)
+    top, bottom, left, right = crop_box(render(frame_values(steps[0]))[0], margin)
 
     folder = _prepare_folder(folder)
     files = []
     for k, (n, t) in enumerate(zip(steps, times)):
-        _, values = frame_grid(n)
-        image, frame_cmap, limits = render(values)
-        title = f"{label}, t = {t:.4g}"
+        image, frame_cmap, limits = render(frame_values(n))
+        title = f"{label}, {_time_title(out, t)}"
         fig, width, height = _compose(image[top:bottom, left:right], title, frame_cmap, limits, label, show_scalar_bar)
         files.append(folder / _frame_name(k, len(steps)))
         _save_figure(fig, files[-1], width, height)

@@ -1,8 +1,9 @@
 """3D plots of FEEC fields from the VTK files of a run (written by ``Output.pproc(create_vtk=True)``), with PyVista.
 
 :func:`plot_field_3d` renders one field at one saved time step in the physical domain: a cutaway view, where a wedge of 90
-degrees around the vertical axis is removed, one of its faces passing through the largest absolute value, so that
-the field is visible inside (for a torus, the poloidal cross-section through the maximum).
+degrees around the vertical axis is removed, one of its faces passing close to the largest absolute value (between two
+planes of grid points, see :func:`off_grid_azimuth`), so that the field is visible inside (for a torus, the
+poloidal cross-section near the maximum).
 The resolution of the plot is that of the VTK files, set by ``celldivide`` of ``Output.pproc``. Vector fields are
 shown by their magnitude; they need the Cartesian components of ``pproc(physical=True)``.
 
@@ -253,9 +254,10 @@ def peak_azimuth(points, values, center, diagonal) -> float:
 
 def off_grid_azimuth(points, center, azimuth, decimals=9) -> float:
     """``azimuth`` moved to the middle between the two nearest azimuths (around the vertical axis through ``center``)
-    of ``points``, e.g. between two planes eta3 = const of the grid of a torus. A cut through a plane of grid points
-    leaves degenerate cells, which are drawn as dark specks. Unchanged if the points have fewer than two distinct
-    azimuths."""
+    of ``points``, e.g. between two planes eta3 = const of the grid of a torus; if the other face of the wedge of
+    :func:`cut_wedge` (at ``azimuth + pi/2``) then lies on such a plane, a quarter of the gap from its first point
+    instead, so that neither face does. A cut through a plane of grid points leaves degenerate cells, which are drawn
+    as dark specks. Unchanged if the points have fewer than two distinct azimuths."""
     rel = np.asarray(points)[:, :2] - np.asarray(center)[:2]
     radius = np.hypot(rel[:, 0], rel[:, 1])
     rel = rel[radius > 1e-9 * (np.max(radius) if radius.size else 1.0)]
@@ -269,7 +271,12 @@ def off_grid_azimuth(points, center, azimuth, decimals=9) -> float:
     if np.isclose(hi, target, rtol=0.0, atol=10.0**-decimals):
         # on a plane of points: the gap above it
         lo, hi = hi, angles[i + 1]
-    return float(azimuth + 0.5 * (lo + hi) - target)
+    moved = 0.5 * (lo + hi)
+    # the other face of the wedge on a plane of points: a quarter of the gap instead of a half
+    other = np.mod(moved + np.pi / 2, 2 * np.pi)
+    if np.min(np.abs(angles - other)) < 1e-6 * (hi - lo):
+        moved = lo + 0.25 * (hi - lo)
+    return float(azimuth + moved - target)
 
 
 def merge_seams(grid, diagonal):
@@ -381,7 +388,8 @@ def plot_field_3d(
         Open an interactive window (otherwise render off screen).
     cutaway : bool
         Remove a wedge of 90 degrees around the vertical axis through the center of the domain, starting at the
-        azimuth of the largest absolute value, to show the field inside (one face of the cut passes through it).
+        azimuth of the largest absolute value, to show the field inside (one face of the cut passes close to it, see
+        :func:`off_grid_azimuth`).
     title : str | None
         Title of the image (default: none).
     cmap : str | None

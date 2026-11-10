@@ -10,6 +10,10 @@ from maybempi import MPI
 from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Output, Simulation, Time, domains, grids
 from struphy.initial import perturbations
 from struphy.post_processing.frames import (
+    _check_clim,
+    _finite,
+    _grid_values,
+    _limits,
     frame_steps,
     frames_to_video,
     saved_times,
@@ -20,8 +24,9 @@ from struphy.post_processing.frames import (
 N_SAVED = 4  # saved time steps of the run (the initial one and three time steps)
 
 
-def short_torus_run(out_folder) -> Output:
-    """A Maxwell run of three time steps on a coarse torus, with an m = 1, n = 1 electric field (2-form)."""
+def short_torus_run(out_folder, polar=False) -> Output:
+    """A Maxwell run of three time steps on a coarse torus (with ``polar``, an IGAPolarTorus with polar splines, which
+    has an axis), with an m = 1, n = 1 electric field (2-form)."""
     from struphy.models import Maxwell
 
     model = Maxwell(base_units=BaseUnits())
@@ -32,9 +37,14 @@ def short_torus_run(out_folder) -> Output:
         params_path=__file__,
         env=EnvironmentOptions(out_folders=out_folder, sim_folder="sim_frames"),
         time_opts=Time(dt=0.05, Tend=(N_SAVED - 1) * 0.05),
-        domain=domains.HollowTorus(a1=0.2, a2=1.0, R0=3.0, tor_period=1),
-        grid=grids.TensorProductGrid(num_elements=(4, 8, 4)),
-        derham_opts=DerhamOptions(degree=(2, 2, 1)),
+        domain=domains.IGAPolarTorus(num_elements=(4, 9), degree=(2, 2), a=1.0, R0=3.0, tor_period=1)
+        if polar
+        else domains.HollowTorus(a1=0.2, a2=1.0, R0=3.0, tor_period=1),
+        grid=grids.TensorProductGrid(num_elements=(4, 9 if polar else 8, 4)),
+        # polar splines: clamped in eta1 (free on the axis, Dirichlet at the boundary)
+        derham_opts=DerhamOptions(degree=(2, 2, 1), bcs=(("free", "dirichlet"), None, None), polar_splines=True)
+        if polar
+        else DerhamOptions(degree=(2, 2, 1)),
     )
     model.em_fields.e_field.add_perturbation(
         perturbations.TorusModesSin(ms=(1,), ns=(1,), amps=(1e-3,), comp=0, given_in_basis="2")
@@ -63,6 +73,8 @@ def test_frames(mpi_out_folder):
     assert frame_steps(run) == list(range(N_SAVED))
     assert frame_steps(run, max_frames=3) == [0, 2, 3]
     assert len(saved_times(run)) == N_SAVED
+    with pytest.raises(ValueError):
+        frame_steps(run, max_frames=0)
 
     # the radial component (normalized basis) in the poloidal plane, one scale over all frames
     files = write_slice_frames(run, "em_fields/e_field", folder / "e_r_rz", component=0, points_per_cell=2)
@@ -131,5 +143,47 @@ def test_off_grid_azimuth():
     assert np.isclose(off_grid_azimuth(points, center, 0.1), np.pi / 8)
     assert np.isclose(off_grid_azimuth(points, center, -0.1), -np.pi / 8)
     assert np.isclose(off_grid_azimuth(points, center, 2 * np.pi + 0.1), 2 * np.pi + np.pi / 8)
+    # 6 planes (every pi/3): the middle of the gap puts the other face (+ pi/2) on a plane, a quarter does not
+    sixths = np.arange(6) * np.pi / 3
+    points6 = np.array([[np.cos(a), np.sin(a), 0.0] for a in sixths])
+    assert np.isclose(off_grid_azimuth(points6, center, 0.0), np.pi / 12)
     # points on the axis only: unchanged
     assert off_grid_azimuth(np.zeros((3, 3)), center, 0.3) == 0.3
+
+
+def test_frames_polar_axis(mpi_out_folder):
+    """On a torus with a polar axis, the singular values of the push-forward on the axis are replaced by those of the
+    next ring, so that the color scale stays finite."""
+    run = short_torus_run(mpi_out_folder, polar=True)
+    etas = {"eta1": np.linspace(0, 1, 5), "eta2": np.linspace(0, 1, 9), "eta3": np.linspace(0, 1, 5)}
+    for component, basis in ((0, "norm"), (None, None), (0, "physical")):
+        arrays, _ = _grid_values(run, "em_fields/e_field", N_SAVED - 1, etas, component, basis)
+        assert all(np.all(np.isfinite(values)) for values in arrays.values())
+    files = write_slice_frames(run, "em_fields/e_field", run.path_out / "frames" / "rz", component=0, max_frames=2)
+    files += write_3d_frames(
+        run,
+        "em_fields/e_field",
+        run.path_out / "frames" / "3d",
+        max_frames=2,
+        points_per_cell=1,
+        window_size=(300, 300),
+    )
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        assert len(files) == 4
+    MPI.COMM_WORLD.Barrier()
+
+
+@pytest.mark.mpi_skip
+def test_frame_helpers():
+    # the axis (first index) takes the values of the next ring, other non-finite values become NaN
+    values = _finite([[np.inf, 1.0], [2.0, np.nan], [3.0, 4.0]])
+    assert values[0, 0] == 2.0 and values[0, 1] == 1.0 and np.isnan(values[1, 1])
+    # color limits: symmetric about zero for a field changing sign, never empty
+    assert _limits(None, None, -1.0, 2.0, None)[1] == (-2.0, 2.0)
+    assert _limits("frame", np.array([0.5, 1.0, np.nan]), -9.0, 9.0, None)[1] == (0.0, 1.0)
+    assert _limits(None, None, 0.0, 0.0, None)[1] == (-1.0, 1.0)
+    assert _limits(np.array([-3, 1]), None, 0.0, 1.0, "viridis") == ("viridis", (-3.0, 1.0))
+    _check_clim(np.array([0.0, 1.0]))
+    for clim in ("global", (1.0, 0.0), np.array([1.0, 0.0]), (0.0, 1.0, 2.0)):
+        with pytest.raises(ValueError):
+            _check_clim(clim)
