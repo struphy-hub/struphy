@@ -118,21 +118,20 @@ jobs:
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           pip install coverage
-          coverage combine .coverage.shard-*
-          coverage report --skip-covered --sort=cover > coverage.txt || true
+          # shards without data (failed before writing any) are skipped by the glob
+          coverage combine .coverage.shard-* || { echo "no coverage data" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          coverage report --skip-covered --sort=cover --format=markdown > coverage.md || true
           coverage html -d coverage_html || true
           {
             echo "## Line coverage of the Python code by the serial unit tests"
             echo
-            echo "Kernels are compiled and not measured. Files with full coverage are not listed."
+            echo "Kernels are compiled and not measured; tests in subprocesses are not measured."
+            echo "Files with full coverage are not listed."
             echo
-            echo '```'
-            tail -n 1 coverage.txt
+            # the total, then the table header and the 60 least covered files
+            grep -F '**TOTAL**' coverage.md || true
             echo
-            head -n 2 coverage.txt
-            # the 60 least covered files
-            sed -n '3,62p' coverage.txt
-            echo '```'
+            head -n 62 coverage.md | grep -vF '**TOTAL**'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload HTML report
