@@ -14,6 +14,7 @@ from pathlib import Path
 
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--a1` the radius of the hole around the magnetic axis (default 0.01).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # `--setup profiling` selects the setup of the profiling runs (as in the example of LinearMHDDriftkineticCC).
 # Unknown flags are ignored so that a driver can forward other parameters as well.

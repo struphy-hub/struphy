@@ -37,7 +37,8 @@ with the velocity unit v_unit (the Alfven velocity of the base units, set by the
 Setup. Tokamak with circular flux surfaces (AdhocTorus): major radius R0 = 5, minor radius a = 1, toroidal field
 B0 = 1, safety factor q(r) = 1.25 + r^2/a^2 (q = 1.5 at r = 0.5), flat number density n = 1 (as in the ITPA
 benchmark of Koenies et al. 2018) and on-axis beta 0.0018. The full torus is computed
-(HollowTorus with tor_period = 1 and a hole of radius a1 = 0.01, flag --a1): the logical mode number -1 along eta3 is the physical
+(HollowTorus with tor_period = 1 and a hole of radius a1, default 0.01, flag --a1):
+the logical mode number -1 along eta3 is the physical
 n = 1. The velocity is initialized with divergence-free m = 1 and m = 2 harmonics, localized around r = 0.5 (given as
 2-form components).
 
@@ -63,6 +64,7 @@ from pathlib import Path
 
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--a1` the radius of the hole around the magnetic axis (default 0.01).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
