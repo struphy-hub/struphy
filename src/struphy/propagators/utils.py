@@ -2,17 +2,22 @@
 
 Operators of a velocity 2-form weighted with the total density :math:`\\rho = \\rho_0 + \\tilde \\rho` of the
 perturbative models (density 3-form evolving in time), on the quadrature grid of the mass matrices
-(:class:`HdivDensityOperators`, :class:`VelocityMass`, :func:`velocity_mass`)."""
+(:class:`HdivDensityOperators`, :class:`VelocityMass`, :func:`velocity_mass`), and the second-order magnetic term
+of the linear and perturbative variational models with the equilibrium current of the dual complex
+(:class:`EquilibriumCurrentTerm`)."""
 
 import logging
 
 import cunumpy as xp
 from feectools.linalg.basic import Vector
+from feectools.linalg.solvers import inverse
 from maybempi import MPI
 
 from struphy.feec.mass import L2Projector, WeightedMassOperators
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+from struphy.polar.basic import PolarVector
 
 logger = logging.getLogger("struphy")
 
@@ -232,6 +237,94 @@ class VelocityMass:
         self._n3.copy(out=self._rho)
         self._rho += self._rho_field.spline.vector
         self._ops.update_M_rho(self._rho)
+
+
+class EquilibriumCurrentTerm:
+    r"""Approximate derivative of the force of the second-order magnetic term of the linear and perturbative
+    variational models, for their Newton matrices.
+
+    The force of the second-order term :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}` is the adjoint of the
+    transport of :math:`\hat{\mathbf b}`, :math:`\mathbb T[\mathbf b]^\top \mathbb M^2 \mathbf b_0` with
+    :math:`\mathbb T[\mathbf b] = \mathbb C \hat\Pi^1[\hat{\mathbf b} \times \cdot\,]`. It is linear in :math:`\mathbf b`
+    but not available as a matrix. Its continuum form is :math:`\int \mathbf v \cdot (\mathbf J_0 \times \mathbf B)`;
+    the matrix :math:`\mathbb W` of this form (:attr:`R` is :math:`-\mathbb W`) is used in place of the derivative in
+    the Newton matrices, where it only affects the convergence of the iteration, not its solution. The current
+    :math:`\mathbf j_0 \in V^1_h` is computed through the dual complex (no boundary conditions, see
+    :meth:`equilibrium_current`), which keeps its tangential components at a wall.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping.
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    projected_equil : ProjectedFluidEquilibrium
+        Projected equilibrium, for the coefficients of the equilibrium magnetic field 2-form.
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+    """
+
+    def __init__(
+        self,
+        derham: Derham,
+        domain: Domain,
+        mass_ops: WeightedMassOperators,
+        projected_equil,
+        u_space: str,
+    ):
+        self._derham = derham
+        self._mass_ops = mass_ops
+        # equilibrium current through the dual complex (no boundary conditions): h0 = *_h b0 in V1, J0 = curl h0 in
+        # V2 and its representation j0 in V1, all over the full spaces
+        M1 = mass_ops.M1
+        self._M1_free = M1.without_boundary_ops()
+        pc = MassMatrixPreconditioner(M1, apply_bc=False)
+        self._inv_M1 = inverse(self._M1_free, "pcg", pc=pc, tol=1e-14, maxiter=3000, recycle=True)
+        j0 = self.equilibrium_current(projected_equil.b2)
+
+        # spline evaluation at the quadrature points
+        grid = [pts.flatten() for pts in derham.V3splines.quad_grid_pts[0]]
+        spans, bn, bd = derham.prepare_eval_tp_fixed(grid)
+        bases_1form = [[bd[0], bn[1], bn[2]], [bn[0], bd[1], bn[2]], [bn[0], bn[1], bd[2]]]
+        sqrt_g = domain.jacobian_det(*grid)
+
+        j0f = derham.create_spline_function("j0", "Hcurl")
+        j0f.vector = j0
+        j0_v = j0f.eval_tp_fixed_loc(spans, bases_1form)
+        # c = G^{-1} j0 sqrt(g) times the factor of u-tilde: weights of W, u . (c x b) = u^T [c]_x b
+        g_inv = domain.metric_inv(*grid)
+        c = [sum(g_inv[a, e] * j0_v[e] for e in range(3)) for a in range(3)]
+        if u_space == "H1vec":
+            c = [ca * sqrt_g for ca in c]
+        # R = -W, with the weights -[c]_x
+        self._R = mass_ops.create_weighted_mass("Hdiv", u_space)
+        self._R.assemble([[None, c[2], -c[1]], [-c[2], None, c[0]], [c[1], -c[0], None]])
+
+    @property
+    def R(self):
+        r""":math:`-\mathbb W`, the matrix (2-forms to the velocity space) of
+        :math:`-\int \mathbf v \cdot (\mathbf j_0 \times \mathbf B)`."""
+        return self._R
+
+    def equilibrium_current(self, b0):
+        r"""The equilibrium current :math:`\mathbf j_0 \in V^1_h` of :math:`\mathbb W`, through the dual complex:
+
+        .. math::
+
+            \mathbb M^1_{\textnormal{free}}\, \mathbf h_0 = \mathbb K \mathbf b_0 \,, \qquad
+            \mathbf J_0 = \mathbb C\, \mathbf h_0 \,, \qquad
+            \mathbb M^1_{\textnormal{free}}\, \mathbf j_0 = \mathbb K \mathbf J_0 \,,
+
+        with the metric-free pairing :math:`\mathbb K_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^1_i \cdot
+        \vec{\boldsymbol\Lambda}^2_j \,\textrm d \boldsymbol\eta` of 1-forms and 2-forms, all operators over the full
+        spaces (without boundary conditions). Collective: call on all ranks."""
+        K = self._mass_ops.create_weighted_mass("Hdiv", "Hcurl", weights=("Identity",), assemble=True)
+        K = K.without_boundary_ops()
+        h0 = self._inv_M1.dot(K.dot(b0)).copy()
+        J0 = self._derham.curl_bcfree.dot(h0)
+        return self._inv_M1.dot(K.dot(J0)).copy()
 
 
 def velocity_mass(propagator, u_space: str, rho_field=None):

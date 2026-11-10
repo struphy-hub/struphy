@@ -1,5 +1,5 @@
-"""Linear variational MHD with one linear solve per substep (``crank_nicolson=True``) and the second-order terms in
-weak form, with midpoint (``weights="midpoint"``) or frozen weights: exact energy conservation (up to the solver
+"""Linear variational MHD with one linear solve per substep (``crank_nicolson=True``), the forces of the second-order
+terms being the adjoints of their transports, with midpoint (``weights="midpoint"``) or frozen weights: exact energy conservation (up to the solver
 tolerance) of every substep and of the full step, and the stability of the sound waves of the p model, which grow with
 the frozen weight."""
 
@@ -89,8 +89,8 @@ def _energy(model):
 @pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
 @pytest.mark.parametrize("prop_name", ["variat_lin_alfven", "variat_lin_sound"])
 def test_substep_energy(prop_name: str, u_space: str, weights: str, dirichlet: bool):
-    """Each substep of the p model alone conserves the energy, with its second-order term in weak form (the work of
-    the force equals the change of the auxiliary energy), periodic and with Dirichlet boundary conditions in eta1."""
+    """Each substep of the p model alone conserves the energy (the work of the force of the second-order term equals
+    the change of its energy), periodic and with Dirichlet boundary conditions in eta1."""
     model = _setup("p", u_space, weights=weights, dirichlet=dirichlet)
     prop = getattr(model.propagators, prop_name)
     model.scalars.update()
