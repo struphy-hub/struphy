@@ -386,7 +386,12 @@ def _render_3d(grid, values, center, azimuth, toroidal, cmap, clim, options, sur
         plotter.enable_depth_peeling(number_of_peels=8, occlusion_ratio=0.0)
         boundary = shown.extract_surface(algorithm="dataset_surface")
         diagonal = np.linalg.norm(np.subtract(grid.bounds[1::2], grid.bounds[::2]))
-        on_cut = np.abs(wedge_distance(boundary.cell_centers().points, center, azimuth)) < 1e-4 * diagonal
+        # the faces of the cut: all their points on the faces of the wedge (the clip carries the wedge distance)
+        on_plane = np.abs(boundary.point_data["wedge"]) < 1e-6 * diagonal
+        on_cut = np.zeros(boundary.n_cells, dtype=bool)
+        if np.any(on_plane):
+            faces = boundary.extract_points(on_plane, adjacent_cells=False)
+            on_cut[np.asarray(faces.cell_data["vtkOriginalCellIds"])] = True
         if np.any(on_cut):
             add_field_mesh(plotter, boundary.extract_cells(on_cut), scalars, cmap, clim)
         if np.any(~on_cut):
@@ -496,7 +501,8 @@ def write_3d_frames(
     surface : str | float | None
         A surface eta1 = const inside the domain, colored by the field and opaque, cut like the domain: ``"peak"``
         through the largest absolute value over all frames (e.g. the flux surface of the mode in a torus, showing its
-        toroidal structure), a value of eta1, or None for none.
+        toroidal structure), a value of eta1 in [0, 1], or None for none. The nearest eta1 of the evaluation grid is
+        used, at least one point away from the boundary of the domain (and from the axis of a polar domain).
     window_size : tuple[int, int]
         Size of the render window in pixels; the render is cropped to the domain (the same box for all frames), the
         title and the color bar are added around it.
@@ -514,6 +520,10 @@ def write_3d_frames(
         The frames, in order.
     """
     _check_clim(clim)
+    if not (surface is None or surface == "peak" or (isinstance(surface, (int, float)) and 0 <= surface <= 1)):
+        raise ValueError(f'surface must be None, "peak" or a value of eta1 in [0, 1], got {surface!r}.')
+    if not 0 < opacity <= 1:
+        raise ValueError(f"opacity must be in (0, 1], got {opacity!r}.")
     if view not in ("cut", "domain"):
         raise ValueError(f'view must be "cut" or "domain", got {view!r}.')
     if MPI.COMM_WORLD.Get_rank() != 0:
@@ -529,17 +539,12 @@ def write_3d_frames(
     etas = {e: np.linspace(0.0, 1.0, points_per_cell * n + 1) for e, n in zip(("eta1", "eta2", "eta3"), cells)}
 
     first_xyz = []
-    sector_peak = {}
 
     def frame_grid(n):
         """The structured grid of the domain (the full torus) with the arrays of :func:`_grid_values`."""
         arrays, xyz = _grid_values(out, name, n, etas, component, basis)
         if not first_xyz:
             first_xyz.extend(xyz)
-        # the largest absolute value in the sector and its index along eta1
-        shown = np.abs(_shown(arrays, component))
-        if not np.all(np.isnan(shown)):
-            sector_peak[n] = (float(np.nanmax(shown)), int(np.unravel_index(np.nanargmax(shown), shown.shape)[0]))
         grid = pv.StructuredGrid(*xyz)
         for key, value in arrays.items():
             grid.point_data[key] = np.asarray(value, dtype=float).reshape(-1, order="F")
@@ -573,23 +578,38 @@ def write_3d_frames(
     azimuth = off_grid_azimuth(grid.points, center, azimuth)
     # coincident points merged once; the values of each frame are taken from the nearest point of the grid
     merged = merge_seams(grid, diagonal)
-    _, index = cKDTree(grid.points).query(merged.points)
+    tree = cKDTree(grid.points)
+    _, index = tree.query(merged.points)
     options = dict(view=view, window_size=window_size, context=context, opacity=opacity)
 
     # the surface eta1 = const inside the domain (e.g. a flux surface of a torus), with the copies of a torus sector
+    n1 = len(etas["eta1"])
     i1 = None
-    if surface == "peak" and sector_peak:
-        i1 = max(sector_peak.values())[1]
+    if surface == "peak" and peak_point is not None:
+        # eta1 of the peak: the nearest point of the sector to the peak rotated back into the sector (copies)
+        sector_tree = cKDTree(np.stack([c.reshape(-1, order="F") for c in first_xyz], axis=1))
+        candidates = []
+        for k in range(copies):
+            angle = -2 * np.pi * k / copies
+            x, y = (
+                peak_point[0] * np.cos(angle) - peak_point[1] * np.sin(angle),
+                peak_point[0] * np.sin(angle) + peak_point[1] * np.cos(angle),
+            )
+            candidates.append(sector_tree.query([x, y, peak_point[2]]))
+        i1 = int(min(candidates)[1]) % n1
     elif surface is not None and surface != "peak":
         i1 = int(np.argmin(np.abs(etas["eta1"] - float(surface))))
+    if i1 is not None and n1 > 2:
+        # not on the boundary of the domain (or on the axis of a polar domain)
+        i1 = min(max(i1, 1), n1 - 2)
     surface_grid = surface_index = None
-    if i1 is not None:
+    if i1 is not None and n1 > 2:
         sector = pv.StructuredGrid(*(c[i1 : i1 + 1] for c in first_xyz))
         surface_grid = merge_seams(repeat_around_axis(sector, copies), diagonal)
         # its values: those of the nearest points of the grid of the domain (the same points)
-        _, surface_index = cKDTree(grid.points).query(surface_grid.points)
+        _, surface_index = tree.query(surface_grid.points)
 
-    def render(values):
+    def render(values, opaque=False):
         frame_cmap, limits = _limits(clim, values, vmin, vmax, cmap)
         image = _render_3d(
             merged,
@@ -599,14 +619,15 @@ def write_3d_frames(
             toroidal,
             frame_cmap,
             limits,
-            options,
-            surface_grid,
-            None if surface_grid is None else values[surface_index],
+            {**options, "opacity": 1.0} if opaque else options,
+            None if opaque else surface_grid,
+            None if opaque or surface_grid is None else values[surface_index],
         )
         return image, frame_cmap, limits
 
     # the crop box, the same for all frames (the rendered domain does not change): that of the first frame
-    top, bottom, left, right = crop_box(render(frame_values(steps[0]))[0], margin)
+    # (from an opaque render: the translucent boundary may be nearly white)
+    top, bottom, left, right = crop_box(render(frame_values(steps[0]), opaque=True)[0], margin)
 
     folder = _prepare_folder(folder)
     files = []

@@ -121,6 +121,21 @@ def test_frames(mpi_out_folder):
     if rank == 0:
         check_frames(files, 2)
 
+    # an opaque boundary without the inner surface, and the surface at a given eta1
+    for options in ({"opacity": 1.0, "surface": None}, {"surface": 0.5}):
+        files = write_3d_frames(
+            run,
+            "em_fields/e_field",
+            folder / f"e_3d_{options['surface']}",
+            component=0,
+            steps=[0, N_SAVED - 1],
+            points_per_cell=1,
+            window_size=(300, 300),
+            **options,
+        )
+        if rank == 0:
+            check_frames(files, 2)
+
     if rank == 0 and shutil.which("ffmpeg") is not None:
         video = frames_to_video(folder / "e_r_rz", fps=2)
         assert video.exists() and video.stat().st_size > 0
@@ -129,6 +144,9 @@ def test_frames(mpi_out_folder):
         write_slice_frames(run, "em_fields/e_field", folder / "bad", clim="global")
     with pytest.raises(ValueError):
         write_3d_frames(run, "em_fields/e_field", folder / "bad", view="side")
+    for bad in ({"surface": 1.5}, {"surface": "top"}, {"opacity": 0.0}):
+        with pytest.raises(ValueError):
+            write_3d_frames(run, "em_fields/e_field", folder / "bad", **bad)
     if rank == 0:
         with pytest.raises(ValueError):
             write_slice_frames(run, "em_fields/e_field", folder / "bad", plane="ab")
