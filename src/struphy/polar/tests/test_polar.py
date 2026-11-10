@@ -15,6 +15,10 @@ logger = logging.getLogger("struphy")
     ],
 )
 def test_spaces(num_elements, degree, bcs):
+    """Arithmetic of PolarVector in all polar spaces agrees with the arithmetic of its array (toarray),
+    and dot is the Euclidean scalar product of the arrays."""
+    import numpy as np
+
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import DerhamOptions
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
@@ -24,157 +28,42 @@ def test_spaces(num_elements, degree, bcs):
     derham_opts = DerhamOptions(degree=degree, bcs=bcs)
     derham = Derham(grid, derham_opts)
 
-    logger.info("polar V0:")
-    V = PolarDerhamSpace(derham, "H1")
-    logger.info(f"dimensions (parent, polar): {derham.V0fem.nbasis} {V.dimension}")
-    logger.info(V.dtype)
-    logger.info(f"{V.zeros()}\n")
-    a = PolarVector(V)
-    a.pol[0][:] = 1.0
-    a.tp[:] = 1.0
-    logger.info(a.toarray())
-    a.set_tp_coeffs_to_zero()
-    b = a.copy()
-    logger.info(a.toarray())
-    logger.info(a.dot(b))
-    logger.info((-a).toarray())
-    logger.info((2 * a).toarray())
-    logger.info((a * 2).toarray())
-    logger.info((a + b).toarray())
-    logger.info((a - b).toarray())
-    a *= 2
-    logger.info(a.toarray())
-    a += b
-    logger.info(a.toarray())
-    a -= b
-    logger.info(a.toarray())
-    logger.info(a.toarray_tp())
+    for space, ncomp in (("H1", 1), ("Hcurl", 3), ("Hdiv", 3), ("L2", 1), ("H1vec", 3)):
+        V = PolarDerhamSpace(derham, space)
+        logger.info(f"polar {space}: dimension {V.dimension}")
+        assert V.dimension > 0
+        assert np.all(V.zeros().toarray() == 0.0)
 
-    logger.info("")
+        a = PolarVector(V)
+        if ncomp == 1:
+            a.pol[0][:] = 1.0
+            a.tp[:] = 1.0
+        else:
+            for n in range(3):
+                a.pol[n][:] = n + 1.0
+                a.tp[n][:] = n + 1.0
+        a.set_tp_coeffs_to_zero()
+        arr = a.toarray()
+        assert np.any(arr != 0.0)
 
-    logger.info("polar V1:")
-    V = PolarDerhamSpace(derham, "Hcurl")
-    logger.info(f"dimensions (parent, polar): {derham.V1fem.nbasis} {V.dimension}")
-    logger.info(V.dtype)
-    logger.info(f"{V.zeros()}\n")
-    a = PolarVector(V)
-    a.pol[0][:] = 1.0
-    a.pol[1][:] = 2.0
-    a.pol[2][:] = 3.0
-    a.tp[0][:] = 1.0
-    a.tp[1][:] = 2.0
-    a.tp[2][:] = 3.0
-    logger.info(a.toarray())
-    a.set_tp_coeffs_to_zero()
-    b = a.copy()
-    logger.info(a.toarray())
-    logger.info(a.dot(b))
-    logger.info((-a).toarray())
-    logger.info((2 * a).toarray())
-    logger.info((a * 2).toarray())
-    logger.info((a + b).toarray())
-    logger.info((a - b).toarray())
-    a *= 2
-    logger.info(a.toarray())
-    a += b
-    logger.info(a.toarray())
-    a -= b
-    logger.info(a.toarray())
-    logger.info(a.toarray_tp())
+        b = a.copy()
+        assert np.array_equal(b.toarray(), arr)
+        assert np.isclose(a.dot(b), arr @ arr)
 
-    logger.info("")
+        assert np.array_equal((-a).toarray(), -arr)
+        assert np.array_equal((2 * a).toarray(), 2 * arr)
+        assert np.array_equal((a * 2).toarray(), 2 * arr)
+        assert np.array_equal((a + b).toarray(), 2 * arr)
+        assert np.array_equal((a - b).toarray(), 0 * arr)
 
-    logger.info("polar V2:")
-    V = PolarDerhamSpace(derham, "Hdiv")
-    logger.info(f"dimensions (parent, polar): {derham.V2fem} {V.dimension}")
-    logger.info(V.dtype)
-    logger.info(f"{V.zeros()}\n")
-    a = PolarVector(V)
-    a.pol[0][:] = 1.0
-    a.pol[1][:] = 2.0
-    a.pol[2][:] = 3.0
-    a.tp[0][:] = 1.0
-    a.tp[1][:] = 2.0
-    a.tp[2][:] = 3.0
-    logger.info(a.toarray())
-    a.set_tp_coeffs_to_zero()
-    b = a.copy()
-    logger.info(a.toarray())
-    logger.info(a.dot(b))
-    logger.info((-a).toarray())
-    logger.info((2 * a).toarray())
-    logger.info((a * 2).toarray())
-    logger.info((a + b).toarray())
-    logger.info((a - b).toarray())
-    a *= 2
-    logger.info(a.toarray())
-    a += b
-    logger.info(a.toarray())
-    a -= b
-    logger.info(a.toarray())
-    logger.info(a.toarray_tp())
-
-    logger.info("")
-
-    logger.info("polar V3:")
-    V = PolarDerhamSpace(derham, "L2")
-    logger.info(f"dimensions (parent, polar): {derham.V3fem} {V.dimension}")
-    logger.info(V.dtype)
-    logger.info(f"{V.zeros()}\n")
-    a = PolarVector(V)
-    a.pol[0][:] = 1.0
-    a.tp[:] = 1.0
-    logger.info(a.toarray())
-    a.set_tp_coeffs_to_zero()
-    b = a.copy()
-    logger.info(a.toarray())
-    logger.info(a.dot(b))
-    logger.info((-a).toarray())
-    logger.info((2 * a).toarray())
-    logger.info((a * 2).toarray())
-    logger.info((a + b).toarray())
-    logger.info((a - b).toarray())
-    a *= 2
-    logger.info(a.toarray())
-    a += b
-    logger.info(a.toarray())
-    a -= b
-    logger.info(a.toarray())
-    logger.info(a.toarray_tp())
-
-    logger.info("")
-
-    logger.info("polar V0vec:")
-    V = PolarDerhamSpace(derham, "H1vec")
-    logger.info(f"dimensions (parent, polar): {derham.Vvfem.nbasis} {V.dimension}")
-    logger.info(V.dtype)
-    logger.info(f"{V.zeros()}\n")
-    a = PolarVector(V)
-    a.pol[0][:] = 1.0
-    a.pol[1][:] = 2.0
-    a.pol[2][:] = 3.0
-    a.tp[0][:] = 1.0
-    a.tp[1][:] = 2.0
-    a.tp[2][:] = 3.0
-    logger.info(a.toarray())
-    a.set_tp_coeffs_to_zero()
-    b = a.copy()
-    logger.info(a.toarray())
-    logger.info(a.dot(b))
-    logger.info((-a).toarray())
-    logger.info((2 * a).toarray())
-    logger.info((a * 2).toarray())
-    logger.info((a + b).toarray())
-    logger.info((a - b).toarray())
-    a *= 2
-    logger.info(a.toarray())
-    a += b
-    logger.info(a.toarray())
-    a -= b
-    logger.info(a.toarray())
-    logger.info(a.toarray_tp())
-
-    logger.info("")
+        a *= 2
+        assert np.array_equal(a.toarray(), 2 * arr)
+        a += b
+        assert np.array_equal(a.toarray(), 3 * arr)
+        a -= b
+        assert np.array_equal(a.toarray(), 2 * arr)
+        # b is a copy: unchanged by the in-place operations on a
+        assert np.array_equal(b.toarray(), arr)
 
 
 @pytest.mark.parametrize("num_elements", [[6, 9, 6]])

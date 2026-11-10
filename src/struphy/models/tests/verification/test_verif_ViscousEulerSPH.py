@@ -679,7 +679,6 @@ def test_hagen_poiseuille(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: 
         logger.info("Hagen-Poiseuille U_max assertion passed.")
 
 
-@pytest.mark.mpi_skip
 @pytest.mark.parametrize("nx", [8])
 @pytest.mark.parametrize("plot_pts", [21])
 def test_dam_break(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = False, create_png: bool = False):
