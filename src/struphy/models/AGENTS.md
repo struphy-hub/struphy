@@ -46,6 +46,8 @@ and **ask whether to add it to that family** as a child, before writing code. Th
   `utils.py`). Shares the equilibrium scalars, the magnetic field and the energetic-ion scalars with the LinearEuler
   family through utilities in `utils.py`.
 - **Maxwell family**: `Maxwell` → `ColdPlasma` → `ColdPlasmaVlasov`.
+- **Variational MHD family** (zero-flow equilibrium, variational discretization, pressure): `VariationalLinearMHD` →
+  `VariationalPerturbativeMHD` (the nonlinear terms in the perturbations: momentum advection and `VariationalNonlinearPBEvolve`).
 - **SPH family**: `ColdEulerSPH` → `EulerSPH` → `ViscousEulerSPH`; `ColdEulerSPH` → `IncompressibleNavierStokesSPH`.
 
 A parent model is the base of everything below it, so it must be well tested: verification tests against analytic

@@ -1,4 +1,4 @@
-"""Linear variational MHD with one linear solve per substep (``crank_nicolson=True``), the forces of the second-order
+"""Linear variational MHD (``VariationalLinearMHD``, and the q model with ``crank_nicolson=True``), the forces of the second-order
 terms being the adjoints of their transports, with midpoint (``weights="midpoint"``) or frozen weights: exact energy conservation (up to the solver
 tolerance) of every substep and of the full step, and the stability of the sound waves of the p model, which grow with
 the frozen weight."""
@@ -31,10 +31,13 @@ def _setup(
     defaults of the propagators (midpoint, frozen in the sound step of the q model)."""
     from struphy import DerhamOptions, FieldsBackground, Simulation, domains, equils, grids, perturbations
     from struphy.linear_algebra.solver import SolverParameters
-    from struphy.models import VariationalPerturbativeMHD, VariationalPerturbativeMHD_with_q
+    from struphy.models import VariationalLinearMHD, VariationalPerturbativeMHD_with_q
 
-    model_class = VariationalPerturbativeMHD_with_q if thermo == "q" else VariationalPerturbativeMHD
-    model = model_class(linear=True, crank_nicolson=True, u_space=u_space, with_viscosity=False, with_resistivity=False)
+    ideal = {"with_viscosity": False, "with_resistivity": False}
+    if thermo == "q":
+        model = VariationalPerturbativeMHD_with_q(linear=True, crank_nicolson=True, u_space=u_space, **ideal)
+    else:
+        model = VariationalLinearMHD(u_space=u_space, **ideal)
     thermo_var = model.mhd.sqrt_p if thermo == "q" else model.mhd.pressure
 
     if homogeneous:

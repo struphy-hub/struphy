@@ -1,10 +1,10 @@
 """The Kronecker preconditioner of the shear-Alfven Schur operator of the linear variational propagators
-(``schur_precond="StiffnessPreconditioner"`` of VariationalPBEvolve and VariationalAlfvenEvolve): it changes the
+(``schur_precond="StiffnessPreconditioner"`` of VariationalLinearAlfvenEvolve and VariationalAlfvenEvolve): it changes the
 iteration, not the solution, and it falls back to the mass-matrix preconditioner where it does not apply."""
 
 import pytest
 
-from struphy.models import VariationalPerturbativeMHD, VariationalPerturbativeMHD_with_q
+from struphy.models import VariationalLinearMHD, VariationalPerturbativeMHD, VariationalPerturbativeMHD_with_q
 from struphy.models.tests.verification.variational_mhd_utils import (
     allocate_ideal,
     homogeneous_slab,
@@ -18,7 +18,6 @@ LZ = 10.0
 DT = 0.2
 N_STEPS = 3
 
-LINEAR_P = linear(VariationalPerturbativeMHD)
 LINEAR_Q_SPLIT = linear(VariationalPerturbativeMHD_with_q, split_sound=True)
 
 
@@ -41,13 +40,17 @@ def _run(tmp_path, model_class, schur_precond):
 
 @pytest.mark.parametrize(
     "model_class, name",
-    [(LINEAR_P, "variat_pb"), (LINEAR_Q_SPLIT, "variat_alfven"), (VariationalPerturbativeMHD, "variat_pb")],
+    [
+        (VariationalLinearMHD, "variat_lin_alfven"),
+        (LINEAR_Q_SPLIT, "variat_alfven"),
+        (VariationalPerturbativeMHD, "variat_lin_alfven"),
+    ],
     ids=["linear_p", "linear_q_split", "perturbative_p"],
 )
 def test_same_solution(tmp_path, model_class, name):
     """The stiffness preconditioner is active and gives the same solution as the mass-matrix preconditioner (up to the
-    solver tolerance). For the perturbative model it is built from the equilibrium and approximates the Schur operator
-    of the Newton step."""
+    solver tolerance). For the perturbative model it is built from the equilibrium density and approximates the Schur
+    operator with the mass matrix of the total density."""
     stiff = _run(tmp_path, model_class, "StiffnessPreconditioner")
     assert getattr(stiff.propagators, name)._schur_pc is not None
     stiff_state = state(stiff)

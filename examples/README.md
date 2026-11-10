@@ -65,7 +65,8 @@ with `pip install "struphy[pproc]"`.
 | `ShearAlfven` | `itpa_tae_benchmark`, `lowmode_tae` (toroidal Alfvén eigenmodes) |
 | `ToyDrift` | `diocotron_instability` |
 | `VariationalMHD` | `orszag_tang` (Orszag-Tang vortex), `slab_dispersion` (Alfvén, slow and fast waves) |
-| `VariationalPerturbativeLinearMHD` | `with_p/lowmode_tae`, `with_q/lowmode_tae` (the `LinearMHD` low-mode TAE with `VariationalPerturbativeMHD` and `VariationalPerturbativeMHD_with_q`, `linear=True`) |
+| `VariationalLinearMHD` | `lowmode_tae` (the `LinearMHD` low-mode TAE with the linear variational model) |
+| `VariationalPerturbativeLinearMHD` | `with_q/lowmode_tae` (the `LinearMHD` low-mode TAE with `VariationalPerturbativeMHD_with_q`, `linear=True`) |
 | `VariationalPerturbativeMHD_with_q` | `slab_dispersion` (Alfvén, slow and fast waves), `slab_dispersion_linear` (the same with `linear=True`) |
 | `Vlasov` | `maxwellian_uniform_field` |
 | `VlasovAmpereOneSpecies` | `bump_on` (bump-on-tail), `strong_Landau_damping`, `two_stream`, `weak_Landau_damping` |

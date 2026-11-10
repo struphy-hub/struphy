@@ -217,6 +217,27 @@ equations and inherits its species, propagators and scalars (see :ref:`model_ana
     :undoc-members:
     :show-inheritance:
 
+Variational MHD Family
+----------------------
+
+Visco-resistive MHD around a zero-flow equilibrium with the pressure, discretized variationally (forces as the
+variations of a discrete Lagrangian, energy conserving time stepping). ``VariationalPerturbativeMHD`` adds to the linear
+model the terms that are nonlinear in the perturbations.
+
+* :class:`~struphy.models.VariationalLinearMHD`
+
+  * :class:`~struphy.models.VariationalPerturbativeMHD`
+
+.. autoclass:: struphy.models.VariationalLinearMHD
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.VariationalPerturbativeMHD
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
 SPH Family
 ----------
 
@@ -288,11 +309,6 @@ MHD
     :show-inheritance:
 
 .. autoclass:: struphy.models.VariationalMHD_with_q
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.VariationalPerturbativeMHD
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:

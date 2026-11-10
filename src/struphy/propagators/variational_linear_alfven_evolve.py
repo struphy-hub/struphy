@@ -135,7 +135,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self, bt2: FEECVariable = None):
+    def __init__(self, bt2: FEECVariable = None, rho: FEECVariable = None):
         r"""
         Parameters
         ----------
@@ -143,9 +143,15 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             Second-order field :math:`\hat{\mathbf B}` (``"Hdiv"`` space), advanced with
             :math:`\partial_t \hat{\mathbf B} + \mathcal T_{\mathbf B}(\mathbf u) = 0`. It enters only the energy,
             :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}`.
+        rho : FEECVariable, default=None
+            Density perturbation :math:`\tilde\rho` (``"L2"`` space, not updated) of the perturbative model: with a
+            velocity in ``"Hdiv"`` the velocity mass matrix is then :math:`\mathbb M^2_\rho` of the total density
+            :math:`\rho_0 + \tilde\rho` (re-assembled in every step) instead of :math:`\mathbb M^2_{\rho_0}`.
         """
+        assert rho is None or (isinstance(rho, FEECVariable) and rho.space == "L2")
         self.variables = self.Variables()
         self.bt2 = bt2
+        self._rho_field = rho
 
     @dataclass(repr=False)
     class Options(OptionsBase):
