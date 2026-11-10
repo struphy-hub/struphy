@@ -52,8 +52,9 @@ class Plane:
 
 
 def physical_planes(domain, phi=np.pi, all_planes=False) -> dict[str, Plane]:
-    """The physical planes through ``domain`` as logical surfaces (Cuboid, HollowCylinder, IGAPolarCylinder,
-    HollowTorus, IGAPolarTorus).
+    """The physical planes through ``domain`` as logical surfaces (Cuboid, Colella, Orthogonal, HollowCylinder,
+    IGAPolarCylinder, HollowTorus, IGAPolarTorus); for other domains the logical mid-surfaces of
+    :func:`logical_mid_planes` (for other tori the poloidal plane ``rz`` at eta3 = 0.5, whatever ``phi``).
 
     For the spline mappings (IGAPolar...) the poloidal angle is only approximately 2 pi eta2, so the planes cut at
     eta2 are approximate. Tori may cover part of the toroidal angle (``tor_period`` > 1, see the module docstring);
@@ -65,7 +66,8 @@ def physical_planes(domain, phi=np.pi, all_planes=False) -> dict[str, Plane]:
     periods = {k: domain.params.get(k, 1) for k in ("poc", "pol_period")}
     if any(v != 1 for v in periods.values()):
         raise ValueError(f"Physical planes of {kind} only for full poloidal angles (periods 1), got {periods}.")
-    if kind == "Cuboid":
+    if kind in ("Cuboid", "Colella", "Orthogonal"):
+        # the mid-planes eta_i = 0.5 are flat for these mappings too (their distortions vanish there)
         return {
             "xy": Plane("x", "y", "z at the center", "eta3", (0.5,)),
             "xz": Plane("x", "z", "y at the center", "eta2", (0.5,)),
@@ -96,7 +98,32 @@ def physical_planes(domain, phi=np.pi, all_planes=False) -> dict[str, Plane]:
             "rz": Plane("R", "z", **toroidal(f"phi = {phi:.3g}", phi)),
         }
         return planes if all_planes else {name: planes[name] for name in ("xy", "rz")}
-    raise NotImplementedError(f"No physical planes defined for the domain {kind}.")
+    return logical_mid_planes(domain, all_planes=all_planes)
+
+
+def logical_mid_planes(domain, n=11, all_planes=False) -> dict[str, Plane]:
+    """The logical surfaces eta_i = 0.5 of a domain without the physical planes of :func:`physical_planes`.
+
+    For the other tori around the vertical axis (e.g. Tokamak, GVEC and DESC equilibria, see
+    :data:`struphy.post_processing.plot_3d.TORUS_DOMAINS`), the poloidal cross-section eta3 = 0.5 as ``"rz"``, shown in
+    the major radius R and z. Otherwise the surfaces eta3 = 0.5 and eta2 = 0.5, with ``all_planes`` also eta1 = 0.5
+    (e.g. a curved shell around the axis of a cylinder), named ``"eta3"``, ``"eta2"``, ``"eta1"``, each shown in the two
+    Cartesian coordinates that vary most on it (sampled at ``n`` x ``n`` points); a curved surface is shown by its
+    projection onto these coordinates."""
+    from struphy.post_processing.plot_3d import TORUS_DOMAINS
+
+    if any(cls.__name__ in TORUS_DOMAINS for cls in type(domain).__mro__):
+        return {"rz": Plane("R", "z", "eta3 = 0.5", "eta3", (0.5,))}
+    planes = {}
+    s = np.linspace(0.0, 1.0, n)
+    for cut in ("eta3", "eta2", "eta1") if all_planes else ("eta3", "eta2"):
+        etas = [s, s, s]
+        etas[("eta1", "eta2", "eta3").index(cut)] = np.array([0.5])
+        xyz = [np.asarray(xp.to_numpy(c)) for c in domain(*etas)]
+        spread = [np.ptp(c) for c in xyz]
+        h, v = sorted(np.argsort(spread)[-2:])
+        planes[cut] = Plane("xyz"[h], "xyz"[v], f"{cut} = 0.5", cut, (0.5,))
+    return planes
 
 
 def evaluate_plane(out: Output, domain, name, t, exact, plane: Plane, n_pts, kind=None, components=False):

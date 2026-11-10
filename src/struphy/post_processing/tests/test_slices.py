@@ -15,6 +15,8 @@ from struphy.post_processing.slices import (
 
 DOMAINS = [
     domains.Cuboid(r1=2.0, l2=-1.0, r2=1.0, r3=4.0),
+    domains.Colella(Lx=2.0, Ly=3.0, alpha=0.1, Lz=4.0),
+    domains.Orthogonal(Lx=2.0, Ly=3.0, alpha=0.1, Lz=4.0),
     domains.HollowCylinder(a1=0.1, a2=1.0, Lz=4.0),
     domains.IGAPolarCylinder(num_elements=(8, 9), degree=(3, 3), a=1.0, Lz=4.0),
     domains.HollowTorus(a1=0.1, a2=1.0, R0=4.0, tor_period=1),
@@ -68,13 +70,34 @@ def test_tori_have_two_planes_by_default():
     assert set(physical_planes(torus)) == {"xy", "rz"}
     assert set(physical_planes(torus, all_planes=True)) == {"xy", "xz", "yz", "rz"}
     # other domains keep all their planes
-    assert set(physical_planes(DOMAINS[1])) == {"xy", "xz", "yz", "rz"}
+    assert set(physical_planes(DOMAINS[3])) == {"xy", "xz", "yz", "rz"}
 
 
 @pytest.mark.mpi_skip
-def test_unknown_domain_raises():
-    with pytest.raises(NotImplementedError):
-        physical_planes(domains.Colella())
+def test_other_domains_have_logical_mid_planes():
+    # an elliptic cylinder: the logical mid-surfaces, the surface eta3 = 0.5 is the plane z = const
+    domain = domains.PoweredEllipticCylinder()
+    planes = physical_planes(domain)
+    assert set(planes) == {"eta2", "eta3"}
+    assert set(physical_planes(domain, all_planes=True)) == {"eta1", "eta2", "eta3"}
+    assert (planes["eta3"].hlabel, planes["eta3"].vlabel) == ("x", "y")
+    assert all(plane.values == (0.5,) and plane.cut == key for key, plane in planes.items())
+
+
+@pytest.mark.mpi_skip
+def test_other_tori_have_a_poloidal_plane():
+    """The fallback for tori (e.g. Tokamak) is the poloidal plane eta3 = 0.5 in R and z, here checked on a torus with
+    tor_period = 4 (where a Cartesian projection would squeeze it by cos 45 degrees)."""
+    from struphy.post_processing.slices import logical_mid_planes
+
+    domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=4.0, tor_period=4)
+    (plane,) = logical_mid_planes(domain).values()
+    assert (plane.hlabel, plane.vlabel, plane.cut, plane.values) == ("R", "z", "eta3", (0.5,))
+    xyz = surface(domain, plane, 0)
+    # the surface is a half plane through the vertical axis: R spans the minor diameter
+    radius = np.hypot(xyz["x"], xyz["y"])
+    assert np.isclose(np.ptp(radius), 2.0)
+    assert np.isclose(np.max(np.hypot(radius - 4.0, xyz["z"])), 1.0)
 
 
 @pytest.mark.mpi_skip
