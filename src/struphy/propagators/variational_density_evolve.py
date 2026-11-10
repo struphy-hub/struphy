@@ -24,6 +24,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import HdivDensityOperators
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -45,6 +46,16 @@ class VariationalDensityEvolve(Propagator):
     2-form, :math:`\mathbf u \in H(\textnormal{div})`; the density is then advected with
     :math:`\mathbb D \mathcal Q^2` (:attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Q2`, as in
     :class:`~struphy.propagators.magnetosonic.Magnetosonic`).
+
+    **Velocity in** :math:`H(\textnormal{div})` **for** ``model="perturbative"``: :math:`\mathbf u` is a 2-form,
+    :math:`\hat{\mathbf u} = \hat{\mathbf u}^2/\sqrt g`, with vanishing normal component at the boundary. The scheme
+    below is the same, with the mass matrix :math:`\mathbb M^v[\hat\rho]` replaced by the 2-form mass matrix of the
+    total density :math:`\mathbb M^2_\rho` (:class:`~struphy.propagators.utils.HdivDensityOperators`), the transport
+    operator :math:`\mathbb D \hat\Pi^2[\hat\rho^3 \vec{\boldsymbol\Lambda}^2/\sqrt g]`
+    (:class:`~struphy.feec.variational_utilities.L2_transport_operator` with ``u_space="Hdiv"``) and the kinetic energy
+    density :math:`\hat{\mathbf u}^{2,n} \cdot G \hat{\mathbf u}^{2,n+1}/(2g)`
+    (:class:`~struphy.feec.variational_utilities.KineticEnergyEvaluator` with ``u_space="Hdiv"``). Not available with
+    polar splines or ``divdiv_alpha > 0``.
 
     On the logical domain:
 
@@ -98,7 +109,8 @@ class VariationalDensityEvolve(Propagator):
         rho : FEECVariable
             Density variable in ``"L2"`` space.
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space for ``model="linear"`` and ``"linear_q"``.
+            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space for ``model="linear"``, ``"linear_q"``
+            and ``"perturbative"``.
         """
 
         def __init__(self):
@@ -225,20 +237,27 @@ class VariationalDensityEvolve(Propagator):
 
         self._u_space = self.variables.u.space
         if self._u_space == "Hdiv":
-            assert self._model in ("linear", "linear_q"), (
-                f'A velocity in "Hdiv" space needs model="linear" or "linear_q", got model="{self._model}".'
+            assert self._model in ("linear", "linear_q", "perturbative"), (
+                f'A velocity in "Hdiv" space needs model="linear", "linear_q" or "perturbative", got model="{self._model}".'
             )
-            # only the explicit advection of the linear models, with the equilibrium density as in Magnetosonic
-            self.divPirho = self.derham.div @ self.basis_ops.Q2
-            rho = self.variables.rho.spline.vector
-            self._tmp_rhon1 = rho.space.zeros()
-            self._tmp_rho_advection = rho.space.zeros()
-            return
-
-        self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+            if self._model in ("linear", "linear_q"):
+                # only the explicit advection of the linear models, with the equilibrium density as in Magnetosonic
+                self.divPirho = self.derham.div @ self.basis_ops.Q2
+                rho = self.variables.rho.spline.vector
+                self._tmp_rhon1 = rho.space.zeros()
+                self._tmp_rho_advection = rho.space.zeros()
+                return
+            assert self.divdiv_alpha == 0.0, 'A velocity in "Hdiv" needs divdiv_alpha=0.'
+            assert not self.derham.polar_splines, 'A velocity in "Hdiv" is not available with polar splines.'
+            # density-weighted 2-form mass matrix M^2_rho (assembled in _update_weighted_MM)
+            self._hdiv_ops = HdivDensityOperators(self.derham, self.domain, self.mass_ops)
+            self._Mrho = self._hdiv_ops.M_rho
+        else:
+            self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        self._u_form = self.derham.space_to_form[self._u_space]
         # "cg" takes no preconditioner; the density-weighted mass matrix also preconditions the regularized metric
         self._Mrho_pc = (
-            MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
+            MassMatrixPreconditioner(self._Mrho if self._u_space == "Hdiv" else self.mass_ops.WMMnew, dim_reduce=None)
             if self.options.solver in ("pcg", "pcg_sr")
             else None
         )
@@ -266,6 +285,7 @@ class VariationalDensityEvolve(Propagator):
             self.mass_ops,
             basis_ops=self.basis_ops,
             divdiv_alpha=self.divdiv_alpha,
+            u_space=self._u_space,
         )
         self._initialize_projectors_and_mass()
         if self._model in ["linear", "linear_q"]:
@@ -447,16 +467,17 @@ class VariationalDensityEvolve(Propagator):
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
-        self.divPirho = L2_transport_operator(self.derham)
+        self.divPirho = L2_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         self.divPirhoT = self.divPirho.T
 
-        # Inverse mass matrix needed to compute the error
+        # Inverse mass matrix of the velocity space (Mv or M2) needed to compute the error
+        M_u = self.mass_ops.M2 if self._u_space == "Hdiv" else self.mass_ops.Mv
         self.pc_Mv = preconditioner.MassMatrixPreconditioner(
-            self.mass_ops.Mv,
+            M_u,
             dim_reduce=None,
         )
         self._inv_Mv = inverse(
-            self.mass_ops.Mv,
+            M_u,
             self.options.solver,
             # "cg" takes no preconditioner
             **({"pc": self.pc_Mv} if self.options.solver in ("pcg", "pcg_sr") else {}),
@@ -486,7 +507,7 @@ class VariationalDensityEvolve(Propagator):
             self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
 
         Jacs = BlockVectorSpace(
-            self.derham.Vvpol,
+            getattr(self.derham, f"V{self._u_form}pol"),
             self.derham.V3pol,
         )
 
@@ -578,6 +599,11 @@ class VariationalDensityEvolve(Propagator):
 
     def _update_weighted_MM(self, rho):
         """update the density-weighted mass matrices of the kinetic energy"""
+        if self._u_space == "Hdiv":
+            self._hdiv_ops.update_M_rho(rho)
+            if getattr(self, "_Mrho_pc", None) is not None:
+                self._Mrho_pc.refresh()
+            return
         self.mass_ops.WMMnew.spline_functions["l2_field"].vector = rho
         self.mass_ops.WMMnew.assemble()
         if self.divdiv_alpha > 0.0:
@@ -675,6 +701,6 @@ class VariationalDensityEvolve(Propagator):
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""
         # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
-        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops["v"].dot(mn_diff))
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops[self._u_form].dot(mn_diff))
         err_rho = self.mass_ops.M3.dot_inner(rhon_diff, rhon_diff)
         return max(err_rho, err_u)

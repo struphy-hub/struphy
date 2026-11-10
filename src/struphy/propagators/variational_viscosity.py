@@ -24,6 +24,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -84,8 +85,8 @@ class VariationalViscosity(Propagator):
     where :math:`\mathbb K` is the stiffness matrix (see
     :class:`~struphy.feec.variational_utilities.LinearPressureHeating`).
 
-    **Velocity in** :math:`H(\textnormal{div})` (``model="linear_p"`` only): :math:`\mathbf u` is a 2-form, which has no
-    gradient. The viscous term is discretized with its divergence and curl,
+    **Velocity in** :math:`H(\textnormal{div})` (``model="linear_p"`` and ``"full_p"``): :math:`\mathbf u` is a 2-form,
+    which has no gradient. The viscous term is discretized with its divergence and curl,
 
     .. math::
 
@@ -117,6 +118,11 @@ class VariationalViscosity(Propagator):
 
         (\mathbb M^2_{\rho_0} + \Delta t\, \mu\, \mathbb K)\, \mathbf u^{n+1} = \mathbb M^2_{\rho_0} \mathbf u^n \,.
 
+    With ``model="full_p"`` (the perturbative model), the mass matrix is that of the total density,
+    :math:`\mathbb M^2_\rho` with :math:`\rho = \rho_0 + \tilde\rho` (:class:`~struphy.propagators.utils.VelocityMass`,
+    ``rho`` the density perturbation), and the dissipated energy heats the pressure itself in the same way
+    (its thermal energy :math:`\int (p_0 + \tilde p)/(\gamma - 1)` is linear in :math:`\tilde p`).
+
     The artificial viscosity :math:`\mu_a`, the damping ``alpha`` and the div-div regularization are not available
     in this case.
     """
@@ -129,7 +135,8 @@ class VariationalViscosity(Propagator):
         s : FEECVariable
             Thermodynamic scalar variable in ``"L2"`` space.
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space (only for ``model="linear_p"``).
+            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space (only for ``model="linear_p"`` and
+            ``"full_p"``).
         """
 
         def __init__(self):
@@ -161,7 +168,8 @@ class VariationalViscosity(Propagator):
         Parameters
         ----------
         rho : FEECVariable, default=None
-            Mass density 3-form (``"L2"`` space) weighting the velocity mass matrix.
+            Mass density 3-form (``"L2"`` space) weighting the velocity mass matrix (for a velocity in ``"Hdiv"``
+            with ``model="full_p"``: the density perturbation of the total density :math:`\rho_0 + \tilde\rho`).
         pt3 : FEECVariable, default=None
             For ``model="linear_q"`` and ``"perturbative_q"``: the auxiliary variable :math:`\hat q` (``"L2"`` space),
             which receives the viscous heating with the energy density :math:`2 q_0 \hat q / (\gamma - 1)`, i.e.
@@ -262,22 +270,37 @@ class VariationalViscosity(Propagator):
         self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._u_space = self.variables.u.space
+        self._velocity_mass = None
         if self._u_space == "Hdiv":
-            assert self._model == "linear_p", f'u in "Hdiv" needs model="linear_p", got {self._model!r}.'
+            assert self._model in ("linear_p", "full_p"), (
+                f'u in "Hdiv" needs model="linear_p" or "full_p", got {self._model!r}.'
+            )
             assert self._mu_a == 0.0 and self._alpha == 0.0 and self.divdiv_alpha == 0.0, (
                 'u in "Hdiv": mu_a, alpha and divdiv_alpha are not available.'
             )
-            # the fixed velocity mass matrix of the linear model (as in its ideal propagators)
-            self._Mrho = self.mass_ops.M2n
-            self._Mrho_pc = MassMatrixPreconditioner(self._Mrho)
+            if self._model == "linear_p":
+                # the fixed velocity mass matrix of the linear model (as in its ideal propagators)
+                self._Mrho = self.mass_ops.M2n
+                self._Mrho_pc = MassMatrixPreconditioner(self._Mrho)
+            else:
+                # perturbative model: mass matrix of the total density rho_0 + rho (rho the density perturbation)
+                self._velocity_mass = VelocityMass(
+                    self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=self.rho
+                )
+                self._Mrho = self._velocity_mass.M_rho
+                self._Mrho_pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
         else:
             # assembly of WMMnew happens in VariationalDensityEvolve
             self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
             self._Mrho_pc = MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
 
         # linear p model: the heating goes into the auxiliary pressure, whose energy is linear
+        # with a velocity in Hdiv, the pressure of model="full_p" (perturbative model) is heated in the same way: its
+        # thermal energy (p_0 + p)/(gamma - 1) is linear in p
         self._heating = None
-        if self._model == "linear_p" and self.pt3 is not None:
+        if (self._model == "linear_p" and self.pt3 is not None) or (
+            self._u_space == "Hdiv" and self._model == "full_p"
+        ):
             self._heating = LinearPressureHeating(
                 self.derham, self.mass_ops, self.domain, self._gamma, tol=self._lin_solver.tol
             )
@@ -321,6 +344,10 @@ class VariationalViscosity(Propagator):
     def __call__(self, dt):
         if self._u_space == "H1vec":
             # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner
+            self._Mrho_pc.refresh()
+        elif self._velocity_mass is not None:
+            # mass matrix of the current total density
+            self._velocity_mass.update()
             self._Mrho_pc.refresh()
 
         if self._nonlin_solver.type == "Newton":
@@ -366,6 +393,14 @@ class VariationalViscosity(Propagator):
                 self._heating(energy_change, self.pt3.spline.vector)
                 self.pt3.spline.vector.update_ghost_regions()
             self.update_feec_variables(s=sn, u=un1)
+            return
+
+        if self._model == "full_p" and self._u_space == "Hdiv":
+            # the dissipated kinetic energy dt mu u^{n+1} . K u^{n+1/2} goes into the pressure
+            sn1 = sn.copy(out=self._tmp_sn1)
+            self._heating(self._get_energy_change_hdiv(un, un1, dt), sn1)
+            sn1.update_ghost_regions()
+            self.update_feec_variables(s=sn1, u=un1)
             return
 
         if self._model == "linear_q" and self._fast:

@@ -41,12 +41,13 @@ def _run(tmp_path, model_class, schur_precond):
 
 @pytest.mark.parametrize(
     "model_class, name",
-    [(LINEAR_P, "variat_pb"), (LINEAR_Q_SPLIT, "variat_alfven")],
-    ids=["linear_p", "linear_q_split"],
+    [(LINEAR_P, "variat_pb"), (LINEAR_Q_SPLIT, "variat_alfven"), (VariationalPerturbativeMHD, "variat_pb")],
+    ids=["linear_p", "linear_q_split", "perturbative_p"],
 )
 def test_same_solution(tmp_path, model_class, name):
     """The stiffness preconditioner is active and gives the same solution as the mass-matrix preconditioner (up to the
-    solver tolerance)."""
+    solver tolerance). For the perturbative model it is built from the equilibrium and approximates the Schur operator
+    of the Newton step."""
     stiff = _run(tmp_path, model_class, "StiffnessPreconditioner")
     assert getattr(stiff.propagators, name)._schur_pc is not None
     stiff_state = state(stiff)
@@ -57,11 +58,7 @@ def test_same_solution(tmp_path, model_class, name):
 
 
 def test_fallback(tmp_path):
-    """Where the Schur operator is not the linear shear-Alfven one (the perturbative models), the mass-matrix
+    """Where the Schur operator is not the linear shear-Alfven one (the perturbative q model), the mass-matrix
     preconditioner is used."""
-    for model_class, name in (
-        (VariationalPerturbativeMHD, "variat_pb"),
-        (VariationalPerturbativeMHD_with_q, "variat_alfven"),
-    ):
-        model = _run(tmp_path, model_class, "StiffnessPreconditioner")
-        assert getattr(model.propagators, name)._schur_pc is None, name
+    model = _run(tmp_path, VariationalPerturbativeMHD_with_q, "StiffnessPreconditioner")
+    assert model.propagators.variat_alfven._schur_pc is None
