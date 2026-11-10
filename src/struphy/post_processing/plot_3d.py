@@ -293,8 +293,9 @@ def new_plotter(show=False, window_size=(1600, 1600)) -> pv.Plotter:
     return plotter
 
 
-def add_field_mesh(plotter, mesh, scalars, cmap, clim, show_scalar_bar=False, scalar_bar_title=None):
-    """Add ``mesh`` colored by its point array ``scalars`` with the lighting of the 3D plots; returns the actor."""
+def add_field_mesh(plotter, mesh, scalars, cmap, clim, show_scalar_bar=False, scalar_bar_title=None, **kwargs):
+    """Add ``mesh`` colored by its point array ``scalars`` with the lighting of the 3D plots (further keyword
+    arguments, e.g. ``opacity``, go to ``plotter.add_mesh``); returns the actor."""
     return plotter.add_mesh(
         mesh,
         scalars=scalars,
@@ -308,6 +309,7 @@ def add_field_mesh(plotter, mesh, scalars, cmap, clim, show_scalar_bar=False, sc
         diffuse=0.8,
         show_scalar_bar=show_scalar_bar,
         scalar_bar_args={"title": scalar_bar_title or scalars, "vertical": True, "color": "black"},
+        **kwargs,
     )
 
 

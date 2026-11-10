@@ -67,6 +67,7 @@ from struphy.post_processing.plot_3d import (
     peak_azimuth,
     repeat_around_axis,
     set_camera,
+    wedge_distance,
 )
 from struphy.post_processing.slices import BASES, evaluate_plane, physical_planes, rotate
 
@@ -369,15 +370,35 @@ def _shown(arrays, component):
     return arrays["values"] if "values" in arrays else arrays[f"c{component + 1}"]
 
 
-def _render_3d(grid, values, center, azimuth, toroidal, cmap, clim, options):
+def _render_3d(grid, values, center, azimuth, toroidal, cmap, clim, options, surface=None, surface_values=None):
     """Image (RGB array) of ``grid`` (with merged seams) colored by ``values``, cut at ``azimuth``, without title and
-    color bar; ``options`` are ``view``, ``window_size`` and ``context`` of :func:`write_3d_frames`."""
+    color bar; ``options`` are ``view``, ``window_size``, ``context`` and ``opacity`` of :func:`write_3d_frames`. The
+    faces of the cut are opaque, the rest of the boundary of the domain has the ``opacity``; ``surface`` (a surface
+    inside the domain, with merged seams) colored by ``surface_values`` is cut the same way and shown opaque."""
     scalars = "values"
     grid.point_data[scalars] = values
     grid.set_active_scalars(scalars)
     shown = cut_wedge(grid, center, azimuth)
     plotter = new_plotter(False, options["window_size"])
-    add_field_mesh(plotter, shown, scalars, cmap, clim)
+    opacity = options["opacity"]
+    if opacity < 1.0:
+        # translucent boundary: the faces of the cut (wedge distance zero) opaque, the rest with the opacity
+        plotter.enable_depth_peeling(number_of_peels=8, occlusion_ratio=0.0)
+        boundary = shown.extract_surface(algorithm="dataset_surface")
+        diagonal = np.linalg.norm(np.subtract(grid.bounds[1::2], grid.bounds[::2]))
+        on_cut = np.abs(wedge_distance(boundary.cell_centers().points, center, azimuth)) < 1e-4 * diagonal
+        if np.any(on_cut):
+            add_field_mesh(plotter, boundary.extract_cells(on_cut), scalars, cmap, clim)
+        if np.any(~on_cut):
+            add_field_mesh(
+                plotter, boundary.extract_cells(~on_cut), scalars, cmap, clim, opacity=opacity, culling="back"
+            )
+    else:
+        add_field_mesh(plotter, shown, scalars, cmap, clim)
+    if surface is not None:
+        surface.point_data[scalars] = surface_values
+        surface.set_active_scalars(scalars)
+        add_field_mesh(plotter, cut_wedge(surface, center, azimuth), scalars, cmap, clim)
     set_camera(
         plotter, grid, shown, center, azimuth, toroidal, cutaway=options["view"] == "cut", context=options["context"]
     )
@@ -423,6 +444,8 @@ def write_3d_frames(
     azimuth=None,
     points_per_cell=None,
     view="cut",
+    opacity=0.35,
+    surface="peak",
     window_size=(1200, 1200),
     margin=10,
     show_scalar_bar=True,
@@ -467,6 +490,13 @@ def write_3d_frames(
     view : str
         ``"cut"``: the camera frames the cut (for a torus its face at ``azimuth``, a poloidal cross-section) and some
         of the domain around it, see ``context``; ``"domain"``: the whole domain.
+    opacity : float
+        Opacity of the boundary of the domain (without the faces of the cut, which are opaque), so that ``surface``
+        is visible through it; 1 for an opaque boundary.
+    surface : str | float | None
+        A surface eta1 = const inside the domain, colored by the field and opaque, cut like the domain: ``"peak"``
+        through the largest absolute value over all frames (e.g. the flux surface of the mode in a torus, showing its
+        toroidal structure), a value of eta1, or None for none.
     window_size : tuple[int, int]
         Size of the render window in pixels; the render is cropped to the domain (the same box for all frames), the
         title and the color bar are added around it.
@@ -498,9 +528,18 @@ def write_3d_frames(
         points_per_cell = int(np.clip(np.floor(np.cbrt(MAX_POINTS_3D / (copies * np.prod(cells))) + 1e-9), 1, 4))
     etas = {e: np.linspace(0.0, 1.0, points_per_cell * n + 1) for e, n in zip(("eta1", "eta2", "eta3"), cells)}
 
+    first_xyz = []
+    sector_peak = {}
+
     def frame_grid(n):
         """The structured grid of the domain (the full torus) with the arrays of :func:`_grid_values`."""
         arrays, xyz = _grid_values(out, name, n, etas, component, basis)
+        if not first_xyz:
+            first_xyz.extend(xyz)
+        # the largest absolute value in the sector and its index along eta1
+        shown = np.abs(_shown(arrays, component))
+        if not np.all(np.isnan(shown)):
+            sector_peak[n] = (float(np.nanmax(shown)), int(np.unravel_index(np.nanargmax(shown), shown.shape)[0]))
         grid = pv.StructuredGrid(*xyz)
         for key, value in arrays.items():
             grid.point_data[key] = np.asarray(value, dtype=float).reshape(-1, order="F")
@@ -535,11 +574,35 @@ def write_3d_frames(
     # coincident points merged once; the values of each frame are taken from the nearest point of the grid
     merged = merge_seams(grid, diagonal)
     _, index = cKDTree(grid.points).query(merged.points)
-    options = dict(view=view, window_size=window_size, context=context)
+    options = dict(view=view, window_size=window_size, context=context, opacity=opacity)
+
+    # the surface eta1 = const inside the domain (e.g. a flux surface of a torus), with the copies of a torus sector
+    i1 = None
+    if surface == "peak" and sector_peak:
+        i1 = max(sector_peak.values())[1]
+    elif surface is not None and surface != "peak":
+        i1 = int(np.argmin(np.abs(etas["eta1"] - float(surface))))
+    surface_grid = surface_index = None
+    if i1 is not None:
+        sector = pv.StructuredGrid(*(c[i1 : i1 + 1] for c in first_xyz))
+        surface_grid = merge_seams(repeat_around_axis(sector, copies), diagonal)
+        # its values: those of the nearest points of the grid of the domain (the same points)
+        _, surface_index = cKDTree(grid.points).query(surface_grid.points)
 
     def render(values):
         frame_cmap, limits = _limits(clim, values, vmin, vmax, cmap)
-        image = _render_3d(merged, values[index], center, azimuth, toroidal, frame_cmap, limits, options)
+        image = _render_3d(
+            merged,
+            values[index],
+            center,
+            azimuth,
+            toroidal,
+            frame_cmap,
+            limits,
+            options,
+            surface_grid,
+            None if surface_grid is None else values[surface_index],
+        )
         return image, frame_cmap, limits
 
     # the crop box, the same for all frames (the rendered domain does not change): that of the first frame
