@@ -337,9 +337,12 @@ def add_binning_plot(params_path: str, binning_plot: str = "BinningPlot(slice='e
 
 
 # algorithms of the guiding-center pushers in the default parameter files of the drift-kinetic hybrids: the
-# energy-conserving discrete gradient methods of the reference discretization, second order (implicit mid-point) for
-# the drift perpendicular to b0, first order (Itoh-Abe) with Newton iterations for the parallel motion
-GC_PUSH_ALGOS = {"push_bxe": "discrete_gradient_2nd_order", "push_parallel": "discrete_gradient_1st_order_newton"}
+# energy-conserving second-order discrete gradient method (implicit mid-point) for the drift perpendicular to b0 and
+# for the parallel motion; with the two pushers in a symmetric (Strang) block of the splitting, the guiding-center
+# push is second order in time, which keeps the delta-f weights of an equilibrium f0(P_phi, epsilon, mu) small
+# (issue #882; the first-order Itoh-Abe method "discrete_gradient_1st_order_newton" for the parallel motion gives a
+# delta-f energy drift of first order in dt and is not cheaper)
+GC_PUSH_ALGOS = {"push_bxe": "discrete_gradient_2nd_order", "push_parallel": "discrete_gradient_2nd_order"}
 
 
 def set_guiding_center_push_algos(params_path: str, algos: dict = GC_PUSH_ALGOS):

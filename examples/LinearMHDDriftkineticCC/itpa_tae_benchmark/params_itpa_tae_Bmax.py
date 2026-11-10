@@ -94,7 +94,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--parallel-algo",
-    default="discrete_gradient_1st_order_newton",
+    default="discrete_gradient_2nd_order",
     choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
     help="Algorithm of the parallel guiding-center push (PushGuidingCenterParallel1form, PushGuidingCenterParallel "
     "with --b-space Hdiv): a discrete gradient (energy "
