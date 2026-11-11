@@ -118,7 +118,12 @@ Colella, Orthogonal, cylinders and tori the logical mid-surfaces `"eta3"`, `"eta
 as Tokamak), `clim` (None: one
 scale over all frames, `"frame"`, or `(vmin, vmax)`), `steps`, `max_frames` (default 500). The titles show the time
 as `t = <t>/<end time>`. The frames go to `frame_0000.png`, ... with `frames.txt` (step and time per frame); they are
-written on rank 0 only.
+written on rank 0 only. `workers` sets the number of processes that render the frames
+(default: up to 4 cores from 16 frames on; 1 in an MPI run). The processes are spawned and import the main
+script again: put the code of a pproc script under `if __name__ == "__main__":` (else the frames are rendered in one
+process, with a warning) and keep expensive work out of module level. `write_videos` evaluates the field once per
+frame for both 3D views (if all values fit in memory). Rendering dominates the cost (about 0.4-0.6 s per frame):
+lower `max_frames` (e.g. 150) for quick looks.
 
 ## Frequencies and mode structures
 

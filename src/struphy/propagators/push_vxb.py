@@ -136,10 +136,10 @@ class PushVxB(Propagator):
         V = getattr(self.derham, "V" + self._b_form)
         self._ET: LinearOperator = self.derham.extraction_ops[self._b_form].transpose()
 
-        # the projected equilibrium is already extracted to the tensor-product space; a fluid equilibrium without
+        # the tensor-product coefficients of the projected equilibrium (projected_equil.tp); a fluid equilibrium without
         # magnetic field (e.g. of the SPH models) has no b1/b2
         if isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB):
-            self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
+            self._b_eq = getattr(self.projected_equil.tp, "b" + self._b_form)
             assert self._b_eq.space == V
         else:
             self._b_eq = V.zeros()
