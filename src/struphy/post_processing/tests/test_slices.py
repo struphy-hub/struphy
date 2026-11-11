@@ -294,6 +294,11 @@ def test_constant_field_has_one_color_scale(value):
     assert norm(value) == pytest.approx(0.5)
     # the colorbar has the same scale
     assert fig.axes[1].get_ylim() == pytest.approx((norm.vmin, norm.vmax))
+    # with an exact solution equal to the data: the error panel (zero) also has one non-degenerate scale
+    fig = plot_plane(data, data, coords, plane, "B")
+    errors = [c for c in fig.axes[2].collections if isinstance(c, QuadMesh)]
+    assert len({id(m.norm) for m in errors}) == 1
+    assert errors[0].norm.vmin < errors[0].norm.vmax
 
 
 @pytest.mark.mpi_skip
@@ -303,3 +308,5 @@ def test_color_limits():
     assert color_limits(np.array([0.0, 0.0])) == (-1.0, 1.0)
     assert color_limits(np.array([-2.0, -2.0])) == (-4.0, 0.0)
     assert color_limits(np.array([np.nan])) == (-1.0, 1.0)
+    # infinite values are left out (they get the over/under color)
+    assert color_limits(np.array([1.0, np.inf, 2.0, -np.inf])) == (1.0, 2.0)
