@@ -44,7 +44,7 @@ conservation of the perturbed energy en_tot = en_U + en_B + en_thermal within 1e
 --b-space Hcurl --projected (--b-space Hcurl changes it by about 2e-5 here). In general, linear MHD conserves the
 kinetic energy plus the potential energy delta W, which contains terms with the equilibrium current and pressure
 gradient and differs from en_B + en_thermal, so en_tot is not conserved. In this uniform equilibrium (J0 = 0,
-grad p0 = 0) with periodic boundaries, delta W = en_B + en_thermal, so en_tot is conserved, and both splitting steps
+grad p0 = 0) with periodic boundaries, delta W = en_B + en_thermal, so en_tot is conserved, and all splitting steps
 conserve it up to the solver tolerances.
 
 References:
@@ -187,7 +187,9 @@ sim = Simulation(
 # the default preconditioners: StiffnessPreconditioner (--b-space Hdiv), HiptmairXu (--b-space Hcurl) and the mass
 # matrix preconditioner (--b-space Hcurl --projected), the latter two through precond="auto"
 model.propagators.shear_alf.options = model.propagators.shear_alf.Options()
-model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
+model.propagators.bg_current.options = model.propagators.bg_current.Options()
+model.propagators.sound.options = model.propagators.sound.Options()
+model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 
 # ------------------
 # Initial conditions

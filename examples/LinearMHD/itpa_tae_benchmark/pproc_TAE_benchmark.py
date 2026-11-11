@@ -6,9 +6,16 @@ last saved time, together with the energy budget and the (m, n) harmonics of the
 are shown by their components in the basis of their initial condition (``given_in_basis``, else their FEEC form,
 see ``Output.field_basis``), as functions of the physical coordinates; the 3D views show the scalar fields and the
 first components (radial eta1 in a logical basis). The measured TAE frequency is compared with the analytical one
-and saved; a deviation of more than 10% fails with an ``AssertionError`` after the figures are saved (not with
+and with the ideal MHD frequency of the ITPA benchmark (Koenies et al. 2018) and saved; a deviation of more than
+10% fails with an ``AssertionError`` after the figures are saved (not with
 ``--test-run``). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
 (``pip install "struphy[pproc]"``).
+
+Unless ``--no-frames``, the frames of three videos of the radial velocity u_r over the run (at most ``--max-frames``
+saved time steps) are written into ``<path_out>/results/frames/``: ``u_r_rz`` (the poloidal plane), ``u_r_3d_cut``
+(3D, the camera on the poloidal cross-section of the cutaway) and ``u_r_3d`` (3D, the whole torus with the
+cutaway), see ``struphy.post_processing.frames``. Make a video e.g. with
+``ffmpeg -framerate 25 -i frame_%04d.png -pix_fmt yuv420p u_r_rz.mp4`` in a frames folder.
 """
 
 import argparse
@@ -20,6 +27,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing.frames import write_videos
 from struphy.post_processing.plot_3d import plot_field_3d
 from struphy.post_processing.slices import plot_physical_slices
 
@@ -49,6 +57,9 @@ N_LOGICAL = -1
 # relative tolerance of the measured TAE frequency: the formula gives the center of the gap, whose relative width
 # is about the inverse aspect ratio r_c/R0 = 0.05 at the gap
 TAE_RTOL = 0.1
+# ideal MHD frequency of the TAE in the ITPA benchmark (Koenies et al. 2018): 4.01e5 rad/s (CAS3D) and 4.13e5 rad/s
+# (GYGLES), the mean of the two, asserted with the same relative tolerance
+OMEGA_ITPA = 4.07e5
 
 
 def tae_frequency(run, basis):
@@ -105,7 +116,7 @@ def finish(figs, results_dir, save_figs):
             plt.close(fig)
 
 
-def main(path_out=DEFAULT_OUTPUT, save_figs=True):
+def main(path_out=DEFAULT_OUTPUT, save_figs=True, frames=True, max_frames=500):
     run = Output(path_out)
     snapshots = run.standard_snapshots()
     # VTK files (for the 3D views) of the standard snapshots only
@@ -121,8 +132,12 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
 
     # the frequency of the TAE, compared with the analytical value at the end (after the figures)
     measured, expected = tae_frequency(run, bases["mhd/velocity"])
+    # in rad/s (time unit of the run in seconds)
+    measured_si = measured / float(run.units.t)
+    print(f"TAE frequency {measured_si:.4g} rad/s, ITPA benchmark (ideal MHD) {OMEGA_ITPA:.4g} rad/s")
     np.save(os.path.join(results_dir, "omega_tae.npy"), measured)
     np.save(os.path.join(results_dir, "omega_tae_expected.npy"), expected)
+    np.save(os.path.join(results_dir, "omega_tae_si.npy"), measured_si)
 
     finish({"energies": run.plot.energies(parts=ENERGIES).fig}, results_dir, save_figs)
     for n, t in zip(snapshots, times):
@@ -171,6 +186,24 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
             else:
                 print(f"No 3D view of {species}/{variable}: its basis {basis!r} is not in the VTK files.")
 
+    if frames:
+        # frames of videos of the radial velocity u_r (the first component in the normalized basis, radial for the
+        # circular flux surfaces of the HollowTorus): the poloidal plane and two 3D views, at most max_frames saved
+        # time steps, in <path_out>/results/frames/u_r_rz, u_r_3d_cut and u_r_3d (frame_*.png)
+        videos = write_videos(
+            run,
+            "mhd/velocity",
+            os.path.join(results_dir, "frames"),
+            component=0,
+            basis="norm",
+            prefix="u_r",
+            label="radial velocity u_r",
+            max_frames=max_frames,
+        )
+        for video, files in videos.items():
+            if files:  # (empty on the ranks other than 0)
+                print(f"{len(files)} frames of {video} in {os.path.join(results_dir, 'frames', video)}")
+
     if not save_figs:
         plt.show()
 
@@ -178,6 +211,10 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     if not args.test_run:
         assert abs(measured - expected) <= TAE_RTOL * expected, (
             f"The TAE frequency {measured:.4g} differs from the expected {expected:.4g} by more than {TAE_RTOL:.0%}."
+        )
+        assert abs(measured_si - OMEGA_ITPA) <= TAE_RTOL * OMEGA_ITPA, (
+            f"The TAE frequency {measured_si:.4g} rad/s differs from the ITPA benchmark {OMEGA_ITPA:.4g} rad/s by "
+            f"more than {TAE_RTOL:.0%}."
         )
 
 
@@ -192,5 +229,14 @@ if __name__ == "__main__":
         help="Simulation output folder (default: the output folder of the run flags, sim_data beside this script)",
     )
     pproc_parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
+    pproc_parser.add_argument("--no-frames", action="store_true", help="Do not write the frames of the videos.")
+    pproc_parser.add_argument(
+        "--max-frames", type=int, default=500, help="Largest number of frames per video (default: 500)."
+    )
     pproc_args = pproc_parser.parse_args(other_flags)
-    main(pproc_args.path_out, save_figs=not pproc_args.show)
+    main(
+        pproc_args.path_out,
+        save_figs=not pproc_args.show,
+        frames=not pproc_args.no_frames,
+        max_frames=pproc_args.max_frames,
+    )

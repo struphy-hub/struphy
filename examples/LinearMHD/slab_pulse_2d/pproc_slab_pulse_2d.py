@@ -84,7 +84,7 @@ def model_name(run):
 
 
 def is_conserving(run):
-    """Whether both splitting steps conserve en_tot up to the solver tolerances."""
+    """Whether all splitting steps conserve en_tot up to the solver tolerances."""
     params = run.model.params
     return params.get("b_space", "Hdiv") == "Hdiv" or params.get("projected", False)
 

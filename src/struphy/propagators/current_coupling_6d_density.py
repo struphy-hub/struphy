@@ -17,6 +17,7 @@ from struphy.pic.accumulation.kernels.cc_lin_mhd_6d_1_mf import cc_lin_mhd_6d_1_
 from struphy.pic.accumulation.kernels.marker_operator_asym_dot import marker_operator_asym_dot
 from struphy.pic.accumulation.particles_to_grid import Accumulator, MarkerOperator
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import velocity_mass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -32,6 +33,16 @@ class CurrentCoupling6DDensity(Propagator):
         \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
         \\[2mm]
         &n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3 \mathbf v\,.
+
+    Here, the magnetic field perturbation :math:`\tilde{\mathbf B}` (``b_tilde``, not updated) and the projected
+    equilibrium field :math:`\mathbf B_0` (``projected_equil.b2``) are 2-forms in :math:`H(\textnormal{div})`; see
+    :class:`~struphy.propagators.current_coupling_6d_density_1form.CurrentCoupling6DDensity1form` for 1-forms.
+
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``Options(u_space="Hdiv")``): the inertia is that of the total density, :math:`\rho_0 \to \rho_0 + \tilde
+    \rho^n` (mass matrix :math:`\mathbb M^2_\rho` of :class:`~struphy.propagators.utils.VelocityMass`, assembled at
+    :math:`t^n`; the density does not change in this step).
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point).
     """
@@ -59,10 +70,16 @@ class CurrentCoupling6DDensity(Propagator):
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
 
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # CurrentCoupling6DDensity1form) and the accumulation kernels (assembled and matrix-free)
+    _b_form = "2"
+    _kernels = {"accum": cc_lin_mhd_6d_1, "accum_mf": cc_lin_mhd_6d_1_mf}
+
     def __init__(
         self,
         energetic_ions: PICVariable = None,
         b_tilde: FEECVariable = None,
+        rho_field: FEECVariable = None,
     ):
         """
         Parameters
@@ -70,10 +87,16 @@ class CurrentCoupling6DDensity(Propagator):
         energetic_ions : PICVariable, default=None
             Energetic-ion particle distribution providing the density source term.
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the coupling term.
+            Magnetic perturbation 2-form (``"Hdiv"`` space) entering the coupling term (not updated).
             If ``None``, only the equilibrium field is used.
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, ``u_space="Hdiv"`` only). If ``None``, that of
+            :math:`\rho_0`.
         """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
         self.variables = self.Variables()
+        self.rho_field = rho_field
         self.energetic_ions = energetic_ions
         self.b_tilde = b_tilde
 
@@ -150,7 +173,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         particles = self.energetic_ions.particles
         u = self.variables.u.spline.vector
-        self._b_eq = self.projected_equil.b2
+        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
 
         # if self._particles.control_variate:
 
@@ -190,18 +213,19 @@ class CurrentCoupling6DDensity(Propagator):
         Ab = self.variables.u.species.mass_number
         epsilon = self.energetic_ions.species.equation_params.epsilon
 
-        self._coupling_const = Ah / Ab / epsilon
+        # a Python float (epsilon is a 0-d array on CuPy; CUDA kernels take scalars)
+        self._coupling_const = float(Ah / Ab / epsilon)
 
         self._boundary_cut_e1 = self.options.boundary_cut[0]
 
-        # load accumulator (the matrix-free kernels have no CUDA version)
-        self._matrix_free = self.options.matrix_free and xp.get_backend() != "cupy"
+        # load accumulator
+        self._matrix_free = self.options.matrix_free
         if self._matrix_free:
             # the filling of the matrix per marker (in the first free columns of the marker array)
             self._column = particles.args_markers.first_free_idx
             assert particles.n_cols_aux >= 3, "matrix_free needs 3 free (auxiliary) marker columns."
             # the kernel that stores the fillings (called in __call__)
-            self._store_kernel = cc_lin_mhd_6d_1_mf
+            self._store_kernel = self._kernels["accum_mf"]
             self._A_particles = MarkerOperator(
                 particles,
                 self.options.u_space,
@@ -215,7 +239,7 @@ class CurrentCoupling6DDensity(Propagator):
             self._accumulator = Accumulator(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_6d_1,
+                self._kernels["accum"],
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=False,
@@ -225,18 +249,19 @@ class CurrentCoupling6DDensity(Propagator):
             self._A_particles = self._accumulator.operators[0]
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.extraction_ops["2"].transpose()
+        self._EbT = self.derham.extraction_ops[self._b_form].transpose()
 
         # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
+        # (with rho_field: the mass matrix of the total density, assembled in __call__)
         u_id = self.derham.space_to_form[self.options.u_space]
-        self._M = getattr(self.mass_ops, "M" + u_id + "n")
+        self._velocity_mass, self._M = velocity_mass(self, self.options.u_space, self.rho_field)
 
-        # preconditioner
+        # preconditioner (of the equilibrium-density mass matrix)
         if self.options.precond is None:
             pc = None
         else:
             pc_class = getattr(preconditioner, self.options.precond)
-            pc = pc_class(self._M)
+            pc = pc_class(getattr(self.mass_ops, "M" + u_id + "n"))
 
         # linear solver
         self._solver = inverse(
@@ -252,7 +277,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
-        self._b_full2 = self._E2T.codomain.zeros()
+        self._b_full2 = self._EbT.codomain.zeros()
 
         self._rhs_v = u.space.zeros()
         self._u_new = u.space.zeros()
@@ -261,17 +286,12 @@ class CurrentCoupling6DDensity(Propagator):
         # pointer to old coefficients
         un = self.variables.u.spline.vector
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        self._b_eq.copy(out=self._b_full1)
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
 
-        if self.b_tilde is not None:
-            self._b_full1 += self.b_tilde.spline.vector
-
-        # extract coefficients to tensor product space (in-place)
-        self._E2T.dot(self._b_full1, out=self._b_full2)
-
-        # update ghost regions because of non-local access in accumulation kernel!
-        self._b_full2.update_ghost_regions()
+        # total magnetic field in the tensor-product space (in self._b_full2)
+        self._sum_b_full()
 
         # perform accumulation (either with or without control variate)
         # if self._particles.control_variate:
@@ -339,7 +359,20 @@ class CurrentCoupling6DDensity(Propagator):
         max_du = self.update_feec_variables(u=un1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            logger.info(f"Status     for CurrentCoupling6DDensity: {info['success']}")
-            logger.info(f"Iterations for CurrentCoupling6DDensity: {info['niter']}")
-            logger.info(f"Maxdiff up for CurrentCoupling6DDensity: {max_du}")
+            name = self.__class__.__name__
+            logger.info(f"Status     for {name}: {info['success']}")
+            logger.info(f"Iterations for {name}: {info['niter']}")
+            logger.info(f"Maxdiff up for {name}: {max_du}")
             logger.info("")
+
+    def _sum_b_full(self):
+        """Sum up the total magnetic field b_eq + E^T b_tilde in the tensor-product space (in ``self._b_full2``) and
+        update its ghost regions; the projected equilibrium is already a tensor-product vector, only b_tilde is
+        extracted (polar splines)."""
+        self._b_eq.copy(out=self._b_full2)
+
+        if self.b_tilde is not None:
+            self._b_full2 += self._EbT.dot(self.b_tilde.spline.vector, out=self._b_full1)
+
+        # update ghost regions because of non-local access in accumulation kernel!
+        self._b_full2.update_ghost_regions()

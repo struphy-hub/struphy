@@ -15,6 +15,12 @@ from struphy.post_processing.plot_3d import (
 )
 
 
+def _phi_exact(grid, step):
+    """The field ``phi`` written by :func:`write_run` at the points of ``grid``."""
+    x, y, zz = grid.points.T
+    return step * np.exp(-((x - 0.5) ** 2) - y**2 - zz**2)
+
+
 def write_run(path_out, n=6):
     """A fake run with the VTK files of pproc(create_vtk=True, physical=True): a scalar ``phi`` and a vector field
     ``e`` (logical components in vtk/, Cartesian ones in vtk_phy/) on a cylinder, at two time steps."""
@@ -44,7 +50,7 @@ def test_vtk_files_ordered_by_step(tmp_path):
 def test_load_scalar_and_vector_magnitude(tmp_path):
     write_run(tmp_path)
     grid, name = load_field(tmp_path, "phi", step=-1)
-    assert name == "phi" and np.isclose(np.max(grid.point_data["phi"]), 10 * np.exp(0.0), rtol=0.5)
+    assert name == "phi" and np.allclose(grid.point_data["phi"], _phi_exact(grid, step=10))
 
     grid, name = load_field(tmp_path, "e", step=1)
     x, y, _ = grid.points.T
@@ -95,7 +101,7 @@ def test_select_vtk_file_by_snapshot(tmp_path):
     with pytest.raises(FileNotFoundError):
         vtk_file(tmp_path, snapshot=2)
     grid, _ = load_field(tmp_path, "phi", snapshot=1)
-    assert np.isclose(np.max(grid.point_data["phi"]), 1.0, rtol=0.5)
+    assert np.allclose(grid.point_data["phi"], _phi_exact(grid, step=1))
 
 
 @pytest.mark.mpi_skip

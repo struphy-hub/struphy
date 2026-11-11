@@ -91,10 +91,14 @@ reflected by the mirror force and trapped on the low-field (outboard) side (bana
 by an amount of order epsilon q v / (inverse aspect ratio)^(1/2) for trapped particles. Hence a distribution
 that depends only on the flux surface of the position, like the gyro-Maxwellian, is not stationary. The exact
 constants of motion are the energy v_par^2/2 + mu |B0|, the magnetic moment mu and, by axisymmetry, the canonical
-toroidal momentum psi_c = psi + epsilon F v_par / |B0| (normalized form, psi the poloidal flux, F = R B_phi;
-Struphy evaluates a variant of psi_c, see CanonicalMaxwellian2D). By Jeans' theorem the canonical Maxwellian
+toroidal momentum P_phi = psi + epsilon F v_par / |B0| (normalized form, psi the poloidal flux, F = R B_phi).
+The canonical Maxwellian
     f0 = n(psi_c) / (2 pi)^(3/2) / vth(psi_c)^3 * exp(-(v_par^2/2 + mu |B0|) / vth(psi_c)^2)
-is an exact equilibrium.
+uses psi_c = P_phi minus a shift of the order of the drift-orbit width (CanonicalMaxwellian2D, shift), which
+keeps the profiles in psi_c close to those in the flux label of the position. With shift="Bmax" (reference field
+max |B0| on the surface psi = P_phi, where the particle could bounce) or without shift, psi_c is a function of the
+constants of motion and f0 is an exact equilibrium by Jeans' theorem. With shift="B0" (on-axis field), psi_c jumps
+at the bounce points of the barely trapped particles, which bounce where |B0| > B0, so f0 is not exactly stationary.
 
 Setup. Full torus without hole (IGAPolarTorus, minor radius a = 1, major radius R0 = 3, C1 polar splines at the
 axis) with an ad hoc tokamak equilibrium (AdhocTorus, circular concentric flux surfaces, B0 = 1 on axis, q(r) =
@@ -106,8 +110,11 @@ density vanishes at the edge r=a, where markers on drift orbits leaving the plas
 not part of the equilibrium. Propagators push_bxe and push_parallel: {args.algo} (Butcher {args.butcher} if
 explicit), epsilon={args.epsilon}, {args.ppc} markers per cell on a grid with {args.num_elements} elements.
 
-Expected result. For the canonical Maxwellian, the relative L2 deviation of the binned distributions from their
-initial profiles stays at the level of the Monte-Carlo noise of the binning, without a systematic drift. The
+Expected result. For the canonical Maxwellian (shift="Bmax" or None), the relative L2 deviation of the binned
+distributions from their initial profiles stays at the level of the Monte-Carlo noise of the binning, without a
+systematic drift. With shift="B0", psi_c of about half of the bouncing markers jumps by more than 1% of the flux
+range at the bounce points (up to 40%, measured along saved orbits on an 8 x 24 x 24 grid up to t = 100), while it
+stays constant to about 1e-4 with shift="Bmax" or None. The
 gyro-Maxwellian control is expected to relax (phase mixing along the drift orbits) towards a different state,
 visible as a systematic deviation from the initial profiles. The pproc also shows the relative drift of the total
 energy en_tot and the number of lost markers.
@@ -251,9 +258,8 @@ binning_plots = (
 )
 
 model.kinetic_ions.set_markers(
-    loading_params=LoadingParameters(
-        ppc=args.ppc, seed=1234, moments=(0.0, 0.0, VTH_AXIS, VTH_AXIS), B0=B_min, spatial="disc"
-    ),
+    # mu drawn with the local |B_0| (default B0="equil")
+    loading_params=LoadingParameters(ppc=args.ppc, seed=1234, moments=(0.0, 0.0, VTH_AXIS, VTH_AXIS), spatial="disc"),
     weights_params=WeightsParameters(),
     boundary_params=BoundaryParameters(bc=("remove", "periodic", "periodic")),
     sorting_params=SortingParameters(do_sort=True, sorting_frequency=10),
@@ -280,13 +286,14 @@ if args.init == "canonical":
         vth=(vth_canonical, None),
         equil=equil,
         epsilon=args.epsilon,
+        # "Bmax" (default) or None: exact equilibrium; "B0": psi_c jumps at the bounce points of barely trapped particles
+        shift="Bmax",
     )
 else:
     background = maxwellians.GyroMaxwellian2D(
         n=(n_position, None),
         vth_para=(vth_position, None),
         vth_perp=(vth_position, None),
-        B0=equil.absB0,
     )
 model.kinetic_ions.var.add_background(background)
 

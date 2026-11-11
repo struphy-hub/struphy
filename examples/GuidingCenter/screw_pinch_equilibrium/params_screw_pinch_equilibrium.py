@@ -222,9 +222,8 @@ binning_plots = (
 )
 
 model.kinetic_ions.set_markers(
-    loading_params=LoadingParameters(
-        ppc=args.ppc, seed=1234, moments=(0.0, 0.0, vth_max, vth_max), B0=1.0, spatial="disc"
-    ),
+    # mu drawn with the local |B_0| (default B0="equil")
+    loading_params=LoadingParameters(ppc=args.ppc, seed=1234, moments=(0.0, 0.0, vth_max, vth_max), spatial="disc"),
     weights_params=WeightsParameters(),
     boundary_params=BoundaryParameters(bc=("remove", "periodic", "periodic")),
     sorting_params=SortingParameters(do_sort=True, sorting_frequency=10),
@@ -249,7 +248,6 @@ background = maxwellians.GyroMaxwellian2D(
     n=(n_profile, None),
     vth_para=(vth_profile, None),
     vth_perp=(vth_profile, None),
-    B0=equil.absB0,
 )
 model.kinetic_ions.var.add_background(background)
 

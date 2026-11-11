@@ -36,6 +36,50 @@ def test_nested_sum_follows_its_summands():
     assert scalars.dct["total"].value[0] == 60.0
 
 
+class _AllocatedConstant(Scalar):
+    """A scalar that reads its value from an object of `holder` created by the allocation, as BilinearEnergyFEEC
+    reads the spline vector of a variable."""
+
+    def __init__(self, holder):
+        super().__init__()
+        self.holder = holder
+
+    def allocate(self):
+        self.data = self.holder.data
+
+    def _local_update(self):
+        self.local_value[0] = self.data[0]
+
+    def _mpi_sum(self):
+        self.value[0] = self.local_value[0]
+
+
+def test_scalars_follow_a_new_allocation():
+    """A second Simulation.run() allocates new objects; the scalars (and the summands of sums) must use those,
+    not the ones of the first run (issue #852)."""
+    from types import SimpleNamespace
+
+    holder = SimpleNamespace(data=xp.array([1.0]))
+    a, b = _AllocatedConstant(holder), _AllocatedConstant(holder)
+    scalars = Scalars(a=a, total=a + b + _Constant(0.0))
+
+    scalars.update()
+    assert scalars.host_value("a")[0] == 1.0
+    assert scalars.host_value("total")[0] == 2.0
+
+    # second run: the allocation replaces the object, the old one keeps its last value
+    holder.data = xp.array([10.0])
+    scalars.reset_allocation()
+    scalars.update()
+    assert scalars.host_value("a")[0] == 10.0
+    assert scalars.host_value("total")[0] == 20.0
+
+    # within a run, the object fetched at the allocation is used
+    holder.data[0] = 20.0
+    scalars.update()
+    assert scalars.host_value("a")[0] == 20.0
+
+
 class _MovingParticles:
     """Markers whose accessors return copies, as `Particles.velocities` does (it is fancy-indexed)."""
 
@@ -161,6 +205,7 @@ def test_en_fB_ignores_ghost_markers():
 
     from struphy.models.guiding_center import GuidingCenter
     from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
+    from struphy.models.perturbative_mhd_with_q_driftkinetic_cc import PerturbativeMHDWithQDriftkineticCC
 
     def _models(particles):
         var = SimpleNamespace(particles=particles, species=SimpleNamespace(mass_number=1.0))
@@ -171,11 +216,11 @@ def test_en_fB_ignores_ghost_markers():
             _PB=SimpleNamespace(dot=lambda v: None),
             em_fields=SimpleNamespace(b_field=SimpleNamespace(spline=SimpleNamespace(vector=None))),
         )
-        return {GuidingCenter: gc, LinearMHDDriftkineticCC: cc}
+        return {GuidingCenter: gc, LinearMHDDriftkineticCC: cc, PerturbativeMHDWithQDriftkineticCC: cc}
 
     with_ghosts = _models(_MarkersWithGhosts(n_valid=5, n_ghosts=3))
     without_ghosts = _models(_MarkersWithGhosts(n_valid=5, n_ghosts=0))
-    for model_class in (GuidingCenter, LinearMHDDriftkineticCC):
+    for model_class in (GuidingCenter, LinearMHDDriftkineticCC, PerturbativeMHDWithQDriftkineticCC):
         energy = model_class._compute_en_fB(with_ghosts[model_class])
         expected = model_class._compute_en_fB(without_ghosts[model_class])
         assert xp.isclose(energy, expected), f"{model_class.__name__}: en_fB = {energy} with ghosts, {expected} without"

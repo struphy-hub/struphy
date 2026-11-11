@@ -20,6 +20,7 @@ from struphy.pic.pushing.kernels.push_gc_cc_J1_H1vec import push_gc_cc_J1_H1vec
 from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import velocity_mass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -59,6 +60,11 @@ class CurrentCoupling5DCurlb(Propagator):
         \end{bmatrix} \,.
 
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``Options(u_space="Hdiv")``): the inertia is that of the total density, :math:`\rho_0 \to \rho_0 + \tilde
+    \rho^n` (mass matrix :math:`\mathbb M^2_\rho` of :class:`~struphy.propagators.utils.VelocityMass`, assembled at
+    :math:`t^n`; the density does not change in this step).
     """
 
     class Variables:
@@ -97,14 +103,33 @@ class CurrentCoupling5DCurlb(Propagator):
             assert "Particles5D" in new.space
             self._energetic_ions = new
 
-    def __init__(self, b_tilde: FEECVariable = None):
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # CurrentCoupling5DCurlb1form), the accumulation kernels (assembled and matrix-free) and the pusher kernels (per
+    # u_space)
+    _b_form = "2"
+    _kernels = {
+        "assembled": cc_lin_mhd_5d_curlb,
+        "matrix_free": cc_lin_mhd_5d_curlb_mf,
+        "push_Hdiv": push_gc_cc_J1_Hdiv,
+        "push_H1vec": push_gc_cc_J1_H1vec,
+    }
+
+    def __init__(self, b_tilde: FEECVariable = None, rho_field: FEECVariable = None):
         """
         Parameters
         ----------
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the curl-B
+            Magnetic perturbation 2-form (``"Hdiv"`` space) entering the curl-B
             coupling term. If ``None``, only the equilibrium field is used.
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, ``u_space="Hdiv"`` only). If ``None``, that of
+            :math:`\rho_0`.
         """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
+        self.rho_field = rho_field
+        b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
+        assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.variables = self.Variables()
         self.b_tilde = b_tilde
 
@@ -190,6 +215,10 @@ class CurrentCoupling5DCurlb(Propagator):
 
     @profile
     def allocate(self):
+        # extraction of b_tilde to the tensor-product space read by the kernels (polar splines)
+        self._EbT_tilde = self.derham.extraction_ops[self._b_form].transpose()
+        self._b_tilde_tp = self._EbT_tilde.codomain.zeros()
+
         # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
         self._ep_scale = self.options.ep_scale
         if self._ep_scale is None:
@@ -202,8 +231,9 @@ class CurrentCoupling5DCurlb(Propagator):
             self._u_form_int = int(self.derham.space_to_form[self.options.u_space])
 
         # call operatros
+        # (with rho_field: the mass matrix of the total density, assembled in __call__)
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
-        _A = getattr(self.mass_ops, id_M)
+        self._velocity_mass, _A = velocity_mass(self, self.options.u_space, self.rho_field)
 
         # Preconditioner
         if self.options.precond is None:
@@ -212,16 +242,16 @@ class CurrentCoupling5DCurlb(Propagator):
             pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(getattr(self.mass_ops, id_M))
 
-        # magnetic equilibrium field
+        # magnetic equilibrium field (the field in the space of _b_form)
         unit_b1 = self.projected_equil.unit_b1
         curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._b2 = self.projected_equil.b2
+        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
 
         # scaling factor
         epsilon = self.variables.energetic_ions.species.equation_params.epsilon
 
         # temporary vectors to avoid memory allocation
-        self._b_full = self._b2.space.zeros()
+        self._b_full = self._b_eq.space.zeros()
         self._u_new = self.variables.u.spline.vector.space.zeros()
         self._u_avg = self.variables.u.spline.vector.space.zeros()
 
@@ -248,7 +278,7 @@ class CurrentCoupling5DCurlb(Propagator):
             self._ACC = AccumulatorVector(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_5d_curlb_mf,
+                self._kernels["matrix_free"],
                 self.mass_ops,
                 self.domain.args_domain,
                 filter_params=self.options.filter_params,
@@ -267,7 +297,7 @@ class CurrentCoupling5DCurlb(Propagator):
             self._ACC = Accumulator(
                 particles,
                 self.options.u_space,
-                cc_lin_mhd_5d_curlb,
+                self._kernels["assembled"],
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=True,
@@ -278,9 +308,9 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # define Pusher
         if self.options.u_space == "Hdiv":
-            pusher_kernel = push_gc_cc_J1_Hdiv
+            pusher_kernel = self._kernels["push_Hdiv"]
         elif self.options.u_space == "H1vec":
-            pusher_kernel = push_gc_cc_J1_H1vec
+            pusher_kernel = self._kernels["push_H1vec"]
         else:
             raise ValueError(
                 f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
@@ -322,15 +352,27 @@ class CurrentCoupling5DCurlb(Propagator):
             solver_params=self.options.solver_params,
         )
 
+    def _b_tilde_coeffs(self, update_ghosts: bool = False):
+        """FE coefficients of ``b_tilde`` extracted to the tensor-product space read by the kernels (in
+        ``self._b_tilde_tp``), with ghost regions if ``update_ghosts`` (for kernels reading them directly)."""
+        b_tilde = self._EbT_tilde.dot(self.b_tilde.spline.vector, out=self._b_tilde_tp)
+        if update_ghosts:
+            b_tilde.update_ghost_regions()
+        return b_tilde
+
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        b_full = self._b2.copy(out=self._b_full)
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
+
+        # sum up total magnetic field b_full = b_eq + b_tilde (in-place)
+        b_full = self._b_eq.copy(out=self._b_full)
 
         if self.b_tilde is not None:
-            b_full += self.b_tilde.spline.vector
+            b_full += self._b_tilde_coeffs()
         b_full.update_ghost_regions()
 
         self._ACC(

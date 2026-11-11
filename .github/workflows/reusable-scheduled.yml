@@ -76,7 +76,8 @@ jobs:
       - name: Install struphy
         uses: ./.github/actions/install/install-struphy
         with:
-          optional-deps: 'mpi,phys'
+          # pproc: plasma-plots for the post-processing scripts of the examples (.plasma accessor)
+          optional-deps: 'mpi,phys,pproc'
         env:
           FC: ${{ env.FC }}
           CC: ${{ env.CC }}
@@ -102,27 +103,8 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-${{ matrix.shard }}
         run: |
-          case "${{ matrix.shard }}" in
-            shard-1)
-              TEST_FILES="bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/"
-              ;;
-            shard-2)
-              TEST_FILES="api/tests/ propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/ dispersion_relations/tests/ io/tests/ simulation/tests/ models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py models/tests/test_scalars.py models/tests/test_splitting_order.py"
-              ;;
-            shard-3)
-              TEST_FILES="feec/tests/"
-              ;;
-            shard-4)
-              TEST_FILES="pic/tests/"
-              ;;
-            *)
-              echo "Unknown test shard: ${{ matrix.shard }}" >&2
-              exit 1
-              ;;
-          esac
-          set +e
-          source /bin/activate || true
-          set -e
+          # the test paths of each shard are in src/struphy/console/unit_test_shards.py
+          TEST_FILES=$(python -m struphy.console.unit_test_shards ${{ matrix.shard }})
           pip show struphy
           struphy compile --status
           cd ${{ env.STRUPHY_PATH }}
@@ -135,14 +117,43 @@ jobs:
           echo "Running $PYTEST_CMD $TEST_FILES"
           $PYTEST_CMD $TEST_FILES
 
+      # the tests marked mpi_skip are skipped under MPI above; they run here, also on macOS and with C kernels
+      - name: Run serial-only unit tests
+        if: ${{ !cancelled() && matrix.test-type == 'unit' }}
+        run: |
+          TEST_FILES=$(python -m struphy.console.unit_test_shards ${{ matrix.shard }})
+          cd ${{ env.STRUPHY_PATH }}
+          pytest -m mpi_skip --rootdir $STRUPHY_PATH $TEST_FILES
+
+      # --rootdir: the tests are run from site-packages, which has no pytest config file. Without it, pytest takes the
+      # test folder as rootdir/confcutdir and does not load struphy/conftest.py (fixtures nclones, update_baselines).
       - name: Run model tests with MPI
         if: matrix.test-type == 'model' && matrix.shard == 'shard-1'
         shell: bash
         run: |
-          mpirun -oversubscribe -n 2 pytest -x -m models --with-mpi $STRUPHY_PATH/models/tests/default_params/
+          mpirun -oversubscribe -n 2 pytest --maxfail=5 -m models --with-mpi --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/regression/
 
       - name: Run verification tests with MPI
         if: matrix.test-type == 'verification' && matrix.shard == 'shard-1'
         shell: bash
+        # all verification tests (PRs run only the core set marked "verif_pr"); no -x, so that one run reports all
+        # failures; the serial-only tests (mpi_skip) are skipped under MPI and run separately below
         run: |
-          mpirun --oversubscribe -n 2 pytest -x --with-mpi $STRUPHY_PATH/models/tests/verification/
+          mpirun --oversubscribe -n 2 pytest --with-mpi --durations=20 --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/verification/
+
+      - name: Run serial-only verification tests
+        if: ${{ !cancelled() && matrix.test-type == 'verification' && matrix.shard == 'shard-1' }}
+        shell: bash
+        run: |
+          pytest -m mpi_skip --durations=10 --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/verification/
+
+      # serial runs of the examples (the PR workflow runs them on 2 ranks); struphy is installed from the wheel,
+      # so the examples are taken from the checkout
+      - name: Run examples tests (serial)
+        # also after failed model tests
+        if: ${{ !cancelled() && matrix.test-type == 'model' && matrix.shard == 'shard-1' }}
+        shell: bash
+        env:
+          STRUPHY_EXAMPLES_DIR: ${{ github.workspace }}/examples
+        run: |
+          pytest --maxfail=5 -m examples --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/test_examples.py

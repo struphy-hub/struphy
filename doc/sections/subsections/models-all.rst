@@ -93,6 +93,185 @@ parent by new terms of the equations and inherits its species, propagators and s
     :undoc-members:
     :show-inheritance:
 
+LinearEuler Family
+------------------
+
+Models for small perturbations of a static (zero-flow) fluid or plasma equilibrium. Each model extends its parent by
+new terms of the equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
+
+* :class:`~struphy.models.LinearEuler`
+
+  * :class:`~struphy.models.LinearMHD`
+
+    * :class:`~struphy.models.LinearMHDVlasovCC`
+    * :class:`~struphy.models.LinearMHDVlasovPC`
+    * :class:`~struphy.models.LinearMHDDriftkineticCC`
+
+.. autoclass:: struphy.models.LinearEuler
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHD
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHDVlasovCC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHDVlasovPC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHDDriftkineticCC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+LinearEulerWithQ Family
+-----------------------
+
+The equations of the LinearEuler family written with the square root of the pressure, :math:`q = \sqrt p`, as
+thermodynamic variable (pressure perturbation :math:`\tilde p = 2 q_0 \tilde q`). The magnetic field of
+:class:`~struphy.models.LinearMHDWithQ` is the one of :class:`~struphy.models.LinearMHD`.
+
+* :class:`~struphy.models.LinearEulerWithQ`
+
+  * :class:`~struphy.models.LinearMHDWithQ`
+
+    * :class:`~struphy.models.PerturbativeMHDWithQ`
+
+      * :class:`~struphy.models.PerturbativeMHDWithQVlasovCC`
+      * :class:`~struphy.models.PerturbativeMHDWithQVlasovPC`
+      * :class:`~struphy.models.PerturbativeMHDWithQDriftkineticCC`
+
+  * :class:`~struphy.models.PerturbativeEulerWithQ`
+
+The perturbative models add the terms that are nonlinear in the perturbations, each in its own energy conserving step,
+to the steps of their linear parent. The hybrid models with energetic ions add the coupling steps of the hybrid models
+of the LinearEuler family, with the inertia of the total density.
+
+.. autoclass:: struphy.models.LinearEulerWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.LinearMHDWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeEulerWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQVlasovCC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQVlasovPC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQDriftkineticCC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+Maxwell Family
+--------------
+
+Maxwell's equations and their extensions by plasma currents. Each model extends its parent by new terms of the
+equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
+
+* :class:`~struphy.models.Maxwell`
+
+  * :class:`~struphy.models.ColdPlasma`
+
+    * :class:`~struphy.models.ColdPlasmaVlasov`
+
+.. autoclass:: struphy.models.Maxwell
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.ColdPlasma
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.ColdPlasmaVlasov
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+Variational MHD Family
+----------------------
+
+Visco-resistive MHD around a zero-flow equilibrium with the pressure, discretized variationally (forces as the
+variations of a discrete Lagrangian, energy conserving time stepping). ``VariationalPerturbativeMHD`` adds to the linear
+model the terms that are nonlinear in the perturbations.
+
+* :class:`~struphy.models.VariationalLinearMHD`
+
+  * :class:`~struphy.models.VariationalPerturbativeMHD`
+
+.. autoclass:: struphy.models.VariationalLinearMHD
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.VariationalPerturbativeMHD
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+SPH Family
+----------
+
+Fluid models discretized with smoothed particle hydrodynamics (SPH). Each model extends its parent by new terms of
+the equations and inherits its species, propagators and scalars (see :ref:`model_anatomy`).
+
+* :class:`~struphy.models.ColdEulerSPH`
+
+  * :class:`~struphy.models.EulerSPH`
+
+    * :class:`~struphy.models.ViscousEulerSPH`
+
+  * :class:`~struphy.models.IncompressibleNavierStokesSPH`
+
+.. autoclass:: struphy.models.ColdEulerSPH
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.EulerSPH
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.ViscousEulerSPH
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.IncompressibleNavierStokesSPH
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
 Other models
 ------------
 
@@ -108,11 +287,6 @@ Gyrokinetic
 
 MHD
 ^^^
-
-.. autoclass:: struphy.models.LinearMHD
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
 
 .. autoclass:: struphy.models.LinearExtendedMHDuniform
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
@@ -139,11 +313,6 @@ MHD
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: struphy.models.VariationalPerturbativeMHD
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
 .. autoclass:: struphy.models.VariationalPerturbativeMHD_with_q
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
@@ -152,27 +321,7 @@ MHD
 Multi-fluid
 ^^^^^^^^^^^
 
-.. autoclass:: struphy.models.ColdPlasma
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
 .. autoclass:: struphy.models.TwoFluidQuasiNeutralToy
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.PressureLessSPH
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.ViscousEulerSPH
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.IncompressibleNavierStokesSPH
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
@@ -198,29 +347,6 @@ Multi-fluid
     :show-inheritance:
 
 .. autoclass:: struphy.models.VariationalPressurelessFluid
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-Fluid-kinetic hybrids
-^^^^^^^^^^^^^^^^^^^^^
-
-.. autoclass:: struphy.models.ColdPlasmaVlasov
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.LinearMHDVlasovCC
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.LinearMHDVlasovPC
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.LinearMHDDriftkineticCC
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
@@ -252,11 +378,6 @@ Pure fields
     :show-inheritance:
 
 .. autoclass:: struphy.models.GyrokineticPoisson
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.Maxwell
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:

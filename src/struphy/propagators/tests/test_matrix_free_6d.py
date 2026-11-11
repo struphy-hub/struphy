@@ -64,6 +64,56 @@ def test_vlasov_ampere_coupling_matrix_free():
     _compare(run)
 
 
+def test_vlasov_ampere_coupling_polar():
+    """VlasovAmpereCoupling with polar splines (issue #827): the matrix-free and the assembled particle matrix give
+    the same steps, and the step conserves the energy 1/2 e^T M1 e + alpha^2/2 sum_p w_p |v_p|^2."""
+    import numpy as np
+    from maybempi import MPI
+
+    from struphy import DerhamOptions, LoadingParameters, Simulation, domains, grids, maxwellians, perturbations
+    from struphy.models import VlasovAmpereOneSpecies
+
+    comm = MPI.COMM_WORLD
+
+    def energy(prop, particles):
+        e = prop.variables.e.spline.vector
+        v = particles.markers[3:6, particles.valid_mks]
+        w = particles.weights
+        kin = np.array([0.5 * np.sum(w * np.sum(v**2, axis=0))])
+        if comm.Get_size() > 1:
+            comm.Allreduce(MPI.IN_PLACE, kin, op=MPI.SUM)
+        return 0.5 * e.inner(prop.mass_ops.M1.dot(e)) + kin[0]
+
+    def run(matrix_free: bool):
+        model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
+        model.kinetic_ions.set_markers(loading_params=LoadingParameters(Np=1000, seed=1234))
+        model.kinetic_ions.var.add_background(maxwellians.Maxwellian3D())
+        model.em_fields.e_field.add_perturbation(
+            perturbations.ModesCos(ls=(1,), ms=(1,), amps=(1e-2,), given_in_basis="1", comp=2)
+        )
+        prop = model.propagators.coupling_va
+        prop.options = prop.Options(matrix_free=matrix_free, solver_params=_solver_params())
+        sim = Simulation(
+            model=model,
+            domain=domains.IGAPolarCylinder(num_elements=(6, 6), degree=(2, 2), a=1.0, Lz=4.0),
+            # enough elements in eta_1 for the polar rings on the pole rank (also on 4 MPI ranks)
+            grid=grids.TensorProductGrid(num_elements=(12, 6, 4)),
+            derham_opts=DerhamOptions(degree=(2, 2, 1), bcs=(("free", "dirichlet"), None, None), polar_splines=True),
+        )
+        sim.allocate()
+        assert sim.derham.polar_splines
+        particles = model.kinetic_ions.var.particles
+        energy_0 = energy(prop, particles)
+        changes = _steps(
+            prop,
+            lambda: (model.em_fields.e_field.spline.vector.toarray(), particles.markers[3:6, particles.valid_mks]),
+        )
+        assert abs(energy(prop, particles) - energy_0) < 1e-8 * energy_0
+        return changes
+
+    _compare(run)
+
+
 @pytest.mark.parametrize("lam", [1.0, 0.0])
 def test_vlasov_maxwell_coupling_matrix_free(lam: float):
     """VlasovMaxwellCoupling: e-field, b-field and velocities after two steps (in a curved domain), with and without
@@ -106,10 +156,26 @@ def test_vlasov_maxwell_coupling_matrix_free(lam: float):
     _compare(run)
 
 
-def test_efield_weights_coupling_matrix_free():
-    """EfieldWeightsCoupling: e-field and weights after two steps (in a curved domain)."""
+@pytest.mark.parametrize("polar", [False, True])
+def test_efield_weights_coupling_matrix_free(polar: bool):
+    """EfieldWeightsCoupling: e-field and weights after two steps (in a curved domain, or in a cylinder with polar
+    splines)."""
     from struphy import DerhamOptions, LoadingParameters, Simulation, domains, grids, maxwellians, perturbations
     from struphy.models import LinearVlasovAmpereOneSpecies
+
+    if polar:
+        # enough elements in eta_1 for the polar rings on the pole rank (also on 4 MPI ranks)
+        geometry = {
+            "domain": domains.IGAPolarCylinder(num_elements=(12, 6), degree=(2, 2), a=1.0, Lz=4.0),
+            "grid": grids.TensorProductGrid(num_elements=(12, 6, 2)),
+            "derham_opts": DerhamOptions(degree=(2, 2, 1), bcs=(("free", "dirichlet"), None, None), polar_splines=True),
+        }
+    else:
+        geometry = {
+            "domain": domains.Colella(alpha=0.1),
+            "grid": grids.TensorProductGrid(num_elements=(6, 4, 2)),
+            "derham_opts": DerhamOptions(degree=(2, 2, 1)),
+        }
 
     def run(matrix_free: bool):
         model = LinearVlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
@@ -120,12 +186,9 @@ def test_efield_weights_coupling_matrix_free():
         model.kinetic_ions.var.add_initial_condition(maxwellians.Maxwellian3D(n=(1.0, perturbation)))
         prop = model.propagators.coupling_Eweights
         prop.options = prop.Options(matrix_free=matrix_free, solver_params=_solver_params())
-        Simulation(
-            model=model,
-            domain=domains.Colella(alpha=0.1),
-            grid=grids.TensorProductGrid(num_elements=(6, 4, 2)),
-            derham_opts=DerhamOptions(degree=(2, 2, 1)),
-        ).allocate()
+        sim = Simulation(model=model, **geometry)
+        sim.allocate()
+        assert sim.derham.polar_splines == polar
         particles = model.kinetic_ions.var.particles
         return _steps(
             prop, lambda: (model.em_fields.e_field.spline.vector.toarray(), particles.markers[6, particles.valid_mks])
@@ -157,11 +220,16 @@ def _linear_mhd_vlasov_sim(model, u_space: str):
 
 
 def _set_u_space(model, u_space: str):
-    """The model fixes u in Hdiv; the other spaces test the remaining kernel branches."""
+    """The model fixes u in Hdiv; the other spaces test the remaining kernel branches. The sound wave and background
+    steps (u in Hdiv only) are removed from the model for these tests, which step only the current coupling."""
     model.mhd.velocity._space = u_space
     props = model.propagators
-    for prop in (props.couple_dens, props.shear_alf, props.couple_curr, props.mag_sonic):
+    for prop in (props.couple_dens, props.shear_alf, props.couple_curr):
         prop.options = prop.Options(u_space=u_space)
+    if u_space != "Hdiv":
+        for name in ("bg_current", "sound", "bg_pressure"):
+            delattr(props, name)
+        model.__dict__.pop("_prop_list", None)
 
 
 @pytest.mark.parametrize("u_space", ["Hdiv", "Hcurl", "H1vec"])
@@ -205,7 +273,7 @@ def test_pressure_coupling_6d_matrix_free(use_perp_model: bool):
     from struphy.models import LinearMHDVlasovPC
 
     def run(matrix_free: bool):
-        model = LinearMHDVlasovPC(turn_off=("PushEtaPC", "PushVxB", "ShearAlfven", "Magnetosonic"))
+        model = LinearMHDVlasovPC()
         prop = model.propagators.pc6d
         prop.options = prop.Options(
             use_perp_model=use_perp_model, matrix_free=matrix_free, solver_params=_solver_params()

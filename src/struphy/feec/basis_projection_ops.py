@@ -165,6 +165,27 @@ class BasisProjectionOperators:
         return self._K3
 
     @property
+    def K3q(self):
+        r"""Basis projection operator
+
+        .. math::
+
+            \mathcal{K}^{3,q}_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{q}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,,
+
+        with the square root of the equilibrium pressure, :math:`q_\text{eq} = \sqrt{p_\text{eq}}`.
+        """
+        if not hasattr(self, "_K3q"):
+            fun = [[lambda e1, e2, e3: self.weights["eq_mhd"].q3(e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
+            self._K3q = self.create_basis_op(
+                fun,
+                "L2",
+                "L2",
+                name="K3q",
+            )
+
+        return self._K3q
+
+    @property
     def Qv(self):
         r"""Basis projection operator
 
@@ -495,6 +516,36 @@ class BasisProjectionOperators:
             )
 
         return self._S2
+
+    @property
+    def S2q(self):
+        r"""Basis projection operator
+
+        .. math::
+
+            \mathcal{S}^{2,q}_{(\mu, ijk), (\nu, mno)} := \hat{\Pi}^2_{(\mu, ijk)} \left[\frac{\hat{q}^3_{\text{eq}}}{\sqrt{g}}\Lambda^2_{(\nu, mno)} \right] \,,
+
+        with the square root of the equilibrium pressure, :math:`q_\text{eq} = \sqrt{p_\text{eq}}`.
+        """
+        if not hasattr(self, "_S2q"):
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: (
+                            self.weights["eq_mhd"].q3(e1, e2, e3) / self.sqrt_g(e1, e2, e3) if m == n else 0 * e1
+                        ),
+                    ]
+
+            self._S2q = self.create_basis_op(
+                fun,
+                "Hdiv",
+                "Hdiv",
+                name="S2q",
+            )
+
+        return self._S2q
 
     @property
     def S11(self):
@@ -851,6 +902,134 @@ class BasisProjectionOperators:
             )
 
         return self._PB
+
+    def Pperp(self, space_id: str):
+        r"""Basis projection operator onto the vector fields perpendicular to the equilibrium magnetic field,
+
+        .. math::
+
+            \mathcal P^\perp_{(\mu, ijk), (\nu, mno)} := \hat \Pi^n_{(\mu, ijk)} \left[ \left( T^{-1}
+            (\mathbb 1 - \mathbf b_0 \mathbf b_0^\top) \, T \right)_{\mu \nu} \Lambda^n_{(\nu, mno)} \right]\,,
+
+        where :math:`\mathbf b_0 = \mathbf B_0 / |\mathbf B_0|` (Cartesian components) and :math:`T` maps the
+        components of the space to Cartesian components: :math:`T = DF^{-\top}` for ``"Hcurl"``,
+        :math:`T = DF / \sqrt g` for ``"Hdiv"`` and :math:`T = DF` for ``"H1vec"``. Domain and codomain are the same
+        space; the operator maps :math:`\mathbf U` to its projection :math:`\mathbf U_\perp = \mathbf U -
+        (\mathbf b_0 \cdot \mathbf U) \mathbf b_0`, projected back into the space.
+
+        Parameters
+        ----------
+        space_id : str
+            ``"Hcurl"``, ``"Hdiv"`` or ``"H1vec"``.
+        """
+        assert space_id in ("Hcurl", "Hdiv", "H1vec"), f"{space_id =} not valid."
+        if not hasattr(self, "_Pperp"):
+            self._Pperp = {}
+
+        if space_id not in self._Pperp:
+
+            def mat(e1, e2, e3):
+                # T^{-1} (1 - b0 b0^T) T, the factors 1/sqrt(g) of Hdiv cancel
+                if space_id == "Hcurl":
+                    left, right = self.DFT(e1, e2, e3), self.DFinvT(e1, e2, e3)
+                else:
+                    left, right = self.DFinv(e1, e2, e3), self.DF(e1, e2, e3)
+                return left @ self._b0_perp(e1, e2, e3) @ right
+
+            self._Pperp[space_id] = self.create_basis_op(
+                self._matrix_fun(mat), space_id, space_id, name=f"Pperp_{space_id}"
+            )
+
+        return self._Pperp[space_id]
+
+    def Xperp(self, space_id: str):
+        r"""Basis projection operator to the Cartesian components of the vector field perpendicular to the equilibrium
+        magnetic field, as 0-forms,
+
+        .. math::
+
+            \mathcal X^\perp_{(\mu, ijk), (\nu, mno)} := \hat \Pi^{0, \mu}_{ijk} \left[ \left(
+            (\mathbb 1 - \mathbf b_0 \mathbf b_0^\top) \, T \right)_{\mu \nu} \Lambda^n_{(\nu, mno)} \right]\,,
+
+        with :math:`\mathbf b_0` and :math:`T` as in :meth:`Pperp`. It is ``X1``, ``X2`` or ``Xv`` followed by the
+        projection perpendicular to :math:`\mathbf b_0`, and costs the same as these.
+
+        Parameters
+        ----------
+        space_id : str
+            ``"Hcurl"``, ``"Hdiv"`` or ``"H1vec"`` (the domain; the codomain is ``"H1vec"``).
+        """
+        assert space_id in ("Hcurl", "Hdiv", "H1vec"), f"{space_id =} not valid."
+        if not hasattr(self, "_Xperp"):
+            self._Xperp = {}
+
+        if space_id not in self._Xperp:
+
+            def mat(e1, e2, e3):
+                # (1 - b0 b0^T) T
+                if space_id == "Hcurl":
+                    T = self.DFinvT(e1, e2, e3)
+                elif space_id == "Hdiv":
+                    T = self.DF(e1, e2, e3) / self.sqrt_g(e1, e2, e3)[..., None, None]
+                else:
+                    T = self.DF(e1, e2, e3)
+                return self._b0_perp(e1, e2, e3) @ T
+
+            self._Xperp[space_id] = self.create_basis_op(
+                self._matrix_fun(mat), space_id, "H1vec", name=f"Xperp_{space_id}"
+            )
+
+        return self._Xperp[space_id]
+
+    def _b0_perp(self, e1, e2, e3):
+        """The projection matrix :math:`1 - b_0 b_0^T` (Cartesian) at the evaluation points, shape (n1, n2, n3, 3, 3)."""
+        b = xp.moveaxis(self.weights["eq_mhd"].unit_b_cart(e1, e2, e3)[0], 0, -1)
+        return xp.eye(3) - b[..., :, None] * b[..., None, :]
+
+    @staticmethod
+    def _matrix_fun(mat):
+        """3x3 nested list of the entries of the matrix-valued callable ``mat`` (last two axes), for create_basis_op.
+        ``mat`` is evaluated once per set of evaluation points, not once per entry."""
+        cache = {}
+
+        def entry(e1, e2, e3, m, n):
+            pts = cache.get("pts")
+            if pts is None or not all(a.shape == b.shape and xp.array_equal(a, b) for a, b in zip(pts, (e1, e2, e3))):
+                cache["pts"] = (e1.copy(), e2.copy(), e3.copy())
+                cache["mat"] = mat(e1, e2, e3)
+            return cache["mat"][:, :, :, m, n]
+
+        return [[lambda e1, e2, e3, m=m, n=n: entry(e1, e2, e3, m, n) for n in range(3)] for m in range(3)]
+
+    @property
+    def PB1form(self):
+        r"""
+        Basis projection operator of the parallel component of a 1-form,
+
+        .. math::
+
+            \mathcal P^{b,1}_{ijk, (\mu, mno)} := \hat \Pi^0_{ijk} \left[\hat{b}^\textnormal{v}_{\text{eq},\mu} \, \Lambda^1_{\mu, mno}\right]\,,
+
+        the 1-form version of :attr:`PB`: for :math:`\tilde{\mathbf B} = DF^{-\top} \hat{\mathbf B}^1` and
+        :math:`\mathbf b_0 = DF \, \hat{\mathbf b}^\textnormal{v}_0`, the parallel component is
+        :math:`\mathbf b_0 \cdot \tilde{\mathbf B} = \hat{\mathbf b}^\textnormal{v}_0 \cdot \hat{\mathbf B}^1` (no
+        metric factor).
+        """
+        if not hasattr(self, "_PB1form"):
+            fun = [[]]
+            for m in range(3):
+                fun[-1] += [
+                    lambda e1, e2, e3, m=m: self.weights["eq_mhd"].unit_bv(e1, e2, e3)[m],
+                ]
+
+            self._PB1form = self.create_basis_op(
+                fun,
+                "Hcurl",
+                "H1",
+                name="PB1form",
+            )
+
+        return self._PB1form
 
     ##########################################
     # Wrapper around BasisProjectionOperator #
@@ -2057,7 +2236,8 @@ class BasisProjectionOperator(LinearOperator):
                 # Evaluate weight function at quadrature points
                 # evaluate weight at quadrature points
                 if callable(loc_weight):
-                    PTS = xp.meshgrid(*_ptsG, indexing="ij")
+                    # point sets are numpy (host); the weight callables work on xp arrays
+                    PTS = xp.meshgrid(*[xp.asarray(pts) for pts in _ptsG], indexing="ij")
                     mat_w = loc_weight(*PTS).copy()
                 elif isinstance(loc_weight, xp.ndarray):
                     assert loc_weight.shape == (len(_ptsG[0]), len(_ptsG[1]), len(_ptsG[2]))

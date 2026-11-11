@@ -148,3 +148,339 @@ def test_unmatched_propagator_options_warn(caplog):
     with caplog.at_level(logging.WARNING, logger="struphy"):
         StruphyModel.from_dict(dct)
     assert "push_unknown" in caplog.text
+
+
+@pytest.mark.mpi_skip
+def test_linear_euler_family_splitting_order():
+    from struphy.models import LinearEuler, LinearMHD
+
+    assert list(LinearEuler.propagators_in_splitting_order()) == ["bg_pressure", "sound"]
+    model = LinearMHD()
+    assert isinstance(model, LinearEuler)
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
+    assert model.propagators.bg_pressure.u_field is model.mhd.velocity
+    assert model.propagators.bg_current.b_field is model.em_fields.b_field
+
+    # the documentation lists both shear-Alfven flavours
+    doc = LinearMHD.doc_discretization()
+    assert "ShearAlfvenPropagator" in doc and "ShearAlfvenCurlCurlPropagator" in doc
+
+
+@pytest.mark.mpi_skip
+def test_linear_euler_with_q_family_splitting_order():
+    from struphy.models import LinearEulerWithQ, LinearMHD, LinearMHDWithQ
+
+    assert list(LinearEulerWithQ.propagators_in_splitting_order()) == ["bg_q", "sound"]
+    model = LinearMHDWithQ()
+    assert isinstance(model, LinearEulerWithQ) and not isinstance(model, LinearMHD)
+    assert list(vars(model.propagators)) == ["shear_alf", "bg_current", "bg_q", "sound"]
+    assert model.propagators.bg_q.u_field is model.mhd.velocity
+    assert model.propagators.bg_current.b_field is model.em_fields.b_field
+    assert [name for name, _ in model.propagator_calls(1.0)][1:] == [
+        "bg_current",
+        "bg_q",
+        "sound",
+        "bg_q",
+        "bg_current",
+    ]
+    assert list(model.scalars._dct) == list(LinearMHD().scalars._dct)[:1] + [
+        "en_thermal",
+        "en_p_eq",
+        "en_B",
+        "en_B_eq",
+        "en_B_tot",
+        "en_tot",
+    ]
+
+    # the documentation lists both shear-Alfven flavours
+    doc = LinearMHDWithQ.doc_discretization()
+    assert "ShearAlfvenPropagator" in doc and "ShearAlfvenCurlCurlPropagator" in doc
+    assert "SoundWaveLinearWithQ" in doc and "BackgroundQGradient" in doc
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("split_sound", [True, False])
+def test_linear_mhd_split_sound_in_old_metadata(split_sound):
+    from struphy.models import LinearMHD
+    from struphy.models.base import StruphyModel
+
+    model = LinearMHD(b_space="Hcurl")
+    model.propagators.sound.options = model.propagators.sound.Options(solver="cg")
+    dct = model.to_dict()
+
+    # metadata written when LinearMHD had the flag split_sound (and the unsplit magnetosonic step mag_sonic)
+    dct["params"]["split_sound"] = split_sound
+    if not split_sound:
+        for name in ("bg_current", "sound", "bg_pressure"):
+            dct["propagator_options"].pop(name)
+        dct["propagator_options"]["mag_sonic"] = {}
+    restored = StruphyModel.from_dict(dct)
+    assert "split_sound" not in restored.params
+    assert list(vars(restored.propagators)) == ["shear_alf", "bg_current", "bg_pressure", "sound"]
+    assert restored.em_fields.b_field.space == "Hcurl"
+    assert restored.propagators.sound.options.solver == ("cg" if split_sound else "pcg")
+
+
+@pytest.mark.mpi_skip
+def test_linear_mhd_hybrids_inherit_linear_mhd():
+    from struphy.models import LinearMHD, LinearMHDDriftkineticCC, LinearMHDVlasovCC, LinearMHDVlasovPC
+    from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
+
+    for model_class in (LinearMHDVlasovCC, LinearMHDVlasovPC, LinearMHDDriftkineticCC):
+        model = model_class(mhd_mass_number=2.0, hot_mass_number=3.0)
+        assert isinstance(model, LinearMHD)
+        assert model.mhd.mass_number == 2.0 and model.energetic_ions.mass_number == 3.0
+        assert model.em_fields.b_field.space == "Hdiv"
+        names = list(vars(model.propagators))
+        for name in ("shear_alf", "bg_current", "sound", "bg_pressure"):
+            assert name in names, (model_class.__name__, name)
+        assert names.index("bg_current") + 1 == names.index("bg_pressure") == names.index("sound") - 1
+        assert {"en_B", "en_thermal", "en_tot"} <= set(model.scalars._dct)
+    assert isinstance(LinearMHDDriftkineticCC().propagators.shear_alf, ShearAlfvenCurrentCoupling5D)
+
+
+@pytest.mark.mpi_skip
+def test_perturbative_mhd_hybrids_inherit_perturbative_mhd():
+    from struphy.models import (
+        PerturbativeMHDWithQ,
+        PerturbativeMHDWithQDriftkineticCC,
+        PerturbativeMHDWithQVlasovCC,
+        PerturbativeMHDWithQVlasovPC,
+    )
+    from struphy.propagators.shear_alfven_current_coupling_5d import ShearAlfvenCurrentCoupling5D
+
+    parent_names = list(vars(PerturbativeMHDWithQ().propagators))
+    for model_class, en_f in (
+        (PerturbativeMHDWithQVlasovCC, ("en_f",)),
+        (PerturbativeMHDWithQVlasovPC, ("en_f",)),
+        (PerturbativeMHDWithQDriftkineticCC, ("en_fv", "en_fB")),
+    ):
+        model = model_class(mhd_mass_number=2.0, hot_mass_number=3.0)
+        assert isinstance(model, PerturbativeMHDWithQ)
+        assert model.mhd.mass_number == 2.0 and model.energetic_ions.mass_number == 3.0
+        assert model.em_fields.b_field.space == "Hdiv"
+        names = list(vars(model.propagators))
+        # the steps of the parent, in the parent's order, with its Strang group consecutive (the drift-kinetic model
+        # has one shear-Alfven step with the total field instead of shear_alf and nonlin_alf)
+        expected = [
+            n for n in parent_names if not (model_class is PerturbativeMHDWithQDriftkineticCC and n == "nonlin_alf")
+        ]
+        assert [name for name in names if name in parent_names] == expected, model_class.__name__
+        assert names.index("bg_current") + 1 == names.index("bg_q") == names.index("sound") - 1
+        assert {"en_U", "en_internal", "en_B", *en_f, "en_tot", "n_lost_particles"} <= set(model.scalars._dct)
+        assert list(model.scalars._dct)[-2:] == ["en_tot", "n_lost_particles"]
+    assert isinstance(PerturbativeMHDWithQDriftkineticCC().propagators.shear_alf, ShearAlfvenCurrentCoupling5D)
+
+
+@pytest.mark.mpi_skip
+def test_linear_mhd_hybrids_in_old_metadata():
+    from struphy.models import LinearMHDDriftkineticCC, LinearMHDVlasovPC
+    from struphy.models.base import StruphyModel
+
+    # LinearMHDVlasovPC: turn_off (default) and the propagators shearalfven, magnetosonic of old metadata
+    model = LinearMHDVlasovPC()
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo="explicit")
+    dct = model.to_dict()
+    dct["params"]["turn_off"] = [None]
+    dct["propagator_options"]["shearalfven"] = dct["propagator_options"].pop("shear_alf")
+    dct["propagator_options"]["magnetosonic"] = {}
+    restored = StruphyModel.from_dict(dct)
+    assert "turn_off" not in restored.params
+    assert restored.propagators.shear_alf.options.algo == "explicit"
+
+    # switched off propagators can not be restored
+    dct["params"]["turn_off"] = ["Magnetosonic"]
+    with pytest.raises(ValueError, match="turn_off"):
+        StruphyModel.from_dict(dct)
+
+    # LinearMHDDriftkineticCC: shearalfen_cc5d -> shear_alf
+    model = LinearMHDDriftkineticCC()
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(nonlinear=False)
+    dct = model.to_dict()
+    dct["propagator_options"]["shearalfen_cc5d"] = dct["propagator_options"].pop("shear_alf")
+    restored = StruphyModel.from_dict(dct)
+    assert not restored.propagators.shear_alf.options.nonlinear
+
+
+@pytest.mark.mpi_skip
+def test_maxwell_family():
+    from struphy.models import ColdPlasma, ColdPlasmaVlasov, Maxwell
+
+    assert list(Maxwell().propagators.__dict__) == ["maxwell"]
+    model = ColdPlasmaVlasov(charge_number=-2, mass_number=0.25, alpha=3.0, epsilon=0.5, hot_epsilon=0.75)
+    assert isinstance(model, ColdPlasma) and isinstance(model, Maxwell)
+    assert list(vars(model.propagators)) == ["maxwell", "ohm", "jxb", "push_eta", "push_vxb", "coupling_va"]
+    assert list(model.species) == ["em_fields", "electrons", "hot_electrons"]
+    assert set(model.em_fields.variables) == {"e_field", "b_field", "phi"}
+    assert model.bulk_species is model.electrons
+    assert model.electrons.equation_params.alpha == 3.0 and model.electrons.equation_params.epsilon == 0.5
+    assert model.hot_electrons.equation_params.epsilon == 0.75
+    assert list(model.scalars._dct) == ["en_E", "en_B", "en_J", "en_f", "en_tot"]
+    assert list(ColdPlasma().scalars._dct) == ["en_E", "en_B", "en_J", "en_tot"]
+
+
+@pytest.mark.mpi_skip
+def test_cold_plasma_vlasov_in_old_metadata():
+    from struphy.models import ColdPlasmaVlasov
+    from struphy.models.base import StruphyModel
+
+    model = ColdPlasmaVlasov(charge_number=-2, alpha=3.0)
+    model.electrons.current.save_data = False
+    dct = model.to_dict()
+
+    # metadata written before the Maxwell family: thermal_* arguments, species thermal_elec and hot_elec
+    for name in ("charge_number", "mass_number", "alpha", "epsilon"):
+        dct["params"][f"thermal_{name}"] = dct["params"].pop(name)
+    dct["species"]["thermal_elec"] = dct["species"].pop("electrons")
+    dct["species"]["hot_elec"] = dct["species"].pop("hot_electrons")
+    restored = StruphyModel.from_dict(dct)
+    assert restored.params["charge_number"] == -2 and restored.params["alpha"] == 3.0
+    assert restored.electrons.current.save_data is False
+
+
+@pytest.mark.mpi_skip
+def test_sph_family():
+    from struphy.models import ColdEulerSPH, EulerSPH, IncompressibleNavierStokesSPH, ViscousEulerSPH
+
+    assert list(ColdEulerSPH().propagators.__dict__) == ["push_eta", "push_vxb", "push_v"]
+    model = ViscousEulerSPH()
+    assert isinstance(model, EulerSPH) and isinstance(model, ColdEulerSPH)
+    assert list(vars(model.propagators)) == ["push_eta", "push_vxb", "push_v", "push_sph_p", "push_viscous"]
+    assert list(model.species) == ["fluid"]
+    model = IncompressibleNavierStokesSPH()
+    assert not isinstance(model, EulerSPH)
+    assert list(vars(model.propagators)) == [
+        "push_eta",
+        "push_vxb",
+        "push_v",
+        "push_viscous",
+        "pressure_poisson",
+        "chorin_projection",
+    ]
+    assert model.fluid.equation_params.epsilon == 1.0
+    assert model.propagators.chorin_projection.potential is model.lagrange_multiplier.pressure
+
+
+@pytest.mark.mpi_skip
+def test_sph_models_in_old_metadata():
+    from struphy.models import ColdEulerSPH, EulerSPH, ViscousEulerSPH
+    from struphy.models.base import StruphyModel
+
+    # PressureLessSPH was renamed to ColdEulerSPH, its species cold_fluid to fluid
+    model = ColdEulerSPH(epsilon=0.5)
+    model.fluid.var.save_data = False
+    dct = model.to_dict()
+    dct["model"] = "PressureLessSPH"
+    dct["species"]["cold_fluid"] = dct["species"].pop("fluid")
+    restored = StruphyModel.from_dict(dct)
+    assert type(restored) is ColdEulerSPH
+    assert restored.params["epsilon"] == 0.5 and restored.fluid.var.save_data is False
+
+    # ViscousEulerSPH: flags with_B0, with_p and with_viscosity, species euler_fluid
+    model = ViscousEulerSPH()
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=0.5)
+    dct = model.to_dict()
+    dct["params"].update(with_B0=False, with_p=True, with_viscosity=True)
+    dct["species"]["euler_fluid"] = dct["species"].pop("fluid")
+    restored = StruphyModel.from_dict(dct)
+    assert not {"with_B0", "with_p", "with_viscosity"} & set(restored.params)
+    assert restored.propagators.push_viscous.options.mu == 0.5
+    assert isinstance(EulerSPH(), ColdEulerSPH)
+
+    # terms that were switched off can not be restored
+    for flag in ("with_p", "with_viscosity"):
+        dct["params"][flag] = False
+        with pytest.raises(ValueError, match=flag):
+            StruphyModel.from_dict(dct)
+        dct["params"][flag] = True
+
+
+@pytest.mark.mpi_skip
+def test_strang_groups_calls():
+    """A group of propagators is integrated symmetrically (last member in the middle) as one block of the splitting."""
+    from struphy.models import LinearEuler, LinearMHD
+    from struphy.models.base import time_steps_of_blocks
+
+    blocks = [("a",), ("b", "c", "d"), ("e",)]
+    lie = [(name, h) for name, h, _ in time_steps_of_blocks(blocks, 1.0, "LieTrotter")]
+    assert lie == [("a", 1.0), ("b", 0.5), ("c", 0.5), ("d", 1.0), ("c", 0.5), ("b", 0.5), ("e", 1.0)]
+    strang = [(name, h) for name, h, _ in time_steps_of_blocks(blocks, 1.0, "Strang")]
+    assert strang == [
+        ("a", 0.5),
+        ("b", 0.25),
+        ("c", 0.25),
+        ("d", 0.5),
+        ("c", 0.25),
+        ("b", 0.25),
+        ("e", 1.0),
+        ("b", 0.25),
+        ("c", 0.25),
+        ("d", 0.5),
+        ("c", 0.25),
+        ("b", 0.25),
+        ("a", 0.5),
+    ]
+    # the time steps of each block sum to the time step
+    for algo in ("LieTrotter", "Strang"):
+        calls = time_steps_of_blocks(blocks, 1.0, algo)
+        assert sum(h for name, h, _ in calls if name == "d") == 1.0
+
+    assert LinearMHD().propagator_calls(1.0) == [
+        ("shear_alf", 1.0),
+        ("bg_current", 0.5),
+        ("bg_pressure", 0.5),
+        ("sound", 1.0),
+        ("bg_pressure", 0.5),
+        ("bg_current", 0.5),
+    ]
+    # LinearEuler is a single symmetric block: second order with either splitting algorithm
+    model = LinearEuler()
+    assert model.propagator_calls(1.0, "LieTrotter") == model.propagator_calls(1.0, "Strang")
+
+
+@pytest.mark.mpi_skip
+def test_invalid_strang_groups():
+    from struphy.models.base import apply_splitting_order
+    from struphy.propagators.push_eta import PushEta
+    from struphy.propagators.push_vxb import PushVxB
+
+    class NotConsecutive:
+        strang_groups = (("push_a", "push_c"),)
+
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+            self.push_c = PushEta()
+
+    class UnknownName:
+        strang_groups = (("push_a", "push_x"),)
+
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+
+    class SingleMember:
+        strang_groups = (("push_a",),)
+
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+
+    class InInit:
+        def __init__(self):
+            self.push_a = PushEta()
+            self.push_b = PushVxB()
+            self.strang_groups = (("push_a", "push_b"),)
+
+    for cls in (NotConsecutive, UnknownName, SingleMember, InInit):
+        with pytest.raises(ValueError, match="strang_groups"):
+            apply_splitting_order(cls())
+
+
+@pytest.mark.mpi_skip
+def test_unknown_split_algo():
+    from struphy.models import LinearEuler
+
+    # LinearEuler is a single block, an unknown splitting algorithm must still raise
+    with pytest.raises(NotImplementedError):
+        LinearEuler().propagator_calls(1.0, "strang")

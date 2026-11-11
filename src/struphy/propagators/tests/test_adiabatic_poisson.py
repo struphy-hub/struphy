@@ -190,6 +190,71 @@ def test_gyrokinetic_poisson_average(which_geometry, cls):
     assert err < 1e-3
 
 
+@pytest.mark.parametrize(
+    "cls, precond",
+    [(GyrokineticPoissonSolve, None), (GyrokineticPoissonSolve, "MultiGrid"), (AdiabaticPoissonSolve, None)],
+)
+def test_gyrokinetic_poisson_singular(cls, precond):
+    """With the average over eta3 and periodic boundary conditions in all directions, the whole system
+    (1/(Z eps^2)) n0/T0 (phi - <phi>) - div_perp(n0/|B0|^2 grad_perp phi) = rho / eps is singular (the constants
+    are in its kernel). A uniform net charge in rho is removed and the mean of phi is fixed to zero, so the
+    solution is that of the neutral rho; without the fix, phi was amplified roundoff (issue #856). The solution
+    has a zonal part (independent of eta3) and a non-zonal part (with the adiabatic response)."""
+    domain, phi = _setup([16, 16, 8], [3, 3, 2])
+    epsilon, Z = 0.5, 1
+    kx, ky, kz = 2 * xp.pi / Lx, 2 * xp.pi / Ly, 2 * xp.pi / Lz
+    n0_over_B2 = N0
+    net_charge = 0.3
+
+    def zonal(x, y, z):
+        return xp.sin(kx * x) * xp.cos(ky * y)
+
+    def nonzonal(x, y, z):
+        return 0.5 * xp.cos(kx * x) * xp.sin(kz * z)
+
+    def sol_xyz(x, y, z):
+        return zonal(x, y, z) + nonzonal(x, y, z)
+
+    def rho_xyz(x, y, z):
+        polarization = n0_over_B2 * ((kx**2 + ky**2) * zonal(x, y, z) + kx**2 * nonzonal(x, y, z))
+        adiabatic = N0_OVER_T0 / (Z * epsilon**2) * nonzonal(x, y, z)
+        return epsilon * (adiabatic + polarization) + net_charge
+
+    solver = cls(rho=_pulled(domain, rho_xyz), epsilon=epsilon, Z=Z)
+    solver.variables.phi = phi
+    if cls is AdiabaticPoissonSolve:
+        solver.options = solver.Options(polarization=True, which_geometry="cylindrical", solver_params=SOLVER_PARAMS)
+    else:
+        solver.options = solver.Options(which_geometry="cylindrical", precond=precond, solver_params=SOLVER_PARAMS)
+    solver.allocate()
+    assert solver.lhs_is_singular
+    solver(1.0)
+    if precond == "MultiGrid":
+        # the kernel is passed to the multigrid preconditioner, which then needs few iterations
+        assert solver._solver._info["niter"] < 30, solver._solver._info
+
+    e1 = xp.linspace(0.0, 1.0, 21)
+    e3 = xp.linspace(0.0, 1.0, 21)
+    num = domain.push(phi.spline, e1, 0.3, e3, kind="0")
+    x, y, z = domain(e1, 0.3, e3)
+    exact = sol_xyz(x, y, z)
+    err = xp.max(xp.abs(num - exact)) / xp.max(xp.abs(exact))
+    logger.info(f"{cls.__name__}, {precond = }: {err =}")
+    assert err < 1e-2
+
+    # zero mean, and the quadratic form is phi^T lhs phi = phi^T rhs at the solution
+    vec = phi.spline.vector
+    mean = Propagator.mass_ops.M0.dot(solver._ones).inner(vec)
+    assert abs(mean) < 1e-10
+    assert xp.isclose(solver.quadratic_form(vec), vec.inner(solver._rhs), rtol=1e-8)
+
+    # without the average the system is regular: the net charge is not removed
+    if cls is GyrokineticPoissonSolve:
+        solver.options = solver.Options(which_geometry=None, solver_params=SOLVER_PARAMS)
+        solver.allocate()
+        assert not solver.lhs_is_singular and solver._ones is None
+
+
 def test_invalid_options():
     # no diffusion term: the stiffness-based preconditioners are not available
     with pytest.raises(AssertionError):

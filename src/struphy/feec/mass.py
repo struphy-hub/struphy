@@ -337,6 +337,36 @@ class WeightedMassOperators:
         return self._M3p_inv
 
     @property
+    def M3q0(self):
+        r"""
+        Mass matrix for 3-forms weighted with the square root of the equilibrium pressure,
+        :math:`q_0 = \sqrt{p_0}`:
+
+        .. math::
+
+            \mathbb M^3_{q_0, ijk,mno} =
+            \int \Lambda^3_{ijk}\,\Lambda^3_{mno}
+            \frac{q_0}{\sqrt{g}}\,\mathrm d\boldsymbol\eta.
+
+        This operator couples the perturbation of :math:`q` to the velocity in the linear models with the variable
+        :math:`q` (pressure perturbation :math:`\tilde p = 2 q_0 \tilde q`).
+        """
+        if not hasattr(self, "_M3q0"):
+            assert self.eq_mhd is not None, "M3q0 requires an MHD equilibrium."
+
+            def q0(e1, e2, e3):
+                return self.eq_mhd.q0(e1, e2, e3)
+
+            self._M3q0 = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=(q0, "1/sqrt_g"),
+                name="M3q0",
+                assemble=True,
+            )
+        return self._M3q0
+
+    @property
     def Mv(self):
         r"""
         Standard mass matrix for vector 0-forms (H1vec space) as 3x3 block matrix indexed by :math:`(\mu, \nu)`:
@@ -2254,6 +2284,12 @@ class WeightedMassOperator(LinearOperator):
         """The boundary operators ``(B_V, B_W)`` applied on the domain and codomain side."""
         return self._V_boundary_op, self._W_boundary_op
 
+    @property
+    def transposed(self) -> bool:
+        """Whether the operator is the transpose of the mass matrix of ``(V, W)``, i.e. maps W to V (the boundary and
+        extraction operators of V act on the codomain side)."""
+        return self._transposed
+
     def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
@@ -2638,6 +2674,17 @@ class WeightedMassOperator(LinearOperator):
         self._creation_info = None
         return self
 
+    def _check_matrix_space(self, M: LinearOperator):
+        """Raise if the operator ``M`` (not a WeightedMassOperator) cannot be added to the (block) stencil matrix, i.e.
+        if it does not act on the tensor-product spaces of the matrix (e.g. on polar splines, where the extraction
+        operators map to other spaces)."""
+        if M.domain != self._mat.domain or M.codomain != self._mat.codomain:
+            raise NotImplementedError(
+                f"Cannot add a {type(M).__name__} to the matrix of the weighted mass operator {self.name}: it does not "
+                "act on the tensor-product spline spaces of the matrix (polar splines?). Use a lazy sum instead, e.g. "
+                "struphy.linear_algebra.schur_solver.SchurOperator."
+            )
+
     def __iadd__(self, M):
         assert M.domain is self.domain
         assert M.codomain is self.codomain
@@ -2649,6 +2696,7 @@ class WeightedMassOperator(LinearOperator):
             return self
 
         elif isinstance(M, LinearOperator):
+            self._check_matrix_space(M)
             self._creation_info = None
             self._mat += M
             self._matrix_changed(by_arithmetic=True)
@@ -2668,6 +2716,7 @@ class WeightedMassOperator(LinearOperator):
             return self
 
         elif isinstance(M, LinearOperator):
+            self._check_matrix_space(M)
             self._creation_info = None
             self._mat -= M
             self._matrix_changed(by_arithmetic=True)

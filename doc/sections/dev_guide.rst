@@ -83,6 +83,11 @@ Inheritance in practice (see e.g. :class:`~struphy.models.Vlasov` →
   A model overrides it only to describe its time stepping in the docstring and returns ``cls.propagators_doc()``.
 * A propagator whose term vanishes for the given input (e.g. :class:`~struphy.propagators.push_vxb.PushVxB` without
   magnetic field) does nothing, instead of being switched off by a flag.
+* Consecutive propagators that must be integrated symmetrically (second order in time, e.g. steps that are exact in
+  time each but do not commute) are listed in the class attribute ``strang_groups`` of ``Propagators`` (a tuple of
+  tuples of names). Each group is one block of the splitting, integrated with Strang splitting over its members, the
+  last member in the middle (see :func:`~struphy.models.base.splitting_blocks`). Child models inherit it and override
+  it when they change a group.
 
 
 .. _model_anatomy:

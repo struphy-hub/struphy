@@ -171,14 +171,15 @@ class VariationalMHD(StruphyModel):
 
         self._tmp_div_B = Propagator.derham.V3pol.zeros()
 
+        if self.params["divdiv_alpha"] > 0.0:
+            self._divUv = Propagator.derham.div @ Propagator.basis_ops.Uv
+            self._tmp_divu = self._divUv.codomain.zeros()
+
     def _compute_divdiv_energy(self):
         """alpha int rho (div u)^2 dx, the div-div part of the kinetic energy (see kinetic_metric).
 
         :meta private:
         """
-        if not hasattr(self, "_divUv"):
-            self._divUv = Propagator.derham.div @ Propagator.basis_ops.Uv
-            self._tmp_divu = self._divUv.codomain.zeros()
         d = self._divUv.dot(self.mhd.velocity.spline.vector, out=self._tmp_divu)
         return self.params["divdiv_alpha"] * Propagator.mass_ops.WMM3new.dot_inner(d, d)
 

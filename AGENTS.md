@@ -66,11 +66,21 @@ They list the required structure, documentation, registration and tests; CI chec
 
 ## Tests
 
-- CI does **not** auto-discover test folders. When adding a `src/struphy/<pkg>/tests/` folder, add its path
-  (relative to `src/struphy/`) in all three places:
-  1. `.github/workflows/reusable-unit-testing.yml` (shard `test_files`)
-  2. `.github/workflows/reusable-scheduled.yml` (same shard, `TEST_FILES`)
-  3. `src/struphy/console/test.py` (`list_of_tests`)
+- Test files go into `tests/` folders. CI does **not** auto-discover test folders: when adding a
+  `src/struphy/<pkg>/tests/` folder or a `src/struphy/models/tests/test_*.py` file, add its path (relative to
+  `src/struphy/`) to a shard in `src/struphy/console/unit_test_shards.py`. The CI workflows and `struphy test unit`
+  read that list, and `console/tests/test_unit_test_shards.py` fails if a test file is not covered.
+- Markers must be registered in `pyproject.toml` (`--strict-markers`).
+- The weekly workflow `coverage.yml` reports the line coverage of the Python code by the unit tests (job summary and
+  HTML artifact; kernels are compiled and not measured). Run it on a branch with `gh workflow run coverage.yml --ref <branch>`.
+- Tests that write output (`Simulation`, `EnvironmentOptions(out_folders=...)`) use the `mpi_out_folder` fixture
+  (`src/struphy/conftest.py`): a folder per test in `$STRUPHY_TEST_TMPDIR` (default: system temp dir), the same on all
+  MPI ranks, removed unless the test failed on some rank (then kept, with its path in a warning). Don't write into the current
+  working directory and don't remove output folders in the test itself. Don't combine it with pytest's `tmp_path`
+  for files that other ranks read (each rank has its own `tmp_path`).
+- NumPy's global random generator is seeded before every test (per rank); use a seed for any other generator.
+- Failed scheduled runs and failed runs on `devel` open (or comment on) an issue labelled `ci-failure`.
+  Close it once the workflow is green again.
 - Mark tests that don't touch parallel code (pure numpy, CLI, I/O helpers, metadata) with
   `@pytest.mark.mpi_skip`. Parallel code means Derham/splines, Particles/PIC, mass operators, projectors and simulations.
 - Run MPI tests like CI does: spline/FEEC tests on **2** ranks, particle/PIC tests on **4** ranks.
@@ -79,6 +89,13 @@ They list the required structure, documentation, registration and tests; CI chec
   mpirun -n 2 python -m pytest -p no:xdist --with-mpi src/struphy/feec/tests/...
   ```
   `-p no:xdist` is required: with pytest-xdist loaded, `mpi`-marked tests are skipped.
+- The model tests in `src/struphy/models/tests/regression/` compare every model against stored baselines (1 and 2
+  ranks). A change that intentionally changes results must update the baselines in the same PR, see
+  `src/struphy/models/AGENTS.md`.
+- The verification tests in `src/struphy/models/tests/verification/` run on PRs only if marked `verif_pr` (a small
+  core set) or if their file is changed by the PR; all of them run in the scheduled CI (Sun/Wed on `devel`).
+  Before merging a PR that changes a model or shared numerics, run the affected verification tests locally, or run all
+  of them on the branch with `gh workflow run test-PR-models.yml --ref <branch>` (a manual run selects everything).
 - Keep local runs small (e.g. ≤ 32³ cells). Never use the full-size profiling cases as tests.
 
 ## Performance pitfalls

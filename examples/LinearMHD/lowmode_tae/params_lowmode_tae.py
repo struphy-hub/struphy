@@ -20,9 +20,8 @@ Hcurl, the magnetic field is in H(curl) and the shear Alfven step solves a curl-
 preconditioned by Hiptmair-Xu (not energy conserving: the wave is damped numerically); --b-space
 Hcurl --projected has the exactly energy conserving shear Alfven step. On 2 MPI ranks, the 1200 time steps
 take about 20 min with --b-space Hdiv and with --b-space Hcurl (1 s per step each) and about 2 h with
---b-space Hcurl --projected (5.6 s per step). With --split-sound (any --b-space), the magnetosonic step is split into
-the energy conserving sound wave step and the exact steps of the background current and pressure gradient (about the
-same cost per step as the single magnetosonic step).
+--b-space Hcurl --projected (5.6 s per step). The compressional part of the time step consists of the energy
+conserving sound wave step and the exact steps of the background current and pressure gradient.
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -42,7 +41,8 @@ with the velocity unit v_unit (the Alfven velocity of the base units, set by the
 Setup. Tokamak with circular flux surfaces (AdhocTorus): major radius R0 = 5, minor radius a = 1, toroidal field
 B0 = 1, safety factor q(r) = 1.25 + r^2/a^2 (q = 1.5 at r = 0.5), flat number density n = 1 (as in the ITPA
 benchmark of Koenies et al. 2018) and on-axis beta 0.0018. The full torus is computed
-(HollowTorus with tor_period = 1 and a hole of radius 0.1): the logical mode number -1 along eta3 is the physical
+(HollowTorus with tor_period = 1 and a hole of radius a1, default 0.01, flag --a1):
+the logical mode number -1 along eta3 is the physical
 n = 1. The velocity is initialized with divergence-free m = 1 and m = 2 harmonics, localized around r = 0.5 (given as
 2-form components).
 
@@ -68,6 +68,7 @@ from pathlib import Path
 
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid.
+# `--a1` the radius of the hole around the magnetic axis (default 0.01).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
@@ -93,12 +94,6 @@ parser.add_argument(
     "step (model flag projected).",
 )
 parser.add_argument(
-    "--split-sound",
-    action="store_true",
-    help="Split the magnetosonic step into the energy conserving sound wave step and the steps of the background "
-    "current and of the background pressure gradient (model flag split_sound).",
-)
-parser.add_argument(
     "--precond",
     default=None,
     choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
@@ -120,6 +115,9 @@ parser.add_argument(
     default=0.5,
     help="Time step (default 0.5); the data is saved every 2 time units, or every step for dt > 2.",
 )
+parser.add_argument(
+    "--a1", type=float, default=0.01, help="Radius of the hole around the magnetic axis (default 0.01, in units of a)."
+)
 args, _ = parser.parse_known_args()
 if args.projected and args.b_space != "Hcurl":
     parser.error("--projected requires --b-space Hcurl.")
@@ -134,8 +132,6 @@ if args.precond == "HiptmairXu" and args.b_space != "Hcurl":
     parser.error("--precond HiptmairXu requires --b-space Hcurl.")
 if args.b_space == "Hcurl":
     name = f"Low-mode TAE (LinearMHD, b_space=Hcurl{', projected' if args.projected else ''})"
-if args.split_sound:
-    name = name[:-1] + ", split_sound)"
 if args.test_run:
     args.num_elements = [8, 8, 4]
 
@@ -172,7 +168,7 @@ from struphy.models import LinearMHD
 base_units = BaseUnits()
 
 # Model instance
-model = LinearMHD(base_units=base_units, b_space=args.b_space, projected=args.projected, split_sound=args.split_sound)
+model = LinearMHD(base_units=base_units, b_space=args.b_space, projected=args.projected)
 
 # List all variables and decide whether to save their data
 model.em_fields.b_field.save_data = True
@@ -195,7 +191,7 @@ dt = args.dt
 time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else 600.0)
 
 # Geometry
-domain = domains.HollowTorus(a1=0.1, a2=1.0, R0=5.0, sfl=False, pol_period=1, tor_period=1)
+domain = domains.HollowTorus(a1=args.a1, a2=1.0, R0=5.0, sfl=False, pol_period=1, tor_period=1)
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(
@@ -208,7 +204,7 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 # Boundary conditions at the walls (flux surfaces, B0.n = 0): with --b-space Hdiv, b.n = 0 and u.n = 0 are imposed
 # strongly (Dirichlet). With --b-space Hcurl, free boundary conditions are used: Dirichlet would force the tangential
 # magnetic field to zero (unphysical, it damps the TAE). With free boundary conditions, u.n = 0 holds weakly in the
-# shear Alfven step and p = 0 weakly in the magnetosonic step.
+# shear Alfven step and p = 0 weakly in the sound wave step.
 bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "free")
 derham_opts = DerhamOptions(degree=(3, 3, 3), bcs=(bcs_eta1, None, None))
 
@@ -235,12 +231,9 @@ sim = Simulation(
 # ------------------
 
 model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond=args.precond)
-if args.split_sound:
-    model.propagators.bg_current.options = model.propagators.bg_current.Options()
-    model.propagators.sound.options = model.propagators.sound.Options()
-    model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
-else:
-    model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options()
+model.propagators.bg_current.options = model.propagators.bg_current.Options()
+model.propagators.sound.options = model.propagators.sound.Options()
+model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 
 # ------------------
 # Initial conditions
@@ -256,7 +249,7 @@ else:
 # radius r_c = 0.5 of the gap), as 2-form components: divergence free for the poloidal amplitude amp / (2 pi m)
 # ("d_exp" is the derivative of "exp")
 eta1_c = (0.5 - domain.params["a1"]) / (domain.params["a2"] - domain.params["a1"])
-sigma, amp = 0.15, 1e-3
+sigma, amp = 0.1, 1e-3
 ms = (1, 2)
 perturbation_radial = perturbations.TorusModesSin(
     ms=ms,

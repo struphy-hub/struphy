@@ -47,12 +47,18 @@ def test_stiffness_preconditioner_options():
     assert ShearAlfvenSchurPreconditioner.resolve("MultiGrid", polar, **ok) == "MultiGrid"
 
 
-@pytest.mark.mpi_skip
 def test_stiffness_preconditioner_polar_fallback(tmp_path):
-    """With polar splines, the default preconditioner falls back to the polar mass matrix preconditioner."""
+    """With polar splines, the default preconditioner falls back to the polar mass matrix preconditioner, and the
+    implicit step works and conserves the energy (issue #810)."""
     from struphy import domains
 
     model = ShearAlfven()
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(
+        solver_params=SolverParameters(tol=1e-12, maxiter=1000)
+    )
+    model.mhd.velocity.add_perturbation(
+        perturbations.ModesCos(ls=(1,), ms=(1,), given_in_basis="2", comp=2, amps=(1e-2,))
+    )
     sim = Simulation(
         model=model,
         env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="polar"),
@@ -65,6 +71,23 @@ def test_stiffness_preconditioner_polar_fallback(tmp_path):
     shear_alf = model.propagators.shear_alf
     assert shear_alf.options.precond == "StiffnessPreconditioner"
     assert shear_alf._precond == "PolarMassMatrixPreconditioner"
+
+    # implicit step: 1/2 u^T M2n u + 1/2 b^T M2 b is conserved
+    u = shear_alf.variables.u.spline.vector
+    b = shear_alf.variables.b.spline.vector
+
+    def energy():
+        return 0.5 * u.inner(shear_alf._schur_solver.A.dot(u)) + 0.5 * b.inner(shear_alf.mass_ops.M2.dot(b))
+
+    energy_0 = energy()
+    b_0 = b.copy()
+    assert energy_0 > 0.0
+    shear_alf(0.1)
+    u = shear_alf.variables.u.spline.vector
+    b = shear_alf.variables.b.spline.vector
+    db = b - b_0
+    assert db.inner(db) > 0.0
+    assert abs(energy() - energy_0) < 1e-8 * energy_0
 
 
 def shear_alfven_step(tmp_path, precond, dts, exb_correction=True, bcs=(None, None, None), monkeypatch=None):

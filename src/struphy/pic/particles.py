@@ -1,4 +1,5 @@
 import copy
+import inspect
 import logging
 
 import cunumpy as xp
@@ -21,6 +22,16 @@ from struphy.pic.diagnostics.kernels.eval_magnetic_energy_PBb import eval_magnet
 from struphy.pic.diagnostics.kernels.eval_magnetic_moment_5d import eval_magnetic_moment_5d
 
 logger = logging.getLogger("struphy")
+
+
+def _canonical_shift_kernel_args(background, equil):
+    """Arguments ``(shift_mode, psi_axis, psi_edge, bmax_table)`` of the kernels that evaluate the shifted canonical
+    toroidal momentum: the ``shift`` of the background if it is a
+    :class:`~struphy.kinetic_background.maxwellians.CanonicalMaxwellian2D`, else its default ``shift``."""
+    if isinstance(background, maxwellians.CanonicalMaxwellian2D):
+        return background.shift_kernel_args()
+    default_shift = inspect.signature(maxwellians.CanonicalMaxwellian2D).parameters["shift"].default
+    return maxwellians.CanonicalMaxwellian2D.shift_kernel_args_for(equil, default_shift)
 
 
 class Particles6D(Particles):
@@ -201,6 +212,7 @@ class Particles6D(Particles):
             B0,
             R0,
             self._absB0_h._data,
+            *_canonical_shift_kernel_args(self.background, self.equil),
         )
 
         # send back and clear buffer
@@ -474,11 +486,24 @@ class Particles5D(Particles):
         self._tmp0 = self.derham.V0.zeros()
         self._tmp2 = self.derham.V2.zeros()
 
+        # backgrounds with B0="equil" take |B_0| from the equilibrium of this species
+        self.background.attach_equil(self.B0_equil)
+        self.initial_condition.attach_equil(self.B0_equil)
+
     @property
     def magn_bckgr(self):
         """Equilibrium fluid background carrying the magnetic field :math:`\\mathbf B_0` with respect to
         which :math:`v_\\parallel, \\mu` are defined."""
         return self.equil
+
+    @property
+    def B0_equil(self):
+        """Equilibrium whose :math:`|\\mathbf B_0|` is used for ``B0="equil"`` in :attr:`loading_params`, the
+        background and the initial condition (:attr:`equil`, or the one of :attr:`projected_equil`; None if
+        there is neither, then evaluating ``B0="equil"`` raises a clear error)."""
+        if self.equil is not None:
+            return self.equil
+        return None if self.projected_equil is None else self.projected_equil.equil
 
     @property
     def absB0_h(self):
@@ -509,9 +534,9 @@ class Particles5D(Particles):
 
         This is a :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D` in
         :math:`(v_\\parallel, \\mu)`, parametrized by the mean/thermal parallel velocity
-        and by the equilibrium magnetic field in :attr:`loading_params`. It is normalized to
-        1 in logical space (i.e. uniform in ``eta1, eta2, eta3``) and already includes the polar-coordinate
-        Jacobian factor :math:`|\\mathbf B_0|` (``volume_form=True``), further multiplied by ``2 * eta1`` if
+        and by the magnetic field strength ``B0`` in :attr:`loading_params` (see :meth:`loading_B0`).
+        It is normalized to 1 in logical space (i.e. uniform in ``eta1, eta2, eta3``) and already includes the
+        polar-coordinate Jacobian factor :math:`B_0` (``volume_form=True``), further multiplied by ``2 * eta1`` if
         :attr:`spatial` is ``"disc"``.
         """
         if not hasattr(self, "_sampling_density"):
@@ -522,11 +547,29 @@ class Particles5D(Particles):
                 vth_para=(self.loading_params.moments[2], None),
                 vth_perp=(self.loading_params.moments[3], None),
                 volume_form=True,
-                # equil=self.magn_bckgr,
                 B0=self.loading_params.B0,
                 uniform_on_disc=(self.spatial == "disc"),
             )
+            self._sampling_density.attach_equil(self.B0_equil)
         return self._sampling_density
+
+    def loading_B0(self, etas):
+        """Magnetic field strength :math:`B_0` with which the magnetic moments :math:`\\mu = v_\\perp^2/(2B_0)`
+        are drawn, from ``B0`` in :attr:`loading_params`: by default (``"equil"``) the local
+        :math:`|\\mathbf B_0|` of the equilibrium at the marker positions. It is the :math:`B_0` of
+        :attr:`sampling_density`, so that the drawn markers are distributed as :meth:`s0`.
+
+        Parameters
+        ----------
+        etas : array_like
+            Stacked logical positions of shape ``(3, N)``.
+
+        Returns
+        -------
+        out : array-like
+            :math:`B_0` at the positions, shape ``(N,)``.
+        """
+        return self.sampling_density.eval_B0(etas)
 
     def s3(self, eta1, eta2, eta3, v_para, mu):
         """
@@ -632,6 +675,7 @@ class Particles5D(Particles):
             B0,
             R0,
             self.absB0_h._data,
+            *_canonical_shift_kernel_args(self.background, self.equil),
         )
 
     def save_magnetic_energy(self, PBb):
@@ -657,6 +701,7 @@ class Particles5D(Particles):
             self.mu_idx,
             self.absB0_h._data,
             PBbt._data,
+            n_threads=self.markers.shape[1],  # CUDA: one thread per marker (column)
         )
 
     def save_magnetic_background_energy(self):
@@ -917,6 +962,7 @@ class Particles5Dvperp(Particles):
             B0,
             R0,
             self.absB0_h._data,
+            *_canonical_shift_kernel_args(self.background, self.equil),
         )
 
     def save_magnetic_energy(self, PBb):
@@ -942,6 +988,7 @@ class Particles5Dvperp(Particles):
             self.mu_idx,
             self.absB0_h._data,
             PBbt._data,
+            n_threads=self.markers.shape[1],  # CUDA: one thread per marker (column)
         )
 
     def save_magnetic_background_energy(self):

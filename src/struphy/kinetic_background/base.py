@@ -20,6 +20,62 @@ from struphy.utils.utils import __class_with_params_repr_no_defaults__
 logger = logging.getLogger("struphy")
 
 
+def check_B0_option(B0):
+    """Check the magnetic field strength option ``B0`` of the magnetic moment
+    :math:`\\mu = v_\\perp^2/(2B_0)`: a positive real number (also a NumPy/CuPy scalar), a callable or
+    ``"equil"``."""
+    msg = f'B0 must be a positive number, a callable or "equil", got {B0 = }.'
+    if isinstance(B0, str):
+        assert B0 == "equil", msg
+    elif not callable(B0):
+        try:
+            value = float(B0)
+        except (TypeError, ValueError):
+            value = None
+        assert value is not None and value > 0, msg
+
+
+def eval_B0_option(B0, etas, equil: FluidEquilibriumWithB = None, owner: str = ""):
+    """Evaluate the magnetic field strength option ``B0`` (see :func:`check_B0_option`) at flat positions.
+
+    Parameters
+    ----------
+    B0 : float | Callable | "equil"
+        A constant, a callable of ``etas`` returning shape ``(N,)`` (or a scalar), or ``"equil"`` for
+        :meth:`~struphy.fields_background.base.FluidEquilibriumWithB.absB0` of ``equil``.
+
+    etas : array_like
+        Stacked logical positions of shape ``(3, N)``.
+
+    equil : FluidEquilibriumWithB
+        Equilibrium for ``B0="equil"``.
+
+    owner : str
+        Name of the object holding the option, for the error message.
+
+    Returns
+    -------
+    out : array-like
+        :math:`B_0` at the positions, shape ``(N,)``.
+    """
+    if isinstance(B0, str):
+        if equil is None:
+            raise ValueError(
+                f'{owner} has B0="equil" but no equilibrium is attached (attach_equil); '
+                "pass a number or a callable for B0 when there is no Particles5D species."
+            )
+        out = equil.absB0(etas)
+    elif callable(B0):
+        out = B0(etas)
+    else:
+        out = float(B0)
+    out = out + 0.0 * etas[0]
+    assert xp.shape(out) == xp.shape(etas[0]), (
+        f"B0 must return the shape {xp.shape(etas[0])} of the positions, got {xp.shape(out)}."
+    )
+    return out
+
+
 class KineticBackground(metaclass=ABCMeta):
     r"""Base class for kinetic background distributions.
 
@@ -53,6 +109,12 @@ class KineticBackground(metaclass=ABCMeta):
     @abstractmethod
     def volume_form(self) -> bool:
         """True if the background is represented as a volume form (thus including the velocity Jacobian)."""
+        pass
+
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium from which the background takes the field strength :math:`|\\mathbf B_0|`,
+        e.g. for ``B0="equil"`` of :class:`~struphy.kinetic_background.maxwellians.GyroMaxwellian2D`.
+        Does nothing by default."""
         pass
 
     @abstractmethod
@@ -618,6 +680,11 @@ class SumKineticBackground(KineticBackground):
         """Jacobian determinant of the velocity coordinate transformation."""
         return self._f1.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium to both summands, see :meth:`KineticBackground.attach_equil`."""
+        self._f1.attach_equil(equil)
+        self._f2.attach_equil(equil)
+
     def n(self, *coords):
         return self._f1.n(*coords) + self._f2.n(*coords)
 
@@ -662,6 +729,10 @@ class ScalarMultiplyKineticBackground(KineticBackground):
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation."""
         return self._f.velocity_jacobian_det(eta1, eta2, eta3, *v)
+
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium to the multiplied background, see :meth:`KineticBackground.attach_equil`."""
+        self._f.attach_equil(equil)
 
     def n(self, *coords):
         return self._a * self._f.n(*coords)
@@ -911,13 +982,7 @@ class Maxwellian(KineticBackground):
             # local field strength, needed by the "mu" velocity-Gaussian type
             B0 = 2.0
             if self.gauss_types[i] == "mu":
-                B0_param = self.params.get("B0", 2.0)
-                if callable(B0_param):
-                    # callable expects flat (3, N) positions (one column per point); reshape back for meshgrid input
-                    etas = xp.stack([xp.ravel(a) for a in args[:3]], axis=0)
-                    B0 = xp.reshape(B0_param(etas), shape0)
-                else:
-                    B0 = B0_param
+                B0 = self.eval_B0_on_args(args[:3])
 
             res *= self.gaussian(v, u=u, vth=vth, B0=B0, type=self.gauss_types[i], volume_form=self.volume_form)
 

@@ -2,8 +2,9 @@
 
 import copy
 import logging
+import warnings
 from inspect import signature
-from typing import Callable
+from typing import Callable, Literal
 
 import cunumpy as xp
 
@@ -11,7 +12,7 @@ from struphy.fields_background.base import AxisymmMHDequilibrium, FluidEquilibri
 from struphy.geometry.base import Domain
 from struphy.initial.base import Perturbation
 from struphy.io.options import LiteralOptions
-from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.base import Maxwellian, check_B0_option, eval_B0_option
 
 logger = logging.getLogger("struphy")
 
@@ -140,16 +141,17 @@ class GyroMaxwellian2D(Maxwellian):
         Moments of the Maxwellian as tuples. The first entry defines the background
         (float for constant background or callable), the second entry defines a Perturbation (can be None).
 
-    equil : FluidEquilibriumWithB
-        Fluid background.
-
     volume_form : bool
         Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
 
-    B0: float | Callable
-        Constant or callable background magnetic field strength (default = 2.0).
+    B0: float | Callable | "equil"
+        Background magnetic field strength :math:`B_0` in :math:`\mu = v_\perp^2/(2B_0)`, see :meth:`eval_B0`:
+        a constant, a callable of the stacked logical positions ``etas`` of shape ``(3, N)`` returning shape ``(N,)``,
+        or ``"equil"`` (default) for the local field strength :math:`|\mathbf B_0|(\boldsymbol \eta)` of the
+        equilibrium attached with :meth:`attach_equil` (done automatically for the background and initial
+        condition of a :class:`~struphy.pic.particles.Particles5D` species).
 
     uniform_on_disc : bool
         Whether the density n is uniform on the disc.
@@ -163,13 +165,20 @@ class GyroMaxwellian2D(Maxwellian):
         vth_para: tuple[float | Callable, Perturbation] = (1.0, None),
         vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
         volume_form: bool = True,
-        B0: float | Callable = 2.0,
+        B0: float | Callable | Literal["equil"] = "equil",
         uniform_on_disc: bool = False,
     ):
         # use setter to store input parameters
         self.params = copy.deepcopy(locals())
 
         self.check_maxw_params()
+
+        check_B0_option(B0)
+        # equilibrium providing |B_0| for B0="equil" (see attach_equil)
+        self._B0_equil = None
+        # last (B0 option, equilibrium, positions, values) of eval_B0: f0 and its velocity Jacobian are evaluated
+        # at the same markers
+        self._B0_cache = None
 
         # volume form represenation
         self._volume_form = volume_form
@@ -213,13 +222,78 @@ class GyroMaxwellian2D(Maxwellian):
         assert eta1.ndim == eta2.ndim == eta3.ndim == 1
         assert v_para.ndim == mu.ndim == 1
 
+        return self.eval_B0(xp.stack((eta1, eta2, eta3), axis=0))
+
+    def attach_equil(self, equil: FluidEquilibriumWithB):
+        """Attach the equilibrium whose field strength :math:`|\\mathbf B_0|` is used for ``B0="equil"``
+        (replacing an equilibrium attached before). Does nothing for a constant or callable ``B0``.
+
+        The background object itself is changed: if it is shared by particles with different equilibria (e.g.
+        two simulations set up in one script before running), the last equilibrium attached is used by all of
+        them, and a warning is logged."""
+        if isinstance(self.params["B0"], str):
+            if equil is None:
+                return
+            assert isinstance(equil, FluidEquilibriumWithB), (
+                f'GyroMaxwellian2D with B0="equil" needs an equilibrium with magnetic field, got {type(equil).__name__}.'
+            )
+            if self._B0_equil is not None and self._B0_equil is not equil:
+                logger.warning(
+                    'GyroMaxwellian2D with B0="equil" gets a different equilibrium attached: the background object '
+                    "is shared, and all particles using it take |B_0| from the new equilibrium from now on. This is "
+                    "fine if the simulation set up with the previous equilibrium is not used any more (e.g. a scan); "
+                    "otherwise use a separate background object for each simulation."
+                )
+            self._B0_equil = equil
+            self._B0_cache = None
+
+    def eval_B0(self, etas):
+        """Evaluate the magnetic field strength :math:`B_0` in :math:`\\mu = v_\\perp^2/(2B_0)` at flat positions.
+
+        Parameters
+        ----------
+        etas : array_like
+            Stacked logical positions of shape ``(3, N)``.
+
+        Returns
+        -------
+        out : array-like
+            :math:`B_0` at the positions, shape ``(N,)``.
+        """
         B0 = self.params["B0"]
+        if not (isinstance(B0, str) or callable(B0)):
+            return eval_B0_option(B0, etas)
 
-        if callable(B0):
-            etas = xp.stack((eta1, eta2, eta3), axis=0)
-            return B0(etas)
+        # a position-dependent B0 is often evaluated twice at the same markers (f0 and velocity_jacobian_det in
+        # the control variate); the comparison is much cheaper than an evaluation of |B_0|
+        cache = self._B0_cache
+        if (
+            cache is not None
+            and cache[0] is B0
+            and cache[1] is self._B0_equil
+            and cache[2].shape == etas.shape
+            and xp.array_equal(cache[2], etas)
+        ):
+            return cache[3]
+        out = eval_B0_option(B0, etas, self._B0_equil, owner="GyroMaxwellian2D")
+        self._B0_cache = (B0, self._B0_equil, xp.array(etas, copy=True), out)
+        return out
 
-        return B0 + 0 * eta1
+    def eval_B0_on_args(self, etas):
+        """:meth:`eval_B0` at the positions ``eta1, eta2, eta3`` of a Maxwellian evaluation, flat (1d arrays)
+        or on a phase-space meshgrid (``3 + vdim`` dimensions, positions on the first 3 axes): there it is
+        evaluated on the spatial points only and broadcast to the velocity axes. A constant ``B0`` is returned
+        as float."""
+        B0 = self.params["B0"]
+        if not (isinstance(B0, str) or callable(B0)):
+            return float(B0)
+        if xp.ndim(etas[0]) == 1:
+            return self.eval_B0(xp.stack(etas, axis=0))
+        # spatial part of the meshgrid (velocity axes at their first point)
+        spatial = [a[(slice(None),) * 3 + (0,) * (xp.ndim(a) - 3)] for a in etas]
+        out = self.eval_B0(xp.stack([xp.ravel(a) for a in spatial], axis=0))
+        out = xp.reshape(out, xp.shape(spatial[0]) + (1,) * (xp.ndim(etas[0]) - 3))
+        return xp.broadcast_to(out, xp.shape(etas[0]))
 
     @property
     def volume_form(self) -> bool:
@@ -394,11 +468,17 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     Uses caching for evaluation of the canonical toroidal momentum in these coordinates.
 
     The distribution is parameterized by the density and thermal speed as functions of the
-    canonical toroidal momentum :math:`\psi_c`:
+    (shifted) canonical toroidal momentum :math:`\psi_c`:
 
     .. math::
 
-        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
+        \psi_c = P_\phi - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B_\text{ref})}\frac{m_sF}{q_sB_\text{ref}}
+        \mathcal{H}(\epsilon - \mu B_\text{ref})\,,\qquad P_\phi = \psi + \frac{m_s F}{q_s B}v_\parallel\,,
+
+    where :math:`P_\phi` is the canonical toroidal momentum and the reference field :math:`B_\text{ref}` is set by
+    ``shift`` (see below). The shift (Angelino et al., Phys. Plasmas 13, 052304 (2006)) makes :math:`\psi_c = \psi`
+    where :math:`|\mathbf B| = B_\text{ref}` on the orbit of a passing particle, such that the profiles in
+    :math:`\psi_c` are close to the profiles in the flux label of the position.
 
     - Energy
 
@@ -443,16 +523,28 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         Number of rows in the cache buffer for :math:`\psi_c` evaluation. If ``None``, no caching is used.
         Must be able to accomodate all markers on the current process.
 
-    shifted : bool, default=True
-        Whether to add the shift :math:`-\text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)} \frac{m_s F}{q_s B}
-        \mathcal{H}(\epsilon - \mu B)` (with the on-axis field :math:`B`) to the canonical toroidal momentum, such
-        that the profiles :math:`n(\psi_c)`, :math:`v_\text{th}(\psi_c)` are close to the profiles in the flux
-        label of the position. The shift is not a constant of motion for the trapped particles that bounce where the
-        field is larger than on the axis (the sign of :math:`v_\parallel` changes at the bounce points), so the
-        distribution is then not an exact equilibrium of the guiding-center motion: with steep profiles, use
-        ``shifted=False`` (the exact canonical toroidal momentum :math:`\psi + \frac{m_s F}{q_s B}v_\parallel`,
-        whose profiles are shifted by the drift-orbit width with respect to the position).
+    shift : str | None, default="Bmax"
+        Reference field :math:`B_\text{ref}` of the shift of the canonical toroidal momentum:
+
+        * ``"Bmax"``: the maximum of :math:`|\mathbf B|` on the flux surface :math:`\psi = P_\phi`, see
+          :meth:`~struphy.fields_background.base.AxisymmMHDequilibrium.absB_max`. A particle can only bounce
+          (:math:`v_\parallel = 0`) on this surface, hence the shift vanishes for all particles that can bounce,
+          :math:`\psi_c` is a function of the constants of motion :math:`P_\phi, \epsilon, \mu` and the
+          distribution is an exact equilibrium of the guiding-center motion (with the constant poloidal current
+          function :math:`F = -B_0 R_0` assumed in :math:`P_\phi`, as in
+          :class:`~struphy.fields_background.equils.AdhocTorus`). It has a net parallel flow.
+        * ``"B0"``: the on-axis field (Angelino et al.). The shift jumps at the bounce points of the trapped
+          particles with :math:`\epsilon > \mu B_0` (the sign of :math:`v_\parallel` changes there), so the
+          distribution is not an exact equilibrium (default up to Struphy 3.6).
+        * ``None``: no shift, :math:`\psi_c = P_\phi` (exact equilibrium, but the profiles are shifted by the
+          drift-orbit width with respect to the position).
+
+    shifted : bool, optional
+        Deprecated, use ``shift``: ``True`` is ``shift="B0"``, ``False`` is ``shift=None``.
     """
+
+    shift_modes = {None: 0, "B0": 1, "Bmax": 2}
+    """Integer codes of the values of ``shift``, as passed to the compiled kernels."""
 
     def __init__(
         self,
@@ -463,9 +555,20 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         equil: AxisymmMHDequilibrium = None,
         epsilon: float = 1.0,
         cache_size: int | None = None,
-        shifted: bool = True,
+        shift: str | None = "Bmax",
+        shifted: bool | None = None,
     ):
         assert isinstance(equil, AxisymmMHDequilibrium)
+
+        if shifted is not None:
+            warnings.warn(
+                'CanonicalMaxwellian2D(shifted=...) is deprecated, use shift="B0" (shifted=True) or shift=None '
+                "(shifted=False).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            shift = "B0" if shifted else None
+        assert shift in self.shift_modes, f"shift must be one of {list(self.shift_modes)}, but is {shift!r}."
 
         super().__init__(
             n=n,
@@ -481,12 +584,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         # store additional parameters
         self._equil = equil
         self._epsilon = epsilon
-        self._shifted = shifted
+        self._shift = shift
         self.params["vth"] = vth
         self.params["equil"] = equil
         self.params["epsilon"] = epsilon
         self.params["cache_size"] = cache_size
-        self.params["shifted"] = shifted
+        self.params["shift"] = shift
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -509,9 +612,37 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             self.cbufs["psic"] = xp.empty(cache_size, dtype=float)
             self.cbufs["positive_mask"] = xp.empty(cache_size, dtype=bool)
             self.cbufs["correction"] = xp.empty(cache_size, dtype=float)
+            self.cbufs["Bref"] = xp.empty(cache_size, dtype=float)
             logger.debug(f"Created {len(self.cbufs)} cache buffers for psi_c evaluation, each with size {cache_size}.")
         else:
             self.cbufs = None
+
+        # psi_c of the current __call__, shared by the moments n and vth of that call (None outside of __call__)
+        self._psi_c_call = None
+
+    def __call__(self, *phase_space_coords):
+        r"""Evaluates the canonical Maxwellian, see :meth:`~struphy.kinetic_background.base.Maxwellian.__call__`.
+
+        :math:`\psi_c` is evaluated once from the given coordinates and shared by the moments :math:`n` and
+        :math:`v_\text{th}` of this call. It is not kept between calls: markers move and change slots (MPI sorting,
+        refilling) between calls, so a stored :math:`\psi_c` can belong to other phase-space points."""
+        if any(callable(self.params[name][0]) for name in ("n", "vth")):
+            self._psi_c_call = self.eval_psic(*self._psic_coords(*phase_space_coords))
+        try:
+            return super().__call__(*phase_space_coords)
+        finally:
+            self._psi_c_call = None
+
+    @staticmethod
+    def _psic_coords(eta1, eta2, eta3, v_parallel, mu):
+        """Arrange phase-space points as the input of :meth:`eval_psic`: one (5, n_markers) array for flat
+        (marker) evaluation, or the five 5d meshgrid arrays."""
+        if eta1.ndim == 1:
+            return [xp.stack((eta1, eta2, eta3, v_parallel, mu), axis=0)]
+        elif eta1.ndim == 5:
+            return (eta1, eta2, eta3, v_parallel, mu)
+        else:
+            raise ValueError(f"Input arrays must be 1d or 5d (from meshgrid), but got {eta1.ndim}d.")
 
     @property
     def equil(self) -> AxisymmMHDequilibrium:
@@ -524,6 +655,11 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
     def epsilon(self) -> float:
         """Epsilon parameter in the canonical toroidal momentum."""
         return self._epsilon
+
+    @property
+    def shift(self) -> str | None:
+        """Reference field of the shift of the canonical toroidal momentum (``"Bmax"``, ``"B0"`` or ``None``)."""
+        return self._shift
 
     @GyroMaxwellian2D.moment_factors.setter
     def moment_factors(self, new_factors: dict):
@@ -575,20 +711,11 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
         assert isinstance(params, tuple)
         assert len(params) == 2
 
-        # flat evaluation for markers (one column per marker)
-        if eta1.ndim == 1:
-            coords = [xp.stack((eta1, eta2, eta3, v_parallel, mu), axis=0)]
-        # assuming that input comes from meshgrid.
-        elif eta1.ndim == 5:
-            coords = (eta1, eta2, eta3, v_parallel, mu)
-        else:
+        if eta1.ndim not in (1, 5):
             raise ValueError(f"Input arrays must be 1d or 5d (from meshgrid), but got {eta1.ndim}d.")
 
         # initialize output
-        if eta1.ndim == 1:
-            out = 0.0 * eta1
-        else:
-            out = 0.0 * coords[0]
+        out = 0.0 * eta1
 
         # evaluate background
         background = params[0]
@@ -601,12 +728,12 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
                 f"Background function {background} must take one argument (psi_c), but takes {len(sig.parameters)}."
             )
 
-            cached = self._check_psi_c_cached(*coords)
-            logger.debug(f"{'Using cached psi_c' if cached else 'Evaluating psi_c'} for background evaluation.")
-
-            if not cached:
-                self.psi_c = self.eval_psic(*coords)
-            out += background(self.psi_c)
+            # inside __call__, psi_c has been evaluated at the same points; otherwise (direct call of n or vth)
+            # evaluate it here
+            psi_c = self._psi_c_call
+            if psi_c is None:
+                psi_c = self.eval_psic(*self._psic_coords(eta1, eta2, eta3, v_parallel, mu))
+            out += background(psi_c)
 
         # add perturbation
         if add_perturbation is None:
@@ -622,36 +749,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
         # uniform density on disc (n=2 eta_1)
         if name == "n" and self.params.get("uniform_on_disc", False):
-            if eta1.ndim == 1:
-                out *= 2.0 * eta1
-            else:
-                out *= 2.0 * coords[0]
+            out *= 2.0 * eta1
 
         return out
-
-    def _check_psi_c_cached(self, *coords):
-        """Check if psi_c has been cached for the given coordinates."""
-        cached = False
-        if getattr(self, "psi_c", None) is not None:
-            # markers: coords[0] is (5, n_markers) and psi_c is (n_markers,); meshgrid: all have the same 5d shape
-            shape = coords[0].shape[1:] if len(coords) == 1 else coords[0].shape
-            if self.psi_c.shape == shape and self.psi_c.size > 0:
-                # compare the cached values with a fresh evaluation at a few test points
-                size = self.psi_c.size
-                test_idx = xp.unique(xp.array([0, size // 3, 2 * size // 3, size - 1]))
-                if len(coords) == 1:
-                    test_coords = coords[0][:, test_idx]
-                else:
-                    test_coords = xp.stack([c.reshape(-1)[test_idx] for c in coords], axis=0)
-                # do not use the cache buffers here, self.psi_c may point to them
-                cached_psi_c = self.eval_psic(test_coords, use_cbufs=False)
-                cached = xp.allclose(self.psi_c.reshape(-1)[test_idx], cached_psi_c)
-        return cached
 
     def eval_psic(self, *coords, use_cbufs: bool = True):
         r"""Shifted canonical toroidal momentum evaluated at given particle positions and velocities.
 
-        If ``use_cbufs`` is ``False``, the cache buffers are not used (and not overwritten) for marker evaluation."""
+        If ``use_cbufs`` is ``False``, the cache buffers are not used (and not overwritten) for marker evaluation.
+        Otherwise the result for markers is a view of the buffer ``cbufs["psic"]``, which the next evaluation
+        overwrites: copy it to keep it."""
 
         cbufs = self.cbufs if use_cbufs else None
 
@@ -699,16 +806,16 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            if self._shifted:
-                positive_mask = (energy - mu * B0) > 0
-                correction = xp.zeros_like(psi_c)
-                correction[positive_mask] = (
-                    self._epsilon
-                    * xp.sign(vparallel[positive_mask])
-                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-                    * R0
+            if self._shift is not None:
+                self._add_shift(
+                    psi_c,
+                    energy,
+                    vparallel,
+                    mu,
+                    positive_mask=xp.empty(psi_c.shape, dtype=bool),
+                    correction=xp.empty(psi_c.shape, dtype=float),
+                    Bref=xp.empty(psi_c.shape, dtype=float),
                 )
-                psi_c += correction
         else:
             R = cbufs["R"][:n_markers]
             P = cbufs["P"][:n_markers]
@@ -718,6 +825,7 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
             psi_c = cbufs["psic"][:n_markers]
             positive_mask = cbufs["positive_mask"][:n_markers]
             correction = cbufs["correction"][:n_markers]
+            Bref = cbufs["Bref"][:n_markers]
 
             R[:], P[:], Z[:] = self.equil.inverse_map(x, y, z)
             psi[:] = self.equil.psi(R, Z)
@@ -726,17 +834,62 @@ class CanonicalMaxwellian2D(GyroMaxwellian2D):
 
             psi_c[:] = psi - self._epsilon * B0 * R0 / absB0 * vparallel
 
-            if self._shifted:
-                positive_mask[:] = (energy - mu * B0) > 0
-                correction[:] = 0.0
-                correction[positive_mask] = (
-                    self._epsilon
-                    * xp.sign(vparallel[positive_mask])
-                    * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
-                    * R0
+            if self._shift is not None:
+                self._add_shift(
+                    psi_c, energy, vparallel, mu, positive_mask=positive_mask, correction=correction, Bref=Bref
                 )
-                psi_c[:] += correction
         return psi_c
+
+    def _add_shift(self, psi_c, energy, vparallel, mu, *, positive_mask, correction, Bref):
+        r"""Add the shift :math:`-\text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B_\text{ref})}
+        \frac{m_sF}{q_sB_\text{ref}}\mathcal{H}(\epsilon - \mu B_\text{ref})` in place to the canonical toroidal
+        momentum ``psi_c`` (:math:`P_\phi` on input). ``positive_mask``, ``correction`` and ``Bref`` are work arrays
+        of the shape of ``psi_c``."""
+        B0 = self.equil.params["B0"]
+        R0 = self.equil.params["R0"]
+
+        if self._shift == "B0":
+            positive_mask[...] = (energy - mu * B0) > 0
+            correction[...] = 0.0
+            correction[positive_mask] = (
+                self._epsilon
+                * xp.sign(vparallel[positive_mask])
+                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * B0))
+                * R0
+            )
+        elif self._shift == "Bmax":
+            # maximum of |B| on the flux surface psi = P_phi, the only surface where the particle can bounce
+            Bref[...] = self.equil.absB_max(psi_c)
+            positive_mask[...] = (energy - mu * Bref) > 0
+            correction[...] = 0.0
+            correction[positive_mask] = (
+                self._epsilon
+                * xp.sign(vparallel[positive_mask])
+                * xp.sqrt(2 * (energy[positive_mask] - mu[positive_mask] * Bref[positive_mask]))
+                * R0
+                * (B0 / Bref[positive_mask])
+            )
+        else:
+            raise ValueError(f"Unknown shift {self._shift!r}.")
+
+        psi_c[...] += correction
+
+    def shift_kernel_args(self):
+        """Arguments ``(shift_mode, psi_axis, psi_edge, bmax_table)`` of the compiled kernels that evaluate the
+        shifted canonical toroidal momentum of markers, see :attr:`shift_modes` and
+        :attr:`~struphy.fields_background.base.AxisymmMHDequilibrium.absB_max_table`."""
+        return self.shift_kernel_args_for(self.equil, self.shift)
+
+    @classmethod
+    def shift_kernel_args_for(cls, equil: AxisymmMHDequilibrium, shift: str | None):
+        """Kernel arguments of :meth:`shift_kernel_args` for a given equilibrium and ``shift``."""
+        assert shift in cls.shift_modes, f"shift must be one of {list(cls.shift_modes)}, but is {shift!r}."
+        psi_axis, psi_edge = equil.psi_range
+        if shift == "Bmax":
+            bmax_table = xp.ascontiguousarray(equil.absB_max_table, dtype=float)
+        else:
+            bmax_table = xp.zeros(2, dtype=float)
+        return cls.shift_modes[shift], float(psi_axis), float(psi_edge), bmax_table
 
     def eval_rc(self, eta1, eta2, eta3, vparallel, mu):
         r""" Square root of radially normalized canonical toroidal momentum.

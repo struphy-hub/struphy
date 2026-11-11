@@ -280,7 +280,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             assert not self.derham.with_local_projectors, "The auxiliary space correction needs the global projectors."
 
         _M1 = self.mass_ops.M1
-        _M2B = self.mass_ops.M2B
+        _M2B = self._lorentz_mass()
         curl = self.derham.curl
 
         # inverse of M2n (inner solve)
@@ -319,7 +319,7 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
             if self._projected:
                 _BC = self._B @ self._C
             else:
-                _BC = -1 / 4 * curl.T @ self.mass_ops.M2gyro @ curl
+                _BC = -1 / 4 * curl.T @ self._gyro_mass() @ curl
 
             if self._precond == "HiptmairXu" and self.options.aux_correction:
                 self._allocate_aux_spaces()
@@ -373,6 +373,16 @@ class ShearAlfvenCurlCurlPropagator(Propagator):
         self._u_tmp1 = self.variables.u.spline.vector.space.zeros()
         self._b_tmp1 = self.variables.b.spline.vector.space.zeros()
         self._b_tmp2 = self.variables.b.spline.vector.space.zeros()
+
+    def _lorentz_mass(self):
+        r"""The antisymmetric mass matrix of the Lorentz force, :math:`\mathbb M^2_{B_0}` (``M2B``) of the equilibrium
+        field (overridden for a time-dependent field)."""
+        return self.mass_ops.M2B
+
+    def _gyro_mass(self):
+        r"""The mass matrix :math:`\mathbb M^2_\perp` (``M2gyro``) of the curl-curl term without projection, of the
+        equilibrium field (overridden for a time-dependent field)."""
+        return self.mass_ops.M2gyro
 
     def _allocate_aux_spaces(self):
         """Maps N of the auxiliary spaces (psi -> B0 x grad psi, phi -> phi B0, as 1-forms) and their Kronecker

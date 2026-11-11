@@ -196,6 +196,7 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
             self.mhd.velocity, bilinear_form_name="M2n" if u_space == "Hdiv" else "WMMnew"
         )
         magnetic_energy_1 = BilinearEnergyFEEC(self.em_fields.b_field)
+        # second-order magnetic energy b0^T M2 b-hat
         magnetic_energy_2 = BilinearEnergyFEEC(self.diagnostics.bt2, right_variable="b2", normalization=2.0)
         thermo_energy_1 = FunctionScalarFEEC(self._compute_en_thermo_1)
         thermo_energy_2 = FunctionScalarFEEC(self._compute_en_thermo_2)
@@ -390,6 +391,14 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         not into :math:`\tilde q` (in the linear model, the heating is skipped with the option ``fast=True`` of the
         dissipative propagators).
 
+        **Second-order magnetic energy**: the term :math:`\int \mathbf B_0 \cdot \hat{\mathbf B} = \mathbf b_0^\top
+        \mathbb M^2 \hat{\mathbf b}` of the second-order field :math:`\hat{\mathbf B}` (``diagnostics.bt2``), advected
+        with the perturbation as weight, :math:`\partial_t \hat{\mathbf B} + \nabla \times (\tilde{\mathbf B} \times
+        \mathbf u) = 0`, with the same commuting projection :math:`\hat\Pi^1` as the field itself. The force of the
+        equilibrium current is the variation of this term (the adjoint of the transport, Galerkin Hodge star
+        :math:`\mathbb M^2`), without integration by parts or auxiliary variables (see
+        :class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve`).
+
         **Velocity in** :math:`H(\textnormal{div})` (``linear=True, crank_nicolson=True, u_space="Hdiv"``): the linear model can also be
         discretized with the velocity as a 2-form, as in :class:`~struphy.models.linear_mhd.LinearMHD`; this is possible
         because the linear model has no advection of the momentum (no commutator), the only term that needs
@@ -413,7 +422,7 @@ class VariationalPerturbativeMHD_with_q(StruphyModel):
         r"""**The following scalars are tracked during simulation:**
 
         - Kinetic energy: ``en_U`` :math:`= \int \rho |\mathbf u|^2/2` (:math:`\rho_0` in the linear model)
-        - Magnetic energies: ``en_mag_1`` :math:`= \int |\tilde{\mathbf B}|^2/2`, ``en_mag_2`` :math:`= \int \mathbf B_0 \cdot \hat{\mathbf B}`
+        - Magnetic energies: ``en_mag_1`` :math:`= \int |\tilde{\mathbf B}|^2/2`, ``en_mag_2`` :math:`= \int \mathbf B_0 \cdot \hat{\mathbf B}` (:math:`\int \mathbf J_0 \cdot \hat{\mathbf A}` with ``crank_nicolson=True``)
         - Thermodynamic energies: ``en_thermo_1`` :math:`= \int \tilde q^2/(\gamma - 1)`, ``en_thermo_2`` :math:`= \int 2 q_0 \hat q/(\gamma - 1)`
         - Total energy: ``en_tot`` (conserved)"""
 

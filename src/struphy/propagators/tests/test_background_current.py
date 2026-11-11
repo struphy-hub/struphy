@@ -24,7 +24,7 @@ def test_options():
 def _force(tmp_path, b_space):
     """Velocity change of one step of BackgroundCurrent in a sheared slab (J0 != 0), with the equilibrium field B0 as
     magnetic field perturbation (2-form or 1-form), and the residual of M2n du = dt M2J b."""
-    model = LinearMHD(b_space=b_space, split_sound=True)
+    model = LinearMHD(b_space=b_space)
     model.propagators.bg_current.options = BackgroundCurrent.Options(solver_params=SolverParameters(tol=1e-13))
     model.mhd.velocity.add_perturbation(
         perturbations.ModesCos(ls=(1,), ms=(1,), given_in_basis="2", comp=1, amps=(1e-2,))

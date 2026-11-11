@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import cunumpy as xp
 import numpy as np
@@ -9,7 +8,6 @@ from matplotlib import pyplot as plt
 from maybempi import MPI
 
 from struphy import (
-    BaseUnits,
     BinningPlot,
     BoundaryParameters,
     DerhamOptions,
@@ -36,7 +34,7 @@ set_logging_level(logging.INFO)
 
 
 @pytest.mark.parametrize("nx", [8])
-def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
+def test_chorin_projection_periodic_1d(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the Chorin projection (PoissonSolve + PushVinForceField) in a
     truly 1D periodic domain.
 
@@ -46,7 +44,7 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
     removing the sinusoidal (compressible) part.
     """
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="chorin_projection_periodic_1d")
 
@@ -58,7 +56,7 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(nx, 1, 1))
     derham_opts = DerhamOptions(degree=(2, 1, 1))
 
-    model = IncompressibleNavierStokesSPH(with_B0=False, with_viscosity=False)
+    model = IncompressibleNavierStokesSPH()
 
     loading_params = LoadingParameters(ppb=16, loading="tesselation")
     weights_params = WeightsParameters()
@@ -82,13 +80,15 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
+    # inviscid (incompressible Euler): no viscous force
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.0)
 
     U0 = 0.0
     A = 0.5
     background = equils.ConstantVelocity(ux=U0)
-    model.fluid.density.add_background(background)
+    model.fluid.var.add_background(background)
     perturbation = perturbations.ModesSin(ls=(1,), amps=(A,))
-    model.fluid.density.add_perturbation(del_u1=perturbation)
+    model.fluid.var.add_perturbation(del_u1=perturbation)
 
     sim = Simulation(
         model=model,
@@ -137,11 +137,9 @@ def test_chorin_projection_periodic_1d(nx: int, do_plot: bool = False):
         )
         logger.info("Chorin projection (periodic 1D) assertions passed.")
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.parametrize("nx", [8])
-def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
+def test_chorin_projection_reflect_1d(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the Chorin projection in a closed (reflecting) 1D box.
 
     Initial condition u_x(x) = A*sin(2*pi*x) vanishes at both walls (x=0, x=1).
@@ -151,7 +149,7 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
     which is a qualitatively stronger check than the periodic case.
     """
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="chorin_projection_reflect_1d")
 
@@ -163,7 +161,7 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(nx, 1, 1))
     derham_opts = DerhamOptions(degree=(2, 1, 1), bcs=(("free", "free"), None, None))
 
-    model = IncompressibleNavierStokesSPH(with_B0=False, with_viscosity=False)
+    model = IncompressibleNavierStokesSPH()
 
     loading_params = LoadingParameters(ppb=16, loading="tesselation")
     weights_params = WeightsParameters()
@@ -190,12 +188,14 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
+    # inviscid (incompressible Euler): no viscous force
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.0)
 
     A = 0.5
     background = equils.ConstantVelocity()
-    model.fluid.density.add_background(background)
+    model.fluid.var.add_background(background)
     perturbation = perturbations.ModesSin(ls=(1,), amps=(A,))
-    model.fluid.density.add_perturbation(del_u1=perturbation)
+    model.fluid.var.add_perturbation(del_u1=perturbation)
 
     sim = Simulation(
         model=model,
@@ -239,11 +239,9 @@ def test_chorin_projection_reflect_1d(nx: int, do_plot: bool = False):
         )
         logger.info("Chorin projection (reflect 1D) assertion passed.")
 
-        shutil.rmtree(test_folder)
-
 
 @pytest.mark.parametrize("nx", [8])
-def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
+def test_channel_noslip_shear_relaxation(mpi_out_folder: str, nx: int, do_plot: bool = False):
     """Verification test for the full incompressible propagator chain (viscosity +
     Chorin projection) under no-slip walls.
 
@@ -256,7 +254,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
     essentially undisturbed.
     """
 
-    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
+    test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "IncompressibleNavierStokesSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="channel_noslip_shear_relaxation")
 
@@ -269,7 +267,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
     grid = grids.TensorProductGrid(num_elements=(nx, nx, 1))
     derham_opts = DerhamOptions(degree=(2, 2, 1), bcs=(None, ("free", "free"), None))
 
-    model = IncompressibleNavierStokesSPH(with_B0=False, with_viscosity=True)
+    model = IncompressibleNavierStokesSPH()
 
     loading_params = LoadingParameters(ppb=16, loading="tesselation")
     weights_params = WeightsParameters()
@@ -305,9 +303,9 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
 
     U = 0.5
     background = equils.ConstantVelocity()
-    model.fluid.density.add_background(background)
+    model.fluid.var.add_background(background)
     perturbation = GenericPerturbation(fun=lambda e1, e2, e3: U * xp.sin(xp.pi * e2))
-    model.fluid.density.add_perturbation(del_u1=perturbation)
+    model.fluid.var.add_perturbation(del_u1=perturbation)
 
     sim = Simulation(
         model=model,
@@ -362,7 +360,7 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
             plt.show()
 
         # --- DEBUG: Check marker velocities ---
-        markers = model.fluid.density.particles.markers
+        markers = model.fluid.var.particles.markers
         # markers rows: 0:eta1, 1:eta2, 2:eta3, 3:v1, 4:v2, 5:v3, 6:weight, ...
         logger.debug(
             f"Marker velocity v1: min = {markers[3].min()}, max = {markers[3].max()}, mean = {markers[3].mean()}",
@@ -474,10 +472,9 @@ def test_channel_noslip_shear_relaxation(nx: int, do_plot: bool = False):
         # )
         logger.info("Transverse-velocity assertion passed.")
 
-        shutil.rmtree(test_folder)
-
 
 if __name__ == "__main__":
-    # test_chorin_projection_periodic_1d(nx=8, do_plot=True)
-    # test_chorin_projection_reflect_1d(nx=8, do_plot=True)
-    test_channel_noslip_shear_relaxation(nx=8, do_plot=True)
+    out = os.path.join(os.getcwd(), "struphy_verification_tests")
+    # test_chorin_projection_periodic_1d(out, nx=8, do_plot=True)
+    # test_chorin_projection_reflect_1d(out, nx=8, do_plot=True)
+    test_channel_noslip_shear_relaxation(out, nx=8, do_plot=True)
