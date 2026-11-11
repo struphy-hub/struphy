@@ -32,8 +32,6 @@ Some Linux/MacOS environments on which Struphy is continuously tested are:
 
         .. code-block::
 
-            apt install -y software-properties-common
-            add-apt-repository -y ppa:deadsnakes/ppa
             apt update -y
             apt install -y python3-pip 
             apt install -y python3-venv 
