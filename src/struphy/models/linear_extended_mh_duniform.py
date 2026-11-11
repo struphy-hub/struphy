@@ -10,7 +10,6 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.hall import Hall
 from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform

@@ -63,3 +63,5 @@ def test_feec_space_and_tensor_product_coefficients(polar):
     assert "b2" in dir(peq.tp)
     with pytest.raises(AttributeError):
         peq.tp._private
+    with pytest.raises(AttributeError):
+        peq.tp.derham

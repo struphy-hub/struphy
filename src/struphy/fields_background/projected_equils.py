@@ -39,19 +39,22 @@ class TensorProductCoefficients:
     def __getattr__(self, name: str):
         if name.startswith("_"):
             raise AttributeError(name)
-        return self._projected_equil.to_tp(getattr(self._projected_equil, name))
+        value = getattr(self._projected_equil, name)
+        if not isinstance(value, Vector):
+            raise AttributeError(f"{name!r} is not a projection of the equilibrium (no FE coefficients).")
+        return self._projected_equil.to_tp(value)
 
     def __dir__(self):
         return [n for n in dir(type(self._projected_equil)) if not n.startswith("_") and n not in ("tp", "to_tp")]
 
 
 class ProjectedFluidEquilibrium:
-    """Commuting projections of :class:`~struphy.fields_background.base.FluidEquilibrium` into Derham spaces.
+    r"""Commuting projections of :class:`~struphy.fields_background.base.FluidEquilibrium` into Derham spaces.
 
     The properties return the FE coefficients in the space of the Derham (``derham.Vh_pol``-like spaces): PolarVectors
     with polar splines, Stencil-/BlockVectors otherwise. These are the vectors for the FEEC operators (mass matrices,
     derivatives, inner products, ``SplineFunction.vector``, sums with FEEC variables). The tensor-product coefficients
-    (the polar extraction transposed, :math:`\\mathbb E^\top`, applied; the same vectors without polar splines), e.g. for
+    (the polar extraction transposed, :math:`\mathbb E^\top`, applied; the same vectors without polar splines), e.g. for
     kernels, are ``self.tp.<name>`` (see :meth:`to_tp`). The projections are computed on each access."""
 
     def __init__(self, equil: FluidEquilibrium, derham: Derham):
@@ -68,8 +71,9 @@ class ProjectedFluidEquilibrium:
         self._P3 = ProjectorNoBC(derham.P3)
         self._Pv = ProjectorNoBC(derham.Pv)
 
-        # access to the tensor-product coefficients: self.tp.<name>
+        # access to the tensor-product coefficients: self.tp.<name> (transposed extraction operators built on demand)
         self._tp = TensorProductCoefficients(self)
+        self._ET = {}
 
         logger.debug("... Done.")
 
@@ -83,10 +87,24 @@ class ProjectedFluidEquilibrium:
         return self._tp
 
     def to_tp(self, coeffs: Vector) -> StencilVector | BlockVector:
-        """The tensor-product coefficients of FE coefficients in a space of the Derham: :math:`\\mathbb E^\top` applied to
-        a PolarVector, other vectors unchanged (ghost regions updated)."""
+        r"""The tensor-product coefficients of FE coefficients in a space of the Derham.
+
+        Parameters
+        ----------
+        coeffs : Vector
+            FE coefficients in a space of the Derham (a PolarVector with polar splines).
+
+        Returns
+        -------
+        StencilVector | BlockVector
+            :math:`\mathbb E^\top` ``coeffs`` (new vector, ghost regions updated) for a PolarVector; other vectors are
+            returned as they are.
+        """
         if isinstance(coeffs, PolarVector):
-            coeffs = self.derham.extraction_ops[coeffs.space.space_id].transpose().dot(coeffs)
+            space_id = coeffs.space.space_id
+            if space_id not in self._ET:
+                self._ET[space_id] = self.derham.extraction_ops[space_id].transpose()
+            coeffs = self._ET[space_id].dot(coeffs)
             coeffs.update_ghost_regions()
         return coeffs
 
