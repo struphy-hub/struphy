@@ -6,6 +6,7 @@ import pytest
 from struphy import domains
 from struphy.post_processing.slices import (
     Plane,
+    color_limits,
     evaluate_plane,
     physical_planes,
     plot_line_profiles,
@@ -270,3 +271,35 @@ def test_line_profiles(kind):
     # times the stretching 2: 3 * 2 x)
     expected = 3 * lines[2].get_xdata() * (2 if kind == "physical" else 1)
     assert np.allclose(lines[2].get_ydata(), expected)
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("value", [0.0, 2.5])
+def test_constant_field_has_one_color_scale(value):
+    """A plane made of two surfaces (as the x-y plane of a torus) with a constant field (e.g. a perturbation that is
+    zero at t = 0): all surfaces and the colorbar share one non-degenerate color scale, so the constant field has one
+    color (the middle of the map), not a jump between the surfaces."""
+    from matplotlib.collections import QuadMesh
+
+    plane = Plane("x", "y", "z = 0", "eta2", (0.25, 0.75))
+    grid = np.meshgrid(np.linspace(0, 1, 5), [0.25, 0.75], np.linspace(0, 1, 7), indexing="ij")
+    coords = {"x": grid[0] + 2 * grid[1], "y": grid[2], "z": 0 * grid[0]}
+    data = np.full(grid[0].shape, value)
+    fig = plot_plane(data, None, coords, plane, "B")
+    meshes = [c for c in fig.axes[0].collections if isinstance(c, QuadMesh)]
+    assert len(meshes) == 2
+    assert len({id(m.norm) for m in meshes}) == 1
+    norm = meshes[0].norm
+    assert norm.vmin < norm.vmax
+    assert norm(value) == pytest.approx(0.5)
+    # the colorbar has the same scale
+    assert fig.axes[1].get_ylim() == pytest.approx((norm.vmin, norm.vmax))
+
+
+@pytest.mark.mpi_skip
+def test_color_limits():
+    """The range of the data (NaN ignored); widened for constant data and without finite data."""
+    assert color_limits(np.array([1.0, np.nan, 3.0])) == (1.0, 3.0)
+    assert color_limits(np.array([0.0, 0.0])) == (-1.0, 1.0)
+    assert color_limits(np.array([-2.0, -2.0])) == (-4.0, 0.0)
+    assert color_limits(np.array([np.nan])) == (-1.0, 1.0)
