@@ -263,9 +263,9 @@ def test_density_matrix_free(u_space: str):
     args = (
         model.energetic_ions.equation_params.epsilon,
         2.0,
-        *[blk._data for blk in eq.b2.blocks],
-        *[blk._data for blk in eq.unit_b1.blocks],
-        *[blk._data for blk in eq.curl_unit_b2.blocks],
+        *[blk._data for blk in eq.tp.b2.blocks],
+        *[blk._data for blk in eq.tp.unit_b1.blocks],
+        *[blk._data for blk in eq.tp.curl_unit_b2.blocks],
         form_int,
     )
     column = particles.args_markers.first_free_idx

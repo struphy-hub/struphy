@@ -10,7 +10,6 @@ from struphy.models.species import (
     FluidSpecies,
 )
 from struphy.models.variables import FEECVariable
-from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.hall import Hall
 from struphy.propagators.magnetosonic_uniform import MagnetosonicUniform
@@ -141,13 +140,10 @@ class LinearExtendedMHDuniform(StruphyModel):
     def post_allocate(self):
         self._b_eq = Propagator.projected_equil.b1
         self._a_eq = Propagator.projected_equil.a1
-        self._p_eq = Propagator.projected_equil.p3
-
-        self._ones = Propagator.projected_equil.p3.space.zeros()
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
+        # volume integral of the pressure 3-form from its tensor-product coefficients
+        self._p_eq = Propagator.projected_equil.tp.p3
+        self._ones = self._p_eq.space.zeros()
+        self._ones[:] = 1.0
 
         self._tmp_b1: BlockVector = Propagator.derham.V1.zeros()
         self._tmp_b2: BlockVector = Propagator.derham.V1.zeros()

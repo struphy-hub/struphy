@@ -173,7 +173,7 @@ class CurrentCoupling6DDensity(Propagator):
 
         particles = self.energetic_ions.particles
         u = self.variables.u.spline.vector
-        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
+        self._b_eq = getattr(self.projected_equil.tp, "b" + self._b_form)
 
         # if self._particles.control_variate:
 

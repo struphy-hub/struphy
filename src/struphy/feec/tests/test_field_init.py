@@ -1435,6 +1435,61 @@ def test_eval_tp_fixed_loc_vector_without_out():
         assert xp.allclose(out[n], n + 1.0)
 
 
+@pytest.mark.parametrize("polar", [False, True])
+@pytest.mark.parametrize("space", ["H1", "L2", "Hdiv"])
+def test_eval_tp_fixed_loc_equals_call(polar, space):
+    """eval_tp_fixed_loc gives the values of __call__ at the local quadrature points, also for polar splines with
+    non-zero polar coefficients (issue #921: the polar coefficients were ignored, wrong values near the axis)."""
+    import cunumpy as xp
+    import numpy as np
+    from maybempi import MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import HollowCylinder, IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.basic import PolarVector
+    from struphy.topology.grids import TensorProductGrid
+
+    num_elements, degree = [6, 9, 4], [2, 2, 1]
+    if polar:
+        domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], a=1.0, Lz=3.0)
+        opts = DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), polar_splines=True)
+    else:
+        domain = HollowCylinder(a1=0.1, a2=1.0, Lz=3.0)
+        opts = DerhamOptions(degree=degree)
+    derham = Derham(TensorProductGrid(num_elements=num_elements), opts, comm=MPI.COMM_WORLD, domain=domain)
+    field = derham.create_spline_function("field", space)
+
+    # random coefficients (the same on all processes), including the polar ones
+    rng = np.random.default_rng(1234)
+    v = field.vector
+    tp = v.tp if isinstance(v, PolarVector) else v
+    for block in [tp] if space in ("H1", "L2") else list(tp.blocks):
+        block._data[:] = xp.asarray(rng.random(block._data.shape))
+    if isinstance(v, PolarVector):
+        v.set_tp_coeffs_to_zero()
+        v.pol = [rng.random(pol.shape) + 1.0 for pol in v.pol]
+    v.update_ghost_regions()
+    field.vector = v
+
+    grid = [grid_1d.flatten() for grid_1d in derham.V3splines.quad_grid_pts[0]]
+    spans, bn, bd = derham.prepare_eval_tp_fixed(grid)
+    if space == "H1":
+        bases = bn
+    elif space == "L2":
+        bases = bd
+    else:
+        bases = [tuple(bn[d] if d == c else bd[d] for d in range(3)) for c in range(3)]
+    values = field.eval_tp_fixed_loc(spans, bases)
+    ref = field(*grid, local=True)
+    if space in ("H1", "L2"):
+        values, ref = [values], [ref]
+    for got, exact in zip(values, ref):
+        got, exact = xp.to_numpy(got), xp.to_numpy(exact)
+        assert got.shape == exact.shape
+        assert np.allclose(got, exact, rtol=1e-12, atol=1e-12 * np.abs(exact).max())
+
+
 if __name__ == "__main__":
     # test_bckgr_init_const([8, 10, 12], [1, 2, 3], [False, False, True], [
     #     'H1', 'Hcurl', 'Hdiv'], [True, True, False])

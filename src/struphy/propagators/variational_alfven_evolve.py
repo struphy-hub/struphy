@@ -259,7 +259,7 @@ class VariationalAlfvenEvolve(Propagator):
         self._linear_form_dl_db = b.space.zeros()
 
         if self._linearize:
-            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
+            self._extracted_b2 = self.projected_equil.b2
 
     def prepare_time_step(self, dt: float):
         """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
