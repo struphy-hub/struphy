@@ -1289,9 +1289,9 @@ def poloidal_mass_matrix(derham, bases_row: tuple, bases_col: tuple, weight: np.
 
 def mass_matrix_1d(derham, basis_row: str, basis_col: str, d: int = 2, weight: np.ndarray | None = None) -> np.ndarray:
     r"""
-    Weighted 1d mass matrix :math:`\int \Lambda^\textnormal{row}_i \, w \, \Lambda^\textnormal{col}_j \, \textnormal d\eta_d`
-    in direction ``d`` (the 1d counterpart of :func:`poloidal_mass_matrix`), assembled on the serial 1d spline spaces
-    with the quadrature of the Derham, as dense array.
+    Weighted 1d mass matrix :math:`\int \Lambda^\textnormal{row}_i \, w \, \Lambda^\textnormal{col}_j \, \textnormal
+    d\eta_d` in direction ``d`` (the 1d counterpart of :func:`poloidal_mass_matrix`), assembled on the serial 1d spline
+    spaces with the quadrature of the Derham, as dense array.
 
     Parameters
     ----------

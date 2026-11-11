@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 
+import cunumpy as xp
 import numpy as np
 import scipy.linalg as sla
 from feectools.linalg.basic import LinearOperator, Vector
@@ -86,7 +87,8 @@ class _Layout:
         pieces = []
         for c, sv in enumerate(self.tp_blocks(v)):
             sp = sv.space
-            pieces.append((c, tuple(sp.starts), sv._data[_interior_slices(sv)].copy()))
+            # host copies (device arrays on the CuPy backend)
+            pieces.append((c, tuple(sp.starts), np.array(xp.to_numpy(sv._data[_interior_slices(sv)]))))
         if self.comm is not None:
             pieces = [p for chunk in self.comm.allgather(pieces) for p in chunk]
         for c, starts, data in pieces:
@@ -101,7 +103,7 @@ class _Layout:
             block[lo - r : e1 - r, s2 : s2 + data.shape[1], s3 : s3 + data.shape[2]] = data[lo - s1 :]
         if self.polar:
             for c, pol in enumerate(v.pol):
-                X[self.offsets[c] : self.offsets[c] + self.n_polar[c]] = pol
+                X[self.offsets[c] : self.offsets[c] + self.n_polar[c]] = xp.to_numpy(pol)
         return X
 
     def scatter(self, X: np.ndarray, v: Vector) -> Vector:
@@ -117,10 +119,10 @@ class _Layout:
             local[...] = 0.0
             lo = max(s1, r)
             if lo < e1:
-                local[lo - s1 :] = block[lo - r : e1 - r, s2:e2, s3:e3]
+                local[lo - s1 :] = xp.asarray(block[lo - r : e1 - r, s2:e2, s3:e3])
         if self.polar:
             for c in range(self.n_comps):
-                v.pol[c][:] = X[self.offsets[c] : self.offsets[c] + self.n_polar[c]]
+                v.pol[c][:] = xp.asarray(X[self.offsets[c] : self.offsets[c] + self.n_polar[c]])
         v.update_ghost_regions()
         return v
 
@@ -128,8 +130,8 @@ class _Layout:
 class ToroidalFourierSolver(LinearOperator):
     r"""Inverse of a linear operator :math:`A` (square, on Stencil-, Block- or PolarVectors) that is invariant under
     shifts in :math:`\eta_3`, by a real FFT along :math:`\eta_3` and one dense poloidal solve per toroidal mode number,
-    see :mod:`struphy.linear_algebra.toroidal_fourier`. Use it as a preconditioner (``A`` then needs only to be close to shift
-    invariant) or as a direct solver.
+    see :mod:`struphy.linear_algebra.toroidal_fourier`. Use it as a preconditioner (``A`` then needs only to be close to
+    shift invariant) or as a direct solver.
 
     Parameters
     ----------
@@ -249,7 +251,8 @@ class ToroidalFourierSolver(LinearOperator):
 
     @property
     def symmetric(self) -> bool:
-        """Whether the Fourier blocks of the operator are Hermitian (then the operator and its inverse are symmetric)."""
+        """Whether the Fourier blocks of the operator are Hermitian (then the operator and its inverse are
+        symmetric)."""
         return self._hermitian
 
     def transpose(self, conjugate: bool = False):

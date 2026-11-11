@@ -1502,13 +1502,13 @@ class PolarKroneckerBlockPreconditioner(LinearOperator):
     parent tensor-product spaces (blocks :math:`\sum_t c_t F_{t,1} \otimes F_{t,2} \otimes F_{t,3}`, e.g.
     :math:`\mathbb C \tilde{\mathbb T}`), and :math:`\mathbb M_i` and :math:`\mathbb S` are weighted mass operators (or
     sums and multiples of them), with the polar extraction :math:`\mathbb E` applied:
-    :math:`A \approx \mathbb E (\dots) \mathbb E^\top`. This is the polar counterpart of :class:`StiffnessPreconditioner`
-    with general operators (as used by :class:`ShearAlfvenSchurPreconditioner`), exploiting the 2D x 1D Kronecker
-    structure of the polar extraction (see :mod:`struphy.polar.kron_2dx1d`).
+    :math:`A \approx \mathbb E (\dots) \mathbb E^\top`. This is the polar counterpart of
+    :class:`StiffnessPreconditioner` with general operators (as used by :class:`ShearAlfvenSchurPreconditioner`),
+    exploiting the 2D x 1D Kronecker structure of the polar extraction (see :mod:`struphy.polar.kron_2dx1d`).
 
-    The weights of the mass operators are reduced in :math:`\eta_3` (:func:`~struphy.polar.kron_2dx1d.reduced_weight_2d`),
-    so that each term of each block of :math:`A` is a Kronecker product of a poloidal matrix and a 1d matrix in
-    :math:`\eta_3`,
+    The weights of the mass operators are reduced in :math:`\eta_3`
+    (:func:`~struphy.polar.kron_2dx1d.reduced_weight_2d`), so that each term of each block of :math:`A` is a Kronecker
+    product of a poloidal matrix and a 1d matrix in :math:`\eta_3`,
 
     .. math::
 
@@ -2256,10 +2256,14 @@ class ShearAlfvenSchurPreconditioner:
         ``"StiffnessPreconditioner"`` only if its requirements hold (implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"``,
         ``u_space="Hdiv"`` and :meth:`supported`), else the mass matrix preconditioner of the velocity space
         (``"PolarMassMatrixPreconditioner"`` with polar splines), with a warning. ``"ToroidalFourierPreconditioner"``
-        (:class:`~struphy.linear_algebra.toroidal_fourier.ToroidalFourierSolver`, exact for axisymmetric equilibria) needs the implicit algorithm and a periodic eta_3 direction.
-        Other options are returned as they are."""
+        (:class:`~struphy.linear_algebra.toroidal_fourier.ToroidalFourierSolver`, exact for axisymmetric equilibria)
+        needs the implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"`` and a periodic eta_3 direction. Other options
+        are returned as they are."""
         if precond == "ToroidalFourierPreconditioner":
             assert algo == "implicit", 'precond="ToroidalFourierPreconditioner" needs algo="implicit".'
+            assert solver in ("pcg", "pcg_sr"), (
+                'precond="ToroidalFourierPreconditioner" needs solver="pcg" or "pcg_sr".'
+            )
             assert derham.spl_kind[2], 'precond="ToroidalFourierPreconditioner" needs a periodic eta_3 direction.'
             return precond
         if precond != "StiffnessPreconditioner":

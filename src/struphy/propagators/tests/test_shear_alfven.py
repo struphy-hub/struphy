@@ -46,6 +46,8 @@ def test_stiffness_preconditioner_options():
         ShearAlfvenSchurPreconditioner.resolve("ToroidalFourierPreconditioner", clamped_3, **ok)
     with pytest.raises(AssertionError):
         ShearAlfvenSchurPreconditioner.resolve("ToroidalFourierPreconditioner", polar, **{**ok, "algo": "explicit"})
+    with pytest.raises(AssertionError):
+        ShearAlfvenSchurPreconditioner.resolve("ToroidalFourierPreconditioner", tp, **{**ok, "solver": "cg"})
     for kwargs in ({"algo": "explicit"}, {"u_space": "Hcurl"}, {"solver": "cg"}):
         args = {**ok, **kwargs}
         assert (
