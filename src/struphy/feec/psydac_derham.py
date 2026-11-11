@@ -2914,7 +2914,9 @@ class SplineFunction:
         """
 
         if isinstance(self.vector, PolarVector):
-            vec = self.vector.tp
+            # the tensor-product coefficients E^T of the polar coefficients (with ghost regions), as in __call__
+            self.extract_coeffs(update_ghost_regions=True)
+            vec = self._vector_stencil
         else:
             vec = self.vector
 
