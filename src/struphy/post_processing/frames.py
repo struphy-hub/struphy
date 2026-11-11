@@ -36,9 +36,13 @@ Example (a pproc script)::
 
 The frames are written by the process of rank 0 only (the other ranks of an MPI run return an empty list). The
 fields are evaluated in that process; the frames are rendered and saved by ``workers`` processes (a pool of spawned
-processes, see :func:`default_workers`), with the same result as in one process. Spawned processes import the main
-script again, so a script that writes frames must run its code under ``if __name__ == "__main__":`` (otherwise, and in
-MPI runs, the frames are rendered in one process, with a warning).
+processes, see :func:`default_workers`; the next frames are evaluated while the previous ones are rendered), with the
+same result as in one process. Spawned processes import the main script again: a script that writes frames must run
+its code under ``if __name__ == "__main__":`` (otherwise, and in MPI runs, the frames are rendered in one process, with
+a warning) and should not do expensive work at module level. Settings made in the main process after the imports
+(e.g. matplotlib ``rcParams`` or the PyVista theme set in ``main()``) do not reach the rendering processes. The 3D
+views of :func:`write_videos` share one evaluation of the field per frame if the values of all frames fit in
+:data:`FIRST_PASS_CACHE`.
 """
 
 import multiprocessing
@@ -47,7 +51,8 @@ import shutil
 import subprocess
 import sys
 import warnings
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
 
 import cunumpy as xp
@@ -86,8 +91,12 @@ MAX_POINTS_3D = 1e6
 FIRST_PASS_CACHE = 1e9
 # largest default number of rendering processes (see default_workers)
 MAX_WORKERS = 4
-# frames evaluated at once when the values are not kept (per rendering process)
-_BATCH_PER_WORKER = 4
+# with the default number of workers, videos with fewer frames are rendered in one process (starting the processes
+# costs more than it saves)
+MIN_FRAMES_PARALLEL = 16
+# frames submitted to the rendering processes ahead of the rendering, per process (the next frames are evaluated
+# while the previous ones are rendered)
+_IN_FLIGHT_PER_WORKER = 2
 
 
 def saved_times(out: Output) -> np.ndarray:
@@ -276,11 +285,19 @@ def _call_job(job, item):
     return job(_JOB_CONTEXT, *item)
 
 
-def _run_jobs(job, context, make_item, count, workers, eager=True):
-    """``job(context, *make_item(k))`` for ``k = 0, ..., count - 1``, in order, with ``workers`` processes (a pool of
-    spawned processes, which get ``context`` once; serial for one worker). The items are made in this process, all at
-    once (``eager``) or in batches of :data:`_BATCH_PER_WORKER` per process (when they are large)."""
-    workers = max(1, min(int(workers), count))
+def _run_jobs(job, context, make_item, count, workers):
+    """``job(context, *make_item(k))`` for ``k = 0, ..., count - 1``, the results in order.
+
+    With ``workers > 1`` the jobs run in a pool of spawned processes, which get ``context`` once; the items are made in
+    this process (e.g. the field evaluated) and submitted a few frames ahead, so that making the next items overlaps
+    the rendering. ``workers=None``: :func:`default_workers`, but one process for fewer than
+    :data:`MIN_FRAMES_PARALLEL` frames. One process in MPI runs and from main scripts without a main guard (with a
+    warning), and as a fallback if the pool breaks (e.g. a crash of a rendering process).
+    """
+    explicit = workers is not None
+    workers = max(1, min(int(default_workers() if workers is None else workers), count))
+    if not explicit and count < MIN_FRAMES_PARALLEL:
+        workers = 1
     if workers > 1 and (launched_under_mpi() or MPI.COMM_WORLD.Get_size() > 1):
         # processes started from an MPI rank import MPI and hang
         warnings.warn(
@@ -294,20 +311,35 @@ def _run_jobs(job, context, make_item, count, workers, eager=True):
             stacklevel=3,
         )
         workers = 1
-    if workers == 1:
-        return [job(context, *make_item(k)) for k in range(count)]
-    results = []
-    batch = count if eager else _BATCH_PER_WORKER * workers
-    with ProcessPoolExecutor(
-        max_workers=workers,
-        mp_context=multiprocessing.get_context("spawn"),
-        initializer=_init_jobs,
-        initargs=(context,),
-    ) as pool:
-        for start in range(0, count, batch):
-            items = [make_item(k) for k in range(start, min(start + batch, count))]
-            results.extend(pool.map(_call_job, [job] * len(items), items))
-    return results
+    results = [None] * count
+    if workers > 1:
+        try:
+            with ProcessPoolExecutor(
+                max_workers=workers,
+                mp_context=multiprocessing.get_context("spawn"),
+                initializer=_init_jobs,
+                initargs=(context,),
+            ) as pool:
+                pending = {}
+
+                def collect(n_open):
+                    while len(pending) > n_open:
+                        done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                        for future in done:
+                            results[pending.pop(future)] = future.result()
+
+                try:
+                    for k in range(count):
+                        pending[pool.submit(_call_job, job, make_item(k))] = k
+                        collect(_IN_FLIGHT_PER_WORKER * workers)
+                    collect(0)
+                except BaseException:
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    raise
+            return results
+        except BrokenProcessPool:
+            warnings.warn("A rendering process failed: rendering the remaining frames in one process.", stacklevel=3)
+    return [results[k] if results[k] is not None else job(context, *make_item(k)) for k in range(count)]
 
 
 def _slice_job(ctx, k, data, title):
@@ -453,7 +485,7 @@ def write_slice_frames(
         context,
         lambda k: (k, values[k], titles[k]),
         len(steps),
-        default_workers() if workers is None else workers,
+        workers,
     )
     _write_index(folder, steps, times)
     return files
@@ -811,10 +843,7 @@ def _write_3d_views(
         # its values: those of the nearest points of the grid of the domain (the same points)
         _, surface_index = tree.query(surface_grid.points)
 
-    workers = default_workers() if workers is None else workers
     titles = [f"{label}, {_time_title(out, t)}" for t in times]
-    # values of all frames in memory: all frames at once to the rendering processes, else in batches
-    eager = len(first_pass) == len(steps)
     results = {}
     for view, folder in folders.items():
         ctx = dict(
@@ -844,7 +873,6 @@ def _write_3d_views(
             lambda k: (k, frame_values(steps[k]), titles[k]),
             len(steps),
             workers,
-            eager=eager,
         )
         _write_index(ctx["folder"], steps, times)
     return results
@@ -894,7 +922,7 @@ def write_videos(
         Further keyword arguments of :func:`write_slice_frames` (e.g. ``points_per_cell``, ``dpi``).
     options_3d : dict | None
         Further keyword arguments of :func:`write_3d_frames` (e.g. ``window_size``, ``azimuth``). The 3D views share
-        one evaluation of the field per frame.
+        one evaluation of the field per frame if the values of all frames fit in :data:`FIRST_PASS_CACHE`.
     workers : int | None
         Number of processes that render the frames (default: :func:`default_workers`).
 

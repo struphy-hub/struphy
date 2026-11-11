@@ -260,3 +260,20 @@ def test_frames_in_parallel(mpi_out_folder):
     else:
         assert all(files == [] for files in parallel.values())
     MPI.COMM_WORLD.Barrier()
+
+
+def test_frames_without_cache(mpi_out_folder, monkeypatch):
+    """Without the cache of the first pass (the values of the frames evaluated again while rendering), the frames of
+    2 rendering processes are the same as those with the cache in one process."""
+    import struphy.post_processing.frames as frames_module
+
+    run = short_torus_run(mpi_out_folder)
+    kwargs = dict(component=0, label="E_1", window_size=(300, 300))
+    cached = write_3d_frames(run, "em_fields/e_field", run.path_out / "cached", workers=1, **kwargs)
+    monkeypatch.setattr(frames_module, "FIRST_PASS_CACHE", 0)
+    uncached = write_3d_frames(run, "em_fields/e_field", run.path_out / "uncached", workers=2, **kwargs)
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        check_frames(uncached, N_SAVED)
+        for a, b in zip(cached, uncached):
+            assert np.array_equal(imread(a), imread(b)), a.name
+    MPI.COMM_WORLD.Barrier()
