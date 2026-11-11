@@ -23,6 +23,7 @@ from dataclasses import dataclass
 import cunumpy as xp
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.colors import Normalize
 
 from struphy.post_processing.output import Output
 
@@ -183,6 +184,21 @@ def rotate(x, y, angle):
     return x * np.cos(angle) - y * np.sin(angle), x * np.sin(angle) + y * np.cos(angle)
 
 
+def color_limits(data) -> tuple[float, float]:
+    """Smallest and largest value of ``data`` (NaN ignored) as color limits; for constant data (e.g. a field that is
+    zero) widened to ``c - |c|, c + |c|`` (``-1, 1`` for zero), so that all of it gets the middle color of the map
+    instead of a degenerate scale (which matplotlib maps to the lowest color)."""
+    finite = np.asarray(data, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    if finite.size == 0:
+        return -1.0, 1.0
+    lo, hi = float(finite.min()), float(finite.max())
+    if lo == hi:
+        delta = abs(lo) or 1.0
+        lo, hi = lo - delta, hi + delta
+    return lo, hi
+
+
 def plot_plane(num, exact, coords, plane: Plane, label):
     """Struphy result (top) and its error (bottom, if ``exact`` is not None) in one physical plane, as a function of
     the physical coordinates of that plane. The logical surfaces making up the plane share one color scale."""
@@ -194,14 +210,15 @@ def plot_plane(num, exact, coords, plane: Plane, label):
     panels = [(num, "from struphy")] + ([] if exact is None else [(np.abs(num - exact), "error")])
     fig, axes = plt.subplots(len(panels), 1, figsize=(width + 2.0, len(panels) * height + 1.5), squeeze=False)
     for ax, (data, what) in zip(axes[:, 0], panels):
+        # one color scale (one Normalize) for all surfaces of the plane and the colorbar
+        norm = Normalize(*color_limits(data))
         for i in range(data.shape[axis]):
             pcm = ax.pcolormesh(
                 np.take(h, i, axis=axis),
                 np.take(v, i, axis=axis),
                 np.take(data, i, axis=axis),
                 shading="gouraud",
-                vmin=np.nanmin(data),
-                vmax=np.nanmax(data),
+                norm=norm,
             )
         fig.colorbar(pcm, ax=ax)
         ax.set_aspect("equal")
