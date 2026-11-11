@@ -5,11 +5,13 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+from feectools.linalg.basic import LinearOperator
 from feectools.linalg.solvers import inverse
 from line_profiler import profile
-from maybempi import MPI
+from maybempi import MPI, SerialComm
 
 from struphy.feec import preconditioner
+from struphy.feec.mass import WeightedAverageProjection
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
@@ -25,6 +27,394 @@ from struphy.propagators.utils import extracted_ones
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
+
+
+class _PerpProjection:
+    r"""The :math:`\mathbb P`-orthogonal projection onto the 1-forms that are constant in the given directions.
+
+    .. math::
+
+        \mathbb P_W = \mathbb E \, (\mathbb E^\top \mathbb P \mathbb E)^+ \, \mathbb E^\top \mathbb P\,,
+
+    where :math:`\mathbb E` embeds the coefficients that are constant in the averaged directions (all three
+    components of the 1-form together, so that the off-diagonal blocks of :math:`\mathbb P` are included). The
+    reduced matrix :math:`\mathbb E^\top \mathbb P \mathbb E` is assembled once by probing :math:`\mathbb P` with
+    colored vectors and pseudo-inverted on every process (it is singular where :math:`\mathbb P` has a kernel, e.g.
+    the component parallel to :math:`\mathbf b_0`). The projection itself is a reduced matrix-vector product.
+
+    This generalizes :class:`~struphy.feec.mass.WeightedAverageProjection` to the components of a 1-form, whose
+    spline spaces are not those of the 0-forms. The reduced matrix has size ``3 * prod(npts[kept])``; its dense
+    pseudo-inverse is computed once on every rank (memory quadratic and compute cubic in this size; sizes above
+    4096 are rejected), and one application costs one application of :math:`\mathbb P` and a reduced
+    matrix-vector product.
+    """
+
+    def __init__(self, space, P, directions: tuple[int, ...], comm):
+        import numpy as np
+        from scipy import sparse
+
+        directions = tuple(sorted(set(directions)))
+        assert directions and all(d in (0, 1, 2) for d in directions)
+        kept = tuple(d for d in range(3) if d not in directions)
+
+        self._space = space
+        self._P = P
+        self._directions = directions
+        self._kept = kept
+        self._comm = None if isinstance(comm, (SerialComm, type(None))) else comm
+        if self._comm is not None and self._comm.Get_size() == 1:
+            self._comm = None
+
+        # layout of each component; the components must share the kept directions
+        self._blocks = []
+        self._red_shape = None
+        self._kept_bounds = None
+        for V in space.spaces:
+            red_shape = tuple(V.npts[d] for d in kept)
+            kept_bounds = tuple((V.starts[d], V.ends[d]) for d in kept)
+            if self._red_shape is None:
+                self._red_shape = red_shape
+                self._kept_bounds = kept_bounds
+            assert red_shape == self._red_shape, (
+                "DarwinLongitudinalOperator: the components of the 1-form must have the same number of spline "
+                f"coefficients in the kept directions, got {red_shape} and {self._red_shape}; periodic boundaries "
+                "in the kept directions are required."
+            )
+            assert kept_bounds == self._kept_bounds, (
+                "DarwinLongitudinalOperator: the components of the 1-form must have the same decomposition in the "
+                f"kept directions, got {kept_bounds} and {self._kept_bounds}."
+            )
+            assert all(V.periods[d] == space.spaces[0].periods[d] for d in kept), (
+                "DarwinLongitudinalOperator: all components of the 1-form must have the same periodicity in the "
+                "kept directions."
+            )
+            local = tuple(slice(p * m, p * m + e - s + 1) for p, m, s, e in zip(V.pads, V.shifts, V.starts, V.ends))
+            red_local = tuple(slice(V.starts[d], V.ends[d] + 1) for d in kept)
+            self._blocks += [(V, local, red_local)]
+        self._n = int(np.prod(self._red_shape)) if kept else 1
+        self._n_red = 3 * self._n
+        if self._n_red > 4096:
+            raise NotImplementedError(
+                "Darwin polarization: the retained-polarization reduced matrix has size "
+                f"{self._n_red} (3 * the number of spline coefficients in the kept directions); the dense "
+                "pseudo-inverse is limited to 4096 (memory O(n^2), compute O(n^3), on every rank). Use a coarser "
+                "grid in the kept direction."
+            )
+        self._full_in = space.zeros()
+        self._full_out = space.zeros()
+
+        # colored probing in the kept directions: the columns of one color are at least 2 p + 1 apart (also
+        # across a periodic boundary), so their mass-matrix bands do not overlap
+        V0 = self._blocks[0][0]
+        strides = []
+        for d in kept:
+            n, p = V0.npts[d], V0.pads[d]
+            stride = n
+            if not V0.periods[d]:
+                stride = min(n, 2 * p + 1)
+            else:
+                for s in range(2 * p + 1, n + 1):
+                    if n % s == 0:
+                        stride = s
+                        break
+            strides.append(stride)
+        band = {d: max(V.pads[d] for V, _, _ in self._blocks) for d in kept}
+
+        index = np.arange(self._n).reshape(self._red_shape)
+        rows, cols, vals = [], [], []
+        for i in range(3):
+            for color in np.ndindex(*strides):
+                probe = np.zeros(self._red_shape)
+                sel = tuple(slice(c, None, s) for c, s in zip(color, strides))
+                probe[sel] = 1.0
+                self._full_in *= 0.0
+                self._E(i, probe, self._full_in.blocks[i])
+                self._full_in.update_ghost_regions()
+                self._P.dot(self._full_in, out=self._full_out)
+                columns = [self._ET(j, self._full_out.blocks[j]) for j in range(3)]
+                for a in index[sel].ravel():
+                    a_idx = np.unravel_index(a, self._red_shape)
+                    ranges = []
+                    for k, d in enumerate(kept):
+                        n = V0.npts[d]
+                        p = band[d]
+                        r = np.arange(a_idx[k] - p, a_idx[k] + p + 1)
+                        r = r % n if V0.periods[d] else r[(r >= 0) & (r < n)]
+                        ranges.append(np.unique(r))
+                    for b_idx in np.ndindex(*[len(r) for r in ranges]):
+                        b = tuple(r[i] for r, i in zip(ranges, b_idx))
+                        bi = index[b]
+                        for j in range(3):
+                            rows.append(j * self._n + bi)
+                            cols.append(i * self._n + a)
+                            vals.append(columns[j][b])
+        K = sparse.coo_matrix((vals, (rows, cols)), shape=(self._n_red, self._n_red)).tocsc()
+        K.sum_duplicates()
+        K = np.asarray(K.toarray())
+        self._K_pinv = np.linalg.pinv(K, rcond=1e-12, hermitian=True)
+
+    def _ET(self, i, v):
+        """E^T v for component ``i``: sum over the averaged directions, as global array over the kept directions."""
+        import numpy as np
+
+        _, local, red_local = self._blocks[i]
+        loc = xp.to_numpy(v._data[local]).sum(axis=self._directions)
+        out = np.zeros(self._red_shape, dtype=loc.dtype)
+        out[red_local] = loc
+        if self._comm is not None:
+            out = self._comm.allreduce(out, op=MPI.SUM)
+        return out
+
+    def _E(self, i, red, out):
+        """E red for component ``i``: the global array over the kept directions, constant along the averaged ones."""
+        _, local, red_local = self._blocks[i]
+        red = xp.asarray(red)
+        if self._kept:
+            loc = red[red_local]
+            shape = [1, 1, 1]
+            for k, d in enumerate(self._kept):
+                shape[d] = loc.shape[k]
+            out._data[local] = xp.asarray(loc.reshape(shape))
+        else:
+            out._data[local] = red.reshape(())
+
+    def ET(self, v):
+        """E^T v, concatenated over the three components (a global array on all processes)."""
+        import numpy as np
+
+        return np.concatenate([np.atleast_1d(self._ET(i, v.blocks[i])) for i in range(3)]).ravel()
+
+    def E(self, red, out):
+        """E red into the 1-form ``out`` (ghost regions updated)."""
+        import numpy as np
+
+        red = np.asarray(red).reshape((3,) + self._red_shape)
+        for i in range(3):
+            self._E(i, red[i], out.blocks[i])
+        out.update_ghost_regions()
+        return out
+
+    def project(self, v, out=None):
+        r"""The :math:`\mathbb P`-orthogonal projection :math:`\mathbb P_W \mathbf v` (a primal 1-form)."""
+        if out is None:
+            out = self._space.zeros()
+        self._P.dot(v, out=self._full_out)
+        return self.E(self._K_pinv @ self.ET(self._full_out), out)
+
+
+class DarwinLongitudinalOperator(LinearOperator):
+    r"""The Darwin longitudinal polarization operator on 1-forms,
+
+    .. math::
+
+        \mathbb P_L = \mathbb P \Pi_G
+        + (\mathbb I - \Pi_G)^\top \mathbb P \mathbb P_W (\mathbb I - \Pi_G)\,,
+        \qquad
+        \Pi_G = \mathbb G \, \mathbb L^{-1} \mathbb G^\top \mathbb P\,,
+        \qquad
+        \mathbb L = \mathbb G^\top \mathbb P \mathbb G + \sigma\, \mathbb M^0 \Pi_{\textnormal{avg}}\,,
+
+    with :math:`\mathbb P = \mathbb M^1_\perp` (:attr:`~struphy.feec.mass.WeightedMassOperators.M1gyro`, the
+    mass matrix weighted with :math:`n_0/|B_0|^2` on the perpendicular components),
+    :math:`\mathbb G` the discrete gradient, :math:`\Pi_{\textnormal{avg}}` the :math:`\mathbb M^0`-weighted
+    average over :math:`\eta_1, \eta_2` and
+    :math:`\mathbb P_W = \mathbb E (\mathbb E^\top \mathbb P \mathbb E)^+ \mathbb E^\top \mathbb P` the
+    :math:`\mathbb P`-orthogonal projection on the 1-forms that are constant in these directions
+    (:class:`_PerpProjection`; :math:`\mathbb E` embeds all three components). The first term is the
+    :math:`\mathbb P`-orthogonal projection of the electric field on the :math:`\mathbb P`-visible perpendicular
+    gradients (gradients parallel to :math:`\mathbf b_0` are annihilated), the second the polarization of the
+    :math:`\mathbb P`-orthogonal complement of that gradient part within the modes constant in the averaged
+    directions. Unlike the naive sum :math:`\mathbb P \Pi_G + \mathbb P_W`, the two ranges are not double-counted
+    when the weight or the metric varies in :math:`\eta_1, \eta_2`; the operator is symmetric and positive
+    semi-definite by construction (each term is of the form :math:`\mathbb A^\top \mathbb P \mathbb A` with the
+    :math:`\mathbb P`-self-adjoint projections :math:`\Pi_G` and :math:`\mathbb I-\Pi_G`; :math:`\Pi_G` acts as the
+    identity on the :math:`\mathbb P`-visible gradients and annihilates the kernel). With a weight or metric
+    varying in the averaged directions this is a :math:`\mathbb P`-orthogonal (not the Euclidean) decomposition:
+    fields that are transverse in the Euclidean sense can have a small longitudinal :math:`\mathbb P`-component,
+    and :math:`\mathbb P_L \mathbf u \neq \mathbb P \mathbf u` for :math:`k_\perp = 0` fields that are not
+    :math:`\mathbb P`-orthogonal to gradients; :math:`\mathbb P_L \mathbb G = \mathbb P \mathbb G` holds for any
+    weight and metric.
+
+    This is the matrix-free weak form of the Darwin displacement
+    :math:`\mathbf D^\textnormal{Dar} = \Pi_{L,\perp}(\chi\, n_0/|B_0|^2 \mathbf E_\perp)` of Remmerswaal, Hatzky
+    and Sonnendrücker (J. Plasma Phys. 91, E127, 2025, Eq. (6.6)): only the perpendicular-gradient part
+    :math:`\mathbf E_L = -\nabla_\perp \phi` of :math:`\mathbf E_\perp` carries the longitudinal polarization. The
+    gradient part is applied with an inner preconditioned conjugate-gradient solve of :math:`\mathbb L`; its
+    tolerance is relative to the norm of the right-hand side.
+
+    **Kernel of the perpendicular Laplacian.** :math:`\mathbb G^\top \mathbb P \mathbb G` is singular on the 0-forms
+    that are constant in the averaged directions (:math:`k_\perp = 0`): their gradient is parallel to
+    :math:`\mathbf b_0` (or vanishes), so it carries no longitudinal polarization. The term
+    :math:`\sigma\, \mathbb M^0 \Pi_{\textnormal{avg}}` (:math:`\sigma =` ``stab_eps``) regularizes that kernel, and
+    the second term retains the transversal polarization of the :math:`\mathbb P`-complement of the gradient part
+    in these modes. This is the choice of the reference implementation on branch
+    ``remmerswaal-gyrokinetic-maxwell-zlr``: the modes have the polarization of the :math:`k_\perp \to 0` limit
+    instead of no inertia (with no inertia, a :math:`k_\perp = 0` shear Alfvén wave and the net
+    :math:`E \times B` current of the markers would have no equation in the quasi-neutral Darwin model). For a
+    background field along :math:`\eta_3` the average over :math:`\eta_1, \eta_2` is exactly the kernel of
+    :math:`\mathbb G^\top \mathbb P \mathbb G`. The regularized operator :math:`\Pi_G` is the
+    :math:`\mathbb P`-orthogonal projector on the :math:`\mathbb P`-visible gradient subspace (modulo the kernel
+    directions annihilated by :math:`\mathbb P`; it maps the kernel to zero), and :math:`\mathbb I-\Pi_G` is the
+    complementary projector; :math:`\mathbb P_L \mathbb G = \mathbb P \mathbb G` holds off the kernel, and
+    :math:`\mathbb P_L = \mathbb P` on the :math:`k_\perp = 0` fields that are :math:`\mathbb P`-orthogonal to
+    gradients (exactly for a uniform perpendicular weight and metric). With ``perp_polarization=False`` the second
+    term is dropped (the pure pseudo-inverse form, in which the kernel modes have no polarization). The operator is
+    symmetric and positive semi-definite; polar splines are not supported (the average over :math:`\eta_1` is not
+    implemented), the background field must have no :math:`\eta_1` and :math:`\eta_2` components, and the average
+    is fixed to :math:`\eta_1, \eta_2` (all checked in the constructor).
+
+    The energy :math:`\frac{1}{2}\mathbf e^\top \mathbb P_L \mathbf e` is conserved by the implicit mid-point coupling
+    step only up to the inner-solve tolerance, approximately :math:`0.04 \times` ``inner_tol`` (measured); the
+    default ``inner_tol = 1e-12`` gives a relative drift of about :math:`5\cdot 10^{-14}` for three steps. A larger
+    ``inner_tol`` makes the outer solver's recursively computed residual differ from the true residual.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    mass_ops : WeightedMassOperators
+        The mass operators, with the equilibrium :math:`n_0` and :math:`\mathbf B_0` of
+        :attr:`~struphy.feec.mass.WeightedMassOperators.M1gyro`.
+    stab_eps : float
+        The regularization :math:`\sigma > 0` of the kernel.
+    inner_tol : float
+        Relative tolerance of the inner solves of the perpendicular Laplacian (relative to the norm of the
+        right-hand side).
+    inner_maxiter : int
+        Maximum number of iterations of the inner solves.
+    perp_polarization : bool
+        Whether the polarization of the :math:`\mathbb P`-complement of the gradient part in the modes constant in
+        the averaged directions is retained (default True).
+    """
+
+    def __init__(
+        self,
+        derham,
+        mass_ops,
+        stab_eps: float = 1.0,
+        inner_tol: float = 1e-12,
+        inner_maxiter: int = 1000,
+        perp_polarization: bool = True,
+    ):
+        assert not derham.polar_splines, (
+            "DarwinLongitudinalOperator does not support polar splines: the average over eta1 across the pole is "
+            "not implemented. Use polarization='full' or a tensor-product grid."
+        )
+        assert stab_eps > 0.0, f"stab_eps must be > 0, got {stab_eps}."
+        assert inner_tol > 0.0, f"inner_tol must be > 0, got {inner_tol}."
+        assert inner_maxiter > 0, f"inner_maxiter must be > 0, got {inner_maxiter}."
+
+        # the kernel average and the retained polarization assume b0 along eta3 (no eta1/eta2 components)
+        equil = mass_ops.eq_mhd
+        if equil is not None:
+            eta = xp.linspace(0.0, 1.0, 5)
+            e1, e2, e3 = xp.meshgrid(eta, eta, eta, indexing="ij")
+            b1 = xp.max(xp.abs(equil.unit_bv_1(e1, e2, e3)))
+            b2 = xp.max(xp.abs(equil.unit_bv_2(e1, e2, e3)))
+            assert float(b1) < 1e-12 and float(b2) < 1e-12, (
+                "DarwinLongitudinalOperator assumes a background field along eta3 (no eta1/eta2 components): "
+                f"got max|b0.eta1|={float(b1):.3e}, max|b0.eta2|={float(b2):.3e}. Use polarization='full'."
+            )
+
+        self._derham = derham
+        self._P = mass_ops.M1gyro
+        self._grad = derham.grad
+        self._space = self._P.domain
+
+        # kernel regularization: the average over eta1, eta2 is the kernel for b0 along eta3
+        directions = (0, 1)
+        self._directions = directions
+        M0 = mass_ops.M0
+        self._avg = WeightedAverageProjection(derham, M0, directions)
+        self._laplace = self._grad.T @ self._P @ self._grad + stab_eps * (M0 @ self._avg)
+        pc = preconditioner.StiffnessPreconditioner(mass_ops, "grad", mid=self._P, sigma=stab_eps)
+        self._tol = inner_tol
+        self._inv = inverse(self._laplace, "pcg", pc=pc, tol=inner_tol, maxiter=inner_maxiter)
+
+        # buffers
+        self._phi = self._grad.domain.zeros()
+        self._v0 = self._grad.domain.zeros()
+        self._v1 = self._space.zeros()
+        self._g_primal = self._space.zeros()
+        self._g_dual = self._space.zeros()
+        self._h = self._space.zeros()
+        self._w = self._space.zeros()
+        self._Pw = self._space.zeros()
+        self._gw = self._space.zeros()
+
+        # projection on the P-orthogonal complement of the gradient part within the constant-in-eta1/eta2 fields
+        self._perp_polarization = perp_polarization
+        self._perp = None
+        if perp_polarization:
+            self._perp = _PerpProjection(self._space, self._P, directions, derham.comm)
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return float
+
+    def transpose(self, conjugate=False):
+        return self
+
+    def tosparse(self):
+        raise NotImplementedError("matrix-free operator")
+
+    def solve_laplacian(self, rhs, out=None):
+        """Solve the regularized perpendicular Laplacian with the tolerance relative to the norm of ``rhs``."""
+        # absolute tolerance with a floor (a vanishing right-hand side gives the zero solution at once)
+        self._inv._options["tol"] = max(self._tol * rhs.inner(rhs) ** 0.5, 1e-150)
+        return self._inv.solve(rhs, out=out)
+
+    def _gradient_potential(self, v):
+        """The potential :math:`\\phi = \\mathbb L^{-1} \\mathbb G^\\top \\mathbb P \\mathbf v` of the 1-form ``v``."""
+        self._P.dot(v, out=self._v1)
+        self._grad.T.dot(self._v1, out=self._v0)
+        return self.solve_laplacian(self._v0, out=self._phi)
+
+    def _gradient(self, v, out):
+        """The gradient part :math:`\\mathbb P \\Pi_G \\mathbf v` into ``out``."""
+        phi = self._gradient_potential(v)
+        self._grad.dot(phi, out=self._g_primal)
+        return self._P.dot(self._g_primal, out=out)
+
+    def remove_average(self, phi):
+        r"""Remove (in place) the part of the 0-form ``phi`` that is constant in the averaged directions, i.e.
+        :math:`\phi \leftarrow (\mathbb I - \Pi_{\textnormal{avg}}) \phi`: the kernel of the regularized
+        perpendicular Laplacian. Returns the norm of the removed part."""
+        self._avg.dot(phi, out=self._v0)
+        phi -= self._v0
+        return self._v0.inner(self._v0) ** 0.5
+
+    def dot(self, v, out=None):
+        assert v.space == self._space
+        if out is None:
+            out = self._space.zeros()
+
+        # gradient part P Pi_G v = P G phi, and the primal Pi_G v = G phi for the complement below
+        phi = self._gradient_potential(v)
+        self._grad.dot(phi, out=self._g_primal)
+        self._P.dot(self._g_primal, out=self._g_dual)
+
+        if self._perp_polarization:
+            # (I - Pi_G) v
+            v.copy(out=self._h)
+            self._h -= self._g_primal
+            # (I - Pi_G)^T P P_W (I - Pi_G) v = P w - P Pi_G w, with w = P_W (I - Pi_G) v
+            w = self._perp.project(self._h, out=self._w)
+            self._P.dot(w, out=self._Pw)
+            self._gradient(w, out=self._gw)
+            self._Pw -= self._gw
+            self._g_dual += self._Pw
+
+        self._g_dual.update_ghost_regions()
+        return self._g_dual.copy(out=out)
 
 
 class DriftKineticMaxwellCoupling(Propagator):
@@ -89,7 +479,8 @@ class DriftKineticMaxwellCoupling(Propagator):
         \dot v_{\parallel,p} = c_3\, \mathbf a_p \cdot \mathbf \Lambda^1_p \mathbf e\,,
 
     with :math:`\mathbb M_E = \lambda^2\, \mathbb M_1 + \chi\, \mathbb M_1^\perp` (:math:`\mathbb M_1^\perp` =
-    :attr:`~struphy.feec.mass.WeightedMassOperators.M1gyro`), :math:`\mathbf a_p =
+    :attr:`~struphy.feec.mass.WeightedMassOperators.M1gyro`; with ``polarization="darwin"``, :math:`\lambda = 0`
+    and :math:`\mathbb M_E = \chi\, \mathbb P_L`, see below), :math:`\mathbf a_p =
     \hat{\mathbf B}^{*2} / \hat B^{*3}_\parallel (\boldsymbol \eta_p)`, :math:`\mathbf \Lambda^1_p` the basis of
     :math:`V^1_h` at :math:`\boldsymbol \eta_p`, and
 
@@ -150,6 +541,48 @@ class DriftKineticMaxwellCoupling(Propagator):
     :math:`E \times B` push only through :math:`\mathbf E_\perp`. With ``initial_projection``
     (default), the setup replaces :math:`(\mathbf b^0, \mathbf V^0)` by the mid-point state of one step, which
     removes the undamped period-2 oscillation of the constraint residual.
+
+    **Darwin polarization** (option ``polarization="darwin"``). The displacement current is set to zero
+    (:math:`\lambda = 0`, enforced) and the full perpendicular polarization :math:`\chi\, \mathbb M_1^\perp` is
+    replaced by the longitudinal (Darwin) polarization
+
+    .. math::
+
+        \mathbb P_L = \mathbb P \Pi_G + (\mathbb I - \Pi_G)^\top \mathbb P \mathbb P_W (\mathbb I - \Pi_G)\,,
+        \qquad
+        \Pi_G = \mathbb G\, \mathbb L^{-1} \mathbb G^\top \mathbb P\,,
+        \qquad
+        \mathbb L = \mathbb G^\top \mathbb P \mathbb G + \sigma\, \mathbb M^0 \Pi_\textnormal{avg}\,,
+        \qquad
+        \mathbb P_W = \mathbb E (\mathbb E^\top \mathbb P \mathbb E)^+ \mathbb E^\top \mathbb P\,,
+
+    with :math:`\mathbb P = \mathbb M_1^\perp = \mathbb M^1_{n_0/|B_0|^2}(\mathbb I - \mathbf b_0 \mathbf b_0^\top)`.
+    The first term is the :math:`\mathbb P`-orthogonal projection on perpendicular gradients, the second the
+    polarization of their :math:`\mathbb P`-orthogonal complement within the modes constant in the averaged
+    directions (:math:`\mathbb P_W` is the projection on those modes, :math:`\mathbb E` embeds all three components).
+    This is the weak form of :math:`\mathbf D^\textnormal{Dar} = \Pi_{L,\perp}(\chi\, n_0/|B_0|^2
+    \mathbf E_\perp)`, Eq. (6.6) of Remmerswaal, Hatzky and Sonnendrücker, J. Plasma Phys. 91, E127 (2025): only the
+    perpendicular-gradient part :math:`\mathbf E_L = -\nabla_\perp \phi` of :math:`\mathbf E_\perp` carries
+    inertia, the transversal part is the multiplier of the quasi-static Ampère constraint. The Schur system above is
+    unchanged with :math:`\mathbb M_E = \chi\, \mathbb P_L` (and :math:`\lambda = 0`), its transversal part is
+    controlled by the curl-curl term, and the energy :math:`\frac{1}{2} \mathbf e^\top \mathbb M_E \mathbf e` is
+    conserved as before, up to a drift of about :math:`0.04 \times` ``inner_tol``. :math:`\mathbb P_L` is applied
+    matrix-free by :class:`~struphy.propagators.drift_kinetic_maxwell_coupling.DarwinLongitudinalOperator`, with an
+    inner PCG solve of :math:`\mathbb L` (``inner_tol``, ``inner_maxiter``). The kernel of :math:`\mathbb G^\top
+    \mathbb P \mathbb G` (:math:`k_\perp = 0`, functions constant in :math:`\eta_1, \eta_2`) is
+    regularized by :math:`\sigma\, \mathbb M^0 \Pi_\textnormal{avg}` (``stab_eps``) and the polarization of its
+    transverse complement is retained (``perp_polarization``); for a uniform perpendicular weight and metric this is
+    the :math:`k_\perp = 0` shear Alfvén branch. The compressional branch (:math:`\mathbf E` transverse to both
+    :math:`\mathbf k` and :math:`\mathbf b_0`) has no polarization and no oscillation. For the preconditioner,
+    :math:`\mathbb P_L` is replaced by :math:`\mathbb M_1^\perp` in the stabilization (a :math:`\mathbb M_1^\perp`
+    upper bound). That bound is loose for the inertia-free transverse modes, so the outer iteration count grows at
+    small time steps (about 5x the full model in a small aligned test); the preconditioner remains valid but is not
+    effective there. The Darwin variant requires a background field along :math:`\eta_3` (no :math:`\eta_1`,
+    :math:`\eta_2` components; checked in :meth:`allocate`) and does not support polar splines. The transverse part
+    of :math:`\mathbf e` in the kernel of :math:`\mathbb P_L` has no inertia: it is not determined by the energy and
+    the update :math:`\mathbf e^{n+1} = 2\mathbf e^\textnormal{mid} - \mathbf e^n` flips its sign every step. It is
+    nevertheless stored and passed to the :math:`E \times B` push by the model (a documented limitation of the
+    Darwin variant); it stays zero for a longitudinal or zero initial field.
 
     **Preconditioner.** With :math:`\mathbb A_\parallel \approx \bar n\, \mathbb M_1^\parallel`
     (:attr:`~struphy.feec.mass.WeightedMassOperators.M1para`), the symmetric part of the Schur operator is
@@ -270,15 +703,58 @@ class DriftKineticMaxwellCoupling(Propagator):
             :math:`\mathbf 1^\top \mathbb A_\parallel \mathbf 1 / \mathbf 1^\top \mathbb M_1^\parallel \mathbf 1` at
             the setup (a density average).
 
+        polarization : LiteralOptions.OptsPolarization, default="full"
+            The polarization current in Ampère's law.
+
+            - ``"full"`` (default): :math:`\chi\, \mathbb M_1^\perp` on the whole perpendicular field, as in the
+              equations of the class docstring (the current behaviour).
+            - ``"darwin"``: the longitudinal (Darwin) polarization
+              :math:`\chi\, \mathbb P_L = \chi\, [\mathbb P \Pi_G + (\mathbb I - \Pi_G)^\top \mathbb P \mathbb P_W
+              (\mathbb I - \Pi_G)]`, with the :math:`\mathbb P`-orthogonal gradient projection
+              :math:`\Pi_G = \mathbb G (\mathbb G^\top \mathbb M_1^\perp \mathbb G + \sigma \mathbb M^0
+              \Pi_\textnormal{avg})^{-1} \mathbb G^\top \mathbb M_1^\perp` and the projection
+              :math:`\mathbb P_W` on the modes constant in :math:`\eta_1, \eta_2` (see
+              :class:`~struphy.propagators.drift_kinetic_maxwell_coupling.DarwinLongitudinalOperator`), i.e. only
+              the perpendicular-gradient part of :math:`\mathbf E_\perp` plus the polarization of its
+              :math:`\mathbb P`-orthogonal complement in the :math:`k_\perp = 0` modes (Eq. (6.6) of Remmerswaal,
+              Hatzky and Sonnendrücker, J. Plasma Phys. 91, E127 (2025)), applied matrix-free with an inner solve
+              (``inner_tol``, ``inner_maxiter``). This is the Darwin model: it needs ``lam=0`` (no displacement
+              current; a positive ``lam`` raises an error) and a background field along :math:`\eta_3` (no
+              :math:`\eta_1`, :math:`\eta_2` components; checked in :meth:`allocate`). Not available with polar
+              splines. The transverse part of :math:`\mathbf e` in the kernel of :math:`\mathbb P_L` has no inertia
+              and flips sign every step (see the class docstring).
+
+        inner_tol : float, default=1e-12
+            Only for ``polarization="darwin"``: relative tolerance of the inner solves of the regularized
+            perpendicular Laplacian (relative to the norm of the right-hand side). The energy conservation of the
+            coupling step is limited by it (about :math:`0.04 \times` ``inner_tol``; the default gives
+            :math:`\sim 5\cdot 10^{-14}` for three steps). A larger value makes the outer solver's recursive
+            residual differ from the true residual.
+
+        inner_maxiter : int, default=1000
+            Only for ``polarization="darwin"``: maximum number of iterations of the inner solves.
+
+        stab_eps : float, default=1.0
+            Only for ``polarization="darwin"``: the regularization :math:`\sigma > 0` of the kernel of the
+            perpendicular Laplacian. For :math:`\mathbf b_0 \parallel \eta_3` the operator is independent of
+            :math:`\sigma` (the kernel component of the potential does not enter the gradient).
+
+        perp_polarization : bool, default=True
+            Only for ``polarization="darwin"``: retain the polarization of the :math:`\mathbb P`-orthogonal
+            complement of the gradient part within the modes constant in the averaged directions
+            (:math:`k_\perp = 0`). Without it (the pure pseudo-inverse form) these modes have no polarization and the
+            quasi-neutral Schur system is singular for them.
+
         matrix_free : bool, default=False
             Apply the particle matrices :math:`\mathbb A_\parallel` and :math:`\mathbb S` matrix-free, with their
             fillings stored per marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead
             of assembling them. Needs 7 auxiliary marker columns.
 
         initial_projection : bool, default=True
-            Only for ``lam=0``: in the setup (first :meth:`prepare_time_step`), replace
-            :math:`(\mathbf b, \mathbf V)` by the mid-point state of one step, which satisfies the constraint of the
-            quasi-neutral limit exactly. Not applied to a restored (restart) state.
+            Only for ``lam=0`` (also with ``polarization="darwin"``): in the setup (first
+            :meth:`prepare_time_step`), replace :math:`(\mathbf b, \mathbf V)` by the mid-point state of one step,
+            which satisfies the constraint of the quasi-neutral limit exactly. Not applied to a restored (restart)
+            state.
         """
 
         # specific literals
@@ -294,6 +770,11 @@ class DriftKineticMaxwellCoupling(Propagator):
         precond: LiteralOptions.OptsMaxwellPrecond = "StiffnessPreconditioner"
         solver_params: SolverParameters = None
         n_ref: float = None
+        polarization: LiteralOptions.OptsPolarization = "full"
+        inner_tol: float = 1e-12
+        inner_maxiter: int = 1000
+        stab_eps: float = 1.0
+        perp_polarization: bool = True
         matrix_free: bool = False
         initial_projection: bool = True
 
@@ -301,6 +782,7 @@ class DriftKineticMaxwellCoupling(Propagator):
             # checks
             check_option(self.solver, self.OptsSolver)
             check_option(self.precond, LiteralOptions.OptsMaxwellPrecond)
+            check_option(self.polarization, LiteralOptions.OptsPolarization)
             if self.lam is not None:
                 assert self.lam >= 0.0, f"lam must be >= 0, got {self.lam}."
             if self.chi is not None:
@@ -318,6 +800,15 @@ class DriftKineticMaxwellCoupling(Propagator):
             assert isinstance(self.exb_current, bool)
             assert isinstance(self.matrix_free, bool)
             assert isinstance(self.initial_projection, bool)
+            assert isinstance(self.perp_polarization, bool)
+            assert self.inner_tol > 0.0, f"inner_tol must be > 0, got {self.inner_tol}."
+            assert self.inner_maxiter > 0, f"inner_maxiter must be > 0, got {self.inner_maxiter}."
+            assert self.stab_eps > 0.0, f"stab_eps must be > 0, got {self.stab_eps}."
+            if self.polarization == "darwin":
+                if self.lam is not None:
+                    assert self.lam == 0.0, (
+                        'polarization="darwin" is the quasi-neutral Darwin model (no displacement current): lam=0.'
+                    )
             if self.exb_current:
                 assert self.solver not in ("pcg", "cg"), (
                     f'solver="{self.solver}" needs a symmetric system: use a general solver or exb_current=False.'
@@ -358,6 +849,14 @@ class DriftKineticMaxwellCoupling(Propagator):
         self._exb = self.options.exb_current
         assert self._c2 * self._c3 > 0.0, f"c2 * c3 must be > 0, got c2={self._c2}, c3={self._c3}."
         assert self._lam2 + self._chi > 0.0, f"lam**2 + chi must be > 0, got lam**2={self._lam2}, chi={self._chi}."
+
+        # polarization: full perpendicular (default) or Darwin longitudinal (quasi-neutral, lam = 0)
+        self._polarization = self.options.polarization
+        if self._polarization == "darwin":
+            assert self._lam2 == 0.0, (
+                "polarization='darwin' is the quasi-neutral Darwin model (no displacement current): set lam=0.0 "
+                f"(resolved lam**2={self._lam2})."
+            )
 
         particles = self.variables.ions.particles
         if particles.control_variate:
@@ -461,7 +960,18 @@ class DriftKineticMaxwellCoupling(Propagator):
         self._M2 = self.mass_ops.M2
         self._curl = self.derham.curl
         self._curl_curl = self._curl.T @ self._M2 @ self._curl
-        if self._lam2 > 0.0 and self._chi > 0.0:
+        if self._polarization == "darwin":
+            # M_E = chi P_L, P_L matrix-free (longitudinal polarization); lam = 0 checked above
+            self._PL = DarwinLongitudinalOperator(
+                self.derham,
+                self.mass_ops,
+                stab_eps=self.options.stab_eps,
+                inner_tol=self.options.inner_tol,
+                inner_maxiter=self.options.inner_maxiter,
+                perp_polarization=self.options.perp_polarization,
+            )
+            self._ME = self._chi * self._PL
+        elif self._lam2 > 0.0 and self._chi > 0.0:
             self._ME = self._lam2 * self._M1 + self._chi * self.mass_ops.M1gyro
         elif self._lam2 > 0.0:
             self._ME = self._lam2 * self._M1
@@ -580,7 +1090,11 @@ class DriftKineticMaxwellCoupling(Propagator):
             schur = schur + (dt**2 * self._c2 * self._c3 / 4) * self._A_lam
 
         if self._precond == "StiffnessPreconditioner":
-            stab = self._ME + (dt**2 * self._c2 * self._c3 * self._n_ref / 4) * self.mass_ops.M1para
+            # For Darwin, P_L is matrix-free; the preconditioner uses chi * M1gyro (the full perpendicular
+            # polarization), which is an upper bound of chi * P_L in the M1gyro inner product and matches the
+            # operator for the modes that dominate the stiffness.
+            ME_stab = self._chi * self.mass_ops.M1gyro if self._polarization == "darwin" else self._ME
+            stab = ME_stab + (dt**2 * self._c2 * self._c3 * self._n_ref / 4) * self.mass_ops.M1para
             pc = preconditioner.StiffnessPreconditioner(
                 self.mass_ops,
                 "curl",

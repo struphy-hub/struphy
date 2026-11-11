@@ -73,6 +73,9 @@ class LiteralOptions:
     NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
     GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
 
+    # polarization of the drift-kinetic Maxwell coupling (full perpendicular or Darwin longitudinal)
+    OptsPolarization = Literal["full", "darwin"]
+
     # solvers
     OptsSymmSolver = Literal["pcg", "pcg_sr", "cg"]
     OptsGenSolver = Literal["pbicgstab", "bicgstab", "gmres"]

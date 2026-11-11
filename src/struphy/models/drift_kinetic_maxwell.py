@@ -198,6 +198,24 @@ class DriftKineticMaxwell(GuidingCenter):
         (option ``c2``) can be changed in
         :class:`~struphy.propagators.drift_kinetic_maxwell_coupling.DriftKineticMaxwellCoupling`. Without the
         polarization current the quasi-neutral limit would be singular for flute modes (:math:`k_\parallel = 0`).
+
+        With ``polarization="darwin"`` (option of
+        :class:`~struphy.propagators.drift_kinetic_maxwell_coupling.DriftKineticMaxwellCoupling`), the model is the
+        Darwin (quasi-neutral) limit: the displacement current is dropped (:math:`\lambda = 0`) and the polarization
+        current acts only on the longitudinal part of the perpendicular field,
+
+        .. math::
+
+            \frac{n_0}{|\mathbf B_0|^2} \frac{\partial \mathbf E_\perp}{\partial t}
+            \;\longrightarrow\;
+            \Pi_{L,\perp} \left( \frac{n_0}{|\mathbf B_0|^2} \frac{\partial \mathbf E_\perp}{\partial t} \right),
+
+        i.e. only the perpendicular-gradient part :math:`-\nabla_\perp \phi` of :math:`\mathbf E_\perp` carries
+        inertia (Remmerswaal, Hatzky and Sonnendrücker, J. Plasma Phys. 91, E127 (2025), Eq. (6.6)); the
+        compressional branch is then the multiplier of the quasi-static Ampère constraint, without oscillation. The
+        modes constant in the perpendicular directions (:math:`k_\perp = 0`) keep the polarization of their
+        :math:`k_\perp \to 0` limit, see
+        :class:`~struphy.propagators.drift_kinetic_maxwell_coupling.DarwinLongitudinalOperator`.
         """
 
     @classmethod
@@ -243,7 +261,9 @@ class DriftKineticMaxwell(GuidingCenter):
 
         - Electric field energy (displacement and polarization)
           :math:`\frac{\varepsilon^2 \lambda^2}{2} \| \mathbf E \|^2 + \frac{\varepsilon^2 \kappa^2}{2}
-          \| \mathbf E_\perp \|^2_{n_0/|B_0|^2}`: ``en_E``
+          \| \mathbf E_\perp \|^2_{n_0/|B_0|^2}` (with ``polarization="darwin"``: :math:`\lambda = 0` and the
+          polarization energy :math:`\frac{\varepsilon^2 \kappa^2}{2} \mathbf e^\top \mathbb P_L \mathbf e` of the
+          longitudinal operator): ``en_E``
         - Magnetic field energy :math:`\frac{1}{2} \| \tilde{\mathbf B} \|^2`: ``en_B``
         - Particle energy :math:`\varepsilon^2 \kappa^2 \sum_p w_p (v_{\parallel,p}^2/2 + \mu_p |B_0|)`: ``en_f``;
           unlike in :class:`~struphy.models.GuidingCenter` it contains the magnetic-moment energy (there is no
@@ -280,7 +300,14 @@ class DriftKineticMaxwell(GuidingCenter):
         displacement current is well-posed and gives the inertial Alfvén wave. The guiding centers then stream along
         the field and drift with :math:`\mathbf E^* \times \mathbf b_0`. The total energy is conserved exactly by the
         splitting if :math:`\nabla |B_0| = 0` and either :math:`\mu = 0` or :math:`\mathbf b_0 \cdot \tilde{\mathbf B}
-        = 0`."""
+        = 0`.
+
+        With ``polarization="darwin"`` the model is the Darwin (quasi-neutral) version: no displacement current
+        (:math:`\lambda = 0`) and the polarization current only on the perpendicular-gradient (longitudinal) part of
+        the electric field (Eq. (6.6) of Remmerswaal, Hatzky and Sonnendrücker, J. Plasma Phys. 91, E127 (2025)).
+        It is intended for comparisons with gyrokinetic Darwin/electrostatic models and for the shear Alfvén branch;
+        the compressional branch has no inertia and no oscillation. The model then conserves the same total energy
+        with :math:`\mathbb M_E = \chi \mathbb P_L`."""
 
     @classmethod
     def doc_examples(cls):
@@ -293,6 +320,16 @@ class DriftKineticMaxwell(GuidingCenter):
             model = DriftKineticMaxwell()
             prop = model.propagators.coupling
             prop.options = prop.Options(lam=0.0)
+
+        The Darwin (longitudinal polarization) variant requires a background field along :math:`\eta_3` (no
+        :math:`\eta_1`, :math:`\eta_2` components, checked in the allocator), e.g. ``HomogenSlab(B0z=1.0)`` in the
+        ``Simulation``:
+
+        .. code-block:: python
+
+            model = DriftKineticMaxwell()
+            prop = model.propagators.coupling
+            prop.options = prop.Options(lam=0.0, polarization="darwin")
         """
 
     @classmethod
@@ -301,7 +338,9 @@ class DriftKineticMaxwell(GuidingCenter):
 
         - electromagnetic drift-kinetic simulations with time steps above the plasma period
         - shear (inertial) Alfvén waves with kinetic parallel dynamics
-        - the quasi-neutral limit (``lam=0.0``) with full-f weights"""
+        - the quasi-neutral limit (``lam=0.0``) with full-f weights
+        - the quasi-neutral Darwin model (``polarization="darwin"``): longitudinal polarization only, no
+          compressional inertia; comparisons with gyrokinetic Darwin/electrostatic models"""
 
     @classmethod
     def doc_cannot_be_used_for(cls):
@@ -309,4 +348,8 @@ class DriftKineticMaxwell(GuidingCenter):
 
         - the quasi-neutral limit with control-variate (delta-f) weights or with vacuum regions
         - finite Larmor radius effects beyond the linearized long-wavelength polarization
-        - exact energy conservation in inhomogeneous :math:`|B_0|` (the grad-:math:`B` drift current is missing)"""
+        - exact energy conservation in inhomogeneous :math:`|B_0|` (the grad-:math:`B` drift current is missing)
+        - the Darwin polarization with polar splines (the perpendicular average across the pole is not implemented)
+          or with a background field that is not along :math:`\eta_3` (the kernel average assumes
+          :math:`\mathbf b_0 \parallel \eta_3`); the transverse part of :math:`\mathbf E` in the kernel of
+          :math:`\mathbb P_L` is a constraint multiplier and is passed to the :math:`E \times B` push"""
