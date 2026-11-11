@@ -193,6 +193,29 @@ def _git_output(args: list, cwd: str, timeout: float = 5.0) -> str | None:
     return result.stdout.strip()
 
 
+def _feectools_info() -> dict:
+    """Version and git commit of the imported feectools (None where unknown), see :func:`code_info`."""
+    import importlib.metadata
+    import importlib.util
+
+    try:
+        version = importlib.metadata.version("feectools")
+    except Exception:
+        version = None
+    commit = None
+    try:
+        # feectools is a namespace package (no __init__.py): its folder from the search locations
+        spec = importlib.util.find_spec("feectools")
+        locations = list(spec.submodule_search_locations or []) if spec is not None else []
+        path = locations[0] if locations else None
+    except Exception:
+        path = None
+    # the folder must be tracked by the repository (e.g. the submodule), not just lie inside one
+    if path and _git_output(["ls-files", "--", "."], cwd=path):
+        commit = _git_output(["rev-parse", "HEAD"], cwd=path) or None
+    return {"feectools_version": version, "feectools_git_commit": commit}
+
+
 def code_info(libpath: str = STRUPHY_LIBPATH) -> dict:
     """Version and git state of the Struphy code that is running, for the run metadata.
 
@@ -210,7 +233,9 @@ def code_info(libpath: str = STRUPHY_LIBPATH) -> dict:
         ``git_commit``: full SHA of ``HEAD`` if ``struphy`` is imported from a git checkout (e.g. an
         editable install), else None; ``git_dirty``: whether tracked files of the source folder (the parent
         of the package, ``src/``) have uncommitted changes, None if not a checkout; ``git_branch``: branch
-        name, None if not a checkout or in detached-HEAD state.
+        name, None if not a checkout or in detached-HEAD state; ``feectools_version`` and ``feectools_git_commit``:
+        the same for the FEEC library feectools (its changes are not seen by ``git_dirty``; the commit is given if
+        feectools is imported from a git checkout, e.g. the submodule of an editable install).
     """
     import importlib.metadata
 
@@ -219,6 +244,7 @@ def code_info(libpath: str = STRUPHY_LIBPATH) -> dict:
     except Exception:
         version = None
     info = {"version": version, "git_commit": None, "git_dirty": None, "git_branch": None}
+    info.update(_feectools_info())
 
     # struphy must be tracked by the repository, not just lie inside one (e.g. a venv in a user's project)
     if _git_output(["ls-files", "--error-unmatch", "__init__.py"], cwd=libpath) is None:

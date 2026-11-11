@@ -552,7 +552,9 @@ The metadata also records how the run was produced: the number of MPI ranks
 (``out.mpi_ranks``), the command line of the run (``out.metadata["command_line"]``) and
 the Struphy version and git state of the code (``out.code_info``, a dict with ``version``,
 ``git_commit``, ``git_dirty`` and ``git_branch``; the git entries are ``None`` unless Struphy
-was imported from a git checkout, e.g. an editable install).
+was imported from a git checkout, e.g. an editable install; ``feectools_version`` and
+``feectools_git_commit`` for the FEEC library feectools). The command line is stored as typed, so
+don't pass secrets on the command line of a run.
 
 
 Choosing post-processing options: ``out.pproc()``

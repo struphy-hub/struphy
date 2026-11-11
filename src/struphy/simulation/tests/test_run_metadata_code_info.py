@@ -13,8 +13,17 @@ from struphy.utils.utils import code_info
 
 
 def _check_code_info(info: dict):
-    assert set(info) == {"version", "git_commit", "git_dirty", "git_branch"}
+    assert set(info) == {
+        "version",
+        "git_commit",
+        "git_dirty",
+        "git_branch",
+        "feectools_version",
+        "feectools_git_commit",
+    }
     assert isinstance(info["version"], str) and info["version"]
+    assert info["feectools_version"] is None or isinstance(info["feectools_version"], str)
+    assert info["feectools_git_commit"] is None or re.fullmatch(r"[0-9a-f]{40}", info["feectools_git_commit"])
     if info["git_commit"] is None:
         assert info["git_dirty"] is None and info["git_branch"] is None
     else:
