@@ -121,7 +121,7 @@ class LinearEulerWithQ(StruphyModel):
         self._ones = ones_l2()
 
     def _compute_en_p_eq(self):
-        return Propagator.projected_equil.p3.inner(self._ones) / (5 / 3 - 1)
+        return Propagator.projected_equil.tp.p3.inner(self._ones) / (5 / 3 - 1)
 
     ## abstract methods for documentation
 
