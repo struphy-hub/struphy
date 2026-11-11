@@ -7,10 +7,10 @@ are shown by their components in the basis of their initial condition (``given_i
 see ``Output.field_basis``), as functions of the physical coordinates; the 3D views show the scalar fields and the
 first components (radial eta1 in a logical basis). The measured TAE frequency is compared with the analytical one
 and saved; a deviation of more than 10% fails with an ``AssertionError`` after the figures are saved (not with
-``--test-run``). The spectra of the harmonics of the radial velocity, their (r, omega) maps with the shear Alfven
-continua and the mode structure at the TAE frequency are saved as ``tae_spectrum``, ``tae_omega_r`` and
-``tae_profiles`` (see ``struphy.post_processing.mode_analysis``). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
-(``pip install "struphy[pproc]"``).
+``--test-run``). The spectra of the harmonics of the radial velocity, their (r, omega) maps with
+the shear Alfven continua and the mode structure at the TAE frequency are saved as ``tae_spectrum``,
+``tae_omega_r`` and ``tae_profiles`` (see ``struphy.post_processing.mode_analysis``). Figures are written into
+``<path_out>/results``. The energy and harmonics plots use plasma-plots (``pip install "struphy[pproc]"``).
 
 Unless ``--no-frames``, the frames of three videos of the radial velocity u_r over the run (at most ``--max-frames``
 saved time steps) are written into ``<path_out>/results/frames/``: ``u_r_rz`` (the poloidal plane), ``u_r_3d_cut``

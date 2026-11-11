@@ -14,7 +14,8 @@ poloidal angle, toroidal angle or axial coordinate):
        f(\eta_1, \eta_2, \eta_3, t) = \sum_{m, n} c_{m,n}(\eta_1, t) \, e^{2 \pi i (m \eta_2 + n \eta_3)}\,.
 
    The coefficients of the poloidal mode numbers ``ms`` and of one (logical) toroidal mode number ``n`` are kept; the
-   physical toroidal mode number is ``n`` times the ``tor_period`` of the domain.
+   physical mode numbers are ``m`` times the ``pol_period`` and ``n`` times the ``tor_period`` of the domain (if it has
+   them).
 
 2. **Spectrum in time** (:func:`time_spectrum`): at every radius and for every :math:`m`, the time mean is subtracted,
    a Hann window :math:`w(t)` is applied (it reduces the leakage of a frequency into its neighbours) and the FFT in
@@ -24,13 +25,16 @@ poloidal angle, toroidal angle or axial coordinate):
 
    .. math::
 
-       A_m(\eta_1, \omega) = \sqrt{|\hat c_m(\eta_1, \omega)|^2 + |\hat c_m(\eta_1, -\omega)|^2}\,, \qquad \omega \geq 0\,,
+       A_m(\eta_1, \omega) = \sqrt{|\hat c_m(\eta_1, \omega)|^2 + |\hat c_m(\eta_1, -\omega)|^2}\,,
+       \qquad \omega \geq 0\,,
 
-   so that a standing wave (peaks at :math:`\pm\omega`) and a wave travelling in either direction (one peak) give the
-   same spectrum.
+   so that a standing wave (peaks at :math:`\pm\omega`) and a wave travelling in either direction (one peak) give
+   spectra of the same shape (a standing wave :math:`\cos(\omega t)` peaks lower by a factor :math:`\sqrt 2` than a
+   travelling wave :math:`e^{-i \omega t}` of the same amplitude). Frequencies are in the time units of the output
+   (normalized by default; with :meth:`~struphy.Output.with_time_units` in rad/s).
 
-3. **Frequencies** (:func:`peak_frequency`): the largest maximum of :math:`A_m(\eta_1, \omega)` for one :math:`m`
-   at one radius (the frequency of a global eigenmode is the same at all radii).
+3. **Frequencies** (:func:`peak_frequency`): the largest local maximum of :math:`A_m(\eta_1, \omega)` for one
+   :math:`m` at one radius (the frequency of a global eigenmode is the same at all radii).
 
 4. **Mode structure** (:func:`filtered_profile`): the amplitude :math:`A_m(\eta_1, \omega_0)` at one frequency,
    as a function of the radius for every :math:`m`, or the root of the power summed over a frequency band. For an
@@ -50,9 +54,15 @@ Plots: :func:`plot_spectrum` (spectra at one radius with the expected frequency)
 Limitations:
 
 - The profiles are moduli: the phase of the harmonics (e.g. a sign change across the radius) is not shown.
-- The frequency resolution is finite: the Hann window has a main lobe of half-width about :math:`2 \cdot 2\pi / T`,
-  so the amplitude at :math:`\omega_0` also contains oscillations within about :math:`\pm 2\pi / T` of it, e.g.
-  continuum oscillations near the frequency of the eigenmode. Longer runs separate them better.
+- The frequency resolution is finite: the Hann window has a main lobe of half-width :math:`2 \cdot 2\pi / T`
+  (:math:`T` from the first to the last saved time), so the amplitude at :math:`\omega_0` also contains oscillations
+  with frequencies up to about :math:`\pm 2\pi / T` away (at half height), e.g. continuum oscillations near the
+  frequency of the eigenmode. Longer runs separate them better.
+- The radius and the continua assume circular, concentric flux surfaces labelled by :math:`\eta_1` and a poloidal
+  angle :math:`2 \pi \eta_2` (e.g. ``HollowTorus`` with ``sfl=False``); for a cylinder (``ScrewPinch``) the parameter
+  ``R0`` of the equilibrium is the length divided by :math:`2\pi`.
+- :func:`mode_coefficients` loads all saved time steps (``Output`` keeps them in memory); select ``t`` for long runs
+  of large grids.
 - The profile is the spectral component of the response to the initial condition, not an eigenfunction computed
   by an eigenvalue solver; near a resonance with the continuum it contains resonant contributions.
 
@@ -62,7 +72,7 @@ Example (radial velocity of a shear Alfven wave, n = -1 along :math:`\eta_3`)::
     from struphy.post_processing import mode_analysis as ma
 
     out = Output("sim_data")
-    coeffs = ma.mode_coefficients(out, "mhd/velocity", ms=(0, 1, 2, 3), n=-1)
+    coeffs = ma.mode_coefficients(out, "mhd/velocity", ms=(0, 1, 2, 3), n=-1, component=0)
     spectrum = ma.time_spectrum(coeffs)
     omega = ma.peak_frequency(spectrum, m=1, r=0.5)
     profiles = ma.filtered_profile(spectrum, omega=omega)
@@ -111,7 +121,7 @@ def mode_coefficients(
     ms: Sequence[int] = (0, 1, 2, 3),
     n: int = -1,
     component: int | None = 0,
-    representation: str = "norm",
+    representation: str | None = None,
     num_eta1: int = 48,
     num_eta2: int = 32,
     num_eta3: int = 8,
@@ -137,9 +147,10 @@ def mode_coefficients(
     component : int | None
         Component of a vector field; None for scalar fields.
 
-    representation : str
-        Representation of the field (see :meth:`~struphy.Output.evaluate`), e.g. ``"norm"`` for the components in the
-        normalized basis (the physical radial component for circular cross-sections).
+    representation : str | None
+        Representation of the field (see :meth:`~struphy.Output.evaluate`); None for the default of
+        :meth:`~struphy.Output.evaluate`: ``"norm"`` for vector fields (components in the normalized basis, component 0
+        is the physical radial component for circular cross-sections with ``sfl=False``), ``"0"`` for scalar fields.
 
     num_eta1, num_eta2, num_eta3 : int
         Number of evaluation points: cell-centred in :math:`\eta_1`, equidistant in :math:`\eta_2, \eta_3` (at least
@@ -155,8 +166,10 @@ def mode_coefficients(
         :func:`minor_radius` knows the domain; else :math:`\eta_1`) along ``eta1``; attribute ``n``.
     """
     ms = tuple(int(m) for m in ms)
-    assert num_eta2 >= 2 * max(abs(m) for m in ms) + 1, "num_eta2 is too small for the poloidal mode numbers."
-    assert num_eta3 >= 2 * abs(n) + 1, "num_eta3 is too small for the toroidal mode number."
+    if num_eta2 < 2 * max(abs(m) for m in ms) + 1:
+        raise ValueError("num_eta2 is too small for the poloidal mode numbers.")
+    if num_eta3 < 2 * abs(n) + 1:
+        raise ValueError("num_eta3 is too small for the toroidal mode number.")
     eta1 = (np.arange(num_eta1) + 0.5) / num_eta1
     eta2 = np.linspace(0.0, 1.0, num_eta2, endpoint=False)
     eta3 = np.linspace(0.0, 1.0, num_eta3, endpoint=False)
@@ -202,9 +215,11 @@ def time_spectrum(coeffs: xr.DataArray, pad: int = 8) -> xr.DataArray:
         (:math:`2 \pi / T`), ``T`` and ``n``.
     """
     t = np.asarray(coeffs["t"].values, dtype=float)
-    assert t.size >= 4, "A spectrum needs at least 4 saved times."
+    if t.size < 4:
+        raise ValueError("A spectrum needs at least 4 saved times.")
     dt = np.diff(t)
-    assert np.allclose(dt, dt[0], rtol=1e-6), "The saved times must be equidistant."
+    if not np.allclose(dt, dt[0], rtol=1e-6):
+        raise ValueError("The saved times must be equidistant.")
     c = np.asarray(coeffs.transpose("t", "eta1", "m").values)
     window = np.hanning(t.size)[:, None, None]
     nfft = pad * t.size
@@ -234,17 +249,22 @@ def _radial_index(spectrum: xr.DataArray, r: float | None, eta1: float | None) -
 def peak_frequency(
     spectrum: xr.DataArray, m: int, r: float | None = None, eta1: float | None = None, omega_max: float | None = None
 ) -> float:
-    r"""The frequency of the largest maximum of :math:`A_m(\eta_1, \omega)` at the radius ``r`` (or at ``eta1``), for
-    :math:`0 < \omega \leq` ``omega_max`` (the zero frequency is excluded); NaN if there is no maximum."""
+    r"""The frequency of the largest local maximum of :math:`A_m(\eta_1, \omega)` at the radius ``r`` (or at
+    ``eta1``) with :math:`0 < \omega <` ``omega_max`` (a maximum has smaller neighbours on both sides, so the zero
+    frequency and the end of the range are excluded); NaN if there is none (e.g. a constant signal). A signal without
+    oscillation (growing or decaying) still has the small local maxima of the side lobes of the window: check the
+    spectrum (:func:`plot_spectrum`)."""
     i = _radial_index(spectrum, r, eta1)
     w = spectrum["omega"].values
     a = spectrum.sel(m=m).values[:, i]
-    sel = w > 0
+    inner = np.arange(1, w.size - 1)
+    is_max = (a[inner] > a[inner - 1]) & (a[inner] >= a[inner + 1])
     if omega_max is not None:
-        sel &= w <= omega_max
-    if not np.any(sel) or not np.any(a[sel] > 0):
+        is_max &= w[inner] < omega_max
+    candidates = inner[is_max]
+    if candidates.size == 0:
         return float("nan")
-    return float(w[sel][np.argmax(a[sel])])
+    return float(w[candidates[np.argmax(a[candidates])]])
 
 
 def filtered_profile(
@@ -259,7 +279,8 @@ def filtered_profile(
         out = spectrum.isel(omega=int(np.argmin(np.abs(w - omega))))
         return out.drop_vars("omega").assign_attrs(omega=float(omega))
     sel = (w >= band[0]) & (w <= band[1])
-    assert np.any(sel), "No frequency in the band."
+    if not np.any(sel):
+        raise ValueError("No frequency in the band.")
     power = (spectrum.isel(omega=np.flatnonzero(sel)) ** 2).sum("omega")
     return np.sqrt(power).assign_attrs(spectrum.attrs, band=tuple(band))
 
@@ -361,6 +382,7 @@ def plot_omega_r(
     fig, axes = plt.subplots(1, len(ms), figsize=(4 * len(ms), 4.5), sharey=True, squeeze=False)
     axes = list(axes[0])
     vmax = spectrum.values[sel].max()
+    vmax = vmax if vmax > 0 else 1.0
     curves = {}
     if out is not None:
         if n_physical is None:

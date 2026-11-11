@@ -148,3 +148,59 @@ def test_plots():
     ):
         assert plot.fig.axes
         plt.close(plot.fig)
+
+
+@pytest.mark.mpi_skip
+def test_no_peak_without_oscillation():
+    """A constant signal has no local maximum in the spectrum (zero after the mean is removed): the peak frequency is
+    NaN."""
+    t = np.arange(0.0, T_END + DT / 2, DT)
+    c = np.ones((t.size, ETA1.size, 1))
+    coeffs = xr.DataArray(c, dims=("t", "eta1", "m"), coords={"t": t, "eta1": ETA1, "m": [1], "r": ("eta1", ETA1)})
+    assert np.isnan(ma.peak_frequency(ma.time_spectrum(coeffs), m=1, r=0.5))
+
+
+def test_mode_analysis_of_a_run(mpi_out_folder):
+    """On a short Maxwell run on a torus with an AdhocTorus equilibrium and an m = 1, n = 1 electric field (2-form),
+    the (1, 1) harmonic dominates, the coefficients have the documented dims and coordinates, and the spectrum and the
+    (r, omega) map with the continua of the equilibrium work on the Output."""
+    from matplotlib import pyplot as plt
+
+    from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Output, Simulation, Time, domains, equils, grids
+    from struphy.initial import perturbations
+    from struphy.models import Maxwell
+
+    n_saved = 6
+    model = Maxwell(base_units=BaseUnits())
+    model.em_fields.e_field.save_data = True
+    sim = Simulation(
+        model=model,
+        params_path=__file__,
+        env=EnvironmentOptions(out_folders=mpi_out_folder, sim_folder="sim_mode_analysis"),
+        time_opts=Time(dt=0.05, Tend=(n_saved - 1) * 0.05),
+        domain=domains.HollowTorus(a1=0.2, a2=1.0, R0=3.0, tor_period=1),
+        equil=equils.AdhocTorus(a=1.0, R0=3.0, B0=1.0, q0=1.25, q1=2.25, n1=0.0, n2=0.0, na=1.0),
+        grid=grids.TensorProductGrid(num_elements=(4, 8, 4)),
+        derham_opts=DerhamOptions(degree=(2, 2, 1)),
+    )
+    model.em_fields.e_field.add_perturbation(
+        perturbations.TorusModesSin(ms=(1,), ns=(1,), amps=(1e-3,), comp=0, given_in_basis="2")
+    )
+    sim.run()
+    out = Output(sim.env.path_out)
+
+    coeffs = ma.mode_coefficients(out, "em_fields/e_field", ms=(0, 1, 2), n=1, component=0, num_eta1=12)
+    assert coeffs.dims == ("t", "eta1", "m")
+    assert coeffs.sizes["t"] == n_saved
+    assert np.allclose(coeffs["r"].values, 0.2 + 0.8 * coeffs["eta1"].values)
+    amp = np.abs(coeffs.isel(t=0)).max("eta1")
+    assert amp.sel(m=1) > 10 * max(amp.sel(m=0), amp.sel(m=2))
+    other = ma.mode_coefficients(out, "em_fields/e_field", ms=(1,), n=-1, component=0, num_eta1=12)
+    assert np.abs(other.isel(t=0)).max() < 0.1 * amp.sel(m=1)
+
+    spectrum = ma.time_spectrum(coeffs)
+    assert spectrum.dims == ("omega", "eta1", "m")
+    plot = ma.plot_omega_r(spectrum, out=out)
+    # the continua of the equilibrium (m = 0..3) are drawn in each panel
+    assert all(len(ax.lines) >= 4 for ax in plot.axes)
+    plt.close(plot.fig)

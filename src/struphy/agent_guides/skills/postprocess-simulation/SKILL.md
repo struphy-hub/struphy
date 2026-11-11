@@ -134,8 +134,9 @@ profiles = ma.filtered_profile(spectrum, omega=omega)  # or band=(lo, hi)
 ma.plot_omega_r(spectrum, out=out, expected=0.067).fig.savefig("omega_r.png")  # with shear Alfven continua
 ```
 
-`n` is the logical mode number along eta3 (physical n = n * tor_period). The default `representation="norm"` gives
-the physical radial component for circular cross-sections (component 0). Compare the mode structure of runs with
+`n` is the logical mode number along eta3 (physical n = n * tor_period). For vector fields the default
+representation is `"norm"`, whose component 0 is the physical radial component for circular cross-sections; pass
+`component=None` for scalar fields. Frequencies are in the time units of the output (normalized by default). Compare the mode structure of runs with
 different resolution with `filtered_profile`, not with snapshots: snapshots also contain continuum oscillations
 whose radial scale shrinks in time. The continua need an equilibrium with `q_r` (e.g. AdhocTorus, ScrewPinch).
 The spectrum needs at least 4 saved times; the frequency resolution is 2 pi / T.
