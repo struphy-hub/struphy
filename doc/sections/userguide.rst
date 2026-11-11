@@ -548,6 +548,12 @@ not configuration applied to the model afterwards, such as backgrounds or pertur
     out = struphy.Output("./runs/vm1s_scan_A/sim_1")
     out.domain, out.model.units
 
+The metadata also records how the run was produced: the number of MPI ranks
+(``out.mpi_ranks``), the command line of the run (``out.metadata["command_line"]``) and
+the Struphy version and git state of the code (``out.code_info``, a dict with ``version``,
+``git_commit``, ``git_dirty`` and ``git_branch``; the git entries are ``None`` unless Struphy
+was imported from a git checkout, e.g. an editable install).
+
 
 Choosing post-processing options: ``out.pproc()``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

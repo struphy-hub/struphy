@@ -174,6 +174,67 @@ def subp_run(cmd, cwd="libpath", check=True):
     subprocess.run(cmd, cwd=cwd, check=check)
 
 
+def _git_output(args: list, cwd: str, timeout: float = 5.0) -> str | None:
+    """Stripped stdout of ``git <args>`` run in ``cwd``; None if git is missing, fails or times out."""
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            # read-only: don't let `git status` refresh (lock) the index of the checkout
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+        )
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def code_info(libpath: str = STRUPHY_LIBPATH) -> dict:
+    """Version and git state of the Struphy code that is running, for the run metadata.
+
+    Runs a few short ``git`` subprocesses, so call it on one rank only. It never raises.
+
+    Parameters
+    ----------
+    libpath : str
+        Directory of the imported ``struphy`` package.
+
+    Returns
+    -------
+    dict
+        ``version``: installed Struphy version (None if the package metadata is missing);
+        ``git_commit``: full SHA of ``HEAD`` if ``struphy`` is imported from a git checkout (e.g. an
+        editable install), else None; ``git_dirty``: whether tracked files of the source folder (the parent
+        of the package, ``src/``) have uncommitted changes, None if not a checkout; ``git_branch``: branch
+        name, None if not a checkout or in detached-HEAD state.
+    """
+    import importlib.metadata
+
+    try:
+        version = importlib.metadata.version("struphy")
+    except Exception:
+        version = None
+    info = {"version": version, "git_commit": None, "git_dirty": None, "git_branch": None}
+
+    # struphy must be tracked by the repository, not just lie inside one (e.g. a venv in a user's project)
+    if _git_output(["ls-files", "--error-unmatch", "__init__.py"], cwd=libpath) is None:
+        return info
+    commit = _git_output(["rev-parse", "HEAD"], cwd=libpath)
+    if not commit:
+        return info
+    info["git_commit"] = commit
+    src = os.path.dirname(libpath)
+    status = _git_output(["status", "--porcelain", "--untracked-files=no", "--", "."], cwd=src)
+    info["git_dirty"] = None if status is None else bool(status)
+    branch = _git_output(["rev-parse", "--abbrev-ref", "HEAD"], cwd=libpath)
+    info["git_branch"] = branch if branch and branch != "HEAD" else None
+    return info
+
+
 def __dataclass_repr_no_defaults__(obj):
     out = f"{type(obj).__name__}("
     for k, v in obj.__dict__.items():

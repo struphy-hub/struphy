@@ -25,6 +25,8 @@ out = Output("sim_1")
 `Output` never creates or holds a `Simulation` (there is no `out.sim`), and post-processing
 scripts must not import the params file: model, domain, grid and options are rebuilt from
 `run_metadata.json` (`out.model`, `out.domain`, `out.grid`, `out.derham_opts`, `out.time_opts`).
+`out.code_info` gives the Struphy version and git commit of the run (None for older runs),
+`out.metadata["command_line"]` how it was started.
 In a `pproc_<name>.py` next to the params file, build the default path relative to `__file__`
 (`Path(__file__).resolve().parent / "sim_1"`) and keep a command-line override. In notebooks, use an
 explicit path.
