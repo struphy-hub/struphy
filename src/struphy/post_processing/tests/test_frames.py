@@ -235,3 +235,28 @@ def test_videos_on_other_domains(mpi_out_folder, domain):
         for files in videos.values():
             check_frames(files, 2)
     MPI.COMM_WORLD.Barrier()
+
+
+def test_frames_in_parallel(mpi_out_folder):
+    """Frames rendered by 2 processes are the same as those rendered in one process (the plane and both 3D views,
+    which share one evaluation of the field per frame), and write_3d_frames with one view gives the same frames as
+    write_videos."""
+    run = short_torus_run(mpi_out_folder)
+    kwargs = dict(component=0, label="E_1", options_3d={"window_size": (300, 300)})
+    serial = write_videos(run, "em_fields/e_field", run.path_out / "serial", workers=1, **kwargs)
+    parallel = write_videos(run, "em_fields/e_field", run.path_out / "parallel", workers=2, **kwargs)
+    single = write_3d_frames(
+        run, "em_fields/e_field", run.path_out / "single", component=0, label="E_1", window_size=(300, 300), workers=1
+    )
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        assert set(serial) == set(parallel) == {"e_field_rz", "e_field_3d_cut", "e_field_3d"}
+        for video, files in serial.items():
+            check_frames(files, N_SAVED)
+            for a, b in zip(files, parallel[video]):
+                assert a.name == b.name
+                assert np.array_equal(imread(a), imread(b)), (video, a.name)
+        for a, b in zip(single, serial["e_field_3d_cut"]):
+            assert np.array_equal(imread(a), imread(b)), a.name
+    else:
+        assert all(files == [] for files in parallel.values())
+    MPI.COMM_WORLD.Barrier()
