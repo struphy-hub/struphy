@@ -34,12 +34,25 @@ Example (a pproc script)::
     # or all standard videos at once: frames/u_r_rz, frames/u_r_3d_cut, frames/u_r_3d
     write_videos(run, "mhd/velocity", "frames", component=0, prefix="u_r", label="u_r")
 
-The frames are written by the process of rank 0 only (the other ranks of an MPI run return an empty list).
+The frames are written by the process of rank 0 only (the other ranks of an MPI run return an empty list). The
+fields are evaluated in that process; the frames are rendered and saved by ``workers`` processes (a pool of spawned
+processes, see :func:`default_workers`; the next frames are evaluated while the previous ones are rendered), with the
+same result as in one process. Spawned processes import the main script again: a script that writes frames must run
+its code under ``if __name__ == "__main__":`` (otherwise, and in MPI runs, the frames are rendered in one process, with
+a warning) and should not do expensive work at module level. Settings made in the main process after the imports
+(e.g. matplotlib ``rcParams`` or the PyVista theme set in ``main()``) do not reach the rendering processes. The 3D
+views of :func:`write_videos` share one evaluation of the field per frame if the values of all frames fit in
+:data:`FIRST_PASS_CACHE`.
 """
 
+import multiprocessing
+import os
 import shutil
 import subprocess
+import sys
 import warnings
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
 
 import cunumpy as xp
@@ -50,7 +63,7 @@ from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from matplotlib.image import imsave
-from maybempi import MPI
+from maybempi import MPI, launched_under_mpi
 from scipy.spatial import cKDTree
 
 from struphy.post_processing.output import Output
@@ -74,8 +87,16 @@ from struphy.post_processing.slices import BASES, evaluate_plane, physical_plane
 VECTOR_FORMS = ("1", "2", "v")
 # default resolution of write_3d_frames: at most this many points of the 3D grid (with the copies of a torus sector)
 MAX_POINTS_3D = 1e6
-# the values of the first pass of write_3d_frames are kept for the second one up to this size in bytes
-FIRST_PASS_CACHE = 200e6
+# the values of the first pass of write_3d_frames are kept for the rendering (of all views) up to this size in bytes
+FIRST_PASS_CACHE = 1e9
+# largest default number of rendering processes (see default_workers)
+MAX_WORKERS = 4
+# with the default number of workers, videos with fewer frames are rendered in one process (starting the processes
+# costs more than it saves)
+MIN_FRAMES_PARALLEL = 16
+# frames submitted to the rendering processes ahead of the rendering, per process (the next frames are evaluated
+# while the previous ones are rendered)
+_IN_FLIGHT_PER_WORKER = 2
 
 
 def saved_times(out: Output) -> np.ndarray:
@@ -225,6 +246,128 @@ def _frame_name(k, count):
     return f"frame_{k:0{max(4, len(str(count - 1)))}d}.png"
 
 
+def default_workers() -> int:
+    """Default number of processes that render the frames: 1 in an MPI run (the cores belong to the ranks, and
+    processes started from an MPI rank cannot use MPI), else the number of available cores, at most
+    :data:`MAX_WORKERS`."""
+    if launched_under_mpi() or MPI.COMM_WORLD.Get_size() > 1:
+        return 1
+    try:
+        cores = len(os.sched_getaffinity(0))
+    except AttributeError:
+        cores = os.cpu_count() or 1
+    return max(1, min(MAX_WORKERS, cores))
+
+
+# the context of the frame jobs in a rendering process (set by _init_jobs)
+_JOB_CONTEXT = {}
+
+
+def _main_is_guarded() -> bool:
+    """Whether processes can be spawned: the main script (if any) runs its code under ``if __name__ == "__main__":``.
+    Spawned processes import the main script again; without the guard they would run it (and hang). Interactive
+    sessions and notebooks have no main script."""
+    path = getattr(sys.modules.get("__main__"), "__file__", None)
+    if path is None:
+        return True
+    try:
+        return "__main__" in Path(path).read_text()
+    except (OSError, UnicodeDecodeError):
+        return True
+
+
+def _init_jobs(context):
+    global _JOB_CONTEXT
+    _JOB_CONTEXT = context
+
+
+def _call_job(job, item):
+    return job(_JOB_CONTEXT, *item)
+
+
+def _run_jobs(job, context, make_item, count, workers):
+    """``job(context, *make_item(k))`` for ``k = 0, ..., count - 1``, the results in order.
+
+    With ``workers > 1`` the jobs run in a pool of spawned processes, which get ``context`` once; the items are made in
+    this process (e.g. the field evaluated) and submitted a few frames ahead, so that making the next items overlaps
+    the rendering. ``workers=None``: :func:`default_workers`, but one process for fewer than
+    :data:`MIN_FRAMES_PARALLEL` frames. One process in MPI runs and from main scripts without a main guard (with a
+    warning), and as a fallback if the pool breaks (e.g. a crash of a rendering process).
+    """
+    explicit = workers is not None
+    workers = max(1, min(int(default_workers() if workers is None else workers), count))
+    if not explicit and count < MIN_FRAMES_PARALLEL:
+        workers = 1
+    if workers > 1 and (launched_under_mpi() or MPI.COMM_WORLD.Get_size() > 1):
+        # processes started from an MPI rank import MPI and hang
+        warnings.warn(
+            "Rendering frames in one process in an MPI run (workers > 1 needs a run without MPI).", stacklevel=3
+        )
+        workers = 1
+    if workers > 1 and not _main_is_guarded():
+        warnings.warn(
+            'Rendering frames in one process: the main script has no `if __name__ == "__main__":` guard, which '
+            "the rendering processes (spawned) need.",
+            stacklevel=3,
+        )
+        workers = 1
+    results = [None] * count
+    if workers > 1:
+        try:
+            with ProcessPoolExecutor(
+                max_workers=workers,
+                mp_context=multiprocessing.get_context("spawn"),
+                initializer=_init_jobs,
+                initargs=(context,),
+            ) as pool:
+                pending = {}
+
+                def collect(n_open):
+                    while len(pending) > n_open:
+                        done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                        for future in done:
+                            results[pending.pop(future)] = future.result()
+
+                try:
+                    for k in range(count):
+                        pending[pool.submit(_call_job, job, make_item(k))] = k
+                        collect(_IN_FLIGHT_PER_WORKER * workers)
+                    collect(0)
+                except BaseException:
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    raise
+            return results
+        except BrokenProcessPool:
+            warnings.warn("A rendering process failed: rendering the remaining frames in one process.", stacklevel=3)
+    return [results[k] if results[k] is not None else job(context, *make_item(k)) for k in range(count)]
+
+
+def _slice_job(ctx, k, data, title):
+    """Render and save frame ``k`` of a video in a plane (see :func:`write_slice_frames`)."""
+    frame_cmap, (lo, hi) = _limits(ctx["clim"], data, ctx["vmin"], ctx["vmax"], ctx["cmap"])
+    fig = _figure(ctx["width_px"], ctx["height_px"], ctx["dpi"], layout="constrained")
+    ax = fig.add_subplot()
+    axis, h, v = ctx["axis"], ctx["h"], ctx["v"]
+    for i in range(data.shape[axis]):
+        pcm = ax.pcolormesh(
+            np.take(h, i, axis=axis),
+            np.take(v, i, axis=axis),
+            np.take(data, i, axis=axis),
+            shading="gouraud",
+            cmap=frame_cmap,
+            vmin=lo,
+            vmax=hi,
+        )
+    fig.colorbar(pcm, ax=ax)
+    ax.set_aspect("equal")
+    ax.set_xlabel(ctx["hlabel"])
+    ax.set_ylabel(ctx["vlabel"])
+    ax.set_title(title)
+    path = ctx["folder"] / _frame_name(k, ctx["count"])
+    _save_figure(fig, path, ctx["width_px"], ctx["height_px"])
+    return path
+
+
 def write_slice_frames(
     out: Output,
     name,
@@ -242,6 +385,7 @@ def write_slice_frames(
     points_per_cell=4,
     height=6.0,
     dpi=150,
+    workers=None,
 ) -> list[Path]:
     """Write the frames of a video of the FEEC field ``name`` in a physical plane.
 
@@ -282,6 +426,8 @@ def write_slice_frames(
         Height of the frames in inches (the width follows from the shape of the plane).
     dpi : int
         Resolution of the frames.
+    workers : int | None
+        Number of processes that render the frames (default: :func:`default_workers`).
 
     Returns
     -------
@@ -316,28 +462,31 @@ def write_slice_frames(
     width_px = _even(int(dpi * (height / max(aspect, 0.2) + 1.6)))
     height_px = _even(int(dpi * height))
     folder = _prepare_folder(folder)
-    files = []
-    for k, (data, t) in enumerate(zip(values, times)):
-        frame_cmap, (lo, hi) = _limits(clim, data, vmin, vmax, cmap)
-        fig = _figure(width_px, height_px, dpi, layout="constrained")
-        ax = fig.add_subplot()
-        for i in range(data.shape[axis]):
-            pcm = ax.pcolormesh(
-                np.take(h, i, axis=axis),
-                np.take(v, i, axis=axis),
-                np.take(data, i, axis=axis),
-                shading="gouraud",
-                cmap=frame_cmap,
-                vmin=lo,
-                vmax=hi,
-            )
-        fig.colorbar(pcm, ax=ax)
-        ax.set_aspect("equal")
-        ax.set_xlabel(plane_def.hlabel)
-        ax.set_ylabel(plane_def.vlabel)
-        ax.set_title(f"{label}, {plane_def.hlabel}-{plane_def.vlabel} plane ({plane_def.where}), {_time_title(out, t)}")
-        files.append(folder / _frame_name(k, len(steps)))
-        _save_figure(fig, files[-1], width_px, height_px)
+    context = dict(
+        clim=clim,
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        width_px=width_px,
+        height_px=height_px,
+        dpi=dpi,
+        axis=axis,
+        h=h,
+        v=v,
+        hlabel=plane_def.hlabel,
+        vlabel=plane_def.vlabel,
+        folder=folder,
+        count=len(steps),
+    )
+    where = f"{plane_def.hlabel}-{plane_def.vlabel} plane ({plane_def.where})"
+    titles = [f"{label}, {where}, {_time_title(out, t)}" for t in times]
+    files = _run_jobs(
+        _slice_job,
+        context,
+        lambda k: (k, values[k], titles[k]),
+        len(steps),
+        workers,
+    )
     _write_index(folder, steps, times)
     return files
 
@@ -455,6 +604,7 @@ def write_3d_frames(
     margin=10,
     show_scalar_bar=True,
     context=1.2,
+    workers=None,
 ) -> list[Path]:
     """Write the frames of a video of the FEEC field ``name`` in 3D, with a cutaway: a wedge of 90 degrees around the
     vertical axis is removed (for a torus, one face of the cut is a poloidal cross-section), as in
@@ -513,21 +663,106 @@ def write_3d_frames(
     context : float
         With ``view="cut"``, how much of the domain around the cut is framed, see
         :func:`struphy.post_processing.plot_3d.set_camera`.
+    workers : int | None
+        Number of processes that render the frames (default: :func:`default_workers`).
 
     Returns
     -------
     list[Path]
         The frames, in order.
     """
+    if view not in ("cut", "domain"):
+        raise ValueError(f'view must be "cut" or "domain", got {view!r}.')
+    return _write_3d_views(
+        out,
+        name,
+        {view: folder},
+        component=component,
+        basis=basis,
+        steps=steps,
+        max_frames=max_frames,
+        clim=clim,
+        cmap=cmap,
+        label=label,
+        azimuth=azimuth,
+        points_per_cell=points_per_cell,
+        opacity=opacity,
+        surface=surface,
+        window_size=window_size,
+        margin=margin,
+        show_scalar_bar=show_scalar_bar,
+        context=context,
+        workers=workers,
+    )[view]
+
+
+def _render_view(ctx, values, opaque=False):
+    """Render ``values`` (on the points of the grid of the domain) in the view of ``ctx``: the image, the colormap
+    and the color limits."""
+    frame_cmap, limits = _limits(ctx["clim"], values, ctx["vmin"], ctx["vmax"], ctx["cmap"])
+    options = {**ctx["options"], "opacity": 1.0} if opaque else ctx["options"]
+    surface = None if opaque else ctx["surface_grid"]
+    image = _render_3d(
+        ctx["merged"],
+        values[ctx["index"]],
+        ctx["center"],
+        ctx["azimuth"],
+        ctx["toroidal"],
+        frame_cmap,
+        limits,
+        options,
+        surface,
+        None if surface is None else values[ctx["surface_index"]],
+    )
+    return image, frame_cmap, limits
+
+
+def _frame_3d_job(ctx, k, values, title):
+    """Render and save frame ``k`` of a 3D video (see :func:`write_3d_frames`)."""
+    image, frame_cmap, limits = _render_view(ctx, values)
+    top, bottom, left, right = ctx["crop"]
+    fig, width, height = _compose(
+        image[top:bottom, left:right], title, frame_cmap, limits, ctx["label"], ctx["show_scalar_bar"]
+    )
+    path = ctx["folder"] / _frame_name(k, ctx["count"])
+    _save_figure(fig, path, width, height)
+    return path
+
+
+def _write_3d_views(
+    out: Output,
+    name,
+    folders: dict,
+    *,
+    component=None,
+    basis=None,
+    steps=None,
+    max_frames=500,
+    clim=None,
+    cmap=None,
+    label=None,
+    azimuth=None,
+    points_per_cell=None,
+    opacity=0.35,
+    surface="peak",
+    window_size=(1200, 1200),
+    margin=10,
+    show_scalar_bar=True,
+    context=1.2,
+    workers=None,
+) -> dict:
+    """The frames of the 3D views ``folders`` (``{view: folder}``, views ``"cut"`` and/or ``"domain"``) of
+    :func:`write_3d_frames`, from one evaluation of the field per frame (shared by the views); returns
+    ``{view: frames}``."""
+    if any(v not in ("cut", "domain") for v in folders):
+        raise ValueError(f'The views must be "cut" or "domain", got {list(folders)}.')
     _check_clim(clim)
     if not (surface is None or surface == "peak" or (isinstance(surface, (int, float)) and 0 <= surface <= 1)):
         raise ValueError(f'surface must be None, "peak" or a value of eta1 in [0, 1], got {surface!r}.')
     if not 0 < opacity <= 1:
         raise ValueError(f"opacity must be in (0, 1], got {opacity!r}.")
-    if view not in ("cut", "domain"):
-        raise ValueError(f'view must be "cut" or "domain", got {view!r}.')
     if MPI.COMM_WORLD.Get_rank() != 0:
-        return []
+        return {v: [] for v in folders}
     steps, times = _steps_and_times(out, steps, max_frames)
     label = label or field_label(out, name, component, basis)
     domain = out.domain
@@ -554,7 +789,7 @@ def write_3d_frames(
         return grid, np.asarray(_shown(grid.point_data, component))
 
     # first pass: the range of the values and the point of the largest absolute value over all frames (the values
-    # are kept for the second pass if they are not too large)
+    # are kept for the rendering of all views if they are not too large, see FIRST_PASS_CACHE)
     vmin, vmax, peak, peak_point = np.inf, -np.inf, -1.0, None
     first_pass = {}
     for n in steps:
@@ -580,7 +815,6 @@ def write_3d_frames(
     merged = merge_seams(grid, diagonal)
     tree = cKDTree(grid.points)
     _, index = tree.query(merged.points)
-    options = dict(view=view, window_size=window_size, context=context, opacity=opacity)
 
     # the surface eta1 = const inside the domain (e.g. a flux surface of a torus), with the copies of a torus sector
     n1 = len(etas["eta1"])
@@ -609,36 +843,39 @@ def write_3d_frames(
         # its values: those of the nearest points of the grid of the domain (the same points)
         _, surface_index = tree.query(surface_grid.points)
 
-    def render(values, opaque=False):
-        frame_cmap, limits = _limits(clim, values, vmin, vmax, cmap)
-        image = _render_3d(
-            merged,
-            values[index],
-            center,
-            azimuth,
-            toroidal,
-            frame_cmap,
-            limits,
-            {**options, "opacity": 1.0} if opaque else options,
-            None if opaque else surface_grid,
-            None if opaque or surface_grid is None else values[surface_index],
+    titles = [f"{label}, {_time_title(out, t)}" for t in times]
+    results = {}
+    for view, folder in folders.items():
+        ctx = dict(
+            merged=merged,
+            index=index,
+            center=center,
+            azimuth=azimuth,
+            toroidal=toroidal,
+            options=dict(view=view, window_size=window_size, context=context, opacity=opacity),
+            surface_grid=surface_grid,
+            surface_index=surface_index,
+            clim=clim,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            label=label,
+            show_scalar_bar=show_scalar_bar,
+            count=len(steps),
         )
-        return image, frame_cmap, limits
-
-    # the crop box, the same for all frames (the rendered domain does not change): that of the first frame
-    # (from an opaque render: the translucent boundary may be nearly white)
-    top, bottom, left, right = crop_box(render(frame_values(steps[0]), opaque=True)[0], margin)
-
-    folder = _prepare_folder(folder)
-    files = []
-    for k, (n, t) in enumerate(zip(steps, times)):
-        image, frame_cmap, limits = render(frame_values(n))
-        title = f"{label}, {_time_title(out, t)}"
-        fig, width, height = _compose(image[top:bottom, left:right], title, frame_cmap, limits, label, show_scalar_bar)
-        files.append(folder / _frame_name(k, len(steps)))
-        _save_figure(fig, files[-1], width, height)
-    _write_index(folder, steps, times)
-    return files
+        # the crop box, the same for all frames (the rendered domain does not change): that of the first frame
+        # (from an opaque render: the translucent boundary may be nearly white)
+        ctx["crop"] = crop_box(_render_view(ctx, frame_values(steps[0]), opaque=True)[0], margin)
+        ctx["folder"] = _prepare_folder(folder)
+        results[view] = _run_jobs(
+            _frame_3d_job,
+            ctx,
+            lambda k: (k, frame_values(steps[k]), titles[k]),
+            len(steps),
+            workers,
+        )
+        _write_index(ctx["folder"], steps, times)
+    return results
 
 
 def write_videos(
@@ -658,6 +895,7 @@ def write_videos(
     cmap=None,
     slice_options=None,
     options_3d=None,
+    workers=None,
 ) -> dict[str, list[Path]]:
     """Write the frames of the standard videos of the FEEC field ``name``: one per physical plane
     (:func:`write_slice_frames`) and one per 3D view (:func:`write_3d_frames`), into the subfolders
@@ -683,7 +921,10 @@ def write_videos(
     slice_options : dict | None
         Further keyword arguments of :func:`write_slice_frames` (e.g. ``points_per_cell``, ``dpi``).
     options_3d : dict | None
-        Further keyword arguments of :func:`write_3d_frames` (e.g. ``window_size``, ``azimuth``).
+        Further keyword arguments of :func:`write_3d_frames` (e.g. ``window_size``, ``azimuth``). The 3D views share
+        one evaluation of the field per frame if the values of all frames fit in :data:`FIRST_PASS_CACHE`.
+    workers : int | None
+        Number of processes that render the frames (default: :func:`default_workers`).
 
     Returns
     -------
@@ -700,15 +941,27 @@ def write_videos(
             warnings.warn(f"No videos in planes: {error}", stacklevel=2)
             planes = []
     common = dict(
-        component=component, basis=basis, label=label, max_frames=max_frames, steps=steps, clim=clim, cmap=cmap
+        component=component,
+        basis=basis,
+        label=label,
+        max_frames=max_frames,
+        steps=steps,
+        clim=clim,
+        cmap=cmap,
+        workers=workers,
     )
     videos = {}
     for plane in planes:
         sub = f"{prefix}_{plane}"
         videos[sub] = write_slice_frames(out, name, Path(folder) / sub, plane=plane, **common, **(slice_options or {}))
-    for view in views:
-        sub = f"{prefix}_3d_cut" if view == "cut" else f"{prefix}_3d"
-        videos[sub] = write_3d_frames(out, name, Path(folder) / sub, view=view, **common, **(options_3d or {}))
+    # both 3D views from one evaluation of the field per frame
+    subs = {view: f"{prefix}_3d_cut" if view == "cut" else f"{prefix}_3d" for view in views}
+    if subs:
+        frames = _write_3d_views(
+            out, name, {view: Path(folder) / sub for view, sub in subs.items()}, **common, **(options_3d or {})
+        )
+        for view, sub in subs.items():
+            videos[sub] = frames[view]
     return videos
 
 
