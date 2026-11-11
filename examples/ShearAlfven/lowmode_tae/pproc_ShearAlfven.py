@@ -7,7 +7,9 @@ are shown by their components in the basis of their initial condition (``given_i
 see ``Output.field_basis``), as functions of the physical coordinates; the 3D views show the scalar fields and the
 first components (radial eta1 in a logical basis). The measured TAE frequency is compared with the analytical one
 and saved; a deviation of more than 10% fails with an ``AssertionError`` after the figures are saved (not with
-``--test-run``). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
+``--test-run``). The spectra of the harmonics of the radial velocity, their (r, omega) maps with the shear Alfven
+continua and the mode structure at the TAE frequency are saved as ``tae_spectrum``, ``tae_omega_r`` and
+``tae_profiles`` (see ``struphy.post_processing.mode_analysis``). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
 (``pip install "struphy[pproc]"``).
 
 Unless ``--no-frames``, the frames of three videos of the radial velocity u_r over the run (at most ``--max-frames``
@@ -26,6 +28,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing import mode_analysis
 from struphy.post_processing.frames import write_videos
 from struphy.post_processing.plot_3d import plot_field_3d
 from struphy.post_processing.slices import plot_physical_slices
@@ -102,6 +105,27 @@ def minor_radius(run):
     return lambda eta1: a1 + (a2 - a1) * eta1
 
 
+def frequency_figures(run, measured, expected):
+    """Spectra of the (m, n) harmonics of the radial velocity (normalized basis) at r_c = 0.5, their (r, omega) maps
+    with the cylindrical shear Alfven continua and the mode structure at the frequency of the m = M_TAE spectrum at r_c
+    (see struphy.post_processing.mode_analysis); none for runs with fewer than 4 saved time steps."""
+    if run.time.size < 4:
+        return {}
+    coeffs = mode_analysis.mode_coefficients(run, "mhd/velocity", ms=(0, 1, 2, 3), n=N_LOGICAL, component=0)
+    spectrum = mode_analysis.time_spectrum(coeffs)
+    peak = mode_analysis.peak_frequency(spectrum, m=M_TAE, r=0.5, omega_max=3 * expected)
+    print(f"FFT peak of the m = {M_TAE} harmonic at r_c = 0.5: omega = {peak:.4g}")
+    return {
+        "tae_spectrum": mode_analysis.plot_spectrum(
+            spectrum, r=0.5, ms=(M_TAE, M_TAE + 1), expected=expected, measured=measured, tolerance=TAE_RTOL
+        ).fig,
+        "tae_omega_r": mode_analysis.plot_omega_r(spectrum, out=run, expected=expected).fig,
+        "tae_profiles": mode_analysis.plot_profiles(
+            mode_analysis.filtered_profile(spectrum, omega=peak), mark_r=0.5
+        ).fig,
+    }
+
+
 def finish(figs, results_dir, save_figs):
     """Save the figures to ``results_dir`` and close them (``save_figs``), or keep them open for ``plt.show()``."""
     if save_figs:
@@ -128,6 +152,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, frames=True, max_frames=500):
     measured, expected = tae_frequency(run, bases["mhd/velocity"])
     np.save(os.path.join(results_dir, "omega_tae.npy"), measured)
     np.save(os.path.join(results_dir, "omega_tae_expected.npy"), expected)
+    finish(frequency_figures(run, measured, expected), results_dir, save_figs)
 
     finish({"energies": run.plot.energies(parts=ENERGIES).fig}, results_dir, save_figs)
     for n, t in zip(snapshots, times):

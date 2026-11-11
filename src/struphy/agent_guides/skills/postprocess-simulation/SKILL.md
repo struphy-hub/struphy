@@ -118,6 +118,28 @@ scale over all frames, `"frame"`, or `(vmin, vmax)`), `steps`, `max_frames` (def
 as `t = <t>/<end time>`. The frames go to `frame_0000.png`, ... with `frames.txt` (step and time per frame); they are
 written on rank 0 only.
 
+## Frequencies and mode structures
+
+`struphy.post_processing.mode_analysis` analyses waves and eigenmodes in tori and cylinders (eta1 radial, eta2
+poloidal, eta3 toroidal or axial): Fourier coefficients in the angles at all saved times, a windowed FFT in time at
+every radius, the peak frequency and the mode structure filtered at that frequency.
+
+```python
+from struphy.post_processing import mode_analysis as ma
+
+coeffs = ma.mode_coefficients(out, "mhd/velocity", ms=(0, 1, 2, 3), n=-1, component=0)  # dims (t, eta1, m), coord r
+spectrum = ma.time_spectrum(coeffs)                    # dims (omega, eta1, m), attrs resolution = 2 pi / T
+omega = ma.peak_frequency(spectrum, m=1, r=0.5)
+profiles = ma.filtered_profile(spectrum, omega=omega)  # or band=(lo, hi)
+ma.plot_omega_r(spectrum, out=out, expected=0.067).fig.savefig("omega_r.png")  # with shear Alfven continua
+```
+
+`n` is the logical mode number along eta3 (physical n = n * tor_period). The default `representation="norm"` gives
+the physical radial component for circular cross-sections (component 0). Compare the mode structure of runs with
+different resolution with `filtered_profile`, not with snapshots: snapshots also contain continuum oscillations
+whose radial scale shrinks in time. The continua need an equilibrium with `q_r` (e.g. AdhocTorus, ScrewPinch).
+The spectrum needs at least 4 saved times; the frequency resolution is 2 pi / T.
+
 ## Common pitfalls
 
 - Don't re-run or re-import the simulation to get results; open the output folder.
