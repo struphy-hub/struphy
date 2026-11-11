@@ -2897,7 +2897,9 @@ class SplineFunction:
     def eval_tp_fixed_loc(self, spans, bases, out=None):
         """Spline evaluation on pre-defined grid.
 
-        Input spans must be on local process, start <= span <= end.
+        Input spans must be on local process, start <= span <= end. For a PolarVector, the tensor-product coefficients
+        :math:`\\mathbb E^\\top` of the polar coefficients are evaluated (written into ``vector_stencil``, with an update
+        of its ghost regions): the call is then collective, call it on all processes.
 
         Parameters
         ----------

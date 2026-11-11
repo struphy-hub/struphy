@@ -8,7 +8,8 @@ from struphy import DerhamOptions, EnvironmentOptions, Simulation, Time, domains
 from struphy.initial import perturbations
 
 # relative change of the energy over the steps below: about 1e-8 with the polar coefficients in the evaluation of the
-# spline functions, about 2e-7 without (issue #921)
+# spline functions, about 2e-7 without (issue #921); measured with the default solver and Newton tolerances of the
+# propagators of VariationalMHD_with_q, which bound the energy error and must stay well below this tolerance
 ENERGY_TOL = 5e-8
 
 
