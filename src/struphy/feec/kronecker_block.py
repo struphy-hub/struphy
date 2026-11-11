@@ -398,16 +398,3 @@ def _values(space: SplineSpace, x: np.ndarray) -> np.ndarray:
         ),
         dtype=float,
     )
-
-
-def mass_matrix_1d(row: SplineSpace, col: SplineSpace, nquad: int | None = None) -> np.ndarray:
-    r"""Dense unweighted 1d mass matrix :math:`\int \Lambda^\textnormal{row}_i \Lambda^\textnormal{col}_j \, \textnormal d \eta`
-    of two 1d spline spaces on the same breaks (e.g. B- and M-splines), by Gauss-Legendre quadrature per cell."""
-    breaks = np.asarray(row.breaks, dtype=float)
-    assert np.allclose(breaks, np.asarray(col.breaks, dtype=float)), "The 1d spaces need the same breaks."
-    nq = nquad or max(row.degree, col.degree) + 1
-    nodes, wts = np.polynomial.legendre.leggauss(nq)
-    h = np.diff(breaks)
-    x = (breaks[:-1, None] + (nodes[None, :] + 1.0) / 2.0 * h[:, None]).ravel()
-    w = (wts[None, :] / 2.0 * h[:, None]).ravel()
-    return _values(row, x).T @ (w[:, None] * _values(col, x))

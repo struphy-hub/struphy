@@ -115,10 +115,10 @@ class MagneticEnergies:
     def allocate(self):
         """Background field, mass matrix and buffers (call in ``post_allocate`` of the model)."""
         if self._b_field.space == "Hcurl":
-            self._b_eq = Propagator.projected_equil.b1_polar
+            self._b_eq = Propagator.projected_equil.b1
             self._M_b = Propagator.mass_ops.M1
         else:
-            self._b_eq = Propagator.projected_equil.b2_polar
+            self._b_eq = Propagator.projected_equil.b2
             self._M_b = Propagator.mass_ops.M2
 
         self._tmp_b1: BlockVector = self._b_eq.space.zeros()

@@ -128,7 +128,7 @@ class _Layout:
 class ToroidalFourierSolver(LinearOperator):
     r"""Inverse of a linear operator :math:`A` (square, on Stencil-, Block- or PolarVectors) that is invariant under
     shifts in :math:`\eta_3`, by a real FFT along :math:`\eta_3` and one dense poloidal solve per toroidal mode number,
-    see :mod:`struphy.feec.toroidal_fourier`. Use it as a preconditioner (``A`` then needs only to be close to shift
+    see :mod:`struphy.linear_algebra.toroidal_fourier`. Use it as a preconditioner (``A`` then needs only to be close to shift
     invariant) or as a direct solver.
 
     Parameters

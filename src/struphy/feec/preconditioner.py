@@ -43,6 +43,7 @@ from struphy.polar.kron_2dx1d import (
     PolarKronSum2Dx1DSolver,
     bc_masks,
     component_groups,
+    mass_matrix_1d,
     poloidal_average_basis,
     poloidal_extraction_matrix,
     poloidal_mass_matrix,
@@ -1567,7 +1568,6 @@ class PolarKroneckerBlockPreconditioner(LinearOperator):
         fill_factor: float = ILU_FILL_FACTOR,
         factor_drop_tol: float = 1e-10,
     ):
-        from struphy.feec.kronecker_block import _component_spaces, mass_matrix_1d
 
         derham = mass_ops.derham
         if not derham.polar_splines:
@@ -1580,7 +1580,6 @@ class PolarKroneckerBlockPreconditioner(LinearOperator):
         self._mass_k = getattr(mass_ops, _MASS_OF_SPACE[dom])
         self._space = self._mass_k.domain
         space = self._space
-        dom_comps = _component_spaces(derham.fem_spaces[dom])
         bases_dom = spline_bases(derham.fem_spaces[dom])
         shapes_dom = terms[0][0].domain_shapes
         E_op = derham.extraction_ops[space.space_id]
@@ -1592,7 +1591,7 @@ class PolarKroneckerBlockPreconditioner(LinearOperator):
             default = getattr(mass_ops, _MASS_OF_SPACE[L.codomain_space])
             mid_terms = _mass_terms(_resolve_mass_operator(mass_ops, mid, default))
             cod_fem = derham.fem_spaces[L.codomain_space]
-            items.append((L, mid_terms, _component_spaces(cod_fem), spline_bases(cod_fem)))
+            items.append((L, mid_terms, spline_bases(cod_fem)))
         stab_terms = _mass_terms(_resolve_mass_operator(mass_ops, stab, self._mass_k)) if sigma != 0.0 else []
 
         # caches: poloidal mass blocks (per term and block) and 1d mass matrices in eta_3 (per pair of 1d spaces)
@@ -1601,15 +1600,14 @@ class PolarKroneckerBlockPreconditioner(LinearOperator):
 
         def mid_block(i, r, r2):
             if (i, r, r2) not in mid_cache:
-                _, mid_terms, _, bases_cod = items[i]
+                _, mid_terms, bases_cod = items[i]
                 mid_cache[(i, r, r2)] = _poloidal_mass_block(mid_terms, derham, bases_cod, r, r2, weight_reduction)
             return mid_cache[(i, r, r2)]
 
-        def m3(V1, V2):
-            key = (id(V1), id(V2))
-            if key not in m3_cache:
-                m3_cache[key] = mass_matrix_1d(V1, V2)
-            return m3_cache[key]
+        def m3(basis_row, basis_col):
+            if (basis_row, basis_col) not in m3_cache:
+                m3_cache[(basis_row, basis_col)] = mass_matrix_1d(derham, basis_row, basis_col, 2)
+            return m3_cache[(basis_row, basis_col)]
 
         def poloidal_kron(F, shape):
             return sparse.kron(
@@ -1621,7 +1619,7 @@ class PolarKroneckerBlockPreconditioner(LinearOperator):
         groups = []
         for comps in component_groups(space):
             n = len(comps)
-            M_3 = m3(dom_comps[comps[0]].spaces[2], dom_comps[comps[0]].spaces[2])
+            M_3 = m3(bases_dom[comps[0]][2], bases_dom[comps[0]][2])
             blocks = {}
             B_3 = {}
 
@@ -1629,7 +1627,7 @@ class PolarKroneckerBlockPreconditioner(LinearOperator):
                 blk = blocks.setdefault(key, [[None] * n for _ in range(n)])
                 blk[a][b] = mat if blk[a][b] is None else blk[a][b] + mat
 
-            for i, (L, _, cod_comps, _) in enumerate(items):
+            for i, (L, _, bases_cod) in enumerate(items):
                 for a, c in enumerate(comps):
                     for b, c2 in enumerate(comps):
                         for (r, cc), terms_l in L.blocks.items():
@@ -1641,7 +1639,7 @@ class PolarKroneckerBlockPreconditioner(LinearOperator):
                                 M_pol = mid_block(i, r, r2)
                                 if M_pol is None:
                                     continue
-                                M3_rr = m3(cod_comps[r].spaces[2], cod_comps[r2].spaces[2])
+                                M3_rr = m3(bases_cod[r][2], bases_cod[r2][2])
                                 for alpha, F in terms_l:
                                     PtM = poloidal_kron(F, shapes_dom[c]).T @ M_pol
                                     F3 = np.eye(shapes_dom[c][2]) if F[2] is None else F[2]
@@ -2258,7 +2256,7 @@ class ShearAlfvenSchurPreconditioner:
         ``"StiffnessPreconditioner"`` only if its requirements hold (implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"``,
         ``u_space="Hdiv"`` and :meth:`supported`), else the mass matrix preconditioner of the velocity space
         (``"PolarMassMatrixPreconditioner"`` with polar splines), with a warning. ``"ToroidalFourierPreconditioner"``
-        (:class:`~struphy.feec.toroidal_fourier.ToroidalFourierSolver`, exact for axisymmetric equilibria) needs the implicit algorithm and a periodic eta_3 direction.
+        (:class:`~struphy.linear_algebra.toroidal_fourier.ToroidalFourierSolver`, exact for axisymmetric equilibria) needs the implicit algorithm and a periodic eta_3 direction.
         Other options are returned as they are."""
         if precond == "ToroidalFourierPreconditioner":
             assert algo == "implicit", 'precond="ToroidalFourierPreconditioner" needs algo="implicit".'

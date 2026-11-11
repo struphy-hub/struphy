@@ -514,6 +514,36 @@ def test_poloidal_mass_matrix():
         assert abs(M - spa.kron(A1, A2)).max() < 1e-12, bases
 
 
+def test_mass_matrix_1d():
+    """1d mass matrices (mass_matrix_1d) agree with the assembled ones for equal bases, the mixed ones are transposes
+    of each other, and the weighted ones are linear in the weight."""
+    import numpy as np
+
+    from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.preconditioner import _mass_matrix_1d, _ones_1d
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.polar.kron_2dx1d import _global_quad_pts, mass_matrix_1d
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = IGAPolarCylinder(num_elements=(8, 9), degree=(3, 2))
+    grid = TensorProductGrid(num_elements=[8, 9, 6])
+    derham_opts = DerhamOptions(degree=[3, 2, 2], bcs=(("free", "free"), None, None), polar_splines=True)
+    derham = Derham(grid, derham_opts, domain=domain)
+    M0 = WeightedMassOperators(derham, domain).M0
+
+    for d in range(3):
+        for basis in "BM":
+            ref = _mass_matrix_1d(M0, basis, d, _ones_1d)[0].toarray()
+            assert np.abs(mass_matrix_1d(derham, basis, basis, d) - ref).max() < 1e-12, (d, basis)
+        assert np.abs(mass_matrix_1d(derham, "B", "M", d) - mass_matrix_1d(derham, "M", "B", d).T).max() < 1e-14
+        x = _global_quad_pts(derham, d)
+        w = 1.0 + x**2
+        lin = mass_matrix_1d(derham, "B", "M", d, weight=2.0 * w) - 2.0 * mass_matrix_1d(derham, "B", "M", d, weight=w)
+        assert np.abs(lin).max() < 1e-13
+
+
 @pytest.mark.parametrize("mapping", ["IGAPolarCylinder", "IGAPolarTorus"])
 @pytest.mark.parametrize(
     "bcs",

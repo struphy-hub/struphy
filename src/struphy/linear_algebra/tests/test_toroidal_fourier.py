@@ -29,7 +29,7 @@ def test_toroidal_fourier_solver(polar, num_elements):
     """For the axisymmetric screw pinch, the solver is the exact inverse (residual on a random vector) of symmetric
     (M2, M1 + G M0 G^T, Cholesky) and of non-symmetric operators (M2 + 0.3 M2B, LU), also when the grid is decomposed
     along eta_3 or eta_1 (the two grids on 2 processes)."""
-    from struphy.feec.toroidal_fourier import ToroidalFourierSolver
+    from struphy.linear_algebra.toroidal_fourier import ToroidalFourierSolver
 
     derham, mass_ops = _setup(polar, num_elements)
     cases = [

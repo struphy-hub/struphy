@@ -320,22 +320,6 @@ class ProjectedFluidEquilibriumWithB(ProjectedFluidEquilibrium):
         return coeffs
 
     @property
-    def b1_polar(self):
-        """Coefficients of ``b1`` in the space of the Derham with polar splines (a PolarVector, the domain of the
-        polar mass matrices); the same as ``b1`` without polar splines."""
-        tmp = self._P1([self.equil.b1_1, self.equil.b1_2, self.equil.b1_3])
-        tmp.update_ghost_regions()
-        return tmp
-
-    @property
-    def b2_polar(self):
-        """Coefficients of ``b2`` in the space of the Derham with polar splines (a PolarVector, the domain of the
-        polar mass matrices); the same as ``b2`` without polar splines."""
-        tmp = self._P2([self.equil.b2_1, self.equil.b2_2, self.equil.b2_3])
-        tmp.update_ghost_regions()
-        return tmp
-
-    @property
     def unit_b2(self):
         tmp = self._P2([self.equil.unit_b2_1, self.equil.unit_b2_2, self.equil.unit_b2_3])
         coeffs = tmp

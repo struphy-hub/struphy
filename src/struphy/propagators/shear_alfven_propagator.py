@@ -8,11 +8,11 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.toroidal_fourier import ToroidalFourierSolver
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
+from struphy.linear_algebra.toroidal_fourier import ToroidalFourierSolver
 from struphy.models.variables import FEECVariable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
@@ -162,7 +162,7 @@ class ShearAlfvenPropagator(Propagator):
             ``"pcg_sr"``. The Kronecker preconditioner also needs ``u_space="Hdiv"`` and the global commuting
             projectors; otherwise ``"StiffnessPreconditioner"`` falls back (with a warning) to
             ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). The option
-            ``"ToroidalFourierPreconditioner"`` (:class:`~struphy.feec.toroidal_fourier.ToroidalFourierSolver`) is the
+            ``"ToroidalFourierPreconditioner"`` (:class:`~struphy.linear_algebra.toroidal_fourier.ToroidalFourierSolver`) is the
             exact inverse of the Schur operator if it is invariant under shifts in a periodic :math:`\eta_3` (e.g. an
             axisymmetric equilibrium in a torus or cylinder, with tensor-product or polar splines), by an FFT in
             :math:`\eta_3` and one dense poloidal factorization per toroidal mode number (the setup applies the Schur

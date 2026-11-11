@@ -70,10 +70,10 @@ class ShearAlfven(StruphyModel):
     def post_allocate(self):
         # project background magnetic field (2-form or 1-form, same space as the magnetic field)
         if self._b_space == "Hdiv":
-            self._b_eq = Propagator.projected_equil.b2_polar
+            self._b_eq = Propagator.projected_equil.b2
             self._M_b = Propagator.mass_ops.M2
         else:
-            self._b_eq = Propagator.projected_equil.b1_polar
+            self._b_eq = Propagator.projected_equil.b1
             self._M_b = Propagator.mass_ops.M1
 
         # temporary vectors for scalar quantities

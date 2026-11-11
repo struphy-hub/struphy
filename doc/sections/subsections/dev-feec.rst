@@ -64,13 +64,6 @@ Preconditioners
     :show-inheritance:
     :exclude-members: __init__
 
-Exact solver for operators that are invariant under shifts in eta_3 (e.g. axisymmetric equilibria):
-
-.. automodule:: struphy.feec.toroidal_fourier
-    :members:
-    :show-inheritance:
-    :exclude-members: __init__
-
 Polar 2D x 1D Kronecker solvers used by the polar preconditioners:
 
 .. automodule:: struphy.polar.kron_2dx1d
@@ -95,6 +88,14 @@ Linear solvers
     :exclude-members: __init__
 
 .. automodule:: struphy.linear_algebra.solver
+    :members:
+    :show-inheritance:
+    :exclude-members: __init__
+
+Exact solver for operators that are invariant under shifts in eta_3 (e.g. axisymmetric equilibria), used as the
+preconditioner ``"ToroidalFourierPreconditioner"`` of the shear Alfven step:
+
+.. automodule:: struphy.linear_algebra.toroidal_fourier
     :members:
     :show-inheritance:
     :exclude-members: __init__

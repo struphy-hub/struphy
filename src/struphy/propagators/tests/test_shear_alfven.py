@@ -113,7 +113,7 @@ def test_shear_alfven_polar_preconditioners(mpi_out_folder, monkeypatch):
     and the toroidal Fourier preconditioner is exact for the (axisymmetric) screw pinch: both give the step of the polar
     mass matrix preconditioner with fewer iterations, and the step conserves the energy (issue #810)."""
     from struphy.feec.preconditioner import PolarKroneckerBlockPreconditioner
-    from struphy.feec.toroidal_fourier import ToroidalFourierSolver
+    from struphy.linear_algebra.toroidal_fourier import ToroidalFourierSolver
 
     results = {}
     for precond in ("PolarMassMatrixPreconditioner", "StiffnessPreconditioner", "ToroidalFourierPreconditioner"):
