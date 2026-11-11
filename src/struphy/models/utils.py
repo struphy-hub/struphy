@@ -8,7 +8,6 @@ from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel, apply_splitting_order
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, KineticEnergyPIC, LostMarkersPIC
 from struphy.models.variables import FEECVariable
-from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.utils import VelocityMass
 
@@ -90,7 +89,7 @@ def ones_l2():
     tensor-product coefficients (e.g. ``Propagator.projected_equil.tp.p3.inner(ones_l2())``; the sum of the
     tensor-product coefficients of a 3-form is its integral over the logical cube). Allocated, call in
     ``post_allocate``."""
-    ones = Propagator.projected_equil.tp.p3.space.zeros()
+    ones = Propagator.derham.V3.zeros()
     ones[:] = 1.0
     return ones
 
