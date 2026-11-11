@@ -374,13 +374,13 @@ class DriftKineticMaxwellCoupling(Propagator):
         self._info = self.options.solver_params.info
 
         # magnetic field: B* (2-form) and B*_parallel with the total field B0 + b (b frozen in a step)
-        self._b2_eq = self.projected_equil.b2
+        self._b2_eq = self.projected_equil.tp.b2
         self._b2 = self._b2_eq.space.zeros()
         self._E2T = self.derham.extraction_ops["2"].transpose()
-        self._curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._unit_b1 = self.projected_equil.unit_b1
-        self._absB0 = self.projected_equil.absB0
-        self._curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
+        self._curl_unit_b2 = self.projected_equil.tp.curl_unit_b2
+        self._unit_b1 = self.projected_equil.tp.unit_b1
+        self._absB0 = self.projected_equil.tp.absB0
+        self._curl_unit_b_dot_b0 = self.projected_equil.tp.curl_unit_b_dot_b0
 
         self._E0T = self.derham.extraction_ops["0"].transpose()
         self._PB = getattr(self.basis_ops, "PB")

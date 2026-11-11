@@ -251,7 +251,7 @@ class VariationalSoundEvolve(Propagator):
         self._linear_form_dl_dq = q.space.zeros()
 
         if self._linearize:
-            self._extracted_q3 = self.derham.extraction_ops["3"].dot(self.projected_equil.q3)
+            self._extracted_q3 = self.projected_equil.q3
 
     @profile
     def __call__(self, dt):
