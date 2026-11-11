@@ -91,3 +91,11 @@ Linear solvers
     :members:
     :show-inheritance:
     :exclude-members: __init__
+
+Exact solver for operators that are invariant under shifts in eta_3 (e.g. axisymmetric equilibria), used as the
+preconditioner ``"ToroidalFourierPreconditioner"`` of the shear Alfven step:
+
+.. automodule:: struphy.linear_algebra.toroidal_fourier
+    :members:
+    :show-inheritance:
+    :exclude-members: __init__

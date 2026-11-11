@@ -12,6 +12,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.multigrid.preconditioner import MultiGridOptions, MultiGridPreconditioner
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
+from struphy.linear_algebra.toroidal_fourier import ToroidalFourierSolver
 from struphy.models.variables import FEECVariable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
@@ -155,12 +156,19 @@ class ShearAlfvenPropagator(Propagator):
             (fast diagonalization) preconditioner (``"StiffnessPreconditioner"``, the default,
             :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`: block Jacobi in the velocity
             components with the auxiliary space correction of the :math:`\mathbf E \times \mathbf B` flows if
-            ``exb_correction``, see there). Both need the implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"``. The Kronecker
-            preconditioner also needs ``u_space="Hdiv"``, tensor-product splines (no polar splines) and the global
-            commuting projectors; otherwise ``"StiffnessPreconditioner"`` falls back (with a warning) to
-            ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). The Schur operator
-            depends on the time step, so these preconditioners are built in the setup (:meth:`prepare_time_step`) and
-            updated if the time step changes.
+            ``exb_correction``, see there; with polar splines its 2D x 1D version,
+            :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner`, which couples the poloidal
+            components and needs no correction). Both need the implicit algorithm with ``solver="pcg"`` or
+            ``"pcg_sr"``. The Kronecker preconditioner also needs ``u_space="Hdiv"`` and the global commuting
+            projectors; otherwise ``"StiffnessPreconditioner"`` falls back (with a warning) to
+            ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). The option
+            ``"ToroidalFourierPreconditioner"`` (:class:`~struphy.linear_algebra.toroidal_fourier.ToroidalFourierSolver`) is the
+            exact inverse of the Schur operator if it is invariant under shifts in a periodic :math:`\eta_3` (e.g. an
+            axisymmetric equilibrium in a torus or cylinder, with tensor-product or polar splines), by an FFT in
+            :math:`\eta_3` and one dense poloidal factorization per toroidal mode number (the setup applies the Schur
+            operator once per poloidal unknown, for moderate poloidal resolution); for other equilibria it is an
+            approximation, so do not use it e.g. for stellarators. The Schur operator depends on the time step, so these
+            preconditioners are built in the setup (:meth:`prepare_time_step`) and updated if the time step changes.
             The multigrid preconditioner is experimental: on the TAE example (HollowTorus, 8x32x4) it needs more PCG
             iterations than the mass matrix preconditioner and is much slower (the smoother does not treat the large
             kernel of the curl term on 2-forms). The Kronecker preconditioner (with ``exb_correction``) needs about 11
@@ -258,14 +266,18 @@ class ShearAlfvenPropagator(Propagator):
         self._schur_precond_dt = None
         # the requested preconditioner, or the fallback if the Kronecker one is not possible here
         self._precond = preconditioner.ShearAlfvenSchurPreconditioner.resolve(
-            self.options.precond, self.derham, self.options.algo, self.options.solver, self.options.u_space
+            self.options.precond,
+            self.derham,
+            self.options.algo,
+            self.options.solver,
+            self.options.u_space,
         )
         if self._precond == "StiffnessPreconditioner":
             # Kronecker operators (built once, independent of dt)
             self._schur_precond = preconditioner.ShearAlfvenSchurPreconditioner(
                 self.derham, self.mass_ops, self.basis_ops, _T, id_M, exb_correction=self.options.exb_correction
             )
-        if self._precond in (None, "MultiGrid", "StiffnessPreconditioner"):
+        if self._precond in (None, "MultiGrid", "StiffnessPreconditioner", "ToroidalFourierPreconditioner"):
             pc = None
         else:
             pc_class = getattr(preconditioner, self._precond)
@@ -350,6 +362,13 @@ class ShearAlfvenPropagator(Propagator):
         # changes
         if self._precond == "StiffnessPreconditioner" and dt != self._schur_precond_dt:
             self._schur_solver.precond = self._schur_precond.build(dt)
+            self._schur_precond_dt = dt
+
+        # the exact inverse of the Schur operator for axisymmetric equilibria (toroidal Fourier modes), rebuilt when
+        # dt changes
+        if self._precond == "ToroidalFourierPreconditioner" and dt != self._schur_precond_dt:
+            schur = self._schur_solver.A - dt**2 * self._schur_solver.BC
+            self._schur_solver.precond = ToroidalFourierSolver(schur)
             self._schur_precond_dt = dt
 
     @profile

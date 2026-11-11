@@ -1285,3 +1285,41 @@ def poloidal_mass_matrix(derham, bases_row: tuple, bases_col: tuple, weight: np.
     rows, cols = np.broadcast_arrays(rows, cols)
     M = spa.coo_matrix((loc.ravel(), (rows.ravel(), cols.ravel())), shape=(ni1 * ni2, nj1 * nj2))
     return M.tocsr()
+
+
+def mass_matrix_1d(derham, basis_row: str, basis_col: str, d: int = 2, weight: np.ndarray | None = None) -> np.ndarray:
+    r"""
+    Weighted 1d mass matrix :math:`\int \Lambda^\textnormal{row}_i \, w \, \Lambda^\textnormal{col}_j \, \textnormal
+    d\eta_d` in direction ``d`` (the 1d counterpart of :func:`poloidal_mass_matrix`), assembled on the serial 1d spline
+    spaces with the quadrature of the Derham, as dense array.
+
+    Parameters
+    ----------
+    derham : Derham
+        The discrete de Rham sequence.
+
+    basis_row, basis_col : str
+        Spline bases (``"B"`` or ``"M"``) of the row (test) and column (trial) functions; they may differ.
+
+    d : int
+        Direction.
+
+    weight : np.ndarray | None
+        Weight at the global quadrature points in direction ``d`` (None: unit weight).
+    """
+
+    def data(att):
+        spans = xp.to_numpy(att.quad_grid_spans[0][0])
+        basis = xp.to_numpy(att.quad_grid_bases[0][0])[:, :, 0, :]  # (cells, p+1, quad points), no derivatives
+        wts = xp.to_numpy(att.quad_grid_wts[0][0])  # (cells, quad points)
+        return spans, basis, wts, att.nbasis[0][0], basis.shape[1] - 1
+
+    si, bi, w, ni, pi = data(_serial_attrs_1d(derham, basis_row, d))
+    sj, bj, _, nj, pj = data(_serial_attrs_1d(derham, basis_col, d))
+    f = w if weight is None else w * np.asarray(weight).reshape(w.shape)
+    loc = np.einsum("xq,xaq,xbq->xab", f, bi, bj)
+    gi = (si[:, None] - pi + np.arange(pi + 1)[None, :]) % ni
+    gj = (sj[:, None] - pj + np.arange(pj + 1)[None, :]) % nj
+    M = np.zeros((ni, nj))
+    np.add.at(M, (gi[:, :, None], gj[:, None, :]), loc)
+    return M
