@@ -221,7 +221,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._linear_form_dl_db = b.space.zeros()
 
         if self._linearize:
-            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
+            self._extracted_b2 = self.projected_equil.b2
 
     def __call__(self, dt):
         # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner

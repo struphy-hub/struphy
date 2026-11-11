@@ -358,8 +358,8 @@ class VariationalQBEvolve(Propagator):
         self._tmp_q_advection2 = q.space.zeros()
 
         if self._linearize:
-            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
-            self._extracted_q3 = self.derham.extraction_ops["3"].dot(self.projected_equil.q3)
+            self._extracted_b2 = self.projected_equil.b2
+            self._extracted_q3 = self.projected_equil.q3
 
     def __call__(self, dt):
         # WMMnew is re-assembled in VariationalDensityEvolve: update the diagonal scaling of its preconditioner

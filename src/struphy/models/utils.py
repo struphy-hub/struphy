@@ -8,7 +8,6 @@ from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel, apply_splitting_order
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, KineticEnergyPIC, LostMarkersPIC
 from struphy.models.variables import FEECVariable
-from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.utils import VelocityMass
 
@@ -86,13 +85,12 @@ def generate_models_message() -> str:
 
 
 def ones_l2():
-    """The vector of ones in the discrete :math:`L^2` space (FE coefficients of a 3-form), for volume integrals of
-    3-forms (allocated, call in ``post_allocate``)."""
-    ones = Propagator.projected_equil.p3.space.zeros()
-    if isinstance(ones, PolarVector):
-        ones.tp[:] = 1.0
-    else:
-        ones[:] = 1.0
+    """The vector of ones in the tensor-product :math:`L^2` space, for volume integrals of 3-forms from their
+    tensor-product coefficients (e.g. ``Propagator.projected_equil.tp.p3.inner(ones_l2())``; the sum of the
+    tensor-product coefficients of a 3-form is its integral over the logical cube). Allocated, call in
+    ``post_allocate``."""
+    ones = Propagator.derham.V3.zeros()
+    ones[:] = 1.0
     return ones
 
 

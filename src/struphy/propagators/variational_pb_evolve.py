@@ -439,7 +439,7 @@ class VariationalPBEvolve(Propagator):
         self._create_linear_form_p()
 
         if self._linearize:
-            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
+            self._extracted_b2 = self.projected_equil.b2
 
     def prepare_time_step(self, dt: float):
         """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
