@@ -100,3 +100,11 @@ Perturbation functions
 .. autoclass:: struphy.initial.base.Perturbation
 
 See available :ref:`perturbations`.
+
+
+Mode analysis
+-------------
+
+.. automodule:: struphy.post_processing.mode_analysis
+    :members:
+    :exclude-members: ModePlot
