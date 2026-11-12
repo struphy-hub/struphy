@@ -237,7 +237,10 @@ class VariationalAlfvenEvolve(Propagator):
         self._initialize_operators()
 
         # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
-        self._schur_pc = alfven_schur_preconditioner(self, [] if self._model == "linear" else ['model="linear"'])
+        unmet = [] if self._model == "linear" else ['model="linear"']
+        if self.derham.polar_splines:
+            unmet += ["tensor-product splines"]
+        self._schur_pc = alfven_schur_preconditioner(self, unmet)
         self._schur_pc_dt = None
 
         # temporaries

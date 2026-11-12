@@ -4,7 +4,7 @@ from feectools.linalg.basic import IdentityOperator, LinearOperator, ScaledLinea
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
 
-from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner, mass_matrix_preconditioner
 from struphy.feec.variational_utilities import dot_normalized
 from struphy.linear_algebra.schur_solver import SchurSolverFull
 from struphy.propagators.base import Propagator
@@ -71,7 +71,7 @@ class VariationalLinearEvolve(Propagator):
         else:
             self._velocity_mass = None
             self._Mrho = self.mass_ops.WMMnew
-        self._Mrho_pc = None if precond is None else MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._Mrho_pc = None if precond is None else mass_matrix_preconditioner(self._Mrho)
 
     def _refresh_mass_pc(self):
         """Re-assemble the mass matrix of the total density (perturbative model with a velocity in Hdiv), and update

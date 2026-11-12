@@ -364,4 +364,6 @@ class VariationalLinearMHD(StruphyModel):
 
         - nonlinear MHD (see :class:`~struphy.models.variational_perturbative_mhd.VariationalPerturbativeMHD`)
         - kinetic or particle-resolved plasma effects
-        - entropy- or q-based thermodynamic formulations"""
+        - entropy- or q-based thermodynamic formulations
+        - exact energy balance of the dissipation with polar splines (the heating of the auxiliary pressure is exact
+          only if the constants are in the space of 3-forms, which is not the case for polar splines)"""

@@ -9,7 +9,7 @@ from maybempi import MPI
 from scope_profiler import ProfileManager
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner, mass_matrix_preconditioner
 from struphy.feec.variational_utilities import (
     BracketOperator,
     HdivBracketMomentumDerivative,
@@ -100,7 +100,7 @@ class VariationalMomentumAdvection(Propagator):
     :class:`~struphy.feec.variational_utilities.HdivBracketMomentumDerivative`), followed by one linear solve with the
     momentum of the last iterate. Since :math:`\mathbb B` is skew-symmetric for any momentum, both conserve the kinetic energy
     :math:`\frac 12 \mathbf u^\top \mathbb M^2_\rho \mathbf u` exactly (up to the solver tolerances).
-    Not available with polar splines or ``divdiv_alpha > 0``.
+    Not available with ``divdiv_alpha > 0``.
     """
 
     class Variables:
@@ -224,9 +224,7 @@ class VariationalMomentumAdvection(Propagator):
             )
         # "cg" takes no preconditioner
         self._Mrho_pc = (
-            MassMatrixPreconditioner(self.mass_ops.WMMnew, dim_reduce=None)
-            if self.options.solver in ("pcg", "pcg_sr")
-            else None
+            mass_matrix_preconditioner(self.mass_ops.WMMnew) if self.options.solver in ("pcg", "pcg_sr") else None
         )
         self._Mrho_inv = inverse(
             self._Mrho,
@@ -266,7 +264,6 @@ class VariationalMomentumAdvection(Propagator):
     def _allocate_hdiv(self):
         """Velocity in Hdiv: density-weighted 2-form mass matrix, bracket and linear solvers."""
         assert self.divdiv_alpha == 0.0, 'A velocity in "Hdiv" needs divdiv_alpha=0.'
-        assert not self.derham.polar_splines, 'A velocity in "Hdiv" is not available with polar splines.'
 
         self._velocity_mass = VelocityMass(
             self.derham, self.domain, self.mass_ops, self.projected_equil, rho_field=self._rho
@@ -274,9 +271,7 @@ class VariationalMomentumAdvection(Propagator):
         M = self._velocity_mass.M_rho
         # "cg" takes no preconditioner; the diagonal scaling of the Kronecker preconditioner is refreshed in
         # __call__ when the density changes
-        self._Mrho_pc = (
-            MassMatrixPreconditioner(M, dim_reduce=None) if self.options.solver in ("pcg", "pcg_sr") else None
-        )
+        self._Mrho_pc = mass_matrix_preconditioner(M) if self.options.solver in ("pcg", "pcg_sr") else None
         self._Mrho_inv = inverse(
             M,
             self.options.solver,
@@ -550,9 +545,8 @@ class VariationalMomentumAdvection(Propagator):
     def _initialize_mass(self):
         """Initialization of the mass matrix solver"""
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
+        self.pc_Mv = preconditioner.mass_matrix_preconditioner(
             self.mass_ops.Mv,
-            dim_reduce=None,
         )
         self._inv_Mv = inverse(
             self.mass_ops.Mv,

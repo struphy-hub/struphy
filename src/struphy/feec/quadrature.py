@@ -13,19 +13,19 @@ class QuadratureIntegrator:
     computed with the Gauss-Legendre quadrature of the mass matrices of ``derham``. The values :math:`f_\mu` are
     given on the tensor-product grid of the local quadrature points (the flattened ``quad_grid_pts``), as returned by
     :meth:`~struphy.feec.psydac_derham.SplineFunction.eval_tp_fixed_loc` on that grid. The result is a tensor-product
-    vector (no boundary conditions, no polar extraction).
+    vector (no boundary conditions, no polar extraction), also with polar splines: the integrals against the polar
+    basis functions are ``derham.extraction_ops[form].dot(v)``.
 
     Parameters
     ----------
     derham : Derham
-        Discrete de Rham sequence (not polar).
+        Discrete de Rham sequence.
 
     space_id : str
         Space of the basis functions ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
     """
 
     def __init__(self, derham: Derham, space_id: str):
-        assert not derham.polar_splines, "QuadratureIntegrator is not available for polar splines."
         attr = derham.spline_attributes[space_id]
         self._fem_spaces = attr.tensor_spaces
         self._wts = attr.quad_grid_wts

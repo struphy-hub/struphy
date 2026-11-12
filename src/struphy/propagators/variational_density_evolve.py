@@ -12,7 +12,7 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner, mass_matrix_preconditioner
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
@@ -56,7 +56,7 @@ class VariationalDensityEvolve(Propagator):
     (:class:`~struphy.feec.variational_utilities.L2_transport_operator` with ``u_space="Hdiv"``) and the kinetic energy
     density :math:`\hat{\mathbf u}^{2,n} \cdot G \hat{\mathbf u}^{2,n+1}/(2g)`
     (:class:`~struphy.feec.variational_utilities.KineticEnergyEvaluator` with ``u_space="Hdiv"``). Not available with
-    polar splines or ``divdiv_alpha > 0``.
+    ``divdiv_alpha > 0``.
 
     On the logical domain:
 
@@ -277,7 +277,6 @@ class VariationalDensityEvolve(Propagator):
                 self._tmp_rho_advection = rho.space.zeros()
                 return
             assert self.divdiv_alpha == 0.0, 'A velocity in "Hdiv" needs divdiv_alpha=0.'
-            assert not self.derham.polar_splines, 'A velocity in "Hdiv" is not available with polar splines.'
             # density-weighted 2-form mass matrix M^2_rho (assembled in _update_weighted_MM)
             self._hdiv_ops = HdivDensityOperators(self.derham, self.domain, self.mass_ops)
             self._Mrho = self._hdiv_ops.M_rho
@@ -286,7 +285,7 @@ class VariationalDensityEvolve(Propagator):
         self._u_form = self.derham.space_to_form[self._u_space]
         # "cg" takes no preconditioner; the density-weighted mass matrix also preconditions the regularized metric
         self._Mrho_pc = (
-            MassMatrixPreconditioner(self._Mrho if self._u_space == "Hdiv" else self.mass_ops.WMMnew, dim_reduce=None)
+            mass_matrix_preconditioner(self._Mrho if self._u_space == "Hdiv" else self.mass_ops.WMMnew)
             if self.options.solver in ("pcg", "pcg_sr")
             else None
         )
@@ -509,10 +508,7 @@ class VariationalDensityEvolve(Propagator):
 
         # Inverse mass matrix of the velocity space (Mv or M2) needed to compute the error
         M_u = self.mass_ops.M2 if self._u_space == "Hdiv" else self.mass_ops.Mv
-        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
-            M_u,
-            dim_reduce=None,
-        )
+        self.pc_Mv = preconditioner.mass_matrix_preconditioner(M_u)
         self._inv_Mv = inverse(
             M_u,
             self.options.solver,
