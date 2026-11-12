@@ -1004,6 +1004,13 @@ class Output:
         """Number of ranks that wrote the raw output (not the current communicator)."""
         return int(self.metadata["mpi_ranks"])
 
+    @property
+    def code_info(self) -> dict | None:
+        """Struphy version and git state (``version``, ``git_commit``, ``git_dirty``, ``git_branch``) of the
+        code that wrote the run; None for runs written before this was recorded."""
+        info = self.metadata.get("struphy")
+        return dict(info) if info is not None else None
+
     @cached_property
     def num_clones(self) -> int:
         """Number of domain clones of the saved run."""
