@@ -150,7 +150,8 @@ def save_results(path_out):
         f"{mean:.1f} iterations per step ({name})" for name, mean in summary["solver_iterations_mean"].items()
     )
     print(
-        f"\nstep: median {1e3 * summary['step_median']:.3f} ms (first step {1e3 * step_times[0]:.3f} ms); {iterations}"
+        f"\nstep: median {1e3 * summary['step_median']:.3f} ms (first step {1e3 * step_times[0]:.3f} ms)"
+        + (f"; {iterations}" if iterations else "")
     )
     Output(path_out).profile.results.print_summary(include=["^prop: "], sort="total", title="propagators")
 

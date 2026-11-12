@@ -54,9 +54,14 @@ class Profile:
 
     def step_times(self, region: str = "model.integrate") -> np.ndarray:
         """The duration of every call of ``region`` (by default one time step), the maximum over the ranks per call."""
-        timings = self.results[region]
+        try:
+            timings = self.results[region]
+        except KeyError:
+            raise ValueError(f"No region {region!r} in {self.path}.") from None
         per_rank = [timings[rank].durations for rank in timings.ranks]
-        n_calls = min(len(durations) for durations in per_rank)
+        n_calls = min((len(durations) for durations in per_rank), default=0)
+        if n_calls == 0:
+            raise ValueError(f"No calls of the region {region!r} in {self.path}.")
         return np.max([np.asarray(durations[:n_calls]) for durations in per_rank], axis=0)
 
     def summary(
@@ -157,7 +162,7 @@ class Profile:
 
 # the line logged (on rank 0, at level INFO) by the propagators with ``SolverParameters(info=True)``, e.g.
 # "Iterations for ShearAlfven: 14"; some propagators log another format or no iterations
-_ITERATIONS = re.compile(r"Iterations for (\w+): (\d+)")
+_ITERATIONS = re.compile(r"Iterations\s+for (\w+): (\d+)")
 
 
 def solver_iterations(path_out) -> dict[str, list[int]]:
