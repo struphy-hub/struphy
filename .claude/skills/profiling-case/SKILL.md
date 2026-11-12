@@ -110,8 +110,8 @@ With the venv activated (`VIRTUAL_ENV` must be set; the driver compiles the kern
 STRUPHY_PROFILING_LOCAL=1 python examples/<Model>/<case>/submit_<case>.py --variant <v> --ranks 2 --steps 3
 ```
 This runs the job scripts locally; rank counts above `os.cpu_count()` are skipped, and `mpirun` may also refuse
-counts above the physical cores. Output, in the profiling folder `<base>` (`$STRUPHY_PROFILING_DIR` if set, else the
-`clusters.SCRATCH_DIRS` entry of the detected cluster, e.g. `/ptmp/<user>/struphy_profiling` on Raven, else
+counts above the physical cores. Output, in the profiling folder `<base>` (`$STRUPHY_PROFILING_DIR/struphy_profiling`
+if the variable is set, else the `clusters.SCRATCH_DIRS` entry of the detected cluster, e.g. `/ptmp/<user>/struphy_profiling` on Raven, else
 `_profiling_jobs/` in the repo):
 - the job scripts and SLURM logs: `<base>/job_profile_*.sh`, `<base>/profiling_*.out|err`;
 - the runs: `<base>/<timestamp>-<commit>/<label>/sim_01/` (`struphy.out`, `pproc.out`, `results/`);

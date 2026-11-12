@@ -110,17 +110,20 @@ SLURM_PRESETS: dict[str, dict] = {
 
 # Folder of the profiling output (job scripts, SLURM logs, simulation runs, packaged cases) per cluster, in place of
 # `<repo>/_profiling_jobs`: on clusters whose home file system is small, the runs go to the scratch file system.
-# `{user}` is replaced by the user name. `$STRUPHY_PROFILING_DIR` overrides it on any machine.
+# `{user}` is replaced by the user name. `$STRUPHY_PROFILING_DIR` overrides the parent folder on any machine.
 SCRATCH_DIRS: dict[str, str] = {
     "raven": "/ptmp/{user}/struphy_profiling",
 }
 
 
 def profiling_base_dir(repo_root: Path) -> Path:
-    """Folder of the profiling output: `$STRUPHY_PROFILING_DIR` if set, else the `SCRATCH_DIRS` entry of the
-    detected cluster, else `<repo_root>/_profiling_jobs`."""
+    """Folder of the profiling output: `$STRUPHY_PROFILING_DIR/struphy_profiling` if the variable is set, else the
+    `SCRATCH_DIRS` entry of the detected cluster, else `<repo_root>/_profiling_jobs`.
+
+    The driver deletes and recreates `profiling-data/` in this folder, so it is always a dedicated subfolder (never
+    the folder given by the user itself)."""
     if env_dir := os.environ.get("STRUPHY_PROFILING_DIR"):
-        return Path(env_dir).expanduser().resolve()
+        return Path(env_dir).expanduser().resolve() / "struphy_profiling"
     scratch = SCRATCH_DIRS.get(detect_machine_name())
     if scratch is not None:
         return Path(scratch.format(user=getpass.getuser()))

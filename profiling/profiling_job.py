@@ -69,8 +69,8 @@ from utils import _git_commit, _git_commit_short, _make_unique_results_root, _sl
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
-# job scripts, SLURM logs, runs and packaged cases: `$STRUPHY_PROFILING_DIR`, the scratch folder of the cluster
-# (`clusters.SCRATCH_DIRS`, e.g. /ptmp/<user>/struphy_profiling on Raven) or `<repo>/_profiling_jobs`
+# job scripts, SLURM logs, runs and packaged cases: `$STRUPHY_PROFILING_DIR/struphy_profiling`, the scratch folder
+# of the cluster (`clusters.SCRATCH_DIRS`, e.g. /ptmp/<user>/struphy_profiling on Raven) or `<repo>/_profiling_jobs`
 profiling_results_base = profiling_base_dir(repo_root)
 
 default_cluster_name = "pitagora"
@@ -194,7 +194,8 @@ class ProfilingCase:
             *(
                 [
                     "module purge",
-                    "source ./setup/modules.sh load",
+                    # absolute: sbatch runs the script in the folder it was called from
+                    f'source "{repo_root / "setup" / "modules.sh"}" load',
                     "module list",
                 ]
                 if self.use_modules

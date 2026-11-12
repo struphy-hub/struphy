@@ -11,7 +11,7 @@ script runs the simulation by invoking `params_ShearAlfven.py` directly (its `__
 report and the cost summary (time per step, PCG iterations per step) with `pproc_ShearAlfven.py --save-results`.
 The job scripts, SLURM logs and runs go to the profiling folder of the driver: on Raven
 `/ptmp/<user>/struphy_profiling` (the scratch file system, `clusters.SCRATCH_DIRS`), elsewhere `_profiling_jobs/` in
-the repo; `$STRUPHY_PROFILING_DIR` overrides it.
+the repo; `$STRUPHY_PROFILING_DIR/struphy_profiling` if that variable is set.
 
 The variant is chosen with `--variant`; run this script once per variant, or all variants at once with
 `sweep_ShearAlfven_scaling.py`. Each variant is a separate case in the profiling-data repo. All variants use cubic
