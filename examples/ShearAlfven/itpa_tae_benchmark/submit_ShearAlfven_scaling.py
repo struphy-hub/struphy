@@ -110,7 +110,7 @@ def _variant(solver, grid, walltime, ranks=RANKS, a1=None):
     return {"solver": solver, "grid": grid, "walltime": walltime, "ranks": ranks, "a1": a1}
 
 
-# variant (key = label suffix) -> solver, grid, SLURM time limit (4-rank run of 50 steps), rank counts
+# variant (key = label suffix) -> solver, grid, SLURM time limit (4-rank run of 50 steps), rank counts, hole radius a1
 VARIANTS = {
     "hdiv_stiffness_24x88x8": _variant("hdiv_stiffness", FINE, "00:15:00"),
     "hdiv_toroidal_fourier_24x88x8": _variant("hdiv_toroidal_fourier", FINE, "01:00:00", ranks=(4, 8, 16, 32)),
