@@ -1,8 +1,9 @@
 """3D plots of FEEC fields from the VTK files of a run (written by ``Output.pproc(create_vtk=True)``), with PyVista.
 
 :func:`plot_field_3d` renders one field at one saved time step in the physical domain: a cutaway view, where a wedge of 90
-degrees around the vertical axis is removed, one of its faces passing through the largest absolute value, so that
-the field is visible inside (for a torus, the poloidal cross-section through the maximum).
+degrees around the vertical axis is removed, one of its faces passing close to the largest absolute value (between two
+planes of grid points, see :func:`off_grid_azimuth`), so that the field is visible inside (for a torus, the
+poloidal cross-section near the maximum).
 The resolution of the plot is that of the VTK files, set by ``celldivide`` of ``Output.pproc``. Vector fields are
 shown by their magnitude; they need the Cartesian components of ``pproc(physical=True)``.
 
@@ -160,14 +161,22 @@ def default_colormap(vmin, vmax, noise=1e-2):
     return NEGATIVE, (vmin, 0.0)
 
 
-def crop_image(image, margin=10, background=240):
-    """``image`` (an RGB array) cropped to the pixels darker than ``background`` (nearly white pixels, e.g. at the
-    border of an anti-aliased render, count as background), plus ``margin``."""
+def crop_box(image, margin=10, background=240) -> tuple[int, int, int, int]:
+    """The rows ``top:bottom`` and columns ``left:right`` of ``image`` (an RGB array) that hold the pixels darker
+    than ``background`` (nearly white pixels, e.g. at the border of an anti-aliased render, count as background),
+    plus ``margin``; the whole image if it is empty."""
     rows, cols = np.nonzero(np.any(image[..., :3] < background, axis=-1))
     if rows.size == 0:
-        return image
+        return 0, image.shape[0], 0, image.shape[1]
     top, bottom = max(rows.min() - margin, 0), min(rows.max() + margin + 1, image.shape[0])
     left, right = max(cols.min() - margin, 0), min(cols.max() + margin + 1, image.shape[1])
+    return int(top), int(bottom), int(left), int(right)
+
+
+def crop_image(image, margin=10, background=240):
+    """``image`` (an RGB array) cropped to the pixels darker than ``background``, plus ``margin`` (see
+    :func:`crop_box`)."""
+    top, bottom, left, right = crop_box(image, margin, background)
     return image[top:bottom, left:right]
 
 
@@ -226,6 +235,116 @@ def is_torus(path_out, grid=None) -> bool:
     return any(cls.__name__ in TORUS_DOMAINS for cls in type(domain).__mro__)
 
 
+def cut_center(grid, toroidal) -> tuple[np.ndarray, float]:
+    """The center of the vertical axis of the cutaway (the center of ``grid``, on the axis x = y = 0 for a torus)
+    and the length of the diagonal of the bounding box of ``grid``."""
+    x0, x1, y0, y1, z0, z1 = grid.bounds
+    center = np.array([0.5 * (x0 + x1), 0.5 * (y0 + y1), 0.5 * (z0 + z1)])
+    if toroidal:
+        center[:2] = 0.0
+    return center, float(np.linalg.norm([x1 - x0, y1 - y0, z1 - z0]))
+
+
+def peak_azimuth(points, values, center, diagonal) -> float:
+    """The azimuth around the vertical axis through ``center`` of the point of the largest absolute value (0 for a
+    point on that axis)."""
+    offset = np.asarray(points)[np.nanargmax(np.abs(values))] - center
+    return float(np.arctan2(offset[1], offset[0])) if np.hypot(offset[0], offset[1]) > 1e-6 * diagonal else 0.0
+
+
+def off_grid_azimuth(points, center, azimuth, decimals=9) -> float:
+    """``azimuth`` moved to the middle between the two nearest azimuths (around the vertical axis through ``center``)
+    of ``points``, e.g. between two planes eta3 = const of the grid of a torus; if the other face of the wedge of
+    :func:`cut_wedge` (at ``azimuth + pi/2``) then lies on such a plane, a quarter of the gap from its first point
+    instead, so that neither face does. A cut through a plane of grid points leaves degenerate cells, which are drawn
+    as dark specks. Unchanged if the points have fewer than two distinct azimuths."""
+    rel = np.asarray(points)[:, :2] - np.asarray(center)[:2]
+    radius = np.hypot(rel[:, 0], rel[:, 1])
+    rel = rel[radius > 1e-9 * (np.max(radius) if radius.size else 1.0)]
+    angles = np.unique(np.round(np.mod(np.arctan2(rel[:, 1], rel[:, 0]), 2 * np.pi), decimals))
+    if len(angles) < 2:
+        return float(azimuth)
+    angles = np.concatenate([angles - 2 * np.pi, angles, angles + 2 * np.pi])
+    target = np.mod(azimuth, 2 * np.pi)
+    i = int(np.searchsorted(angles, target))
+    lo, hi = angles[i - 1], angles[i]
+    if np.isclose(hi, target, rtol=0.0, atol=10.0**-decimals):
+        # on a plane of points: the gap above it
+        lo, hi = hi, angles[i + 1]
+    moved = 0.5 * (lo + hi)
+    # the other face of the wedge on a plane of points: a quarter of the gap instead of a half
+    other = np.mod(moved + np.pi / 2, 2 * np.pi)
+    if np.min(np.abs(angles - other)) < 1e-6 * (hi - lo):
+        moved = lo + 0.25 * (hi - lo)
+    return float(azimuth + moved - target)
+
+
+def merge_seams(grid, diagonal):
+    """``grid`` as an unstructured grid with coincident points merged (periodic seams, the axis of polar domains),
+    so that the seams are not drawn as faces."""
+    return grid.cast_to_unstructured_grid().clean(tolerance=1e-9 * diagonal)
+
+
+def new_plotter(show=False, window_size=(1600, 1600)) -> pv.Plotter:
+    """A plotter with a white background and anti-aliasing, off screen unless ``show``."""
+    plotter = pv.Plotter(off_screen=not show, window_size=list(window_size))
+    plotter.set_background("white")
+    plotter.enable_anti_aliasing("ssaa")
+    return plotter
+
+
+def add_field_mesh(plotter, mesh, scalars, cmap, clim, show_scalar_bar=False, scalar_bar_title=None, **kwargs):
+    """Add ``mesh`` colored by its point array ``scalars`` with the lighting of the 3D plots (further keyword
+    arguments, e.g. ``opacity``, go to ``plotter.add_mesh``); returns the actor."""
+    return plotter.add_mesh(
+        mesh,
+        scalars=scalars,
+        cmap=cmap,
+        clim=clim,
+        smooth_shading=True,
+        # sharp edges (e.g. of a slab or of the cutaway) shaded as edges, not smoothed over
+        split_sharp_edges=True,
+        # lighting that keeps the colors of the colormap on surfaces facing the light (zero stays light gray)
+        ambient=0.2,
+        diffuse=0.8,
+        show_scalar_bar=show_scalar_bar,
+        scalar_bar_args={"title": scalar_bar_title or scalars, "vertical": True, "color": "black"},
+        **kwargs,
+    )
+
+
+def set_camera(plotter, grid, shown, center, azimuth, toroidal, cutaway=True, context=1.2):
+    """Look into the wedge of the cutaway (see :func:`cut_wedge`) from above, framing the removed wedge and some of
+    the domain around it (enlarged by ``context``), so that the cut fills the view and the rest of the domain gives
+    the 3D context. For a torus, the face of the cut at ``azimuth`` (a poloidal cross-section) is framed instead,
+    enlarged by twice ``context``. ``grid`` is the whole domain, ``shown`` the rendered part of it."""
+    diagonal = np.linalg.norm(np.subtract(grid.bounds[1::2], grid.bounds[::2]))
+    # elevation of the camera above the horizontal plane: about 39 degrees, half of it for a torus
+    elevation = np.arctan(0.8) / (2 if toroidal else 1)
+    # azimuth of the camera: along the bisector of the wedge, for a torus more in front of the cut face at `azimuth`
+    # (whose normal points to azimuth + pi/2)
+    turn = 3 * np.pi / 8 if toroidal else np.pi / 4
+    view = np.array([np.cos(azimuth + turn), np.sin(azimuth + turn), np.tan(elevation)])
+    plotter.camera.focal_point = center
+    plotter.camera.position = center + 2.0 * diagonal * view / np.linalg.norm(view)
+    plotter.camera.up = (0.0, 0.0, 1.0)
+    plotter.reset_camera()
+    if not cutaway:
+        return
+    framed = grid.points[wedge_distance(grid.points, center, azimuth) > 0]
+    if toroidal:
+        rel = shown.points - center
+        start = np.cos(azimuth) * rel[:, 0] + np.sin(azimuth) * rel[:, 1]
+        left = -np.sin(azimuth) * rel[:, 0] + np.cos(azimuth) * rel[:, 1]
+        face = shown.points[(np.abs(left) < 1e-6 * diagonal) & (start > 0)]
+        if len(face):
+            framed, context = face, 2 * context
+    if len(framed):
+        lo, hi = framed.min(axis=0), framed.max(axis=0)
+        mid, half = 0.5 * (lo + hi), 0.5 * context * (hi - lo)
+        plotter.reset_camera(bounds=[v for k in range(3) for v in (mid[k] - half[k], mid[k] + half[k])])
+
+
 def plot_field_3d(
     path_out,
     variable,
@@ -273,7 +392,8 @@ def plot_field_3d(
         Open an interactive window (otherwise render off screen).
     cutaway : bool
         Remove a wedge of 90 degrees around the vertical axis through the center of the domain, starting at the
-        azimuth of the largest absolute value, to show the field inside (one face of the cut passes through it).
+        azimuth of the largest absolute value, to show the field inside (one face of the cut passes close to it, see
+        :func:`off_grid_azimuth`).
     title : str | None
         Title of the image (default: none).
     cmap : str | None
@@ -306,76 +426,21 @@ def plot_field_3d(
     default_cmap, clim = default_colormap(*grid.get_data_range(scalars))
     cmap = cmap or default_cmap
 
-    # the vertical axis of the cut: through the center of the domain, for a torus its axis x = y = 0
-    x0, x1, y0, y1, z0, z1 = grid.bounds
-    center = np.array([0.5 * (x0 + x1), 0.5 * (y0 + y1), 0.5 * (z0 + z1)])
-    diagonal = np.linalg.norm([x1 - x0, y1 - y0, z1 - z0])
     toroidal = is_torus(path_out, grid)
-    if toroidal:
-        center[:2] = 0.0
-    # the azimuth of the largest |value| around that axis
-    offset = grid.points[np.nanargmax(np.abs(grid.point_data[scalars]))] - center
-    azimuth = np.arctan2(offset[1], offset[0]) if np.hypot(offset[0], offset[1]) > 1e-6 * diagonal else 0.0
+    center, diagonal = cut_center(grid, toroidal)
+    azimuth = peak_azimuth(grid.points, grid.point_data[scalars], center, diagonal)
+    if cutaway:
+        azimuth = off_grid_azimuth(grid.points, center, azimuth)
+    grid = merge_seams(grid, diagonal)
 
-    # merge coincident points (periodic seams, the axis of polar domains), so that the seams are not drawn as faces
-    grid = grid.cast_to_unstructured_grid().clean(tolerance=1e-9 * diagonal)
-
-    plotter = pv.Plotter(off_screen=not show, window_size=list(window_size))
-    plotter.set_background("white")
-    plotter.enable_anti_aliasing("ssaa")
+    plotter = new_plotter(show, window_size)
     shown = cut_wedge(grid, center, azimuth) if cutaway else grid
-    plotter.add_mesh(
-        shown,
-        scalars=scalars,
-        cmap=cmap,
-        clim=clim,
-        smooth_shading=True,
-        # lighting that keeps the colors of the colormap on surfaces facing the light (zero stays light gray)
-        ambient=0.2,
-        diffuse=0.8,
-        show_scalar_bar=show_scalar_bar,
-        scalar_bar_args={"title": scalars, "vertical": True, "color": "black"},
-    )
+    add_field_mesh(plotter, shown, scalars, cmap, clim, show_scalar_bar)
     if show_axes:
         plotter.add_axes()
     if title is not None:
         plotter.add_text(title, font_size=12, color="black")
-    # look into the wedge from above, framing the removed wedge (between the two faces of the cut) and some of the
-    # domain around it, so that the cut fills the view and the rest of the domain gives the 3D context
-    # elevation of the camera above the horizontal plane: about 39 degrees, half of it for a torus
-    elevation = np.arctan(0.8) / (2 if toroidal else 1)
-    # azimuth of the camera: along the bisector of the wedge, for a torus more in front of the cut face at `azimuth`
-    # (whose normal points to azimuth + pi/2)
-    turn = 3 * np.pi / 8 if toroidal else np.pi / 4
-    view = np.array([np.cos(azimuth + turn), np.sin(azimuth + turn), np.tan(elevation)])
-    plotter.camera.focal_point = center
-    plotter.camera.position = center + 2.0 * diagonal * view / np.linalg.norm(view)
-    plotter.camera.up = (0.0, 0.0, 1.0)
-    plotter.reset_camera()
-    if cutaway:
-        framed = grid.points[wedge_distance(grid.points, center, azimuth) > 0]
-        # a domain around the vertical axis (a torus): frame only the face of the cut through the largest |value|
-        # (a poloidal cross-section), enlarged by twice the context
-        rel = shown.points - center
-        if toroidal:
-            start = np.cos(azimuth) * rel[:, 0] + np.sin(azimuth) * rel[:, 1]
-            left = -np.sin(azimuth) * rel[:, 0] + np.cos(azimuth) * rel[:, 1]
-            face = shown.points[(np.abs(left) < 1e-6 * diagonal) & (start > 0)]
-            if len(face):
-                framed, context = face, 2 * context
-        if len(framed):
-            lo, hi = framed.min(axis=0), framed.max(axis=0)
-            mid, half = 0.5 * (lo + hi), 0.5 * context * (hi - lo)
-            plotter.reset_camera(
-                bounds=[
-                    mid[0] - half[0],
-                    mid[0] + half[0],
-                    mid[1] - half[1],
-                    mid[1] + half[1],
-                    mid[2] - half[2],
-                    mid[2] + half[2],
-                ]
-            )
+    set_camera(plotter, grid, shown, center, azimuth, toroidal, cutaway=cutaway, context=context)
 
     if filename is not None:
         image = plotter.screenshot(return_img=True)

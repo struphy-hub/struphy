@@ -77,8 +77,8 @@ class Particles6D(Particles):
             assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), (
                 "CanonicalMaxwellian2D needs background with magnetic field."
             )
-            self._absB0_h = self.projected_equil.absB0
-            self._b2_h = self.projected_equil.b2
+            self._absB0_h = self.projected_equil.tp.absB0
+            self._b2_h = self.projected_equil.tp.b2
             self._derham = self.projected_equil.derham
 
     @property
@@ -481,8 +481,8 @@ class Particles5D(Particles):
                 "Particles5D needs background with magnetic field."
             )
 
-        self._absB0_h = self.projected_equil.absB0
-        self._unit_b1_h = self.projected_equil.unit_b1
+        self._absB0_h = self.projected_equil.tp.absB0
+        self._unit_b1_h = self.projected_equil.tp.unit_b1
         self._derham = self.projected_equil.derham
 
         self._tmp0 = self.derham.V0.zeros()
@@ -866,8 +866,8 @@ class Particles5Dvperp(Particles):
                 "Particles5Dvperp needs background with magnetic field."
             )
 
-        self._absB0_h = self.projected_equil.absB0
-        self._unit_b1_h = self.projected_equil.unit_b1
+        self._absB0_h = self.projected_equil.tp.absB0
+        self._unit_b1_h = self.projected_equil.tp.unit_b1
         self._derham = self.projected_equil.derham
 
         self._tmp0 = self.derham.V0.zeros()

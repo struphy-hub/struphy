@@ -102,6 +102,8 @@ class PerturbativeMHDWithQDriftkineticCC(PerturbativeMHDWithQ):
             "cc5d_gradb",
             "cc5d_curlb",
         )
+        # the guiding-center pushers as one symmetric (second-order) block, as in LinearMHDDriftkineticCC (issue #882)
+        strang_groups = (("push_bxe", "push_parallel"),) + PerturbativeMHDWithQ.Propagators.strang_groups
 
         def __init__(
             self,
@@ -323,11 +325,12 @@ class PerturbativeMHDWithQDriftkineticCC(PerturbativeMHDWithQ):
     def doc_discretization(cls):
         """Time integration is performed by the following propagators (in sequence; the magnetic field is in
         :math:`H(\\textnormal{div})`). The default parameter file of this model
-        (``struphy params PerturbativeMHDWithQDriftkineticCC``) sets the energy-conserving discrete gradient methods of
-        the reference discretization for the guiding-center pushers: ``algo="discrete_gradient_2nd_order"`` (implicit
-        mid-point) for ``push_bxe`` and ``algo="discrete_gradient_1st_order_newton"`` (Itoh-Abe with Newton
-        iterations) for ``push_parallel``. The shear-Alfvén step ``shear_alf`` has the total magnetic field in its
-        basis projection operator (``nonlinear=True``, fixed by the model), with the weight at :math:`t^n`:"""
+        (``struphy params PerturbativeMHDWithQDriftkineticCC``) sets the energy-conserving second-order discrete
+        gradient method ``algo="discrete_gradient_2nd_order"`` (implicit mid-point) for both guiding-center pushers,
+        ``push_bxe`` and ``push_parallel``, which form one symmetric (second-order) block of the splitting
+        (``strang_groups``), as in :class:`~struphy.models.LinearMHDDriftkineticCC`. The shear-Alfvén step
+        ``shear_alf`` has the total magnetic field in its basis projection operator (``nonlinear=True``, fixed by the
+        model), with the weight at :math:`t^n`:"""
         return cls.propagators_doc()
 
     @classmethod

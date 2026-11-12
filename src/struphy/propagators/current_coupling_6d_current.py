@@ -193,7 +193,7 @@ class CurrentCoupling6DCurrent(Propagator):
 
         particles = self.variables.ions.particles
         u = self.variables.u.spline.vector
-        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
+        self._b_eq = getattr(self.projected_equil.tp, "b" + self._b_form)
 
         self._info = self.options.solver_params.info
 

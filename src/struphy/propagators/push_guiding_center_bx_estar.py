@@ -203,10 +203,10 @@ class PushGuidingCenterBxEstar(Propagator):
             self._b_par_filter = AccumFilter(self.options.filter_params, self.derham, "H1")
 
         # magnetic equilibrium field
-        unit_b1 = self.projected_equil.unit_b1
-        self._gradB1 = self.projected_equil.gradB1
-        self._absB0 = self.projected_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
+        unit_b1 = self.projected_equil.tp.unit_b1
+        self._gradB1 = self.projected_equil.tp.gradB1
+        self._absB0 = self.projected_equil.tp.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.tp.curl_unit_b_dot_b0
 
         # the kernels need tensor-product coefficients: transposed extraction operators
         # PolarVector --> Stencil-/BlockVector (identity maps in case of no polar splines)

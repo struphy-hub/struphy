@@ -7,8 +7,16 @@ are shown by their components in the basis of their initial condition (``given_i
 see ``Output.field_basis``), as functions of the physical coordinates; the 3D views show the scalar fields and the
 first components (radial eta1 in a logical basis). The measured TAE frequency is compared with the analytical one
 and saved; a deviation of more than 10% fails with an ``AssertionError`` after the figures are saved (not with
-``--test-run``). Figures are written into ``<path_out>/results``. The energy and harmonics plots use plasma-plots
-(``pip install "struphy[pproc]"``).
+``--test-run``). The spectra of the harmonics of the radial velocity, their (r, omega) maps with
+the shear Alfven continua and the mode structure at the TAE frequency are saved as ``tae_spectrum``,
+``tae_omega_r`` and ``tae_profiles`` (see ``struphy.post_processing.mode_analysis``). Figures are written into
+``<path_out>/results``. The energy and harmonics plots use plasma-plots (``pip install "struphy[pproc]"``).
+
+Unless ``--no-frames``, the frames of three videos of the radial velocity u_r over the run (at most ``--max-frames``
+saved time steps) are written into ``<path_out>/results/frames/``: ``u_r_rz`` (the poloidal plane), ``u_r_3d_cut``
+(3D, the camera on the poloidal cross-section of the cutaway) and ``u_r_3d`` (3D, the whole torus with the
+cutaway), see ``struphy.post_processing.frames``. Make a video e.g. with
+``ffmpeg -framerate 25 -i frame_%04d.png -pix_fmt yuv420p u_r_rz.mp4`` in a frames folder.
 """
 
 import argparse
@@ -20,6 +28,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from struphy import Output
+from struphy.post_processing import mode_analysis
+from struphy.post_processing.frames import write_videos
 from struphy.post_processing.plot_3d import plot_field_3d
 from struphy.post_processing.slices import plot_physical_slices
 
@@ -95,6 +105,27 @@ def minor_radius(run):
     return lambda eta1: a1 + (a2 - a1) * eta1
 
 
+def frequency_figures(run, measured, expected):
+    """Spectra of the (m, n) harmonics of the radial velocity (normalized basis) at r_c = 0.5, their (r, omega) maps
+    with the cylindrical shear Alfven continua and the mode structure at the frequency of the m = M_TAE spectrum at r_c
+    (see struphy.post_processing.mode_analysis); none for runs with fewer than 4 saved time steps."""
+    if run.time.size < 4:
+        return {}
+    coeffs = mode_analysis.mode_coefficients(run, "mhd/velocity", ms=(0, 1, 2, 3), n=N_LOGICAL, component=0)
+    spectrum = mode_analysis.time_spectrum(coeffs)
+    peak = mode_analysis.peak_frequency(spectrum, m=M_TAE, r=0.5, omega_max=3 * expected)
+    print(f"FFT peak of the m = {M_TAE} harmonic at r_c = 0.5: omega = {peak:.4g}")
+    return {
+        "tae_spectrum": mode_analysis.plot_spectrum(
+            spectrum, r=0.5, ms=(M_TAE, M_TAE + 1), expected=expected, measured=measured, tolerance=TAE_RTOL
+        ).fig,
+        "tae_omega_r": mode_analysis.plot_omega_r(spectrum, out=run, expected=expected).fig,
+        "tae_profiles": mode_analysis.plot_profiles(
+            mode_analysis.filtered_profile(spectrum, omega=peak), mark_r=0.5
+        ).fig,
+    }
+
+
 def finish(figs, results_dir, save_figs):
     """Save the figures to ``results_dir`` and close them (``save_figs``), or keep them open for ``plt.show()``."""
     if save_figs:
@@ -103,7 +134,7 @@ def finish(figs, results_dir, save_figs):
             plt.close(fig)
 
 
-def main(path_out=DEFAULT_OUTPUT, save_figs=True):
+def main(path_out=DEFAULT_OUTPUT, save_figs=True, frames=True, max_frames=500):
     run = Output(path_out)
     snapshots = run.standard_snapshots()
     # VTK files (for the 3D views) of the standard snapshots only
@@ -121,6 +152,7 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
     measured, expected = tae_frequency(run, bases["mhd/velocity"])
     np.save(os.path.join(results_dir, "omega_tae.npy"), measured)
     np.save(os.path.join(results_dir, "omega_tae_expected.npy"), expected)
+    finish(frequency_figures(run, measured, expected), results_dir, save_figs)
 
     finish({"energies": run.plot.energies(parts=ENERGIES).fig}, results_dir, save_figs)
     for n, t in zip(snapshots, times):
@@ -169,6 +201,24 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True):
             else:
                 print(f"No 3D view of {species}/{variable}: its basis {basis!r} is not in the VTK files.")
 
+    if frames:
+        # frames of videos of the radial velocity u_r (the first component in the normalized basis, radial for the
+        # circular flux surfaces of the HollowTorus): the poloidal plane and two 3D views, at most max_frames saved
+        # time steps, in <path_out>/results/frames/u_r_rz, u_r_3d_cut and u_r_3d (frame_*.png)
+        videos = write_videos(
+            run,
+            "mhd/velocity",
+            os.path.join(results_dir, "frames"),
+            component=0,
+            basis="norm",
+            prefix="u_r",
+            label="radial velocity u_r",
+            max_frames=max_frames,
+        )
+        for video, files in videos.items():
+            if files:  # (empty on the ranks other than 0)
+                print(f"{len(files)} frames of {video} in {os.path.join(results_dir, 'frames', video)}")
+
     if not save_figs:
         plt.show()
 
@@ -190,5 +240,14 @@ if __name__ == "__main__":
         help="Simulation output folder (default: the output folder of the run flags, sim_data beside this script)",
     )
     pproc_parser.add_argument("--show", action="store_true", help="Show the figures instead of saving them.")
+    pproc_parser.add_argument("--no-frames", action="store_true", help="Do not write the frames of the videos.")
+    pproc_parser.add_argument(
+        "--max-frames", type=int, default=500, help="Largest number of frames per video (default: 500)."
+    )
     pproc_args = pproc_parser.parse_args(other_flags)
-    main(pproc_args.path_out, save_figs=not pproc_args.show)
+    main(
+        pproc_args.path_out,
+        save_figs=not pproc_args.show,
+        frames=not pproc_args.no_frames,
+        max_frames=pproc_args.max_frames,
+    )

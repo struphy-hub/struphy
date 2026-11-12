@@ -183,8 +183,8 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             Preconditioner of the Schur system: the one of ``precond`` (velocity block), or the Kronecker (fast
             diagonalization) preconditioner of the whole shear-Alfven Schur operator
             (:func:`~struphy.feec.variational_utilities.alfven_schur_preconditioner`, rebuilt when the time step
-            changes). The latter needs ``solver="pcg"`` (or ``"rpbicgstab"``, ``"pbicgstab"``), tensor-product splines and the global commuting projectors;
-            otherwise ``precond`` is used (with a warning).
+            changes; with polar splines its 2D x 1D version). The latter needs ``solver="pcg"`` (or ``"rpbicgstab"``,
+            ``"pbicgstab"``) and the global commuting projectors; otherwise ``precond`` is used (with a warning).
         exb_correction : bool, default=True
             For ``schur_precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
             :math:`\mathbf E \times \mathbf B` flows :math:`\mathbf B_0 \times \nabla \phi`.

@@ -94,7 +94,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--parallel-algo",
-    default="discrete_gradient_1st_order_newton",
+    default="discrete_gradient_2nd_order",
     choices=["discrete_gradient_2nd_order", "discrete_gradient_1st_order", "discrete_gradient_1st_order_newton", "rk4"],
     help="Algorithm of the parallel guiding-center push (PushGuidingCenterParallel1form, PushGuidingCenterParallel "
     "with --b-space Hdiv): a discrete gradient (energy "
@@ -203,7 +203,9 @@ of the paper). The guiding-center pushers use {args.drift_algo} for the drifts (
 plasma are removed (--marker-bc remove) or refilled on the same field line (--marker-bc refill): {args.marker_bc}.
 Filter of the accumulated moments: {args.filter}.
 
-Cost. With 1e5 markers on 4 MPI ranks (dt = 0.25, default pushers), a time step took about 16 s with --b-space Hdiv
+Cost. With 1e5 markers on 4 MPI ranks (dt = 0.25, measured with the earlier Itoh-Abe parallel pusher and a Lie
+splitting of the pushers; the present default pushers cost about the same per step), a time step took about 16 s
+with --b-space Hdiv
 (24 x 96 x 16) and about 19 s with --b-space Hcurl (24 x 44 x 16; about 8 s of it for the mass matrices of the total
 field in the shear Alfven step, nonlinear=True by default; about 11 s with nonlinear=False). The marker noise of
 the magnetization makes the curl-curl solve of the H(curl) step need about 60-70 Hiptmair-Xu iterations instead of

@@ -1,7 +1,17 @@
-"""Timing regions of a run recorded with ``sim.run(profiling_activated=True)``."""
+"""Timing regions of a run recorded with ``sim.run(profiling_activated=True)``, and the results of profiling runs.
+
+:class:`Profile` reads the timing regions of one run. :func:`solver_iterations` and :func:`save_profiling_results` are
+for the post-processing scripts of profiling cases (``pproc_*.py --save-results``, see the ``submit_*.py`` scripts in
+``examples/``): the solver iterations per time step logged by the run, and the scope-profiler report and a summary of
+the cost per step written into ``<path_out>/results``, where the profiling driver packages them.
+"""
 
 from __future__ import annotations
 
+import json
+import os
+import re
+import statistics
 from functools import cached_property
 from pathlib import Path
 
@@ -41,6 +51,18 @@ class Profile:
     @property
     def num_ranks(self) -> int:
         return int(self.results.num_ranks)
+
+    def step_times(self, region: str = "model.integrate") -> np.ndarray:
+        """The duration of every call of ``region`` (by default one time step), the maximum over the ranks per call."""
+        try:
+            timings = self.results[region]
+        except KeyError:
+            raise ValueError(f"No region {region!r} in {self.path}.") from None
+        per_rank = [timings[rank].durations for rank in timings.ranks]
+        n_calls = min((len(durations) for durations in per_rank), default=0)
+        if n_calls == 0:
+            raise ValueError(f"No calls of the region {region!r} in {self.path}.")
+        return np.max([np.asarray(durations[:n_calls]) for durations in per_rank], axis=0)
 
     def summary(
         self, *, prefix: str | None = None, ranks=None, sort_by: str = "total_time", top: int | None = None
@@ -136,3 +158,92 @@ class Profile:
         out.name = metric
         order = np.argsort(-np.nan_to_num(out.max("run").values, nan=-np.inf), kind="stable")
         return out.isel(region=order)
+
+
+# the line logged (on rank 0, at level INFO) by the propagators with ``SolverParameters(info=True)``, e.g.
+# "Iterations for ShearAlfven: 14"; some propagators log another format or no iterations
+_ITERATIONS = re.compile(r"Iterations\s+for (\w+): (\d+)")
+
+
+def solver_iterations(path_out) -> dict[str, list[int]]:
+    """The solver iterations logged by a run, per propagator: ``{name: [iterations of every call]}``.
+
+    The propagators log ``Iterations for <name>: N`` (on rank 0, at logging level INFO) when their solver parameters
+    have ``info=True``. They are read from the standard output of the run, ``<path_out>/struphy.out`` (written by the
+    profiling driver), else from the log file (``$STRUPHY_LOG_FILE`` or ``<path_out>/struphy.log``) and its rotated
+    backups, oldest first; the log keeps only the last few 10 kB, so it may miss the first steps of a long run.
+
+    Parameters
+    ----------
+    path_out : str | Path
+        Output folder of the run.
+
+    Returns
+    -------
+    dict[str, list[int]]
+        The iterations per propagator name, in the order of the calls; empty if nothing was logged.
+    """
+    path_out = Path(path_out)
+    stdout_file = path_out / "struphy.out"
+    if stdout_file.is_file():
+        files = [stdout_file]
+    else:
+        log_file = Path(os.environ.get("STRUPHY_LOG_FILE") or path_out / "struphy.log")
+        files = [log_file.with_name(f"{log_file.name}.{i}") for i in range(9, 0, -1)] + [log_file]
+    iterations: dict[str, list[int]] = {}
+    for file in files:
+        if file.is_file():
+            for name, count in _ITERATIONS.findall(file.read_text(encoding="utf-8", errors="replace")):
+                iterations.setdefault(name, []).append(int(count))
+    return iterations
+
+
+def save_profiling_results(path_out, info: dict | None = None, region: str = "model.integrate") -> dict:
+    """Write the results of a profiling run into ``<path_out>/results``, where the profiling driver packages them.
+
+    - ``report.html``: the scope-profiler report (call tree, charts, per-rank statistics);
+    - ``summary.json``: ``info`` (the case-specific fields, e.g. the grid, the variant, the number of markers), the
+      number of MPI ranks, the duration of every call of ``region`` (by default one time step; the maximum over the
+      ranks), their median without the first call (which includes one-time work such as allocations and the first
+      solver calls), and the solver iterations of :func:`solver_iterations` with their mean per propagator.
+
+    It only reads and writes files: call it on one process (the profiling driver runs the post-processing serially).
+
+    Parameters
+    ----------
+    path_out : str | Path
+        Output folder of a run made with ``sim.run(profiling_activated=True)``.
+    info : dict | None
+        Further entries of the summary (JSON-serializable); they come first.
+    region : str
+        The timing region of one step.
+
+    Returns
+    -------
+    dict
+        The summary written into ``summary.json``.
+    """
+    from scope_profiler import create_html_report
+
+    from struphy.post_processing.output import Output
+
+    out = Output(path_out)
+    profile = out.profile
+    results_dir = Path(out.path_out) / "results"
+    results_dir.mkdir(exist_ok=True)
+    create_html_report(profile.results, results_dir / "report.html")
+
+    step_times = profile.step_times(region)
+    iterations = solver_iterations(out.path_out)
+    summary = {
+        **(info or {}),
+        "mpi_ranks": profile.num_ranks,
+        "region": region,
+        "steps": len(step_times),
+        "step_times": step_times.tolist(),
+        "step_median": float(statistics.median(step_times[1:] if len(step_times) > 1 else step_times)),
+        "solver_iterations": iterations,
+        "solver_iterations_mean": {name: float(np.mean(counts)) for name, counts in iterations.items()},
+    }
+    (results_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    return summary

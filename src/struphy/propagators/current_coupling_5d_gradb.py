@@ -298,11 +298,11 @@ class CurrentCoupling5DGradB(Propagator):
             recycle=self.options.solver_params.recycle,
         )
         # magnetic equilibrium field (the field in the space of _b_form)
-        unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
-        gradB1 = self.projected_equil.gradB1
-        absB0 = self.projected_equil.absB0
+        unit_b1 = self.projected_equil.tp.unit_b1
+        curl_unit_b2 = self.projected_equil.tp.curl_unit_b2
+        self._b_eq = getattr(self.projected_equil.tp, "b" + self._b_form)
+        gradB1 = self.projected_equil.tp.gradB1
+        absB0 = self.projected_equil.tp.absB0
 
         # scaling factor
         epsilon = self.variables.energetic_ions.species.equation_params.epsilon

@@ -43,6 +43,7 @@ from struphy.polar.kron_2dx1d import (
     PolarKronSum2Dx1DSolver,
     bc_masks,
     component_groups,
+    mass_matrix_1d,
     poloidal_average_basis,
     poloidal_extraction_matrix,
     poloidal_mass_matrix,
@@ -481,7 +482,10 @@ class PolarMassMatrixPreconditioner(LinearOperator):
         self._bc = _boundary_conditions(mass_operator, apply_bc)
         self._tmp = self._space.zeros() if self._bc is not None else None
 
-        self._solver = self._build_solver()
+        # the factorizations need assembled weights: if the mass operator was never assembled (e.g. a density-weighted
+        # mass matrix assembled by another propagator), they are built in the first refresh or solve
+        self._assembly_count = mass_operator.assembly_count
+        self._solver = self._build_solver() if self._assembly_count > 0 else None
 
     def _build_solver(self) -> PolarKron2Dx1DSolver:
         groups = _polar_mass_groups(self._mass_operator, self._weight_reduction)
@@ -510,19 +514,36 @@ class PolarMassMatrixPreconditioner(LinearOperator):
     @property
     def solver(self) -> PolarKron2Dx1DSolver:
         """The 2D x 1D Kronecker solver."""
+        if self._solver is None:
+            self.update_mass_operator(self._mass_operator)
         return self._solver
 
     @property
     def exact(self) -> bool:
         """Whether the poloidal solves are exact (incomplete LU factorizations are not)."""
-        return self._solver.exact
+        return self.solver.exact
 
     def update_mass_operator(self, mass_operator: WeightedMassOperator) -> None:
         """Update the mass operator (same spaces and structure, e.g. new weights) and rebuild the factorizations."""
         assert isinstance(mass_operator, WeightedMassOperator)
         assert mass_operator.domain == self.domain, "Update needs to have the same domain and codomain"
         self._mass_operator = mass_operator
+        self._assembly_count = mass_operator.assembly_count
         self._solver = self._build_solver()
+
+    def refresh(self) -> bool:
+        """Update the preconditioner if its mass operator was re-assembled since the last update (as
+        :meth:`MassMatrixPreconditioner.refresh`).
+
+        Returns
+        -------
+        bool
+            Whether the preconditioner was updated.
+        """
+        if self._solver is not None and self._mass_operator.assembly_count == self._assembly_count:
+            return False
+        self.update_mass_operator(self._mass_operator)
+        return True
 
     def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
         """Applies the approximate inverse to rhs."""
@@ -531,7 +552,7 @@ class PolarMassMatrixPreconditioner(LinearOperator):
         if self._bc is not None:
             self._mass_operator._V_boundary_op.dot(rhs, out=self._tmp)
             rhs = self._tmp
-        return self._solver.dot(rhs, out=out)
+        return self.solver.dot(rhs, out=out)
 
     def dot(self, v: Vector, out: Vector | None = None) -> Vector:
         return self.solve(v, out=out)
@@ -589,6 +610,32 @@ def _poloidal_size(space: PolarDerhamSpace, c: int) -> int:
     """Number of tensor-product coefficients of component c in the poloidal plane."""
     n1, n2 = tp_space(space, c).npts[:2]
     return n1 * n2
+
+
+def mass_matrix_preconditioner(
+    mass_operator: WeightedMassOperator, dim_reduce: int | None = None
+) -> MassMatrixPreconditioner | PolarMassMatrixPreconditioner:
+    """The Kronecker preconditioner of a weighted mass operator: :class:`PolarMassMatrixPreconditioner` (2D x 1D) on
+    polar splines, :class:`MassMatrixPreconditioner` (with ``dim_reduce``) otherwise. On polar splines,
+    :class:`MassMatrixPreconditioner` applies :math:`\\mathbb E \tilde{\\mathbb M}^{-1} \\mathbb E^\top`, which is not an
+    approximate inverse of :math:`\\mathbb E \\mathbb M \\mathbb E^\top` near the pole.
+
+    Parameters
+    ----------
+    mass_operator : WeightedMassOperator
+        The (square) weighted mass operator.
+
+    dim_reduce : int | None
+        Option of :class:`MassMatrixPreconditioner` (tensor-product splines only).
+
+    Returns
+    -------
+    MassMatrixPreconditioner | PolarMassMatrixPreconditioner
+        The preconditioner (both have ``refresh`` and ``update_mass_operator``).
+    """
+    if isinstance(mass_operator.domain, PolarDerhamSpace):
+        return PolarMassMatrixPreconditioner(mass_operator)
+    return MassMatrixPreconditioner(mass_operator, dim_reduce=dim_reduce)
 
 
 class StiffnessPreconditioner(KroneckerPreconditioner):
@@ -1471,6 +1518,260 @@ class PolarStiffnessPreconditioner(LinearOperator):
         return self
 
 
+_MASS_OF_SPACE = {"H1": "M0", "Hcurl": "M1", "Hdiv": "M2", "L2": "M3", "H1vec": "Mv"}
+
+
+def _sparse_factor(F: np.ndarray | None, n: int, drop_tol: float) -> sparse.csr_matrix:
+    """A dense 1d factor (None: identity) as sparse matrix, without entries below drop_tol times the largest one."""
+    if F is None:
+        return sparse.eye(n, format="csr")
+    F = np.array(F, dtype=float)
+    F[np.abs(F) <= drop_tol * max(np.abs(F).max(), 1e-300)] = 0.0
+    return sparse.csr_matrix(F)
+
+
+def _matrix_key(X: np.ndarray) -> str:
+    """Key of a 1d matrix (equal for matrices that agree to about 12 digits)."""
+    scale = max(np.abs(X).max(), 1e-300)
+    return "B" + str(hash(np.round(X / scale, 12).tobytes())) + f"_{scale:.12e}"
+
+
+class PolarKroneckerBlockPreconditioner(LinearOperator):
+    r"""
+    Preconditioner on polar spline spaces for operators
+
+    .. math::
+
+        A = \sum_i \mathbb L_i^\top \mathbb M_i \mathbb L_i + \sigma \, \mathbb S\,,
+
+    where the :math:`\mathbb L_i` are :class:`~struphy.feec.kronecker_block.KroneckerBlockOperator` objects on the
+    parent tensor-product spaces (blocks :math:`\sum_t c_t F_{t,1} \otimes F_{t,2} \otimes F_{t,3}`, e.g.
+    :math:`\mathbb C \tilde{\mathbb T}`), and :math:`\mathbb M_i` and :math:`\mathbb S` are weighted mass operators (or
+    sums and multiples of them), with the polar extraction :math:`\mathbb E` applied:
+    :math:`A \approx \mathbb E (\dots) \mathbb E^\top`. This is the polar counterpart of
+    :class:`StiffnessPreconditioner` with general operators (as used by :class:`ShearAlfvenSchurPreconditioner`),
+    exploiting the 2D x 1D Kronecker structure of the polar extraction (see :mod:`struphy.polar.kron_2dx1d`).
+
+    The weights of the mass operators are reduced in :math:`\eta_3`
+    (:func:`~struphy.polar.kron_2dx1d.reduced_weight_2d`), so that each term of each block of :math:`A` is a Kronecker
+    product of a poloidal matrix and a 1d matrix in :math:`\eta_3`,
+
+    .. math::
+
+        (F_{t,1} \otimes F_{t,2})^\top \mathbb M_\textnormal{pol}[\bar w] (F_{t',1} \otimes F_{t',2})
+            \otimes F_{t,3}^\top M_3 F_{t',3}\,.
+
+    In the poloidal plane everything is kept: the poloidal derivatives and mixed terms, the couplings of the components
+    of a group (e.g. :math:`(u_1, u_2)` at the pole, see :func:`~struphy.polar.kron_2dx1d.component_groups`) and the
+    two-dimensional weights. In :math:`\eta_3`, the 1d matrices are replaced by their diagonals in the basis of the
+    generalized eigenproblem :math:`\hat S_3 V = M_3 V \Lambda` of a summary stiffness :math:`\hat S_3` (the symmetric
+    parts of the 1d matrices, weighted by the traces of their poloidal factors), as in the tensor-product
+    preconditioner; for a periodic :math:`\eta_3` with constant weights this is the (real) Fourier basis. Neglected
+    are thus the dependence of the weights on :math:`\eta_3`, the antisymmetric parts of the 1d factors in
+    :math:`\eta_3` (e.g. the cross terms of poloidal and toroidal derivatives) and the couplings between the groups of
+    components (block Jacobi). The inverse is applied by :class:`~struphy.polar.kron_2dx1d.PolarKronSum2Dx1DSolver`
+    (one poloidal factorization per :math:`\eta_3` mode).
+
+    Parameters
+    ----------
+    mass_ops : WeightedMassOperators
+        The mass operators (on polar splines).
+
+    terms : list
+        The pairs :math:`(\mathbb L_i, \mathbb M_i)`: a KroneckerBlockOperator and the matrix in the middle (name in
+        ``mass_ops``, a weighted mass operator or a sum/multiple of them; None: the mass operator of the codomain of
+        :math:`\mathbb L_i`). All :math:`\mathbb L_i` have the same domain.
+
+    stab : str | LinearOperator | None
+        The stabilization :math:`\mathbb S` (None: the mass operator of the domain).
+
+    sigma : float
+        Coefficient of the stabilization.
+
+    apply_bc : bool
+        Whether to impose the essential boundary conditions of the mass operator of the domain.
+
+    poloidal_solver, weight_reduction, schur_outer, drop_tol, fill_factor
+        See :class:`PolarStiffnessPreconditioner`.
+
+    factor_drop_tol : float
+        Entries of the dense 1d factors :math:`F_{t,d}` below this fraction of their largest entry are dropped before
+        the poloidal Kronecker products are formed (the inverse inter-/histopolation matrices of the basis projections
+        decay exponentially away from the diagonal).
+    """
+
+    def __init__(
+        self,
+        mass_ops: WeightedMassOperators,
+        terms: list[tuple[KroneckerBlockOperator, str | LinearOperator | None]],
+        stab: str | LinearOperator | None = None,
+        sigma: float = 1.0,
+        apply_bc: bool = True,
+        poloidal_solver: str = "schur",
+        weight_reduction: str = "midpoint",
+        schur_outer: str = "lu",
+        drop_tol: float = ILU_DROP_TOL,
+        fill_factor: float = ILU_FILL_FACTOR,
+        factor_drop_tol: float = 1e-10,
+    ):
+
+        derham = mass_ops.derham
+        if not derham.polar_splines:
+            raise ValueError("PolarKroneckerBlockPreconditioner needs polar splines.")
+        assert terms, "At least one term is needed."
+        dom = terms[0][0].domain_space
+        assert all(L.domain_space == dom for L, _ in terms), "All operators need the same domain."
+        assert weight_reduction in ("midpoint", "average"), f"Unknown weight_reduction {weight_reduction!r}."
+
+        self._mass_k = getattr(mass_ops, _MASS_OF_SPACE[dom])
+        self._space = self._mass_k.domain
+        space = self._space
+        bases_dom = spline_bases(derham.fem_spaces[dom])
+        shapes_dom = terms[0][0].domain_shapes
+        E_op = derham.extraction_ops[space.space_id]
+        self._solver_kwargs = {"schur_outer": schur_outer, "drop_tol": drop_tol, "fill_factor": fill_factor}
+
+        # the terms with the mid matrices as sums of weighted mass operators
+        items = []
+        for L, mid in terms:
+            default = getattr(mass_ops, _MASS_OF_SPACE[L.codomain_space])
+            mid_terms = _mass_terms(_resolve_mass_operator(mass_ops, mid, default))
+            cod_fem = derham.fem_spaces[L.codomain_space]
+            items.append((L, mid_terms, spline_bases(cod_fem)))
+        stab_terms = _mass_terms(_resolve_mass_operator(mass_ops, stab, self._mass_k)) if sigma != 0.0 else []
+
+        # caches: poloidal mass blocks (per term and block) and 1d mass matrices in eta_3 (per pair of 1d spaces)
+        mid_cache = {}
+        m3_cache = {}
+
+        def mid_block(i, r, r2):
+            if (i, r, r2) not in mid_cache:
+                _, mid_terms, bases_cod = items[i]
+                mid_cache[(i, r, r2)] = _poloidal_mass_block(mid_terms, derham, bases_cod, r, r2, weight_reduction)
+            return mid_cache[(i, r, r2)]
+
+        def m3(basis_row, basis_col):
+            if (basis_row, basis_col) not in m3_cache:
+                m3_cache[(basis_row, basis_col)] = mass_matrix_1d(derham, basis_row, basis_col, 2)
+            return m3_cache[(basis_row, basis_col)]
+
+        def poloidal_kron(F, shape):
+            return sparse.kron(
+                _sparse_factor(F[0], shape[0], factor_drop_tol),
+                _sparse_factor(F[1], shape[1], factor_drop_tol),
+                format="csr",
+            )
+
+        groups = []
+        for comps in component_groups(space):
+            n = len(comps)
+            M_3 = m3(bases_dom[comps[0]][2], bases_dom[comps[0]][2])
+            blocks = {}
+            B_3 = {}
+
+            def add(key, a, b, mat, blocks=blocks, n=n):
+                blk = blocks.setdefault(key, [[None] * n for _ in range(n)])
+                blk[a][b] = mat if blk[a][b] is None else blk[a][b] + mat
+
+            for i, (L, _, bases_cod) in enumerate(items):
+                for a, c in enumerate(comps):
+                    for b, c2 in enumerate(comps):
+                        for (r, cc), terms_l in L.blocks.items():
+                            if cc != c:
+                                continue
+                            for (r2, cc2), terms_r in L.blocks.items():
+                                if cc2 != c2:
+                                    continue
+                                M_pol = mid_block(i, r, r2)
+                                if M_pol is None:
+                                    continue
+                                M3_rr = m3(bases_cod[r][2], bases_cod[r2][2])
+                                for alpha, F in terms_l:
+                                    PtM = poloidal_kron(F, shapes_dom[c]).T @ M_pol
+                                    F3 = np.eye(shapes_dom[c][2]) if F[2] is None else F[2]
+                                    for beta, G in terms_r:
+                                        Q = poloidal_kron(G, shapes_dom[c2])
+                                        G3 = np.eye(shapes_dom[c2][2]) if G[2] is None else G[2]
+                                        X = F3.T @ M3_rr @ G3
+                                        key = "M" if X.shape == M_3.shape and np.allclose(X, M_3) else _matrix_key(X)
+                                        if key != "M":
+                                            B_3[key] = X
+                                        add(key, a, b, (alpha * beta) * (PtM @ Q))
+            if sigma != 0.0:
+                for a, c in enumerate(comps):
+                    for b, c2 in enumerate(comps):
+                        S_ab = _poloidal_mass_block(stab_terms, derham, bases_dom, c, c2, weight_reduction)
+                        if S_ab is not None:
+                            add("M", a, b, sigma * S_ab)
+
+            E = poloidal_extraction_matrix(space, comps, E_op.blocks_ten_to_pol, None)
+            A_pol = {}
+            for key, blk in blocks.items():
+                for a, c in enumerate(comps):
+                    for b, c2 in enumerate(comps):
+                        if blk[a][b] is None:
+                            n_rows = int(np.prod(shapes_dom[c][:2]))
+                            n_cols = int(np.prod(shapes_dom[c2][:2]))
+                            blk[a][b] = sparse.csr_matrix((n_rows, n_cols))
+                A_pol[key] = (E @ sparse.bmat(blk, format="csr") @ E.T).tocsr()
+
+            # summary stiffness in eta_3: symmetric parts of the 1d factors, weighted by the traces of the poloidal ones
+            S_3 = None
+            if B_3:
+                S_3 = np.zeros_like(M_3)
+                for key, X in B_3.items():
+                    S_3 += abs(A_pol[key].diagonal().sum()) * (X + X.T) / 2.0
+                norm = sum(abs(A.diagonal().sum()) for A in A_pol.values())
+                S_3 /= max(norm, 1e-300)
+            groups.append(KronSum2Dx1DGroup(comps, A_pol, M_3, S_3, B_3))
+
+        self._bc = _boundary_conditions(self._mass_k, apply_bc)
+        if self._bc is not None:
+            bases = spline_bases(self._mass_k.domain_femspace)
+            for g in groups:
+                g.free_pol, g.free_3 = bc_masks(space, g.comps, bases, self._bc)
+        self._tmp = space.zeros() if self._bc is not None else None
+        self._solver = PolarKronSum2Dx1DSolver(space, groups, poloidal_solver, **self._solver_kwargs)
+
+    @property
+    def domain(self):
+        return self._space
+
+    @property
+    def codomain(self):
+        return self._space
+
+    @property
+    def dtype(self):
+        return self._mass_k.dtype
+
+    @property
+    def solver(self) -> PolarKronSum2Dx1DSolver:
+        """The 2D x 1D fast-diagonalization solver."""
+        return self._solver
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
+        assert rhs.space == self._space
+        b = rhs
+        if self._bc is not None:
+            self._mass_k._V_boundary_op.dot(rhs, out=self._tmp)
+            b = self._tmp
+        return self._solver.dot(b, out=out)
+
+    def dot(self, v: Vector, out: Vector | None = None) -> Vector:
+        return self.solve(v, out=out)
+
+    def transpose(self, conjugate: bool = False) -> PolarKroneckerBlockPreconditioner:
+        """The approximated operator is symmetric, so is the preconditioner."""
+        return self
+
+
 def _poloidal_mass_block(
     terms: list[tuple[float, WeightedMassOperator]], derham, bases: list, r: int, r2: int, reduction: str
 ) -> sparse.csr_matrix | None:
@@ -1898,6 +2199,10 @@ class ShearAlfvenSchurPreconditioner:
     :math:`\mathbf B_0 \times \nabla \phi` if ``exb_correction``
     (:class:`AuxiliarySpacePreconditioner` with :math:`\mathbb N = \hat \Pi^2[\mathbf B_0 \times \,\cdot\,] \, \mathbb G`,
     or :math:`\hat \Pi^v[\mathbf B_0 \times \,\cdot\,] \, \mathbb G` for ``u_space="H1vec"``).
+    With polar splines, the 2D x 1D version :class:`PolarKroneckerBlockPreconditioner` of the operator
+    :math:`\mathbb C \tilde{\mathbb T}` is used (exact in the poloidal plane up to the separable weights of
+    :math:`\tilde{\mathbb T}` and the weights reduced in :math:`\eta_3`; the poloidal velocity components are coupled
+    there, so the E x B correction is not needed and not used).
     Shared by :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator` and
     :class:`~struphy.propagators.shear_alfven_current_coupling_5d.ShearAlfvenCurrentCoupling5D`.
 
@@ -1907,7 +2212,7 @@ class ShearAlfvenSchurPreconditioner:
     Parameters
     ----------
     derham : Derham
-        Discrete de Rham sequence (tensor-product splines and global commuting projectors, see :meth:`supported`).
+        Discrete de Rham sequence (global commuting projectors, see :meth:`supported`).
 
     mass_ops : WeightedMassOperators
         Weighted mass operators.
@@ -1926,6 +2231,9 @@ class ShearAlfvenSchurPreconditioner:
 
     u_space : str
         Space of the velocity, ``"Hdiv"`` (2-form) or ``"H1vec"`` (vector field), the domain of ``T``.
+
+    **polar_kwargs
+        With polar splines: options of :class:`PolarKroneckerBlockPreconditioner` (e.g. ``poloidal_solver``).
     """
 
     def __init__(
@@ -1937,17 +2245,23 @@ class ShearAlfvenSchurPreconditioner:
         id_M: str | WeightedMassOperator,
         exb_correction: bool = True,
         u_space: str = "Hdiv",
+        **polar_kwargs,
     ):
         from struphy.feec.kronecker_block import basis_projection_operator, derivative_operator
         from struphy.feec.utilities import LocalRotationMatrix
 
         assert self.supported(derham), (
-            "The shear Alfven Kronecker preconditioner needs tensor-product splines and the global commuting projectors."
+            "The shear Alfven Kronecker preconditioner needs the global commuting projectors."
         )
+        self._polar = derham.polar_splines
+        self._polar_kwargs = polar_kwargs
         assert u_space in ("Hdiv", "H1vec"), f'u_space must be "Hdiv" or "H1vec", got {u_space!r}.'
         self._mass_ops = mass_ops
         self._id_M = id_M
-        self._exb_correction = exb_correction
+        # with polar splines, the poloidal velocity components are coupled in the 2D x 1D preconditioner, which treats
+        # the E x B flows (the correction of their 0-form part, without stabilization, is indefinite there)
+        self._exb_correction = exb_correction and not self._polar
+        exb_correction = self._exb_correction
 
         # Kronecker approximation of the curl of the basis projection
         self._kron_curl_T = derivative_operator(derham, "curl") @ basis_projection_operator(T, derham)
@@ -1978,16 +2292,26 @@ class ShearAlfvenSchurPreconditioner:
 
     @staticmethod
     def supported(derham) -> bool:
-        """Whether the preconditioner can be built for ``derham`` (no polar splines, global commuting projectors)."""
-        return not derham.polar_splines and not derham.with_local_projectors
+        """Whether the preconditioner can be built for ``derham`` (global commuting projectors; with polar splines the
+        2D x 1D version, :class:`PolarKroneckerBlockPreconditioner`)."""
+        return not derham.with_local_projectors
 
     @staticmethod
     def resolve(precond: str, derham, algo: str, solver: str, u_space: str) -> str:
         """The preconditioner to use for the option ``precond`` of a shear Alfven propagator:
         ``"StiffnessPreconditioner"`` only if its requirements hold (implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"``,
         ``u_space="Hdiv"`` and :meth:`supported`), else the mass matrix preconditioner of the velocity space
-        (``"PolarMassMatrixPreconditioner"`` with polar splines), with a warning. Other options are returned as
-        they are."""
+        (``"PolarMassMatrixPreconditioner"`` with polar splines), with a warning. ``"ToroidalFourierPreconditioner"``
+        (:class:`~struphy.linear_algebra.toroidal_fourier.ToroidalFourierSolver`, exact for axisymmetric equilibria)
+        needs the implicit algorithm with ``solver="pcg"`` or ``"pcg_sr"`` and a periodic eta_3 direction. Other options
+        are returned as they are."""
+        if precond == "ToroidalFourierPreconditioner":
+            assert algo == "implicit", 'precond="ToroidalFourierPreconditioner" needs algo="implicit".'
+            assert solver in ("pcg", "pcg_sr"), (
+                'precond="ToroidalFourierPreconditioner" needs solver="pcg" or "pcg_sr".'
+            )
+            assert derham.spl_kind[2], 'precond="ToroidalFourierPreconditioner" needs a periodic eta_3 direction.'
+            return precond
         if precond != "StiffnessPreconditioner":
             return precond
         missing = []
@@ -1997,8 +2321,6 @@ class ShearAlfvenSchurPreconditioner:
             missing += ['solver="pcg" or "pcg_sr"']
         if u_space != "Hdiv":
             missing += ['u_space="Hdiv"']
-        if derham.polar_splines:
-            missing += ["tensor-product splines"]
         if derham.with_local_projectors:
             missing += ["the global commuting projectors"]
         if not missing:
@@ -2012,6 +2334,11 @@ class ShearAlfvenSchurPreconditioner:
     def build(self, dt: float) -> LinearOperator:
         """The preconditioner of the Schur operator for the time step ``dt``."""
         mid = (dt**2 / 4) * self._mass_ops.M2
+        if self._polar:
+            # 2D x 1D version on polar splines
+            return PolarKroneckerBlockPreconditioner(
+                self._mass_ops, [(self._kron_curl_T, mid)], stab=self._id_M, sigma=1.0, **self._polar_kwargs
+            )
         # separable weights per velocity component (their metric weights differ strongly in curvilinear geometry)
         pc = StiffnessPreconditioner(
             self._mass_ops, self._kron_curl_T, sigma=1.0, mid=mid, stab=self._id_M, block_shapes=True

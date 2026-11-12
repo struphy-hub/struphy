@@ -4,8 +4,10 @@
 each `ProfilingCase`.
 """
 
+import getpass
 import os
 import socket
+from pathlib import Path
 
 
 def detect_machine_name() -> str | None:
@@ -93,7 +95,40 @@ SLURM_PRESETS: dict[str, dict] = {
         "mail_type": "none",
         "time": "00:15:00",
     },
+    # MPCDF Raven, standard CPU nodes (72 cores, 256 GB). Jobs on less than half a node would share it with other
+    # jobs; requesting the memory of the whole node (in MB) allocates the full node also for the small rank counts,
+    # so that all runs of a strong scaling see the same hardware. No account or partition needed.
+    "raven": {
+        "cpus_per_task": 1,
+        "mem": "240000",
+        "output": "./%x.%j.out",
+        "error": "./%x.%j.err",
+        "mail_type": "none",
+        "time": "00:15:00",
+    },
 }
+
+# Folder of the profiling output (job scripts, SLURM logs, simulation runs, packaged cases) per cluster, in place of
+# `<repo>/_profiling_jobs`: on clusters whose home file system is small, the runs go to the scratch file system.
+# `{user}` is replaced by the user name. `$STRUPHY_PROFILING_DIR` overrides the parent folder on any machine.
+SCRATCH_DIRS: dict[str, str] = {
+    "raven": "/ptmp/{user}/struphy_profiling",
+}
+
+
+def profiling_base_dir(repo_root: Path) -> Path:
+    """Folder of the profiling output: `$STRUPHY_PROFILING_DIR/struphy_profiling` if the variable is set, else the
+    `SCRATCH_DIRS` entry of the detected cluster, else `<repo_root>/_profiling_jobs`.
+
+    The driver deletes and recreates `profiling-data/` in this folder, so it is always a dedicated subfolder (never
+    the folder given by the user itself)."""
+    if env_dir := os.environ.get("STRUPHY_PROFILING_DIR"):
+        return Path(env_dir).expanduser().resolve() / "struphy_profiling"
+    scratch = SCRATCH_DIRS.get(detect_machine_name())
+    if scratch is not None:
+        return Path(scratch.format(user=getpass.getuser()))
+    return repo_root / "_profiling_jobs"
+
 
 HARDWARE_INFO: dict[str, dict] = {
     "pitagora_dcgp": {
