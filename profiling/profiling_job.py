@@ -48,7 +48,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from clusters import HARDWARE_INFO, SLURM_PRESETS, detect_machine_name
+from clusters import HARDWARE_INFO, SLURM_PRESETS, detect_machine_name, profiling_base_dir
 from package_profiling_results import (
     RESULTS_DIR_NAME,
     _build_output_name,
@@ -69,7 +69,9 @@ from utils import _git_commit, _git_commit_short, _make_unique_results_root, _sl
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
-profiling_results_base = repo_root / "_profiling_jobs"
+# job scripts, SLURM logs, runs and packaged cases: `$STRUPHY_PROFILING_DIR/struphy_profiling`, the scratch folder
+# of the cluster (`clusters.SCRATCH_DIRS`, e.g. /ptmp/<user>/struphy_profiling on Raven) or `<repo>/_profiling_jobs`
+profiling_results_base = profiling_base_dir(repo_root)
 
 default_cluster_name = "pitagora"
 
@@ -192,7 +194,8 @@ class ProfilingCase:
             *(
                 [
                     "module purge",
-                    "source ./setup/modules.sh load",
+                    # absolute: sbatch runs the script in the folder it was called from
+                    f'source "{repo_root / "setup" / "modules.sh"}" load',
                     "module list",
                 ]
                 if self.use_modules
@@ -301,6 +304,11 @@ class ProfilingCase:
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
             cluster_preset = {**SLURM_PRESETS[preset_name], **(slurm_options or {})}
+            # SLURM logs with a relative path would land in the folder sbatch is called from: put them beside the
+            # job scripts instead
+            for key in ("output", "error"):
+                if key in cluster_preset and not Path(cluster_preset[key]).is_absolute():
+                    cluster_preset[key] = str(profiling_results_base / Path(cluster_preset[key]).name)
 
             # Build the slurm script
             script = SlurmScript(
@@ -765,7 +773,7 @@ def begin_sweep() -> None:
     """Start collecting cases: from now on `ProfilingCase.finalize_run` only registers its case.
 
     Several drivers running at the same time would each prepare (delete or re-clone) the
-    shared packaging folder `_profiling_jobs/profiling-data` and push to it, so a sweep runs
+    shared packaging folder `<profiling_results_base>/profiling-data` and push to it, so a sweep runs
     all cases in one process instead: every case submits its jobs right away (SLURM runs them
     concurrently), and `finalize_all` packages them one at a time as they finish.
     """
