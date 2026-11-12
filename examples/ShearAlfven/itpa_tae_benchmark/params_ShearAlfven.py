@@ -81,6 +81,7 @@ from pathlib import Path
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid; `--dt` and `--tend` the time
 # stepping; `--a1` the hole around the axis; `--degree` the spline degrees.
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
+# `--setup profiling` selects the setup of the profiling runs of submit_ShearAlfven_scaling.py.
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
 parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
@@ -108,13 +109,20 @@ parser.add_argument(
 parser.add_argument(
     "--precond",
     default=None,
-    choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
+    choices=[
+        "MassMatrixPreconditioner",
+        "MultiGrid",
+        "StiffnessPreconditioner",
+        "ToroidalFourierPreconditioner",
+        "HiptmairXu",
+    ],
     help="Preconditioner of the shear Alfven solve: of the mass matrix (default with --projected), a geometric "
     "multigrid V-cycle of the whole Schur operator (Hdiv only; experimental, currently slower here), the "
     "Kronecker (fast diagonalization) preconditioner of the whole Schur operator with the E x B auxiliary space "
     "correction (Hdiv only, its default; 8x32x4, dt = 0.1: about 11 instead of 31 PCG iterations per step, 2x faster; "
-    "larger gains for larger time steps), or Hiptmair-Xu for the curl-curl operator (Hcurl only; the "
-    "default of --b-space Hcurl).",
+    "larger gains for larger time steps), the exact inverse of the Schur operator of the axisymmetric equilibrium "
+    "by an FFT along eta3 (ToroidalFourierPreconditioner, Hdiv only), or Hiptmair-Xu for the curl-curl operator "
+    "(Hcurl only; the default of --b-space Hcurl).",
 )
 parser.add_argument(
     "--dt",
@@ -129,6 +137,19 @@ parser.add_argument(
 )
 parser.add_argument("--degree", type=int, nargs=3, default=[3, 3, 3], help="Spline degrees per direction.")
 parser.add_argument(
+    "--setup",
+    default="example",
+    choices=["example", "profiling"],
+    help="example: the TAE run; profiling: setup of the profiling runs profiled with scope-profiler (the grid, "
+    "space and preconditioner of the flags, --profiling-steps steps, solver iterations logged, no restart data).",
+)
+parser.add_argument(
+    "--profiling-steps",
+    type=int,
+    default=50,
+    help="Number of time steps with --setup profiling (default 50); the first one includes one-time work.",
+)
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (num_elements = [8, 32, 4]) and a short run with three saved time steps, for the tests "
@@ -142,11 +163,12 @@ if args.precond is None:
         args.precond = "StiffnessPreconditioner"
     else:
         args.precond = "MassMatrixPreconditioner" if args.projected else "HiptmairXu"
-if args.precond in ("MultiGrid", "StiffnessPreconditioner") and args.b_space != "Hdiv":
+if args.precond in ("MultiGrid", "StiffnessPreconditioner", "ToroidalFourierPreconditioner") and args.b_space != "Hdiv":
     parser.error(f"--precond {args.precond} requires --b-space Hdiv.")
 if args.precond == "HiptmairXu" and args.b_space != "Hcurl":
     parser.error("--precond HiptmairXu requires --b-space Hcurl.")
 name = f"ITPA TAE benchmark (ShearAlfven, b_space={args.b_space}{', projected' if args.projected else ''})"
+profiling = args.setup == "profiling"
 if args.test_run:
     args.num_elements = [8, 32, 4]
 
@@ -195,13 +217,20 @@ model.mhd.velocity.save_data = True
 
 # Environment options
 env = EnvironmentOptions(
-    out_folders=args.out_folder, save_step=max(1, round(1.0 / args.dt)), sim_folder=args.sim_folder, max_runtime=470
+    out_folders=args.out_folder,
+    save_step=max(1, round(1.0 / args.dt)),
+    sim_folder=args.sim_folder,
+    max_runtime=470,
+    save_restart=not profiling,
 )
 
 # Time stepping
 dt = args.dt
 # --test-run: the initial, a middle and a final saved time step
-time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else args.tend)
+if profiling:
+    time_opts = Time(dt=dt, Tend=round(args.profiling_steps * dt, 14))
+else:
+    time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else args.tend)
 
 # Geometry
 domain = domains.HollowTorus(a1=args.a1, a2=1.0, R0=10.0, sfl=False, pol_period=1, tor_period=6)
@@ -222,7 +251,16 @@ bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "f
 derham_opts = DerhamOptions(degree=tuple(args.degree), bcs=(bcs_eta1, None, None))
 
 # Profiling options
-profiling_opts = ProfilingOptions(use_line_profiler=False)
+if profiling:
+    from maybempi import MPI, SerialMPI
+
+    # scope-profiler run label, the name of the run in the comparison plots of the profiling-data page
+    num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+    profiling_opts = ProfilingOptions(
+        label=f"{num_ranks} rank" + ("s" if num_ranks != 1 else ""), use_line_profiler=False
+    )
+else:
+    profiling_opts = ProfilingOptions(use_line_profiler=False)
 
 # Simulation object
 sim = Simulation(
@@ -243,7 +281,12 @@ sim = Simulation(
 # Propagator options
 # ------------------
 
-model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond=args.precond)
+from struphy.linear_algebra.solver import SolverParameters
+
+# with --setup profiling, the solver iterations of each step are logged (read by the pproc script)
+model.propagators.shear_alf.options = model.propagators.shear_alf.Options(
+    precond=args.precond, solver_params=SolverParameters(info=profiling)
+)
 
 # ------------------
 # Initial conditions

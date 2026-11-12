@@ -16,10 +16,17 @@ saved time steps) are written into ``<path_out>/results/frames/``: ``u_r_rz`` (t
 (3D, the camera on the poloidal cross-section of the cutaway) and ``u_r_3d`` (3D, the whole torus with the
 cutaway), see ``struphy.post_processing.frames``. Make a video e.g. with
 ``ffmpeg -framerate 25 -i frame_%04d.png -pix_fmt yuv420p u_r_rz.mp4`` in a frames folder.
+
+With ``--save-results`` (passed by ``submit_ShearAlfven_scaling.py`` after each profiling run, ``--setup profiling``)
+the scope-profiler HTML report and a summary of the cost per step and of the solver iterations are written into
+``<path_out>/results`` instead; the profiling packaging uploads them with the run.
 """
 
 import argparse
+import json
 import os
+import re
+import statistics
 import sys
 from pathlib import Path
 
@@ -112,6 +119,69 @@ def finish(figs, results_dir, save_figs):
         for fig_name, fig in figs.items():
             fig.savefig(os.path.join(results_dir, f"{fig_name}.png"))
             plt.close(fig)
+
+
+def solver_iterations(path_out):
+    """The iterations of the shear Alfven solve per step, logged by the run with ``--setup profiling``.
+
+    Read from the standard output of the run, ``<path_out>/struphy.out`` (written by the profiling driver), else from
+    the log file (``$STRUPHY_LOG_FILE`` or ``<path_out>/struphy.log``) and its rotated backups, oldest first; the log
+    keeps only the last few 10 kB, so it may miss the first steps. An empty list if none of them exists.
+    """
+    pattern = re.compile(r"Iterations for ShearAlfven\w*: (\d+)")
+    stdout_file = os.path.join(path_out, "struphy.out")
+    if os.path.isfile(stdout_file):
+        files = [stdout_file]
+    else:
+        log_file = os.environ.get("STRUPHY_LOG_FILE") or os.path.join(path_out, "struphy.log")
+        files = [f"{log_file}.{i}" for i in range(9, 0, -1)] + [log_file]
+    iterations = []
+    for file in files:
+        if os.path.isfile(file):
+            with open(file, encoding="utf-8") as f:
+                iterations += [int(m.group(1)) for m in pattern.finditer(f.read())]
+    return iterations
+
+
+def save_profiling_results(path_out):
+    """Write the scope-profiler HTML report and a summary of the cost per step into ``<path_out>/results``."""
+    from scope_profiler import create_html_report
+
+    out = Output(path_out)
+    results = out.profile.results  # the scope-profiler results of the run, all ranks merged
+    results_dir = Path(out.path_out) / "results"
+    results_dir.mkdir(exist_ok=True)
+
+    # the full scope-profiler report: call tree, charts, per-rank statistics
+    create_html_report(results, results_dir / "report.html")
+
+    # cost per step from the `model.integrate` region (the maximum over the ranks per step); the first step includes
+    # one-time work, so the median leaves it out
+    integrate = results["model.integrate"]
+    per_rank = [integrate[rank].durations for rank in integrate.ranks]
+    n_calls = min(len(durations) for durations in per_rank)
+    step_times = np.max([durations[:n_calls] for durations in per_rank], axis=0)
+    step_median = float(statistics.median(step_times[1:] if len(step_times) > 1 else step_times))
+    iterations = solver_iterations(out.path_out)
+    summary = {
+        "mpi_ranks": results.num_ranks,
+        "num_elements": list(args.num_elements),
+        "degree": list(args.degree),
+        "b_space": args.b_space,
+        "projected": args.projected,
+        "precond": args.precond,
+        "steps": len(step_times),
+        "dt": args.dt,
+        "step_times": step_times.tolist(),
+        "step_median": step_median,
+        "solver_iterations": iterations,
+        "solver_iterations_mean": float(np.mean(iterations)) if iterations else None,
+    }
+    (results_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    iters = f", {summary['solver_iterations_mean']:.1f} solver iterations per step" if iterations else ""
+    print(f"\nstep: median {1e3 * step_median:.3f} ms (first step {1e3 * step_times[0]:.3f} ms){iters}")
+    results.print_summary(include=["^prop: "], sort="total", title="propagators")
 
 
 def main(path_out=DEFAULT_OUTPUT, save_figs=True, frames=True, max_frames=500):
@@ -231,10 +301,20 @@ if __name__ == "__main__":
     pproc_parser.add_argument(
         "--max-frames", type=int, default=500, help="Largest number of frames per video (default: 500)."
     )
-    pproc_args = pproc_parser.parse_args(other_flags)
-    main(
-        pproc_args.path_out,
-        save_figs=not pproc_args.show,
-        frames=not pproc_args.no_frames,
-        max_frames=pproc_args.max_frames,
+    pproc_parser.add_argument(
+        "--save-results",
+        action="store_true",
+        help="Write the profiling results (scope-profiler report, cost summary) instead of the plots.",
     )
+    pproc_args = pproc_parser.parse_args(other_flags)
+    if pproc_args.save_results and args.setup != "profiling":
+        pproc_parser.error("--save-results needs the run's --setup profiling")
+    if pproc_args.save_results:
+        save_profiling_results(pproc_args.path_out)
+    else:
+        main(
+            pproc_args.path_out,
+            save_figs=not pproc_args.show,
+            frames=not pproc_args.no_frames,
+            max_frames=pproc_args.max_frames,
+        )
