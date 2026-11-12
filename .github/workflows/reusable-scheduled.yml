@@ -144,8 +144,9 @@ jobs:
       - name: Run serial-only verification tests
         if: ${{ !cancelled() && matrix.test-type == 'verification' && matrix.shard == 'shard-1' }}
         shell: bash
+        # exit code 5 = no test selected (currently no verification test is marked mpi_skip)
         run: |
-          pytest -m mpi_skip --durations=10 --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/verification/
+          pytest -m mpi_skip --durations=10 --rootdir $STRUPHY_PATH $STRUPHY_PATH/models/tests/verification/ || [ $? -eq 5 ]
 
       # serial runs of the examples (the PR workflow runs them on 2 ranks); struphy is installed from the wheel,
       # so the examples are taken from the checkout
