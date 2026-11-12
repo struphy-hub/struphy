@@ -17,14 +17,12 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
     "g_inv",
     "e",
     "u",
-    "ud",
     "bb",
     "bv",
     "b_star",
     "norm_b1",
     "curl_norm_b",
     "tmp1",
-    "tmp2",
     "b_prod",
     "norm_b_prod",
     "eta_old",
@@ -48,10 +46,6 @@ def push_gc_cc_J2_dg_Hdiv_1form(
     u1: "float[:,:,:]",
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
-    ud1: "float[:,:,:]",
-    ud2: "float[:,:,:]",
-    ud3: "float[:,:,:]",
-    const: float,
     alpha: float,
     periodic: "bool[:]",
 ):
@@ -76,12 +70,10 @@ def push_gc_cc_J2_dg_Hdiv_1form(
 
     # containers for fields
     tmp1 = zeros((3, 3), dtype=float)
-    tmp2 = zeros(3, dtype=float)
     b_prod = zeros((3, 3), dtype=float)
     norm_b_prod = zeros((3, 3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
-    ud = empty(3, dtype=float)
     bb = empty(3, dtype=float)
     bv = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
@@ -158,18 +150,6 @@ def push_gc_cc_J2_dg_Hdiv_1form(
             u,
         )
 
-        # ud; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            ud1,
-            ud2,
-            ud3,
-            ud,
-        )
-
         # norm_b1; 1form
         eval_1form_spline_mpi(
             span1,
@@ -220,10 +200,6 @@ def push_gc_cc_J2_dg_Hdiv_1form(
 
         linalg_kernels.matrix_matrix(norm_b_prod, b_prod, tmp1)
         linalg_kernels.matrix_vector(tmp1, u, e)
-        linalg_kernels.matrix_vector(tmp1, ud, tmp2)
-        tmp2 *= const
-
-        e += tmp2
 
         e /= abs_b_star_para
         e /= det_df

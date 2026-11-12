@@ -304,6 +304,11 @@ class CurrentCoupling5DGradB(Propagator):
         # scaling factor
         epsilon = self.variables.energetic_ions.species.equation_params.epsilon
 
+        # convergence of the discrete gradient (None or 0 for algo="explicit")
+        self._n_not_converged = 0
+        self._last_iterations = None
+        self._last_e_diff = None
+
         if self.options.algo == "explicit":
             # temporary vectors to avoid memory allocation
             self._b_full = self._b_eq.space.zeros()
@@ -387,11 +392,6 @@ class CurrentCoupling5DGradB(Propagator):
             self._u_mid = self.variables.u.spline.vector.space.zeros()
             self._M2n_dot_u = self.variables.u.spline.vector.space.zeros()
             self._ku = self.variables.u.spline.vector.space.zeros()
-            self._u_temp = self.variables.u.spline.vector.space.zeros()
-
-            self._n_not_converged = 0
-            self._last_iterations = 0
-            self._last_e_diff = 0.0
 
             self._periodic = xp.array(self.derham.spl_kind, dtype=bool)
 
@@ -493,9 +493,6 @@ class CurrentCoupling5DGradB(Propagator):
                 self._u_mid[0]._data,
                 self._u_mid[1]._data,
                 self._u_mid[2]._data,
-                self._u_temp[0]._data,
-                self._u_temp[1]._data,
-                self._u_temp[2]._data,
             )
 
             self._pusher_kernel_init = self._kernels["push_dg_init"]
@@ -515,12 +512,12 @@ class CurrentCoupling5DGradB(Propagator):
         return self._n_not_converged
 
     @property
-    def last_iterations(self) -> int:
+    def last_iterations(self) -> int | None:
         """Number of fixed-point iterations of the last discrete gradient step."""
         return self._last_iterations
 
     @property
-    def last_e_diff(self) -> float:
+    def last_e_diff(self) -> float | None:
         """Energy difference of the last discrete gradient step relative to the energy at its start, before boundary
         conditions are applied."""
         return self._last_e_diff
@@ -840,7 +837,6 @@ class CurrentCoupling5DGradB(Propagator):
                     dt,
                     args_markers,
                     *self._args_pusher_kernel,
-                    const,
                     alpha,
                     self._periodic,
                 )
