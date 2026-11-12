@@ -7,7 +7,7 @@ for the small rank counts). For each rank count, `ProfilingCase.launch` builds a
 a batch system, runs directly on this machine, where the rank counts that exceed the local cores are skipped.
 `finalize_run` then packages (and with `--upload` uploads) each run as soon as its own job finishes. Each generated
 script runs the simulation by invoking `params_ShearAlfven.py` directly (its `__main__` block is the worker) with
-`--setup profiling` (`--steps` time steps, default 100, solver iterations logged), and then writes the scope-profiler
+`--setup profiling` (`--steps` time steps, default 50, solver iterations logged), and then writes the scope-profiler
 report and the cost summary (time per step, PCG iterations per step) with `pproc_ShearAlfven.py --save-results`.
 
 The variant is chosen with `--variant`; run this script once per variant, or all variants at once with
@@ -21,7 +21,7 @@ hdiv_stiffness 1.3 s (15), hcurl_mass 6.1 s (150), hdiv_mass 11.5 s (210), hcurl
 hdiv_toroidal_fourier needs 2 iterations, but its setup takes about 10 min and holds dense poloidal factorizations on
 every rank (about 5-6 GB per rank, extrapolated from 12 x 44 x 8), so it runs on at most 32 ranks. The geometric
 multigrid preconditioner (6 min and 740 iterations per step) is left out. The `walltime` of a variant is the SLURM time
-limit of its runs (the 4-rank run of 100 steps, with a margin), scaled with `--steps`; `--time` overrides it.
+limit of its runs (the 4-rank run of 50 steps, with a margin), scaled with `--steps`; `--time` overrides it.
 """
 
 import argparse
@@ -83,17 +83,17 @@ def _variant(solver, grid, walltime, ranks=RANKS):
     return {"solver": solver, "grid": grid, "walltime": walltime, "ranks": ranks}
 
 
-# variant (key = label suffix) -> solver, grid, SLURM time limit (4-rank run of 100 steps), rank counts
+# variant (key = label suffix) -> solver, grid, SLURM time limit (4-rank run of 50 steps), rank counts
 VARIANTS = {
     "hdiv_stiffness_24x88x8": _variant("hdiv_stiffness", FINE, "00:15:00"),
     "hdiv_toroidal_fourier_24x88x8": _variant("hdiv_toroidal_fourier", FINE, "01:00:00", ranks=(4, 8, 16, 32)),
-    "hdiv_mass_24x88x8": _variant("hdiv_mass", FINE, "00:45:00"),
+    "hdiv_mass_24x88x8": _variant("hdiv_mass", FINE, "00:25:00"),
     "hcurl_hiptmair_xu_24x88x8": _variant("hcurl_hiptmair_xu", FINE, "00:15:00"),
-    "hcurl_mass_24x88x8": _variant("hcurl_mass", FINE, "00:30:00"),
-    "hcurl_projected_mass_24x88x8": _variant("hcurl_projected_mass", FINE, "00:45:00"),
+    "hcurl_mass_24x88x8": _variant("hcurl_mass", FINE, "00:15:00"),
+    "hcurl_projected_mass_24x88x8": _variant("hcurl_projected_mass", FINE, "00:25:00"),
     "hcurl_hiptmair_xu_24x44x8": _variant("hcurl_hiptmair_xu", COARSE, "00:15:00"),
-    "hcurl_mass_24x44x8": _variant("hcurl_mass", COARSE, "00:20:00"),
-    "hcurl_projected_mass_24x44x8": _variant("hcurl_projected_mass", COARSE, "00:30:00"),
+    "hcurl_mass_24x44x8": _variant("hcurl_mass", COARSE, "00:15:00"),
+    "hcurl_projected_mass_24x44x8": _variant("hcurl_projected_mass", COARSE, "00:15:00"),
 }
 
 
@@ -124,11 +124,11 @@ def main() -> None:
         help="MPI rank counts of the scaling (default: those of the variant, 4 8 16 32 64; up to 32 for "
         "hdiv_toroidal_fourier).",
     )
-    parser.add_argument("--steps", type=int, default=100, help="Time steps per run (default 100).")
+    parser.add_argument("--steps", type=int, default=50, help="Time steps per run (default 50).")
     parser.add_argument(
         "--time",
         default=None,
-        help="SLURM time limit of each run (default: the walltime of the variant, for 100 steps, scaled with --steps).",
+        help="SLURM time limit of each run (default: the walltime of the variant, for 50 steps, scaled with --steps).",
     )
     parser.add_argument(
         "--slurm-preset",
@@ -190,7 +190,7 @@ def main() -> None:
             num_nodes=1,
             param_flags=param_flags,
             slurm_preset=args.slurm_preset,
-            slurm_options={"time": args.time or scaled_walltime(variant["walltime"], args.steps / 100)},
+            slurm_options={"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50)},
         )
 
     # Package and push each run as its own job finishes.
