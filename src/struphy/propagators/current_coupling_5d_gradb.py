@@ -174,8 +174,8 @@ class CurrentCoupling5DGradB(Propagator):
             Preconditioner used with the mass matrix.
 
         solver_params : SolverParameters, default=None
-            Iterative-solver controls. If ``None``, defaults to
-            ``SolverParameters()``.
+            Iterative-solver controls. If ``None``, defaults to ``SolverParameters(tol=1e-13)`` for
+            ``algo="discrete_gradient"`` and to ``SolverParameters()`` otherwise.
 
         filter_params : FilterParameters, default=None
             Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
@@ -521,7 +521,8 @@ class CurrentCoupling5DGradB(Propagator):
 
     @property
     def last_e_diff(self) -> float:
-        """Absolute energy difference of the last discrete gradient step, before boundary conditions are applied."""
+        """Energy difference of the last discrete gradient step relative to the energy at its start, before boundary
+        conditions are applied."""
         return self._last_e_diff
 
     def _set_folding_shift(self, particles, alpha: float):
@@ -685,6 +686,8 @@ class CurrentCoupling5DGradB(Propagator):
 
             en_fB_old = buffer_array[0]
             en_tot_old = en_U_old + en_fB_old
+
+            en_scale = abs(en_tot_old) if en_tot_old != 0.0 else 1.0
 
             # initial guess
             self._ACC_init(*self._args_accum_kernel)
@@ -873,8 +876,8 @@ class CurrentCoupling5DGradB(Propagator):
 
                 en_fB_new = buffer_array[0]
 
-                # calculate total energy difference
-                e_diff = xp.abs(en_U_new + en_fB_new - en_tot_old)
+                # total energy difference, relative to the energy at the start of the step
+                e_diff = xp.abs(en_U_new + en_fB_new - en_tot_old) / en_scale
 
                 buffer_array = xp.array([max_eta_change_loc])
 
