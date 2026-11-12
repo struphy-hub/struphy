@@ -68,6 +68,7 @@ def cc_lin_mhd_5d_gradB_dg_1form(
     grad_PBeq3: "float[:,:,:]",
     basis_u: "int",
     const: "float",
+    periodic: "bool[:]",
 ):
     r"""1-form version of
     :func:`~struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg.cc_lin_mhd_5d_gradB_dg_kernels.cc_lin_mhd_5d_gradB_dg` for
@@ -124,7 +125,14 @@ def cc_lin_mhd_5d_gradB_dg_1form(
 
         # marker positions, mid point
         eta_mid[:] = (markers[0:3, ip] + markers[first_pusher_idx : first_pusher_idx + 3, ip]) / 2.0
-        eta_mid[:] = mod(eta_mid[:], 1.0)
+
+        for i in range(3):
+            if periodic[i]:
+                eta_mid[i] = mod(eta_mid[i], 1.0)
+            else:
+                eta_mid[i] = mod(eta_mid[i], 2.0)
+                if eta_mid[i] > 1.0:
+                    eta_mid[i] = 2.0 - eta_mid[i]
 
         eta_diff[:] = markers[0:3, ip] - markers[first_pusher_idx : first_pusher_idx + 3, ip]
 

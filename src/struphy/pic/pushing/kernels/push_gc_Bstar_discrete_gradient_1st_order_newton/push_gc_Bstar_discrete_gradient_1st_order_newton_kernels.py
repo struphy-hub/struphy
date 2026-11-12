@@ -238,27 +238,22 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
             grad_H += e_field
 
         # compute the Itoh discrete gradient
-        grad_H_v = epsilon * v_k
-
-        if eta_diff[0] == 0.0:
-            grad_I[0] = grad_H[0]
+        if -1e-8 < eta_diff[0] < 1e-8:
+            grad_I[0] = grad_H_1
         else:
             grad_I[0] = (H_k1 - H_n) / (eta_diff[0])
 
-        if eta_diff[1] == 0.0:
-            grad_I[1] = grad_H[1]
+        if -1e-8 < eta_diff[1] < 1e-8:
+            grad_I[1] = grad_H_12[1]
         else:
             grad_I[1] = (H_k12 - H_k1) / (eta_diff[1])
 
-        if eta_diff[2] == 0.0:
+        if -1e-8 < eta_diff[2] < 1e-8:
             grad_I[2] = grad_H[2]
         else:
             grad_I[2] = (H_k123 - H_k12) / (eta_diff[2])
 
-        if v_diff == 0.0:
-            grad_I_v = grad_H_v
-        else:
-            grad_I_v = (H_k - H_k123) / (v_diff)
+        grad_I_v = epsilon * (v_k + v_n) / 2.0
 
         # compute F; the Poisson matrix is [[0, Jvec], [-Jvec^T, 0]]
         J_vec[:] = b_star / b_star_parallel
@@ -272,19 +267,19 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         func_v += v_diff
 
         # compute the Jacobian of the discrete gradient; it has the form [[Ddg, 0], [0, Ddg_v]]
-        if eta_diff[0] == 0.0:
+        if -1e-8 < eta_diff[0] < 1e-8:
             Ddg[0, 0] = 0.0
         else:
             Ddg[0, 0] = (grad_H_1 * eta_diff[0] - (H_k1 - H_n)) / eta_diff[0] ** 2
 
-        if eta_diff[1] == 0.0:
+        if -1e-8 < eta_diff[1] < 1e-8:
             Ddg[1, 1] = 0.0
             Ddg[1, 0] = 0.0
         else:
             Ddg[1, 1] = (grad_H_12[1] * eta_diff[1] - (H_k12 - H_k1)) / eta_diff[1] ** 2
             Ddg[1, 0] = (grad_H_12[0] - grad_H_1) / eta_diff[1]
 
-        if eta_diff[2] == 0.0:
+        if -1e-8 < eta_diff[2] < 1e-8:
             Ddg[2, 2] = 0.0
             Ddg[2, 0] = 0.0
             Ddg[2, 1] = 0.0
@@ -293,10 +288,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
             Ddg[2, 0] = (grad_H[0] - grad_H_12[0]) / eta_diff[2]
             Ddg[2, 1] = (grad_H[1] - grad_H_12[1]) / eta_diff[2]
 
-        if v_diff == 0.0:
-            Ddg_v = 0.0
-        else:
-            Ddg_v = (grad_H_v * v_diff - (H_k - H_k123)) / v_diff**2
+        Ddg_v = epsilon / 2.0
 
         # the matrix DF is [[I_3x3, -dt*J_vec*Ddg_v], [dt*(Ddg^T*J_vec)^T, 1]]
         # we compute its inverse with the Schur complement of [[I_3x3, B], [C, 1]]
@@ -329,12 +321,8 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         markers[0:3, ip] -= k
         markers[3, ip] -= k_v
 
-        # residual (relative in v, absolute if v_k == 0)
-        v_scale = abs(v_k)
-        if v_scale == 0.0:
-            v_scale = 1.0
-
-        markers[residual_idx, ip] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + (k_v / v_scale) ** 2)
+        # residual
+        markers[residual_idx, ip] = sqrt(k[0] ** 2 + k[1] ** 2 + k[2] ** 2 + k_v**2)
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, True)

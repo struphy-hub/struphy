@@ -466,6 +466,8 @@ class Particles5D(Particles):
     """Default number of buffer columns is 2 diagnostics (perpendicular energy, canonical toroidal
     momentum, see :meth:`save_constants_of_motion`) and 12 auxiliary columns."""
 
+    _budget = False
+
     def __post_init__(self):
         """Retrieve the discrete equilibrium magnetic-field quantities (:math:`|B_0|`, unit 1-form
         :math:`\\mathbf b_0`, Derham complex) needed to project marker velocities onto
@@ -701,8 +703,92 @@ class Particles5D(Particles):
             self.mu_idx,
             self.absB0_h._data,
             PBbt._data,
+            xp.array(self.derham.spl_kind, dtype=bool),
             n_threads=self.markers.shape[1],  # CUDA: one thread per marker (column)
         )
+
+    def enable_energy_budget(self):
+        """Track the marker energy from refilling and from the weight update (needs two more diagnostics columns)."""
+        assert self.n_cols_diagnostics >= self.default_n_cols["diagnostics"] + 2, (
+            "The energy budget needs two more diagnostics columns."
+        )
+        self._budget = True
+        self._budget_H_idx = self.first_diagnostics_idx + self.n_cols_diagnostics - 1
+        self._budget_flag_idx = self.first_diagnostics_idx + self.n_cols_diagnostics - 2
+        self._budget_tmp0 = self._tmp0.copy()
+        self._refill_energy = xp.zeros(1, dtype=float)
+        self._weight_energy = xp.zeros(1, dtype=float)
+
+    @property
+    def energy_budget(self) -> bool:
+        return self._budget
+
+    @property
+    def refill_energy(self):
+        return self._refill_energy
+
+    @property
+    def weight_energy(self):
+        return self._weight_energy
+
+    def _marker_energy(self, markers):
+        eval_magnetic_energy_PBb(
+            markers,
+            self.derham.args_derham,
+            self.domain.args_domain,
+            self.first_diagnostics_idx,
+            self.mu_idx,
+            self.absB0_h._data,
+            self._budget_tmp0._data,
+            xp.array(self.derham.spl_kind, dtype=bool),
+            n_threads=markers.shape[1],  # CUDA: one thread per marker (column)
+        )
+        return 0.5 * markers[3] ** 2 + markers[self.first_diagnostics_idx]
+
+    def budget_begin_push(self, PBb=None):
+        """Save the energy of each marker before a propagator that moves them (``PBb=None``: no perturbation)."""
+        if PBb is None:
+            self._budget_tmp0 *= 0.0
+        else:
+            E0T = self.derham.extraction_ops["0"].transpose()
+            E0T.dot(PBb, out=self._budget_tmp0)
+        self._budget_tmp0.update_ghost_regions()
+
+        H = self._marker_energy(self.markers)
+        valid = self.valid_mks
+        self.markers[self._budget_H_idx, valid] = H[valid]
+        self.markers[self._budget_flag_idx, valid] = 0.0
+
+    def budget_count_refilled(self):
+        """Add the energy change of the markers refilled since the last call."""
+        refilled = xp.flatnonzero(xp.logical_and(self.valid_mks, self.markers[self._budget_flag_idx] == 1.0))
+        if refilled.size == 0:
+            return
+        markers = self.markers
+        H = self._marker_energy(markers)[refilled]
+        self._refill_energy[0] += xp.sum(
+            markers[self.index["weights"], refilled] * (H - markers[self._budget_H_idx, refilled])
+        )
+        self.markers[self._budget_flag_idx, refilled] = 0.0
+
+    def _particle_refilling(self):
+        if self._budget:
+            for kind in self.bc_refill:
+                outside = self._is_outside_left if kind == "inner" else self._is_outside_right
+                self.markers[self._budget_flag_idx, outside] = 1.0
+        super()._particle_refilling()
+
+    def update_weights(self):
+        if not self._budget:
+            super().update_weights()
+            return
+        self.budget_count_refilled()
+        weight_idx = self.index["weights"]
+        weights_old = xp.array(self.markers[weight_idx])
+        super().update_weights()
+        H = self._marker_energy(self.markers)
+        valid = self.valid_mks
+        self._weight_energy[0] += xp.sum((self.markers[weight_idx, valid] - weights_old[valid]) * H[valid])
 
     def save_magnetic_background_energy(self):
         r"""
@@ -988,6 +1074,7 @@ class Particles5Dvperp(Particles):
             self.mu_idx,
             self.absB0_h._data,
             PBbt._data,
+            xp.array(self.derham.spl_kind, dtype=bool),
             n_threads=self.markers.shape[1],  # CUDA: one thread per marker (column)
         )
 

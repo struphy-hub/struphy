@@ -11,7 +11,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.filter import FilteredOperator, FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb import cc_lin_mhd_5d_curlb
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf import cc_lin_mhd_5d_curlb_mf
 from struphy.pic.accumulation.kernels.marker_operator_rank1_dot import marker_operator_rank1_dot
@@ -342,6 +342,9 @@ class CurrentCoupling5DCurlb(Propagator):
             pushes_eta=False,
         )
 
+        if self._ACC.accfilter.params.use_filter == "fourier_in_tor":
+            self._A_particles = FilteredOperator(self._A_particles, self._ACC.accfilter)
+
         _BC = -1 / 4 * self._A_particles
 
         self._schur_solver = SchurSolver(
@@ -393,6 +396,9 @@ class CurrentCoupling5DCurlb(Propagator):
         _u *= 0.5
 
         _u.update_ghost_regions()
+
+        if self._ACC.accfilter.params.use_filter == "fourier_in_tor":
+            self._ACC.accfilter(_u)
 
         self._pusher(dt)
 

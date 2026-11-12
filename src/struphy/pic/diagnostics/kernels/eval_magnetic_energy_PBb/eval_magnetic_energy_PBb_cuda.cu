@@ -14,13 +14,15 @@ using namespace struphy_cuda;
  * @param mu_idx Marker column of the magnetic moment.
  * @param abs_B0 Coefficients of the 0-form |B_0| (with ghost regions).
  * @param PBb Coefficients of the 0-form B_parallel of the perturbation (with ghost regions).
+ * @param periodic Whether each direction is periodic.
  *
- * Holes (markers[0, ip] == -1) are skipped. The evaluation point is mod(eta_p, 1). The Jacobian is evaluated but not
+ * Holes (markers[0, ip] == -1) are skipped. The evaluation point is eta_p wrapped into [0, 1) in periodic directions and folded
+ * (mirrored) into [0, 1] in non-periodic directions. The Jacobian is evaluated but not
  * used, as in the pyccel kernel.
  */
 extern "C" __global__ void eval_magnetic_energy_PBb(Array2D<double> markers, DerhamArgs args_derham,
                                                     DomainArgs args_domain, int first_diagnostics_idx, int mu_idx,
-                                                    Array3D<double> abs_B0, Array3D<double> PBb) {
+                                                    Array3D<double> abs_B0, Array3D<double> PBb, const bool* periodic) {
     // CUDA-only: the marker of this thread replaces the pyccel loop variable
     long long ip = (long long)blockDim.x * blockIdx.x + threadIdx.x;
     if (ip >= markers.shape[1]) return;
@@ -30,8 +32,15 @@ extern "C" __global__ void eval_magnetic_energy_PBb(Array2D<double> markers, Der
     // only do something if particle is a "true" particle (i.e. not a hole)
     if (markers(0, ip) == -1.0) return;
 
-    // numpy.mod(eta, 1.0) (Fortran MODULO): the result has the sign of the divisor
-    for (int j = 0; j < 3; ++j) eta[j] = markers(j, ip) - floor(markers(j, ip));
+    // numpy.mod (Fortran MODULO): the result has the sign of the divisor
+    for (int j = 0; j < 3; ++j) {
+        if (periodic[j]) {
+            eta[j] = markers(j, ip) - floor(markers(j, ip));
+        } else {
+            eta[j] = markers(j, ip) - 2.0 * floor(markers(j, ip) / 2.0);
+            if (eta[j] > 1.0) eta[j] = 2.0 - eta[j];
+        }
+    }
 
     double mu = markers(mu_idx, ip);
 

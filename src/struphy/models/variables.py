@@ -617,6 +617,7 @@ class PICVariable(Variable):
         self._particles: Particles = kinetic_class(
             comm_world=comm_world,
             clone_config=clone_config,
+            n_cols_diagnostics=getattr(self.species, "n_cols_diagnostics", None),
             domain_decomp=domain_decomp,
             loading_params=self.species.loading_params,
             weights_params=self.species.weights_params,
