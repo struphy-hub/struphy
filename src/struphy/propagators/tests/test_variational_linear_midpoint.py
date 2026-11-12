@@ -1,5 +1,5 @@
-"""Linear variational MHD with one linear solve per substep (``crank_nicolson=True``) and the second-order terms in
-weak form, with midpoint (``weights="midpoint"``) or frozen weights: exact energy conservation (up to the solver
+"""Linear variational MHD (``VariationalLinearMHD``, and the q model with ``crank_nicolson=True``), the forces of the second-order
+terms being the adjoints of their transports, with midpoint (``weights="midpoint"``) or frozen weights: exact energy conservation (up to the solver
 tolerance) of every substep and of the full step, and the stability of the sound waves of the p model, which grow with
 the frozen weight."""
 
@@ -31,10 +31,13 @@ def _setup(
     defaults of the propagators (midpoint, frozen in the sound step of the q model)."""
     from struphy import DerhamOptions, FieldsBackground, Simulation, domains, equils, grids, perturbations
     from struphy.linear_algebra.solver import SolverParameters
-    from struphy.models import VariationalPerturbativeMHD, VariationalPerturbativeMHD_with_q
+    from struphy.models import VariationalLinearMHD, VariationalPerturbativeMHD_with_q
 
-    model_class = VariationalPerturbativeMHD_with_q if thermo == "q" else VariationalPerturbativeMHD
-    model = model_class(linear=True, crank_nicolson=True, u_space=u_space, with_viscosity=False, with_resistivity=False)
+    ideal = {"with_viscosity": False, "with_resistivity": False}
+    if thermo == "q":
+        model = VariationalPerturbativeMHD_with_q(linear=True, crank_nicolson=True, u_space=u_space, **ideal)
+    else:
+        model = VariationalLinearMHD(u_space=u_space, **ideal)
     thermo_var = model.mhd.sqrt_p if thermo == "q" else model.mhd.pressure
 
     if homogeneous:
@@ -89,8 +92,8 @@ def _energy(model):
 @pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
 @pytest.mark.parametrize("prop_name", ["variat_lin_alfven", "variat_lin_sound"])
 def test_substep_energy(prop_name: str, u_space: str, weights: str, dirichlet: bool):
-    """Each substep of the p model alone conserves the energy, with its second-order term in weak form (the work of
-    the force equals the change of the auxiliary energy), periodic and with Dirichlet boundary conditions in eta1."""
+    """Each substep of the p model alone conserves the energy (the work of the force of the second-order term equals
+    the change of its energy), periodic and with Dirichlet boundary conditions in eta1."""
     model = _setup("p", u_space, weights=weights, dirichlet=dirichlet)
     prop = getattr(model.propagators, prop_name)
     model.scalars.update()
@@ -161,6 +164,42 @@ def test_midpoint_options(prop_name: str):
         Options(weights="midpoint", solver="pcg", **kwargs)
     with pytest.raises(AssertionError):
         Options(weights="implicit", **kwargs)
+
+
+@pytest.mark.parametrize("dirichlet", [False, True])
+@pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
+def test_alfven_midpoint_one_solve(u_space: str, dirichlet: bool):
+    """One linear solve of the Alfven step with midpoint weights satisfies the midpoint equations with the exact,
+    matrix-free second-order force T[b^{n+1/2}]^T M2 b0 (the matrix of TransportAdjointMatrix makes the system
+    linear and exact)."""
+    from struphy.feec.variational_utilities import Hdiv0_transport_operator
+    from struphy.propagators.base import Propagator
+
+    model = _setup("p", u_space, weights="midpoint", dirichlet=dirichlet)
+    prop = model.propagators.variat_lin_alfven
+    mass_ops = Propagator.mass_ops
+    dt = 0.1
+    un = model.mhd.velocity.spline.vector.copy()
+    bn = model.em_fields.b_field.spline.vector.copy()
+    prop(dt)
+    un1 = model.mhd.velocity.spline.vector
+    bn1 = model.em_fields.b_field.spline.vector
+
+    u12 = (un + un1) * 0.5
+    b12 = (bn + bn1) * 0.5
+    TwT = Hdiv0_transport_operator(Propagator.derham, u_space=u_space, phys_domain=Propagator.domain).T
+    TwT.update_coeffs(b12)
+    lf0 = mass_ops.M2.dot(Propagator.projected_equil.b2) * (-1.0)
+    # momentum and induction residuals of the midpoint rule
+    res_u = prop._Mrho.dot(un1 - un) + (prop._T0T.dot(mass_ops.M2.dot(b12) * (-1.0)) + TwT.dot(lf0)) * dt
+    res_b = bn1 - bn + prop._T0.dot(u12) * dt
+    u_form = Propagator.derham.space_to_form[u_space]
+    res_u = Propagator.derham.boundary_ops[u_form].dot(res_u)
+    scale_u = prop._Mrho.dot(un1 - un)
+    rel_u = np.sqrt(res_u.inner(res_u) / scale_u.inner(scale_u))
+    rel_b = np.sqrt(res_b.inner(res_b) / (bn1 - bn).inner(bn1 - bn))
+    assert rel_u < 1e-9, rel_u
+    assert rel_b < 1e-9, rel_b
 
 
 if __name__ == "__main__":

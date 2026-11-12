@@ -39,12 +39,14 @@ def test_all_models_expose_new_doc_api():
             )
 
 
-def _call_tests(models: list, update_baselines: bool, test_profiling: bool):
+def _call_tests(models: list, update_baselines: bool, test_profiling: bool, out_folder: str):
     """Test all models with default arguments; report the regression mismatches of all models at the end."""
     mismatches = []
     for model in models:
         try:
-            ut.call_test(model=model(), test_profiling=test_profiling, update_baselines=update_baselines)
+            ut.call_test(
+                model=model(), test_profiling=test_profiling, update_baselines=update_baselines, out_folder=out_folder
+            )
         except ur.RegressionMismatch as e:
             mismatches.append(str(e))
         except Exception as e:
@@ -61,26 +63,26 @@ def _call_tests(models: list, update_baselines: bool, test_profiling: bool):
 
 @pytest.mark.models
 @pytest.mark.toy
-def test_toy(update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Toy"), update_baselines, test_profiling)
+def test_toy(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Toy"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.fluid
-def test_fluid(update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Fluid"), update_baselines, test_profiling)
+def test_fluid(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Fluid"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.kinetic
-def test_kinetic(update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Kinetic"), update_baselines, test_profiling)
+def test_kinetic(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Kinetic"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
-def test_hybrid(update_baselines: bool, test_profiling: bool = True):
-    _call_tests(models_utils.get_models(model_type="Hybrid"), update_baselines, test_profiling)
+def test_hybrid(mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True):
+    _call_tests(models_utils.get_models(model_type="Hybrid"), update_baselines, test_profiling, mpi_out_folder)
 
 
 @pytest.mark.models
@@ -100,16 +102,94 @@ def test_variational_mhd_with_p_default_options(tmp_path):
 
 @pytest.mark.models
 @pytest.mark.fluid
-@pytest.mark.parametrize("perturbative_model", ["VariationalPerturbativeMHD", "VariationalPerturbativeMHD_with_q"])
+def test_variational_perturbative_hdiv(tmp_path, update_baselines: bool, test_profiling: bool = True):
+    """VariationalPerturbativeMHD with the velocity in H(div): the default parameter file keeps the flag and sets a
+    degree >= 2 (needed by the momentum advection), and the generic model test passes."""
+    from struphy.io.setup import import_parameters_py
+    from struphy.models import VariationalPerturbativeMHD
+
+    model = VariationalPerturbativeMHD(u_space="Hdiv")
+    path = os.path.join(tmp_path, "params_VariationalPerturbativeMHD_hdiv.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params = import_parameters_py(path)
+    assert params.model.params["u_space"] == "Hdiv"
+    assert params.model.mhd.velocity.space == "Hdiv"
+    assert params.derham_opts.degree[:2] == (2, 2)
+
+    ut.call_test(
+        model=model,
+        test_profiling=test_profiling,
+        case="VariationalPerturbativeMHD-u_space=Hdiv",
+        update_baselines=update_baselines,
+    )
+
+
+@pytest.mark.models
+@pytest.mark.fluid
+@pytest.mark.parametrize("cls_name", ["VariationalLinearMHD", "VariationalPerturbativeMHD"])
+def test_variational_mhd_family_variants(cls_name: str, tmp_path):
+    """The variational MHD family: the default parameter file sets the variants of the propagators of the model, the
+    linear model has no momentum advection and no nonlinear step, the perturbative one has both (in the splitting
+    order of its Strang group)."""
+    from struphy.io.setup import import_parameters_py
+
+    model = models_utils.get_model_by_name(model_name=cls_name)()
+    path = os.path.join(tmp_path, f"params_{cls_name}.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    props = import_parameters_py(path).model.propagators
+    for name, variant in model.propagator_variants.items():
+        assert getattr(props, name).options.model == variant, name
+    perturbative = cls_name == "VariationalPerturbativeMHD"
+    assert hasattr(props, "variat_mom") == perturbative
+    assert hasattr(props, "variat_nonlinear") == perturbative
+    if perturbative:
+        names = list(vars(props))
+        i = names.index("variat_lin_alfven")
+        assert names[i : i + 3] == ["variat_lin_alfven", "variat_lin_sound", "variat_nonlinear"]
+
+
+@pytest.mark.models
+@pytest.mark.fluid
+def test_variational_linear_mhd_hdiv(
+    tmp_path, mpi_out_folder: str, update_baselines: bool, test_profiling: bool = True
+):
+    """VariationalLinearMHD with the velocity in H(div): the flag survives the parameter file and the generic model
+    test passes."""
+    from struphy.io.setup import import_parameters_py
+    from struphy.models import VariationalLinearMHD
+
+    model = VariationalLinearMHD(u_space="Hdiv")
+    path = os.path.join(tmp_path, "params_VariationalLinearMHD_hdiv.py")
+    model.generate_default_parameter_file(path=path, prompt=False)
+    params = import_parameters_py(path)
+    assert params.model.params["u_space"] == "Hdiv"
+    assert params.model.mhd.velocity.space == "Hdiv"
+
+    ut.call_test(
+        model=model,
+        test_profiling=test_profiling,
+        case="VariationalLinearMHD-u_space=Hdiv",
+        update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
+    )
+
+
+@pytest.mark.models
+@pytest.mark.fluid
 @pytest.mark.parametrize("crank_nicolson", [False, True])
 def test_variational_perturbative_linear(
-    perturbative_model: str, crank_nicolson: bool, tmp_path, update_baselines: bool, test_profiling: bool = True
+    crank_nicolson: bool,
+    tmp_path,
+    mpi_out_folder: str,
+    update_baselines: bool,
+    test_profiling: bool = True,
 ):
-    """The linear version (linear=True) of the perturbative models, with the Picard propagators or with one linear
+    """The linear version (linear=True) of the perturbative q model, with the Picard propagators or with one linear
     solve per substep (crank_nicolson=True): the default parameter file keeps the flags and sets the linear variants
     of the propagators, and the generic model test passes."""
     from struphy.io.setup import import_parameters_py
 
+    perturbative_model = "VariationalPerturbativeMHD_with_q"
     model_class = models_utils.get_model_by_name(model_name=perturbative_model)
     model = model_class(linear=True, crank_nicolson=crank_nicolson)
 
@@ -125,21 +205,21 @@ def test_variational_perturbative_linear(
 
     # the q model with the unsplit step (split_sound=False): the flag is kept, and VariationalQBEvolve gets the
     # linear variant
-    if perturbative_model == "VariationalPerturbativeMHD_with_q":
-        if not crank_nicolson:
-            assert params_model.propagators.variat_alfven.options.model == "linear"
-        unsplit = model_class(linear=True, split_sound=False)
-        path_unsplit = os.path.join(tmp_path, f"params_{perturbative_model}_unsplit.py")
-        unsplit.generate_default_parameter_file(path=path_unsplit, prompt=False)
-        unsplit_model = import_parameters_py(path_unsplit).model
-        assert not unsplit_model.params["split_sound"] and unsplit_model.params["linear"]
-        assert unsplit_model.propagators.variat_qb.options.model == "linear_q"
+    if not crank_nicolson:
+        assert params_model.propagators.variat_alfven.options.model == "linear"
+    unsplit = model_class(linear=True, split_sound=False)
+    path_unsplit = os.path.join(tmp_path, f"params_{perturbative_model}_unsplit.py")
+    unsplit.generate_default_parameter_file(path=path_unsplit, prompt=False)
+    unsplit_model = import_parameters_py(path_unsplit).model
+    assert not unsplit_model.params["split_sound"] and unsplit_model.params["linear"]
+    assert unsplit_model.propagators.variat_qb.options.model == "linear_q"
 
     ut.call_test(
         model=model,
         test_profiling=test_profiling,
         case=f"{perturbative_model}-linear-crank_nicolson={crank_nicolson}",
         update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
     )
 
 
@@ -147,7 +227,7 @@ def test_variational_perturbative_linear(
 @pytest.mark.fluid
 @pytest.mark.parametrize("model_cls_name", ["ShearAlfven", "LinearMHD", "LinearMHDWithQ"])
 @pytest.mark.parametrize("projected", [False, True])
-def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, update_baselines: bool):
+def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, mpi_out_folder: str, update_baselines: bool):
     """The H(curl) discretizations of the shear-Alfven models: the flags survive the generated parameter file."""
     from struphy.io.setup import import_parameters_py
 
@@ -161,13 +241,14 @@ def test_b_space_hcurl(model_cls_name: str, projected: bool, tmp_path, update_ba
         model=model,
         case=f"{model_cls_name}-b_space=Hcurl-projected={projected}",
         update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
     )
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
 @pytest.mark.parametrize("model_cls_name", ["LinearMHDVlasovCC", "LinearMHDVlasovPC", "LinearMHDDriftkineticCC"])
-def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, update_baselines: bool):
+def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, mpi_out_folder: str, update_baselines: bool):
     """The H(curl) discretizations of the hybrid models of the LinearEuler family (1-form couplings): the flags
     survive the generated parameter file and the propagators reading the magnetic field are the 1-form ones."""
     from struphy.io.setup import import_parameters_py
@@ -185,6 +266,7 @@ def test_b_space_hcurl_hybrid(model_cls_name: str, tmp_path, update_baselines: b
         model=model,
         case=f"{model_cls_name}-b_space=Hcurl",
         update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
     )
 
 
@@ -225,6 +307,7 @@ def test_linear_mhd_with_q_inherits_linear_euler_with_q(b_space: str, tmp_path):
 @pytest.mark.single
 def test_single_model(
     model_name: str,
+    mpi_out_folder: str,
     update_baselines: bool,
     test_profiling: bool = True,
 ):
@@ -234,10 +317,11 @@ def test_single_model(
         model=model(),
         test_profiling=test_profiling,
         update_baselines=update_baselines,
+        out_folder=mpi_out_folder,
     )
 
 
 if __name__ == "__main__":
-    test_toy(update_baselines=False)
-    test_fluid(update_baselines=False)
-    test_single_model("Maxwell", update_baselines=False)
+    test_toy(os.getcwd(), update_baselines=False)
+    test_fluid(os.getcwd(), update_baselines=False)
+    test_single_model("Maxwell", os.getcwd(), update_baselines=False)

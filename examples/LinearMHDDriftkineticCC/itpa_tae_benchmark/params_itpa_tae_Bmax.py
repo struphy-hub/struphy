@@ -384,14 +384,19 @@ use_filter = {"fourier": "fourier_in_tor", "hybrid": "hybrid", "three_point": "t
 # the logical toroidal mode number 1 is the physical n = 6 (tor_period = 6)
 filter_params = FilterParameters(use_filter=use_filter, modes=(1,))
 props = model.propagators
+# the pushers see the parallel magnetic perturbation through the same filter as the deposits (energy conservation)
 if args.drift_algo == "rk4":
-    props.push_bxe.options = props.push_bxe.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
+    props.push_bxe.options = props.push_bxe.Options(
+        algo="explicit", butcher=ButcherTableau(algo="rk4"), filter_params=filter_params
+    )
 else:
-    props.push_bxe.options = props.push_bxe.Options(algo=args.drift_algo)
+    props.push_bxe.options = props.push_bxe.Options(algo=args.drift_algo, filter_params=filter_params)
 if args.parallel_algo == "rk4":
-    props.push_parallel.options = props.push_parallel.Options(algo="explicit", butcher=ButcherTableau(algo="rk4"))
+    props.push_parallel.options = props.push_parallel.Options(
+        algo="explicit", butcher=ButcherTableau(algo="rk4"), filter_params=filter_params
+    )
 else:
-    props.push_parallel.options = props.push_parallel.Options(algo=args.parallel_algo)
+    props.push_parallel.options = props.push_parallel.Options(algo=args.parallel_algo, filter_params=filter_params)
 props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params)
 props.cc5d_gradb.options = props.cc5d_gradb.Options(filter_params=filter_params)
 # (CurrentCoupling5DDensity accumulates no vector: nothing to filter)

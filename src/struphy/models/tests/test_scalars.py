@@ -205,6 +205,7 @@ def test_en_fB_ignores_ghost_markers():
 
     from struphy.models.guiding_center import GuidingCenter
     from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
+    from struphy.models.perturbative_mhd_with_q_driftkinetic_cc import PerturbativeMHDWithQDriftkineticCC
 
     def _models(particles):
         var = SimpleNamespace(particles=particles, species=SimpleNamespace(mass_number=1.0))
@@ -214,12 +215,13 @@ def test_en_fB_ignores_ghost_markers():
             energetic_ions=SimpleNamespace(var=var),
             _PB=SimpleNamespace(dot=lambda v: None),
             em_fields=SimpleNamespace(b_field=SimpleNamespace(spline=SimpleNamespace(vector=None))),
+            _b_par_filter=None,
         )
-        return {GuidingCenter: gc, LinearMHDDriftkineticCC: cc}
+        return {GuidingCenter: gc, LinearMHDDriftkineticCC: cc, PerturbativeMHDWithQDriftkineticCC: cc}
 
     with_ghosts = _models(_MarkersWithGhosts(n_valid=5, n_ghosts=3))
     without_ghosts = _models(_MarkersWithGhosts(n_valid=5, n_ghosts=0))
-    for model_class in (GuidingCenter, LinearMHDDriftkineticCC):
+    for model_class in (GuidingCenter, LinearMHDDriftkineticCC, PerturbativeMHDWithQDriftkineticCC):
         energy = model_class._compute_en_fB(with_ghosts[model_class])
         expected = model_class._compute_en_fB(without_ghosts[model_class])
         assert xp.isclose(energy, expected), f"{model_class.__name__}: en_fB = {energy} with ghosts, {expected} without"

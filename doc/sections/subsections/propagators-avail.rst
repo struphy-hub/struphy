@@ -167,6 +167,11 @@ Nonlinear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.variational_nonlinear_pb_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.variational_resistivity
     :members:
     :exclude-members: options, allocate

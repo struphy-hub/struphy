@@ -68,7 +68,20 @@ def cc_lin_mhd_5d_gradB_dg(
     const: "float",
     periodic: "bool[:]",
 ):
-    r"""TODO"""
+    r"""Accumulation of :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
+    (``algo="discrete_gradient"``): fills ``vec1, vec2, vec3`` with
+
+    .. math::
+
+        \sum_p \frac{1}{\hat B^*_\parallel} \hat{\mathbf B} \times \Big( \hat{\mathbf b}_0 \times \big[
+        \textnormal{ep\_scale}\, w_p \mu_p\, \hat \nabla (|\hat B_0| + \hat b_\parallel) + \textnormal{const}\,
+        (\boldsymbol \eta_p - \boldsymbol \eta^n_p) \big] \Big),
+
+    evaluated at the mid-point :math:`(\boldsymbol \eta_p + \boldsymbol \eta^n_p)/2`, with the total field
+    :math:`\hat{\mathbf B} = \hat{\mathbf B}_0 + \tilde{\mathbf b}` (2-forms ``beq`` and ``b``). ``const`` is the
+    discrete gradient correction. ``basis_u`` is the space of u (0: H1vec, 2: Hdiv). The mid-point is folded into
+    [0, 1] in the directions where ``periodic`` is False.
+    """
 
     markers = args_markers.markers
     mu_idx = args_markers.mu_idx

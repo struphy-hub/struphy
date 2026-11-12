@@ -1757,7 +1757,8 @@ class Particles(metaclass=ABCMeta):
     def show_distribution_function(self, components: list[bool], bin_edges: list[np.ndarray], do_plot=False):
         """
         1D and 2D plots of slices of the distribution function via marker binning.
-        This routine is mainly for de-bugging.
+        This routine is mainly for de-bugging. It is collective (the binning is summed over all processes and clones),
+        so call it on all ranks; the plot is shown on rank 0 of ``MPI.COMM_WORLD`` only.
 
         Parameters
         ----------
@@ -1769,7 +1770,7 @@ class Particles(metaclass=ABCMeta):
             List of bin edges (resolution) having the length of True entries in components.
 
         do_plot : bool
-            Whether to show the plot (default: False).
+            Whether to show the plot (default: False); only rank 0 plots.
 
         Returns
         -------
@@ -1787,12 +1788,28 @@ class Particles(metaclass=ABCMeta):
 
         f_slice, df_slice = self.binning(components, bin_edges)
 
+        # binning() is local to the process: sum over all processes (and clones) before comparing with the
+        # initial condition
+        f_slice = np.ascontiguousarray(xp.to_numpy(f_slice))
+        df_slice = np.ascontiguousarray(xp.to_numpy(df_slice))
+        comms = [self.mpi_comm]
+        if self.clone_config is not None:
+            comms += [self.clone_config.inter_comm]
+        for comm in comms:
+            if comm is not None and comm.Get_size() > 1:
+                comm.Allreduce(MPI.IN_PLACE, f_slice, op=MPI.SUM)
+                comm.Allreduce(MPI.IN_PLACE, df_slice, op=MPI.SUM)
+
+        # plot on one rank only
+        do_plot = do_plot and MPI.COMM_WORLD.Get_rank() == 0
+
         bin_centers = [bi[:-1] + (bi[1] - bi[0]) / 2 for bi in bin_edges]
 
         indices = np.nonzero(components)[0]
 
         if n_dim == 1:
-            plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
+            if do_plot:
+                plt.plot(bin_centers[0], f_slice, linewidth=2, label="binned f")
             i = int(indices[0])
             resol = bin_centers[0]
             integrate_resol = [0.5, 0.5, 0.5] + [32] * self.vdim

@@ -34,6 +34,9 @@ _LAZY_IMPORTS = {
     "Maxwell": "struphy.models.maxwell",
     "PerturbativeEulerWithQ": "struphy.models.perturbative_euler_with_q",
     "PerturbativeMHDWithQ": "struphy.models.perturbative_mhd_with_q",
+    "PerturbativeMHDWithQDriftkineticCC": "struphy.models.perturbative_mhd_with_q_driftkinetic_cc",
+    "PerturbativeMHDWithQVlasovCC": "struphy.models.perturbative_mhd_with_q_vlasov_cc",
+    "PerturbativeMHDWithQVlasovPC": "struphy.models.perturbative_mhd_with_q_vlasov_pc",
     "Poisson": "struphy.models.poisson",
     "RandomParticleDiffusion": "struphy.models.random_particle_diffusion",
     "ShearAlfven": "struphy.models.shear_alfven",
@@ -41,6 +44,7 @@ _LAZY_IMPORTS = {
     "TwoFluidQuasiNeutralToy": "struphy.models.two_fluid_quasi_neutral_toy",
     "VariationalBarotropicFluid": "struphy.models.variational_barotropic_fluid",
     "VariationalCompressibleFluid": "struphy.models.variational_compressible_fluid",
+    "VariationalLinearMHD": "struphy.models.variational_linear_mhd",
     "VariationalMHD": "struphy.models.variational_mhd",
     "VariationalMHD_with_p": "struphy.models.variational_mhd_with_p",
     "VariationalMHD_with_q": "struphy.models.variational_mhd_with_q",
@@ -84,6 +88,9 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.maxwell import Maxwell
     from struphy.models.perturbative_euler_with_q import PerturbativeEulerWithQ
     from struphy.models.perturbative_mhd_with_q import PerturbativeMHDWithQ
+    from struphy.models.perturbative_mhd_with_q_driftkinetic_cc import PerturbativeMHDWithQDriftkineticCC
+    from struphy.models.perturbative_mhd_with_q_vlasov_cc import PerturbativeMHDWithQVlasovCC
+    from struphy.models.perturbative_mhd_with_q_vlasov_pc import PerturbativeMHDWithQVlasovPC
     from struphy.models.poisson import Poisson
     from struphy.models.random_particle_diffusion import RandomParticleDiffusion
     from struphy.models.shear_alfven import ShearAlfven
@@ -91,6 +98,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
     from struphy.models.two_fluid_quasi_neutral_toy import TwoFluidQuasiNeutralToy
     from struphy.models.variational_barotropic_fluid import VariationalBarotropicFluid
     from struphy.models.variational_compressible_fluid import VariationalCompressibleFluid
+    from struphy.models.variational_linear_mhd import VariationalLinearMHD
     from struphy.models.variational_mhd import VariationalMHD
     from struphy.models.variational_mhd_with_p import VariationalMHD_with_p
     from struphy.models.variational_mhd_with_q import VariationalMHD_with_q
@@ -133,6 +141,9 @@ __all__ = [
     "Maxwell",
     "PerturbativeEulerWithQ",
     "PerturbativeMHDWithQ",
+    "PerturbativeMHDWithQDriftkineticCC",
+    "PerturbativeMHDWithQVlasovCC",
+    "PerturbativeMHDWithQVlasovPC",
     "Poisson",
     "RandomParticleDiffusion",
     "ShearAlfven",
@@ -140,6 +151,7 @@ __all__ = [
     "TwoFluidQuasiNeutralToy",
     "VariationalBarotropicFluid",
     "VariationalCompressibleFluid",
+    "VariationalLinearMHD",
     "VariationalMHD",
     "VariationalMHD_with_p",
     "VariationalMHD_with_q",

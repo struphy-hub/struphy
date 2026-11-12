@@ -35,15 +35,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - shard: shard-1
-            test_files: bsplines/tests/ console/tests/ fields_background/tests/ geometry/tests/ initial/tests/ kinetic_background/tests/ linear_algebra/tests/
-          - shard: shard-2
-            test_files: api/tests/ propagators/tests/ ode/tests/ polar/tests/ post_processing/tests/ dispersion_relations/tests/ io/tests/ simulation/tests/ models/tests/test_gpu_LinearVlasovAmpereOneSpecies.py models/tests/test_gpu_VlasovAmpereOneSpecies.py models/tests/test_scalars.py models/tests/test_splitting_order.py
-          - shard: shard-3
-            test_files: feec/tests/
-          - shard: shard-4
-            test_files: pic/tests/  
+        # the test paths of each shard are in src/struphy/console/unit_test_shards.py
+        shard: ["shard-1", "shard-2", "shard-3", "shard-4"]
 
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
@@ -125,7 +118,8 @@ jobs:
           env-name: /struphy_fortran_/env_fortran_
 
       - name: Test plasma-plots integration
-        if: matrix.shard == 'shard-2'
+        # with post_processing/tests (shard list in src/struphy/console/unit_test_shards.py)
+        if: matrix.shard == 'shard-1'
         run: |
           source /struphy_fortran_/env_fortran_/bin/activate
           python -m pytest "$STRUPHY_PATH/post_processing/tests/test_plasma_plots_integration.py" -v
@@ -138,7 +132,6 @@ jobs:
       - name: Run unit tests
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-${{ matrix.shard }}
-          TEST_FILES: ${{ matrix.test_files }}
           # oversubscribed threaded BLAS makes the MPI runs slow and their timing erratic (#743)
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
@@ -148,6 +141,7 @@ jobs:
           set -e
           pip show struphy
           struphy compile --status
+          TEST_FILES=$(python -m struphy.console.unit_test_shards ${{ matrix.shard }})
           echo "Running $UNINSTALL_MPI"
           $UNINSTALL_MPI
           # fingerprint only the core packages: the image is rebuilt with the latest dependencies on every push to
@@ -163,6 +157,15 @@ jobs:
           git status || true
           echo "Running $PYTEST_CMD $TESTMON_SELECT $TEST_FILES"
           $PYTEST_CMD $TESTMON_SELECT -o "$TESTMON_IGNORE" $TEST_FILES
+
+      # every test file must be in a shard; this check depends on the file tree, not on code that testmon tracks,
+      # so it runs explicitly, without testmon (a new unlisted test file would not make testmon select it)
+      - name: Check that every test file is in a shard
+        if: ${{ !cancelled() && inputs.n-procs == 1 && matrix.shard == 'shard-1' }}
+        run: |
+          source /struphy_fortran_/env_fortran_/bin/activate
+          cd ${{ env.STRUPHY_PATH }}
+          pytest -v console/tests/test_unit_test_shards.py
 
       # only when kernels, the PIC code or the compile command change (see changes_testmon_cannot_see.sh)
       - name: Compile all kernels with OpenMP

@@ -145,10 +145,15 @@ thermodynamic variable (pressure perturbation :math:`\tilde p = 2 q_0 \tilde q`)
 
     * :class:`~struphy.models.PerturbativeMHDWithQ`
 
+      * :class:`~struphy.models.PerturbativeMHDWithQVlasovCC`
+      * :class:`~struphy.models.PerturbativeMHDWithQVlasovPC`
+      * :class:`~struphy.models.PerturbativeMHDWithQDriftkineticCC`
+
   * :class:`~struphy.models.PerturbativeEulerWithQ`
 
 The perturbative models add the terms that are nonlinear in the perturbations, each in its own energy conserving step,
-to the steps of their linear parent.
+to the steps of their linear parent. The hybrid models with energetic ions add the coupling steps of the hybrid models
+of the LinearEuler family, with the inertia of the total density.
 
 .. autoclass:: struphy.models.LinearEulerWithQ
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
@@ -166,6 +171,21 @@ to the steps of their linear parent.
     :show-inheritance:
 
 .. autoclass:: struphy.models.PerturbativeMHDWithQ
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQVlasovCC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQVlasovPC
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.PerturbativeMHDWithQDriftkineticCC
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
@@ -193,6 +213,27 @@ equations and inherits its species, propagators and scalars (see :ref:`model_ana
     :show-inheritance:
 
 .. autoclass:: struphy.models.ColdPlasmaVlasov
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+Variational MHD Family
+----------------------
+
+Visco-resistive MHD around a zero-flow equilibrium with the pressure, discretized variationally (forces as the
+variations of a discrete Lagrangian, energy conserving time stepping). ``VariationalPerturbativeMHD`` adds to the linear
+model the terms that are nonlinear in the perturbations.
+
+* :class:`~struphy.models.VariationalLinearMHD`
+
+  * :class:`~struphy.models.VariationalPerturbativeMHD`
+
+.. autoclass:: struphy.models.VariationalLinearMHD
+    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
+    :undoc-members:
+    :show-inheritance:
+
+.. autoclass:: struphy.models.VariationalPerturbativeMHD
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:
@@ -268,11 +309,6 @@ MHD
     :show-inheritance:
 
 .. autoclass:: struphy.models.VariationalMHD_with_q
-    :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
-    :undoc-members:
-    :show-inheritance:
-
-.. autoclass:: struphy.models.VariationalPerturbativeMHD
     :members: doc_pde, doc_scalar_quantities, doc_normalization, doc_discretization, doc_long_description, doc_examples, doc_use_cases, doc_cannot_be_used_for
     :undoc-members:
     :show-inheritance:

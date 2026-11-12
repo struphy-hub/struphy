@@ -24,6 +24,7 @@ from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.kernels.gc_mag_density_0form import gc_mag_density_0form
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import velocity_mass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -63,6 +64,14 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
     field :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` (updated in each step) if ``nonlinear``, else the
     equilibrium field :math:`\mathbf B_0`, and
     :math:`\mathbb M^{2,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``Options(u_space="Hdiv")``): the inertia is that of the total density, :math:`\rho_0 \to \rho_0 + \tilde
+    \rho^n` (mass matrix :math:`\mathbb M^2_\rho` of :class:`~struphy.propagators.utils.VelocityMass`, assembled at
+    :math:`t^n`; the density does not change in this step).
+
+    A model can fix ``nonlinear`` with the constructor argument of the same name (e.g. a model that has no separate
+    step for the nonlinear shear-Alfvén terms); ``Options(nonlinear=...)`` must then agree with it.
     """
 
     class Variables:
@@ -101,16 +110,27 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             assert new.space == "Hdiv"
             self._b = new
 
-    def __init__(self, energetic_ions: PICVariable = None):
-        """
+    def __init__(self, energetic_ions: PICVariable = None, rho_field: FEECVariable = None, nonlinear: bool = None):
+        r"""
         Parameters
         ----------
         energetic_ions : PICVariable, default=None
             Energetic-ion particle distribution (``"Particles5D"`` space) providing
             the current source for the shear Alfvén wave coupling.
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, ``u_space="Hdiv"`` only). If ``None``, that of
+            :math:`\rho_0`.
+        nonlinear : bool, default=None
+            If given, fixes ``Options.nonlinear`` (total field :math:`\mathbf B_0 + \tilde{\mathbf B}` in the basis
+            projection operator), as required by the model; other option values are rejected in :meth:`allocate`.
         """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
+        assert nonlinear is None or isinstance(nonlinear, bool)
         self.variables = self.Variables()
         self.energetic_ions = energetic_ions
+        self.rho_field = rho_field
+        self.nonlinear = nonlinear
 
     @dataclass(repr=False)
     class Options(OptionsBase):
@@ -213,11 +233,17 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._u_form = self.derham.space_to_form[self.options.u_space]
 
-        # call operatros
+        if self.nonlinear is not None:
+            assert self.options.nonlinear == self.nonlinear, (
+                f"The model fixes nonlinear={self.nonlinear} of {self.__class__.__name__}; "
+                f"got Options(nonlinear={self.options.nonlinear})."
+            )
+
+        # call operators (with rho_field: _A is the mass matrix of the total density, assembled in __call__)
         id_M = "M" + self._u_form + "n"
         id_T = "T" + self._u_form
 
-        _A = getattr(self.mass_ops, id_M)
+        self._velocity_mass, _A = velocity_mass(self, self.options.u_space, self.rho_field)
         _T = getattr(self.basis_ops, id_T)
         M2 = self.mass_ops.M2
         curl = self.derham.curl
@@ -339,6 +365,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         # current FE coeffs
         un = self.variables.u.spline.vector
         bn = self.variables.b.spline.vector
+
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
 
         # accumulate
         self._ACC(self._ep_scale)

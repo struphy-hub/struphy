@@ -720,6 +720,10 @@ class Particles5D(Particles):
         self._weight_energy = xp.zeros(1, dtype=float)
 
     @property
+    def energy_budget(self) -> bool:
+        return self._budget
+
+    @property
     def refill_energy(self):
         return self._refill_energy
 
@@ -741,10 +745,13 @@ class Particles5D(Particles):
         )
         return 0.5 * markers[3] ** 2 + markers[self.first_diagnostics_idx]
 
-    def budget_begin_push(self, PBb):
-        """Save the energy of each marker before a propagator that moves them."""
-        E0T = self.derham.extraction_ops["0"].transpose()
-        E0T.dot(PBb, out=self._budget_tmp0)
+    def budget_begin_push(self, PBb=None):
+        """Save the energy of each marker before a propagator that moves them (``PBb=None``: no perturbation)."""
+        if PBb is None:
+            self._budget_tmp0 *= 0.0
+        else:
+            E0T = self.derham.extraction_ops["0"].transpose()
+            E0T.dot(PBb, out=self._budget_tmp0)
         self._budget_tmp0.update_ghost_regions()
 
         H = self._marker_energy(self.markers)
