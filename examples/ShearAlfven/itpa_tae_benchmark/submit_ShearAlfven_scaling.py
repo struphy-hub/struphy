@@ -9,6 +9,9 @@ a batch system, runs directly on this machine, where the rank counts that exceed
 script runs the simulation by invoking `params_ShearAlfven.py` directly (its `__main__` block is the worker) with
 `--setup profiling` (`--steps` time steps, default 50, solver iterations logged), and then writes the scope-profiler
 report and the cost summary (time per step, PCG iterations per step) with `pproc_ShearAlfven.py --save-results`.
+The job scripts, SLURM logs and runs go to the profiling folder of the driver: on Raven
+`/ptmp/<user>/struphy_profiling` (the scratch file system, `clusters.SCRATCH_DIRS`), elsewhere `_profiling_jobs/` in
+the repo; `$STRUPHY_PROFILING_DIR` overrides it.
 
 The variant is chosen with `--variant`; run this script once per variant, or all variants at once with
 `sweep_ShearAlfven_scaling.py`. Each variant is a separate case in the profiling-data repo. All variants use cubic
