@@ -41,6 +41,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "profiling"))
 
 from profiling_job import ProfilingCase  # noqa: E402
 
+from utils import scaled_walltime  # noqa: E402
+
 # MPI ranks of the strong scaling, all on one node
 RANKS = (4, 8, 16, 32, 64)
 
@@ -130,13 +132,6 @@ VARIANTS = {
     "hcurl_mass_24x44x8": _variant("hcurl_mass", COARSE, "00:20:00"),
     "hcurl_projected_mass_24x44x8": _variant("hcurl_projected_mass", COARSE, "00:30:00"),
 }
-
-
-def scaled_walltime(walltime: str, factor: float) -> str:
-    """The time limit ``walltime`` (HH:MM:SS) times ``factor`` (not below 15 min), as HH:MM:SS."""
-    h, m, s = map(int, walltime.split(":"))
-    seconds = max(15 * 60, round((3600 * h + 60 * m + s) * factor))
-    return f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
 
 
 def main() -> None:

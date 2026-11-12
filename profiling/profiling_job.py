@@ -65,7 +65,7 @@ from slurm_script_generator.squeue import SQueue, job_states
 from upload import _clone_profiling_data, _push_profiling_data
 
 from struphy import Compiler
-from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug
+from utils import _git_commit, _git_commit_short, _make_unique_results_root, _slug, node_hours
 
 script_dir = Path(__file__).resolve().parent
 repo_root = script_dir.parent
@@ -586,6 +586,10 @@ class ProfilingCase:
         if not profiling_data and not results_files:
             return False
 
+        # the node hours of the finished SLURM job (None for a local run or without accounting)
+        if job_info.get("job_id") is not None:
+            job_info["node_hours"] = next(iter(node_hours(job_info["job_id"]).values()), None)
+
         # Everything about this run goes into its own metadata file; the case metadata
         # only points at it.
         self.packaged_runs.append(
@@ -729,6 +733,10 @@ class ProfilingCase:
         if packaged_launch_ids:
             print(f"Packaged {len(packaged_launch_ids)} run(s) of '{self.label}' (ids {sorted(packaged_launch_ids)}):")
             print(f" - {self.destination_dir}")
+            usage = [info.get("node_hours") for info in self.job_infos if info["launch_id"] in packaged_launch_ids]
+            if any(hours is not None for hours in usage):
+                known = [hours for hours in usage if hours is not None]
+                print(f"Node hours: {sum(known):.2f} ({len(known)} of {len(usage)} runs from SLURM accounting)")
             if not self.upload:
                 print("Upload skipped; nothing was pushed to the profiling-data repo.")
                 print("Push this case later, exactly as packaged, without re-running it:")
