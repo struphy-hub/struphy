@@ -9,11 +9,13 @@ from struphy.models.scalars import FunctionScalarPIC
 from struphy.models.species import ParticleSpecies
 from struphy.models.utils import (
     add_energetic_ion_scalars,
+    b_par_filter,
     energetic_ion_mu_energy,
     magnetic_discretization_doc,
     set_guiding_center_push_algos,
 )
 from struphy.models.variables import FEECVariable, PICVariable
+from struphy.pic.particles import Particles5D
 from struphy.propagators.base import Propagator
 from struphy.propagators.current_coupling_5d_curlb import CurrentCoupling5DCurlb
 from struphy.propagators.current_coupling_5d_curlb_1form import CurrentCoupling5DCurlb1form
@@ -67,6 +69,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
         Replace the propagators ``bg_current``, ``bg_pressure`` and ``sound`` by one propagator ``magnetosonic``
         (:class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`), a different discretization of the
         same equations, only with ``b_space="Hdiv"`` (default: False).
+    energy_budget: bool
+        Save the scalars ``en_refill`` and ``en_weight`` (default: False).
     """
 
     # propagators renamed when the model joined the LinearEuler family (options of old run metadata)
@@ -203,6 +207,7 @@ class LinearMHDDriftkineticCC(LinearMHD):
         b_space: LinearMHD.OptsBSpace = "Hdiv",
         projected: bool = False,
         magnetosonic_cross_b0: bool = False,
+        energy_budget: bool = False,
     ):
         if magnetosonic_cross_b0 and b_space != "Hdiv":
             raise ValueError('magnetosonic_cross_b0=True requires b_space="Hdiv".')
@@ -224,6 +229,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
             self.params["hot_mass_number"],
             self.params["hot_epsilon"],
         )
+        if self.params["energy_budget"]:
+            self.energetic_ions.n_cols_diagnostics = Particles5D.default_n_cols["diagnostics"] + 2
 
     def _propagator_args(self):
         """:meta private:"""
@@ -254,6 +261,9 @@ class LinearMHDDriftkineticCC(LinearMHD):
         scalars = super()._create_scalars()
         en_fB = FunctionScalarPIC(self._compute_en_fB, self.energetic_ions.var)
         add_energetic_ion_scalars(scalars, self.mhd, self.energetic_ions, extra={"en_fB": en_fB}, kinetic_name="en_fv")
+        if self.params["energy_budget"]:
+            scalars["en_refill"] = FunctionScalarPIC(self._compute_en_refill, self.energetic_ions.var)
+            scalars["en_weight"] = FunctionScalarPIC(self._compute_en_weight, self.energetic_ions.var)
         return scalars
 
     def generate_default_parameter_file(self, path=None, prompt=True):
@@ -270,8 +280,25 @@ class LinearMHDDriftkineticCC(LinearMHD):
         # parallel component of the magnetic field perturbation (2-form or 1-form), a 0-form
         self._PB = Propagator.basis_ops.PB if self._b_space == "Hdiv" else Propagator.basis_ops.PB1form
 
+        self._b_par_filter = b_par_filter(self.propagators)
+
+        if self.params["energy_budget"]:
+            self.energetic_ions.var.particles.enable_energy_budget()
+
+    def _compute_en_refill(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        return self.energetic_ions.var.particles.refill_energy[0] * Ah / Ab
+
+    def _compute_en_weight(self):
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+        return self.energetic_ions.var.particles.weight_energy[0] * Ah / Ab
+
     def _compute_en_fB(self):
-        return energetic_ion_mu_energy(self.mhd, self.energetic_ions, self._PB, self.em_fields.b_field)
+        return energetic_ion_mu_energy(
+            self.mhd, self.energetic_ions, self._PB, self.em_fields.b_field, b_par_filter=self._b_par_filter
+        )
 
     @classmethod
     def doc_pde(cls):
@@ -378,7 +405,8 @@ class LinearMHDDriftkineticCC(LinearMHD):
         - Parallel energetic-particle energy: ``en_fv``
         - Magnetic-moment energetic-particle energy: ``en_fB``
         - Total energy: ``en_tot = en_U + en_thermal + en_B + en_fv + en_fB``
-        - Lost particles: ``n_lost_particles``"""
+        - Lost particles: ``n_lost_particles``
+        - With ``energy_budget=True``: ``en_refill`` and ``en_weight``"""
 
     @classmethod
     def doc_discretization(cls):

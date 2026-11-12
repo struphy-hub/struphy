@@ -2224,6 +2224,31 @@ class WeightedMassOperator(LinearOperator):
     def weights(self):
         return self._weights
 
+    def weight_values(self, a: int, b: int) -> xp.ndarray | None:
+        """Weight of the block ``(a, b)`` at the local quadrature points, as in :meth:`assemble`: the block weight
+        of :attr:`weights` times the current values of the :attr:`spline_functions` (e.g. a density, which
+        :attr:`weights` does not contain). None if the block has no weight.
+
+        Parameters
+        ----------
+        a, b : int
+            Row (codomain) and column (domain) component of the block.
+        """
+        loc_weight = self._weights[a][b]
+        if loc_weight is None:
+            return None
+        mat_w = self._evaluate_weight(loc_weight, self._quad_pts(self.codomain_symbolic_name, a), copy=True)
+        for name, spline in self.spline_functions.items():
+            values = spline.eval_tp_fixed_loc(
+                self._spline_spans[name],
+                self._spline_bases[name],
+                out=self._spline_values[name],
+            )
+            # as in assemble: a spline weight that vanishes everywhere is not multiplied
+            if not xp.all(xp.abs(values) < 1e-14):
+                mat_w *= values
+        return mat_w
+
     def dot(self, v, out=None, apply_bc=True):
         """Dot product of the operator with a vector.
 
