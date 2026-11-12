@@ -6,7 +6,8 @@ using namespace struphy_cuda;
 
 /**
  * Evaluate mu_p (eta_p - eta_p^old) . (grad |B_0| + grad B_parallel)(eta_mid) per marker, as in
- * eval_gradB_ediff_kernels.eval_gradB_ediff, with eta_mid = mod((eta_p + eta_p^old) / 2, 1).
+ * eval_gradB_ediff_kernels.eval_gradB_ediff, with eta_mid = (eta_p + eta_p^old) / 2 wrapped into [0, 1) in periodic
+ * directions and folded (mirrored) into [0, 1] in non-periodic directions.
  *
  * @param args_markers Marker buffer (n_cols x n_markers, one column per marker) and column indices; eta_p^old is
  * stored at first_pusher_idx. One thread per marker.
@@ -19,6 +20,7 @@ using namespace struphy_cuda;
  * @param grad_PB_b2 Coefficients of the second component of grad B_parallel as a 1-form.
  * @param grad_PB_b3 Coefficients of the third component of grad B_parallel as a 1-form.
  * @param idx Marker column of the result.
+ * @param periodic Whether each direction is periodic.
  *
  * Holes (markers[0, ip] == -1) are skipped. The metric (g and its inverse) is evaluated but not used, as in the
  * pyccel kernel.
@@ -26,7 +28,7 @@ using namespace struphy_cuda;
 extern "C" __global__ void eval_gradB_ediff(MarkerArgs args_markers, DomainArgs args_domain, DerhamArgs args_derham,
                                             Array3D<double> gradB1, Array3D<double> gradB2, Array3D<double> gradB3,
                                             Array3D<double> grad_PB_b1, Array3D<double> grad_PB_b2,
-                                            Array3D<double> grad_PB_b3, int idx) {
+                                            Array3D<double> grad_PB_b3, int idx, const bool* periodic) {
     // CUDA-only: the marker of this thread replaces the pyccel loop variable
     int ip = blockDim.x * blockIdx.x + threadIdx.x;
     int n_markers = args_markers.n_markers;
@@ -45,10 +47,15 @@ extern "C" __global__ void eval_gradB_ediff(MarkerArgs args_markers, DomainArgs 
     // only do something if particle is a "true" particle (i.e. not a hole)
     if (markers(0, ip) == -1.0) return;
 
-    // marker positions, mid point; numpy.mod(eta, 1.0) (Fortran MODULO): the result has the sign of the divisor
+    // marker positions, mid point; numpy.mod (Fortran MODULO): the result has the sign of the divisor
     for (int j = 0; j < 3; ++j) {
         eta_mid[j] = (markers(j, ip) + markers(first_pusher_idx + j, ip)) / 2.0;
-        eta_mid[j] = eta_mid[j] - floor(eta_mid[j]);
+        if (periodic[j]) {
+            eta_mid[j] = eta_mid[j] - floor(eta_mid[j]);
+        } else {
+            eta_mid[j] = eta_mid[j] - 2.0 * floor(eta_mid[j] / 2.0);
+            if (eta_mid[j] > 1.0) eta_mid[j] = 2.0 - eta_mid[j];
+        }
         eta_diff[j] = markers(j, ip) - markers(first_pusher_idx + j, ip);
     }
 
