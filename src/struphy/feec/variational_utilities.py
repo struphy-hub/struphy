@@ -370,8 +370,10 @@ class HdivBracketOperator(LinearOperator):
 
     Boundary conditions: only the normal flux of the velocity vanishes (:math:`\hat{\mathbf u} \in Z^0`); the input,
     the output and :math:`\hat{\mathbf y}` are restricted with ``derham.boundary_ops["2"]``.
-    Needs degree :math:`p \geq 2` (2-forms continuous, :math:`\hat{\mathbf y} \in H(\textnormal{curl})`); not
-    available for polar splines.
+    Needs degree :math:`p \geq 2` (2-forms continuous, :math:`\hat{\mathbf y} \in H(\textnormal{curl})`). With polar
+    splines, the matrix-free application (:meth:`apply_values`) integrates against the tensor-product basis functions
+    and applies the polar extraction operators; the weight :math:`1/\sqrt g` is evaluated at the Gauss points, never on
+    the pole.
 
     Parameters
     ----------
@@ -392,9 +394,8 @@ class HdivBracketOperator(LinearOperator):
     """
 
     def __init__(self, derham: Derham, domain, mass_ops, tol: float = 1e-14, maxiter: int = 1000):
-        from struphy.feec.preconditioner import MassMatrixPreconditioner
+        from struphy.feec.preconditioner import mass_matrix_preconditioner
 
-        assert not derham.polar_splines, "HdivBracketOperator is not available for polar splines."
         reduced = tuple(n == 1 and periodic for n, periodic in zip(derham.num_elements, derham.spl_kind))
         assert all(r or p >= 2 for r, p in zip(reduced, derham.degree)), (
             f"The bracket of a velocity in H(div) needs degree >= 2 (except in periodic directions with one "
@@ -414,7 +415,7 @@ class HdivBracketOperator(LinearOperator):
         self._MZ = mass_ops.create_weighted_mass(
             "Hdiv", "Hdiv", weights=("Identity",), name="M2_logical", assemble=True
         )
-        self._pc_MZ = MassMatrixPreconditioner(self._MZ)
+        self._pc_MZ = mass_matrix_preconditioner(self._MZ, dim_reduce=0)
         self._inv_MZ = self.new_momentum_solver()
 
         # local quadrature points of the mass matrices (the same for all spaces)
@@ -471,6 +472,13 @@ class HdivBracketOperator(LinearOperator):
         self._tmp_3b = derham.V3pol.zeros()
         self._tmp_int_2 = derham.V2.zeros()
         self._tmp_int_3 = derham.V3.zeros()
+        # polar splines: integrals against the polar basis functions (extraction of the tensor-product integrals)
+        self._polar = derham.polar_splines
+        if self._polar:
+            self._E2 = derham.extraction_ops["2"]
+            self._E3 = derham.extraction_ops["3"]
+            self._tmp_pol_2 = derham.V2pol.zeros()
+            self._tmp_pol_3 = derham.V3pol.zeros()
 
         self._has_momentum = False
 
@@ -598,6 +606,8 @@ class HdivBracketOperator(LinearOperator):
             g += y_q[k] * u_q[k]
         g *= s
         I3 = self._int_3.integrate([g], out=self._tmp_int_3)
+        if self._polar:
+            I3 = self._E3.dot(I3, out=self._tmp_pol_3)
         self._divT.dot(I3, out=out)
 
         # - int Lambda^2 . (y div u + curl y x u) / sqrt g
@@ -610,6 +620,8 @@ class HdivBracketOperator(LinearOperator):
         for k in range(3):
             f[k] *= -s
         I2 = self._int_2.integrate(f, out=self._tmp_int_2)
+        if self._polar:
+            I2 = self._E2.dot(I2, out=self._tmp_pol_2)
         out += self._bc.dot(I2, out=self._tmp_2)
         return out
 
@@ -1073,12 +1085,21 @@ class ProjectionAdjointMatrix(LinearOperator):
     kernel on these point sets. Each rank takes the cells in its own elements; :math:`\mathbf z` is read with its ghost
     regions and the ghost contributions are accumulated as in the mass matrices.
 
+    With polar splines, :math:`\hat\Pi^\beta = (\mathbb I^\beta_{\textnormal{pol}})^{-1} \mathbb P \sigma^\beta` with the
+    polar degrees-of-freedom extraction :math:`\mathbb P` of the projector, so the tensor-product degrees of freedom
+    are weighted by :math:`\mathbf z = \mathbb P^\top (\mathbb I^\beta_{\textnormal{pol}})^{-\top} \mathbf y`. The
+    assembled tensor-product matrix is applied with the polar extraction (and boundary) operators of the test and field
+    spaces, as every weighted mass operator. As in :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator`,
+    the interpolation points on the pole are shifted to :math:`\eta_1 = 10^{-5}`; :math:`\mathbf z` vanishes there,
+    which avoids the product of zero and the singular factor :math:`g = 1/\sqrt g` of a velocity 2-form.
+
     Parameters
     ----------
     derham : Derham
-        Discrete de Rham sequence (global commuting projectors, no polar splines, 3d).
+        Discrete de Rham sequence (global commuting projectors, 3d; tensor-product or polar splines).
     mass_ops : WeightedMassOperators
-        Weighted mass operators; the matrix is stored as one of them (with the boundary operators of the spaces).
+        Weighted mass operators; the matrix is stored as one of them (with the extraction and boundary operators of
+        the spaces).
     proj_form : str
         Form of the projection space :math:`V^\beta_h` (``"1"``, ``"2"`` or ``"3"``).
     test_space : str
@@ -1098,7 +1119,6 @@ class ProjectionAdjointMatrix(LinearOperator):
     def __init__(
         self, derham: Derham, mass_ops, proj_form: str, test_space: str, field_space: str, coeffs: dict, y, g=None
     ):
-        assert not derham.polar_splines, "ProjectionAdjointMatrix is not available with polar splines."
         assert not derham._with_local_projectors, "ProjectionAdjointMatrix needs the global commuting projectors."
         assert derham.V0fem.ldim == 3, "ProjectionAdjointMatrix is implemented in 3d."
         self._F = mass_ops.create_weighted_mass(field_space, test_space, name=f"ProjAdj_{proj_form}_{test_space}")
@@ -1108,7 +1128,12 @@ class ProjectionAdjointMatrix(LinearOperator):
 
         P = getattr(derham, f"P{proj_form}")
         z = P.solve(y, True, apply_bc=True)
+        # polar splines: the weights of the tensor-product degrees of freedom (identity otherwise)
+        if derham.polar_splines:
+            z = P.dofs_extraction_op.transpose().dot(z)
         z.update_ghost_regions()
+        # shift the interpolation points on the pole (as in BasisProjectionOperator)
+        polar_shift = derham.polar_splines
 
         Vt = getattr(derham, f"V{derham.space_to_form[test_space]}fem")
         Vf = getattr(derham, f"V{derham.space_to_form[field_space]}fem")
@@ -1144,7 +1169,9 @@ class ProjectionAdjointMatrix(LinearOperator):
                 if not any(key[0] == i and key[1] == k for key in coeffs):
                     continue
                 # projection cells of the whole direction, kept where their element is local to this rank
-                pts, wts, spans_k, bases_k, subs = prepare_projection_of_basis(Vk.spaces, W1d, *all_dofs, nq, False)
+                pts, wts, spans_k, bases_k, subs = prepare_projection_of_basis(
+                    Vk.spaces, W1d, *all_dofs, nq, polar_shift
+                )
                 sel = []
                 for d in range(3):
                     el = spans_k[d][:, 0] - Vk.degree[d]
@@ -1168,7 +1195,7 @@ class ProjectionAdjointMatrix(LinearOperator):
                 for m, Vm in enumerate(Vf_c):
                     if (i, k, m) not in coeffs:
                         continue
-                    _, _, spans_m, bases_m, _ = prepare_projection_of_basis(Vm.spaces, W1d, *all_dofs, nq, False)
+                    _, _, spans_m, bases_m, _ = prepare_projection_of_basis(Vm.spaces, W1d, *all_dofs, nq, polar_shift)
                     for d in range(3):
                         # the mass kernel assumes the same first non-zero basis index for both spaces on a cell
                         assert np.all(spans_k[d][sel[d]] - Vk.degree[d] == spans_m[d][sel[d]] - Vm.degree[d])
@@ -2724,7 +2751,9 @@ def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1
     the :math:`\mathbf E \times \mathbf B` flows if ``options.exb_correction``. Its :meth:`build` gives the
     preconditioner for a time step. For a velocity in :math:`H(\textnormal{div})` (``u_space="Hdiv"``), the operators
     are ``basis_ops.T2`` and ``mass_ops.M2n``, as in
-    :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`.
+    :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`. With polar splines, the 2D x 1D
+    version :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner` is built (without the
+    :math:`\mathbf E \times \mathbf B` correction).
 
     Parameters
     ----------
@@ -2749,8 +2778,6 @@ def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1
     unmet = list(unmet)
     if options.solver not in ("pcg", "pbicgstab", "rpbicgstab"):
         unmet += ['solver="pcg", "pbicgstab" or "rpbicgstab"']
-    if propagator.derham.polar_splines:
-        unmet += ["tensor-product splines"]
     if propagator.derham.with_local_projectors:
         unmet += ["the global commuting projectors"]
     if unmet:

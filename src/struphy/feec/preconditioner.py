@@ -482,7 +482,10 @@ class PolarMassMatrixPreconditioner(LinearOperator):
         self._bc = _boundary_conditions(mass_operator, apply_bc)
         self._tmp = self._space.zeros() if self._bc is not None else None
 
-        self._solver = self._build_solver()
+        # the factorizations need assembled weights: if the mass operator was never assembled (e.g. a density-weighted
+        # mass matrix assembled by another propagator), they are built in the first refresh or solve
+        self._assembly_count = mass_operator.assembly_count
+        self._solver = self._build_solver() if self._assembly_count > 0 else None
 
     def _build_solver(self) -> PolarKron2Dx1DSolver:
         groups = _polar_mass_groups(self._mass_operator, self._weight_reduction)
@@ -511,19 +514,36 @@ class PolarMassMatrixPreconditioner(LinearOperator):
     @property
     def solver(self) -> PolarKron2Dx1DSolver:
         """The 2D x 1D Kronecker solver."""
+        if self._solver is None:
+            self.update_mass_operator(self._mass_operator)
         return self._solver
 
     @property
     def exact(self) -> bool:
         """Whether the poloidal solves are exact (incomplete LU factorizations are not)."""
-        return self._solver.exact
+        return self.solver.exact
 
     def update_mass_operator(self, mass_operator: WeightedMassOperator) -> None:
         """Update the mass operator (same spaces and structure, e.g. new weights) and rebuild the factorizations."""
         assert isinstance(mass_operator, WeightedMassOperator)
         assert mass_operator.domain == self.domain, "Update needs to have the same domain and codomain"
         self._mass_operator = mass_operator
+        self._assembly_count = mass_operator.assembly_count
         self._solver = self._build_solver()
+
+    def refresh(self) -> bool:
+        """Update the preconditioner if its mass operator was re-assembled since the last update (as
+        :meth:`MassMatrixPreconditioner.refresh`).
+
+        Returns
+        -------
+        bool
+            Whether the preconditioner was updated.
+        """
+        if self._solver is not None and self._mass_operator.assembly_count == self._assembly_count:
+            return False
+        self.update_mass_operator(self._mass_operator)
+        return True
 
     def solve(self, rhs: Vector, out: Vector | None = None) -> Vector:
         """Applies the approximate inverse to rhs."""
@@ -532,7 +552,7 @@ class PolarMassMatrixPreconditioner(LinearOperator):
         if self._bc is not None:
             self._mass_operator._V_boundary_op.dot(rhs, out=self._tmp)
             rhs = self._tmp
-        return self._solver.dot(rhs, out=out)
+        return self.solver.dot(rhs, out=out)
 
     def dot(self, v: Vector, out: Vector | None = None) -> Vector:
         return self.solve(v, out=out)
@@ -590,6 +610,32 @@ def _poloidal_size(space: PolarDerhamSpace, c: int) -> int:
     """Number of tensor-product coefficients of component c in the poloidal plane."""
     n1, n2 = tp_space(space, c).npts[:2]
     return n1 * n2
+
+
+def mass_matrix_preconditioner(
+    mass_operator: WeightedMassOperator, dim_reduce: int | None = None
+) -> MassMatrixPreconditioner | PolarMassMatrixPreconditioner:
+    """The Kronecker preconditioner of a weighted mass operator: :class:`PolarMassMatrixPreconditioner` (2D x 1D) on
+    polar splines, :class:`MassMatrixPreconditioner` (with ``dim_reduce``) otherwise. On polar splines,
+    :class:`MassMatrixPreconditioner` applies :math:`\\mathbb E \tilde{\\mathbb M}^{-1} \\mathbb E^\top`, which is not an
+    approximate inverse of :math:`\\mathbb E \\mathbb M \\mathbb E^\top` near the pole.
+
+    Parameters
+    ----------
+    mass_operator : WeightedMassOperator
+        The (square) weighted mass operator.
+
+    dim_reduce : int | None
+        Option of :class:`MassMatrixPreconditioner` (tensor-product splines only).
+
+    Returns
+    -------
+    MassMatrixPreconditioner | PolarMassMatrixPreconditioner
+        The preconditioner (both have ``refresh`` and ``update_mass_operator``).
+    """
+    if isinstance(mass_operator.domain, PolarDerhamSpace):
+        return PolarMassMatrixPreconditioner(mass_operator)
+    return MassMatrixPreconditioner(mass_operator, dim_reduce=dim_reduce)
 
 
 class StiffnessPreconditioner(KroneckerPreconditioner):

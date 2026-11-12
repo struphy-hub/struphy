@@ -7,7 +7,7 @@ from feectools.linalg.solvers import inverse
 from line_profiler import profile
 from maybempi import MPI
 
-from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner, mass_matrix_preconditioner
 from struphy.feec.variational_utilities import Hdiv0_transport_operator
 from struphy.io.options import OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
@@ -214,7 +214,7 @@ class VariationalNonlinearPBEvolve(Propagator):
             # assembly of WMMnew (total density) happens in VariationalDensityEvolve
             self._velocity_mass = None
             self._Mrho = self.mass_ops.WMMnew
-        pc = None if self.options.precond is None else MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        pc = None if self.options.precond is None else mass_matrix_preconditioner(self._Mrho)
         self._Mrho_pc = pc
         sp = self.options.solver_params
 
