@@ -7,9 +7,9 @@ from typing import Literal
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
-from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
+from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.kernels.bstar_parallel_3form import bstar_parallel_3form
 from struphy.pic.pushing.kernels.driftkinetic_hamiltonian import driftkinetic_hamiltonian

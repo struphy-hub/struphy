@@ -376,7 +376,9 @@ def b_par_filter(propagators):
 
     modes = fourier_modes(propagators.shear_alf)
     mismatch = [
-        name for name in ("push_bxe", "push_parallel", "cc5d_gradb") if fourier_modes(getattr(propagators, name)) != modes
+        name
+        for name in ("push_bxe", "push_parallel", "cc5d_gradb")
+        if fourier_modes(getattr(propagators, name)) != modes
     ]
     if mismatch:
         expected = f'FilterParameters(use_filter="fourier_in_tor", modes={modes})' if modes else "no Fourier filter"
