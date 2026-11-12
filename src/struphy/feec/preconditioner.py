@@ -584,7 +584,9 @@ def _polar_mass_groups(mass_operator: WeightedMassOperator, reduction: str) -> l
         blocks = [[None] * len(comps) for _ in comps]
         for a, c in enumerate(comps):
             for b, c2 in enumerate(comps):
-                w2 = reduced_weight_2d(weights[c][c2], derham, reduction)
+                # spline weights (e.g. the density of WMMnew) are not in mass_operator.weights
+                w = mass_operator.weight_values(c, c2) if mass_operator.spline_functions else weights[c][c2]
+                w2 = reduced_weight_2d(w, derham, reduction)
                 if w2 is not None:
                     blocks[a][b] = poloidal_mass_matrix(derham, tuple(bases[c][:2]), tuple(bases[c2][:2]), w2)
         for a, c in enumerate(comps):
