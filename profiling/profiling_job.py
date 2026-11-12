@@ -298,6 +298,9 @@ class ProfilingCase:
         # the run directory that `build_commands` writes into.
         self.launch_count += 1
         script_path = profiling_results_base / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
+        if script_only():
+            # in the (unique) run folder of this call, so that the scripts of separate calls do not overwrite each other
+            script_path = self.run_results_root / script_path.name
 
         # Build the commands to run this case with the given rank count, and write/submit
         case_commands = self.build_commands(num_tasks, param_flags, backend)
@@ -405,6 +408,7 @@ class ProfilingCase:
             self.run_timestamp = datetime.now(UTC)
             run_token = f"{self.run_timestamp.strftime('%Y%m%dT%H%M%SZ')}-{_git_commit_short(repo_root)}"
             self.run_results_root = _make_unique_results_root(profiling_results_base, run_token)
+            self.run_results_root.mkdir(parents=True, exist_ok=True)
             self.case_output_root = self.run_results_root / self.label
             self.use_slurm = True
             self.use_modules = has_module_system()
@@ -716,12 +720,14 @@ class ProfilingCase:
         Args:
             poll_interval: Seconds between polls for finished runs.
         """
-        if script_only():
-            report_scripts([self])
-            return
         if _SWEEP_CASES is not None:
             _SWEEP_CASES.append(self)
+            if script_only():
+                return
             print(f"Submitted {len(self.job_infos)} run(s) of '{self.label}'; packaging deferred to the sweep.")
+            return
+        if script_only():
+            report_scripts([self])
             return
 
         self.package_case_start()

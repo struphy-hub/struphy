@@ -2,11 +2,13 @@
 
 Runs a submit script (``examples/<Model>/<case>/submit_*.py``) or a sweep script (``examples/<Model>/sweep_*.py``)
 with its own arguments, in the mode ``STRUPHY_PROFILING_SCRIPT_ONLY=1`` of the driver: every ``launch`` writes the SLURM
-script of its run into the profiling folder (``/ptmp/<user>/struphy_profiling`` on Raven, see
-``clusters.SCRATCH_DIRS``) and prints its path; nothing is compiled, submitted, waited on, packaged or uploaded. The
+script of its run into a new run folder of the profiling folder (``/ptmp/<user>/struphy_profiling`` on Raven, see
+``clusters.SCRATCH_DIRS``) and prints its path; nothing is compiled, submitted, waited on, packaged or uploaded, so
+compile the kernels first (``struphy compile``), and runs submitted this way are not packaged by the driver. The
 preset is that of the detected cluster, or the one given to the submit script with ``--slurm-preset`` (needed off the
-clusters, e.g. on a laptop). The scripts activate the current venv (``VIRTUAL_ENV`` must be set) and can be
-inspected, edited and submitted by hand with ``sbatch``.
+clusters, e.g. on a laptop). The scripts activate the current venv (``VIRTUAL_ENV`` must be set) and contain the paths
+and the ``module`` lines of the writing machine: write them on the cluster to submit them (inspect, edit, ``sbatch``);
+written elsewhere, they are for inspection only.
 
 Usage (from anywhere, with the struphy venv activated)::
 

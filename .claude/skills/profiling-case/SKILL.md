@@ -136,8 +136,11 @@ job finishes. Without `--upload`, the script prints how to push a packaged case 
 Only the SLURM scripts, without submitting (to inspect or edit them, or to submit by hand):
 `python profiling/write_scripts.py <submit_or_sweep_script> [its arguments]`, e.g. `--variant <v> --ranks 16`. Off
 the clusters pass the preset with `--slurm-preset` (to submit scripts that accept it). The scripts go to the
-profiling folder and are listed with their `sbatch` command; nothing is compiled, packaged or uploaded, so runs
-submitted this way are not packaged by the driver.
+profiling folder (in the run folder of the call) and are listed with their `sbatch` command. Nothing is compiled,
+packaged or uploaded: compile the kernels in the venv first (`struphy compile`), and runs submitted this way are not
+packaged by the driver. The scripts contain the paths of the writing machine (venv, repo) and its `module` lines
+(only where environment modules exist): write them on the cluster to submit them; written elsewhere, they are for
+inspection only.
 
 ## 7. PR
 
