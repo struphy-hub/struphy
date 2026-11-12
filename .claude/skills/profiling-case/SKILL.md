@@ -87,9 +87,11 @@ rotating log (10 kB per file, 3 backups) and loses the early steps of a long run
   (`.github/workflows/create-PR-examples.yml`), since they need `profiling/`; check that a new kind of script is too.
 
 Clusters: `launch` takes the preset `clusters.SLURM_PRESETS[slurm_preset or detect_machine_name()]` and, without
-`num_nodes`, `HARDWARE_INFO[...]["cpus_per_node"]`. A detected cluster without a preset raises a KeyError: add a
-`SLURM_PRESETS` entry (and a `HARDWARE_INFO` entry, or always pass `num_nodes`), or pass `slurm_preset`. Check the
-first jobs of a new preset (allocation, memory, time limits) before submitting everything.
+`num_nodes`, `HARDWARE_INFO[...]["cpus_per_node"]`. On a cluster with a small home file system, add a
+`SCRATCH_DIRS` entry so that the runs go to the scratch file system (Raven: `/ptmp/<user>/`). A detected cluster
+without a preset raises a KeyError: add a `SLURM_PRESETS` entry (and a `HARDWARE_INFO` entry, or always pass
+`num_nodes`), or pass `slurm_preset`. Check the first jobs of a new preset (allocation, memory, time limits) before
+submitting everything.
 
 Decomposition and memory:
 - Check that every rank count decomposes the grid with at least `degree` elements per rank and direction:
@@ -108,12 +110,15 @@ With the venv activated (`VIRTUAL_ENV` must be set; the driver compiles the kern
 STRUPHY_PROFILING_LOCAL=1 python examples/<Model>/<case>/submit_<case>.py --variant <v> --ranks 2 --steps 3
 ```
 This runs the job scripts locally; rank counts above `os.cpu_count()` are skipped, and `mpirun` may also refuse
-counts above the physical cores. Output:
-- the runs: `_profiling_jobs/<timestamp>-<commit>/<label>/sim_01/` (`struphy.out`, `pproc.out`, `results/`);
-- the packaged case: `_profiling_jobs/profiling-data/<timestamp>-<commit>-<label>/results-run01/` (`summary.json`,
+counts above the physical cores. Output, in the profiling folder `<base>` (`$STRUPHY_PROFILING_DIR/struphy_profiling`
+if the variable is set, else the `clusters.SCRATCH_DIRS` entry of the detected cluster, e.g. `/ptmp/<user>/struphy_profiling` on Raven, else
+`_profiling_jobs/` in the repo):
+- the job scripts and SLURM logs: `<base>/job_profile_*.sh`, `<base>/profiling_*.out|err`;
+- the runs: `<base>/<timestamp>-<commit>/<label>/sim_01/` (`struphy.out`, `pproc.out`, `results/`);
+- the packaged case: `<base>/profiling-data/<timestamp>-<commit>-<label>/results-run01/` (`summary.json`,
   `report.html`, the `.h5`).
 
-Every call without `--upload` empties `_profiling_jobs/profiling-data/` first (and `--upload` re-clones it): push a
+Every call without `--upload` empties `<base>/profiling-data/` first (and `--upload` re-clones it): push a
 packaged case you want to keep with `profiling/upload.py <case folder>` before the next call.
 
 Check `struphy.out`, `pproc.out` and `summary.json` (iterations of every step present). Test each variant at least
