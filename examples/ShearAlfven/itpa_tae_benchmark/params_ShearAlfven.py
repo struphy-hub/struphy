@@ -122,7 +122,7 @@ parser.add_argument(
         "HiptmairXu",
     ],
     help="Preconditioner of the shear Alfven solve: of the mass matrix (default with --projected; "
-    "PolarMassMatrixPreconditioner with --polar), a geometric "
+    "use PolarMassMatrixPreconditioner with --polar), a geometric "
     "multigrid V-cycle of the whole Schur operator (Hdiv only; experimental, currently slower here), the "
     "Kronecker (fast diagonalization) preconditioner of the whole Schur operator with the E x B auxiliary space "
     "correction (Hdiv only, its default; 8x32x4, dt = 0.1: about 11 instead of 31 PCG iterations per step, 2x faster; "
@@ -164,7 +164,7 @@ parser.add_argument(
 parser.add_argument(
     "--test-run",
     action="store_true",
-    help="Small resolution (num_elements = [8, 32, 4]) and a short run with three saved time steps, for the tests "
+    help="Small resolution (num_elements = [8, 32, 4], [8, 33, 4] with --polar) and a short run with three saved time steps, for the tests "
     "(test_examples.py).",
 )
 args, _ = parser.parse_known_args()
@@ -179,6 +179,8 @@ if args.precond in ("MultiGrid", "StiffnessPreconditioner", "ToroidalFourierPrec
     parser.error(f"--precond {args.precond} requires --b-space Hdiv.")
 if args.precond == "HiptmairXu" and args.b_space != "Hcurl":
     parser.error("--precond HiptmairXu requires --b-space Hcurl.")
+if args.polar and args.precond == "MultiGrid":
+    parser.error("--precond MultiGrid does not support --polar.")
 if args.polar and args.b_space != "Hdiv":
     parser.error("--polar requires --b-space Hdiv.")
 if args.polar != (args.precond == "PolarMassMatrixPreconditioner") and "MassMatrix" in args.precond:

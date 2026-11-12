@@ -19,8 +19,10 @@ H(div) variants also run with C1 polar splines on the full torus without hole (I
 24 x 90 x 8 (polar splines need a multiple of 3 elements along eta2), with the 2D x 1D polar Kronecker, the toroidal
 Fourier and the polar mass matrix preconditioner; the tensor-product variants have a hole of radius 0.01.
 
-Cost per step on 4 ranks (24 x 88 x 8, local workstation): hcurl_hiptmair_xu 0.76 s (9 PCG iterations),
-hdiv_stiffness 1.3 s (15), hcurl_mass 6.1 s (150), hdiv_mass 11.5 s (210), hcurl_projected_mass 12.6 s (110).
+Cost per step on 4 ranks (24 x 88 x 8, local workstation, measured with a hole of radius a1 = 0.1): hcurl_hiptmair_xu
+0.76 s (9 PCG iterations), hdiv_stiffness 1.3 s (15), hcurl_mass 6.1 s (150), hdiv_mass 11.5 s (210),
+hcurl_projected_mass 12.6 s (110). With the default a1 = 0.01 the mass matrix preconditioners need about 3 times more
+iterations (8 x 32 x 4), while Hiptmair-Xu and the Kronecker preconditioner are unchanged; the time limits allow for it.
 hdiv_toroidal_fourier needs 2 iterations, but its setup takes about 10 min and holds dense poloidal factorizations on
 every rank (about 5-6 GB per rank, extrapolated from 12 x 44 x 8), so it runs on at most 32 ranks. The geometric
 multigrid preconditioner (6 min and 740 iterations per step) is left out. With polar splines (serial, 8 x 33 x 4):
@@ -108,18 +110,18 @@ def _variant(solver, grid, walltime, ranks=RANKS):
 VARIANTS = {
     "hdiv_stiffness_24x88x8": _variant("hdiv_stiffness", FINE, "00:15:00"),
     "hdiv_toroidal_fourier_24x88x8": _variant("hdiv_toroidal_fourier", FINE, "01:00:00", ranks=(4, 8, 16, 32)),
-    "hdiv_mass_24x88x8": _variant("hdiv_mass", FINE, "00:25:00"),
+    "hdiv_mass_24x88x8": _variant("hdiv_mass", FINE, "01:00:00"),
     "hdiv_polar_stiffness_24x90x8": _variant("hdiv_polar_stiffness", POLAR, "00:20:00"),
     "hdiv_polar_toroidal_fourier_24x90x8": _variant(
         "hdiv_polar_toroidal_fourier", POLAR, "01:00:00", ranks=(4, 8, 16, 32)
     ),
-    "hdiv_polar_mass_24x90x8": _variant("hdiv_polar_mass", POLAR, "00:25:00"),
+    "hdiv_polar_mass_24x90x8": _variant("hdiv_polar_mass", POLAR, "01:00:00"),
     "hcurl_hiptmair_xu_24x88x8": _variant("hcurl_hiptmair_xu", FINE, "00:15:00"),
-    "hcurl_mass_24x88x8": _variant("hcurl_mass", FINE, "00:15:00"),
-    "hcurl_projected_mass_24x88x8": _variant("hcurl_projected_mass", FINE, "00:25:00"),
+    "hcurl_mass_24x88x8": _variant("hcurl_mass", FINE, "00:40:00"),
+    "hcurl_projected_mass_24x88x8": _variant("hcurl_projected_mass", FINE, "01:00:00"),
     "hcurl_hiptmair_xu_24x44x8": _variant("hcurl_hiptmair_xu", COARSE, "00:15:00"),
-    "hcurl_mass_24x44x8": _variant("hcurl_mass", COARSE, "00:15:00"),
-    "hcurl_projected_mass_24x44x8": _variant("hcurl_projected_mass", COARSE, "00:15:00"),
+    "hcurl_mass_24x44x8": _variant("hcurl_mass", COARSE, "00:20:00"),
+    "hcurl_projected_mass_24x44x8": _variant("hcurl_projected_mass", COARSE, "00:30:00"),
 }
 
 

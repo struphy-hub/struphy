@@ -120,7 +120,7 @@ def tae_frequency(run, basis):
 
 
 def minor_radius(run):
-    """The minor radius of the HollowTorus as a function of eta1."""
+    """The minor radius as a function of eta1 (HollowTorus or, with --polar, IGAPolarTorus)."""
     a1, a2 = radial_range(run.domain)
     return lambda eta1: a1 + (a2 - a1) * eta1
 
@@ -264,14 +264,15 @@ def main(path_out=DEFAULT_OUTPUT, save_figs=True, frames=True, max_frames=500):
             view="cut",
             surface=eta1_gap,
         )
-        for view, t in zip(views, times):
-            if view is not None:  # (no frames on the ranks other than 0)
+        # the frames are written on rank 0 only (an empty list on the other ranks, which must not touch the folder)
+        if views:
+            for view, t in zip(views, times):
                 shutil.move(view, os.path.join(results_dir, f"{key}{'' if basis is None else '1'}_3d_t{t:.6g}.png"))
-        shutil.rmtree(folder, ignore_errors=True)
+            shutil.rmtree(folder, ignore_errors=True)
 
     if frames:
         # frames of videos of the radial velocity u_r (the first component in the normalized basis, radial for the
-        # circular flux surfaces of the HollowTorus): the poloidal plane and two 3D views, at most max_frames saved
+        # circular flux surfaces): the poloidal plane and two 3D views, at most max_frames saved
         # time steps, in <path_out>/results/frames/u_r_rz, u_r_3d_cut and u_r_3d (frame_*.png); the 3D views show the
         # flux surface r = 0.5 of the gap (not the one through the largest value, which can be a continuum oscillation)
         videos = write_videos(
