@@ -14,13 +14,17 @@ The variant is chosen with `--variant`; run this script once per variant, or all
 `sweep_ShearAlfven_scaling.py`. Each variant is a separate case in the profiling-data repo. All variants use cubic
 splines and the time step 0.2. The H(div) variants run on 24 x 88 x 8 elements, the resolution at which the H(div)
 version has the right TAE frequency (see the description of `params_ShearAlfven.py`); the H(curl) variants on the same
-grid and on 24 x 44 x 8, the default grid of the example, on which H(curl) already has the right frequency.
+grid and on 24 x 44 x 8, the default grid of the example, on which H(curl) already has the right frequency. The
+H(div) variants also run with C1 polar splines on the full torus without hole (IGAPolarTorus, `--polar`) on
+24 x 90 x 8 (polar splines need a multiple of 3 elements along eta2), with the 2D x 1D polar Kronecker, the toroidal
+Fourier and the polar mass matrix preconditioner; the tensor-product variants have a hole of radius 0.01.
 
 Cost per step on 4 ranks (24 x 88 x 8, local workstation): hcurl_hiptmair_xu 0.76 s (9 PCG iterations),
 hdiv_stiffness 1.3 s (15), hcurl_mass 6.1 s (150), hdiv_mass 11.5 s (210), hcurl_projected_mass 12.6 s (110).
 hdiv_toroidal_fourier needs 2 iterations, but its setup takes about 10 min and holds dense poloidal factorizations on
 every rank (about 5-6 GB per rank, extrapolated from 12 x 44 x 8), so it runs on at most 32 ranks. The geometric
-multigrid preconditioner (6 min and 740 iterations per step) is left out. The `walltime` of a variant is the SLURM time
+multigrid preconditioner (6 min and 740 iterations per step) is left out. With polar splines (serial, 8 x 33 x 4):
+polar Kronecker 5-6, toroidal Fourier 2, polar mass matrix about 80 PCG iterations per step. The `walltime` of a variant is the SLURM time
 limit of its runs (the 4-rank run of 50 steps, with a margin), scaled with `--steps`; `--time` overrides it.
 """
 
@@ -36,7 +40,7 @@ from profiling_job import ProfilingCase  # noqa: E402
 # MPI ranks of the strong scaling, all on one node
 RANKS = (4, 8, 16, 32, 64)
 
-FINE, COARSE = (24, 88, 8), (24, 44, 8)
+FINE, COARSE, POLAR = (24, 88, 8), (24, 44, 8), (24, 90, 8)
 
 # the solvers: key -> (name, description, flags of the params file)
 HDIV = "magnetic field in H(div), implicit solve for the velocity (exactly energy conserving), PCG preconditioned by"
@@ -59,6 +63,23 @@ SOLVERS = {
         "B in H(div), mass matrix preconditioner",
         f"{HDIV} {MASS}",
         ["--b-space", "Hdiv", "--precond", "MassMatrixPreconditioner"],
+    ),
+    "hdiv_polar_stiffness": (
+        "B in H(div), polar splines, Kronecker preconditioner",
+        f"{HDIV} the 2D x 1D polar Kronecker preconditioner of the Schur operator (StiffnessPreconditioner with polar "
+        "splines: exact in the poloidal plane, diagonal in the eigenbasis along eta3)",
+        ["--b-space", "Hdiv", "--polar", "--precond", "StiffnessPreconditioner"],
+    ),
+    "hdiv_polar_toroidal_fourier": (
+        "B in H(div), polar splines, toroidal Fourier preconditioner",
+        f"{HDIV} the exact inverse of the Schur operator of the axisymmetric equilibrium (FFT along eta3, one dense "
+        "poloidal factorization per toroidal mode on every rank, ToroidalFourierPreconditioner)",
+        ["--b-space", "Hdiv", "--polar", "--precond", "ToroidalFourierPreconditioner"],
+    ),
+    "hdiv_polar_mass": (
+        "B in H(div), polar splines, mass matrix preconditioner",
+        f"{HDIV} the approximate inverse of the polar mass matrix (PolarMassMatrixPreconditioner)",
+        ["--b-space", "Hdiv", "--polar", "--precond", "PolarMassMatrixPreconditioner"],
     ),
     "hcurl_hiptmair_xu": (
         "B in H(curl), Hiptmair-Xu preconditioner",
@@ -88,6 +109,11 @@ VARIANTS = {
     "hdiv_stiffness_24x88x8": _variant("hdiv_stiffness", FINE, "00:15:00"),
     "hdiv_toroidal_fourier_24x88x8": _variant("hdiv_toroidal_fourier", FINE, "01:00:00", ranks=(4, 8, 16, 32)),
     "hdiv_mass_24x88x8": _variant("hdiv_mass", FINE, "00:25:00"),
+    "hdiv_polar_stiffness_24x90x8": _variant("hdiv_polar_stiffness", POLAR, "00:20:00"),
+    "hdiv_polar_toroidal_fourier_24x90x8": _variant(
+        "hdiv_polar_toroidal_fourier", POLAR, "01:00:00", ranks=(4, 8, 16, 32)
+    ),
+    "hdiv_polar_mass_24x90x8": _variant("hdiv_polar_mass", POLAR, "00:25:00"),
     "hcurl_hiptmair_xu_24x88x8": _variant("hcurl_hiptmair_xu", FINE, "00:15:00"),
     "hcurl_mass_24x88x8": _variant("hcurl_mass", FINE, "00:15:00"),
     "hcurl_projected_mass_24x88x8": _variant("hcurl_projected_mass", FINE, "00:25:00"),
@@ -166,14 +192,20 @@ def main() -> None:
         *solver_flags,
     ]
 
+    domain = (
+        "IGAPolarTorus with tor_period 6, C1 polar splines without hole"
+        if "--polar" in solver_flags
+        else "HollowTorus with tor_period 6 and a hole of radius 0.01"
+    )
+
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
 
     profiling_case = ProfilingCase(
         label=f"shear_alfven_itpa_tae_strong_scaling_{args.variant}",
         name=f"ShearAlfven ITPA TAE strong scaling, {name}, {grid}",
-        description=f"Strong scaling on one node of the ShearAlfven model on the ITPA TAE benchmark (HollowTorus with "
-        f"tor_period 6, AdhocTorus, {grid} elements, cubic splines, dt = 0.2, {args.steps} steps): {solver}.",
+        description=f"Strong scaling on one node of the ShearAlfven model on the ITPA TAE benchmark ({domain}, "
+        f"AdhocTorus, {grid} elements, cubic splines, dt = 0.2, {args.steps} steps): {solver}.",
         physics_problem="Toroidal Alfven eigenmode (TAE) in a large-aspect-ratio tokamak (ITPA benchmark).",
         struphy_model_used="ShearAlfven",
         params_source=script_dir / "params_ShearAlfven.py",
