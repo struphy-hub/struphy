@@ -9,7 +9,10 @@ Struphy simulations are configured as plain Python scripts (`params_<name>.py`) 
 build a `Simulation` object from the Struphy API, then call `sim.run()`. The params
 file can use real Python (loops, conditionals, computed values) to derive parameters.
 Each run writes `run_metadata.json`, containing a configuration snapshot and runtime
-facts such as the MPI rank count. Post-processing reads this saved metadata directly.
+facts: the MPI rank count (`mpi_ranks`), the command line of the run (`command_line`) and
+the code that produced it (`struphy`: `version`, `git_commit`, `git_dirty`, `git_branch`, `feectools_version`, `feectools_git_commit`;
+the git fields are null unless Struphy is imported from a git checkout).
+Post-processing reads this saved metadata directly.
 
 This skill ships with the installed Struphy package, so it matches the installed version.
 `struphy agents` prints the general usage guide and the examples URL for that version.

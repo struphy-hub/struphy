@@ -11,6 +11,7 @@ import logging
 import math
 import os
 import shutil
+import sys
 import textwrap
 import time
 from collections.abc import Sequence
@@ -82,7 +83,7 @@ from struphy.simulation.base import SimulationBase
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.kernel_compilation import collect_kernels, missing_cuda
 from struphy.utils.progress import tqdm
-from struphy.utils.utils import ruff_autofix_and_format
+from struphy.utils.utils import code_info, ruff_autofix_and_format
 
 logger = logging.getLogger("struphy")
 
@@ -1977,6 +1978,11 @@ class Simulation(SimulationBase):
         non-reconstructible facts (MPI layout, live particle counts, caller-supplied
         timestamps, ...), serialized to a JSON string.
 
+        The run-specific facts include the number of MPI ranks (``mpi_ranks``), the command line
+        of the calling process (``command_line``, i.e. ``sys.argv``) and the code that produced
+        the run (``struphy``: ``version``, ``git_commit``, ``git_dirty``, ``git_branch``,
+        see :func:`~struphy.utils.utils.code_info`).
+
         The configuration snapshot can also be restored by :meth:`from_output`;
         variable details and propagator options are recorded for inspection,
         while run-specific facts do not restore live simulation state.
@@ -2001,6 +2007,8 @@ class Simulation(SimulationBase):
             {
                 "mpi_ranks": self.comm_size,
                 "use_mpi_comm_world": self.comm is not None,
+                "command_line": [str(arg) for arg in sys.argv],
+                "struphy": code_info(),
                 **extra_data,
             },
         )
