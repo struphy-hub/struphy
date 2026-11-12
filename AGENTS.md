@@ -28,6 +28,16 @@ Before creating, renaming or substantially changing a model or a propagator, **r
 
 They list the required structure, documentation, registration and tests; CI checks several of them.
 
+## Profiling cases
+
+Before adding or changing a profiling case (a `submit_*.py` script next to an example, run by the driver in
+`profiling/` and uploaded to struphy-hub/profiling-data), read the skill `.claude/skills/profiling-case/SKILL.md`.
+
+## Studies
+
+Studies (pages with runs, findings and videos on https://struphy-hub.github.io/struphy-studies/) are made in the
+repository struphy-hub/struphy-studies, see the skill `.claude/skills/create-study/SKILL.md`.
+
 ## Code style
 
 - Format and lint with ruff before pushing (settings in `pyproject.toml`, line length 120), since CI runs
