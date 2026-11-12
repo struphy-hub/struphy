@@ -17,7 +17,9 @@ version has the right TAE frequency (see the description of `params_ShearAlfven.
 grid and on 24 x 44 x 8, the default grid of the example, on which H(curl) already has the right frequency. The
 H(div) variants also run with C1 polar splines on the full torus without hole (IGAPolarTorus, `--polar`) on
 24 x 90 x 8 (polar splines need a multiple of 3 elements along eta2), with the 2D x 1D polar Kronecker, the toroidal
-Fourier and the polar mass matrix preconditioner; the tensor-product variants have a hole of radius 0.01.
+Fourier and the polar mass matrix preconditioner; the tensor-product variants have a hole of radius 0.01 (the default
+of the example), and two of them (hdiv_stiffness, hcurl_hiptmair_xu on 24 x 88 x 8) are also run with the hole radius
+0.1, to see the influence of the hole on the runtime (the label contains `a1_0.1`).
 
 Cost per step on 4 ranks (24 x 88 x 8, local workstation, measured with a hole of radius a1 = 0.1): hcurl_hiptmair_xu
 0.76 s (9 PCG iterations), hdiv_stiffness 1.3 s (15), hcurl_mass 6.1 s (150), hdiv_mass 11.5 s (210),
@@ -102,8 +104,10 @@ SOLVERS = {
 }
 
 
-def _variant(solver, grid, walltime, ranks=RANKS):
-    return {"solver": solver, "grid": grid, "walltime": walltime, "ranks": ranks}
+def _variant(solver, grid, walltime, ranks=RANKS, a1=None):
+    """A variant: the solver (key of SOLVERS), grid, SLURM time limit, rank counts and the hole radius (None for the
+    default 0.01 of the example; ignored with polar splines)."""
+    return {"solver": solver, "grid": grid, "walltime": walltime, "ranks": ranks, "a1": a1}
 
 
 # variant (key = label suffix) -> solver, grid, SLURM time limit (4-rank run of 50 steps), rank counts
@@ -117,6 +121,9 @@ VARIANTS = {
     ),
     "hdiv_polar_mass_24x90x8": _variant("hdiv_polar_mass", POLAR, "01:00:00"),
     "hcurl_hiptmair_xu_24x88x8": _variant("hcurl_hiptmair_xu", FINE, "00:15:00"),
+    # the influence of the hole radius on the runtime (not the default of the example)
+    "hdiv_stiffness_a1_0.1_24x88x8": _variant("hdiv_stiffness", FINE, "00:15:00", a1=0.1),
+    "hcurl_hiptmair_xu_a1_0.1_24x88x8": _variant("hcurl_hiptmair_xu", FINE, "00:15:00", a1=0.1),
     "hcurl_mass_24x88x8": _variant("hcurl_mass", FINE, "00:40:00"),
     "hcurl_projected_mass_24x88x8": _variant("hcurl_projected_mass", FINE, "01:00:00"),
     "hcurl_hiptmair_xu_24x44x8": _variant("hcurl_hiptmair_xu", COARSE, "00:15:00"),
@@ -192,12 +199,13 @@ def main() -> None:
         "--num-elements",
         *map(str, variant["grid"]),
         *solver_flags,
+        *([] if variant["a1"] is None else ["--a1", str(variant["a1"])]),
     ]
 
     domain = (
         "IGAPolarTorus with tor_period 6, C1 polar splines without hole"
         if "--polar" in solver_flags
-        else "HollowTorus with tor_period 6 and a hole of radius 0.01"
+        else f"HollowTorus with tor_period 6 and a hole of radius {variant['a1'] or 0.01}"
     )
 
     # Paths relative to this script's location, so it can be run from anywhere.
@@ -205,7 +213,8 @@ def main() -> None:
 
     profiling_case = ProfilingCase(
         label=f"shear_alfven_itpa_tae_strong_scaling_{args.variant}",
-        name=f"ShearAlfven ITPA TAE strong scaling, {name}, {grid}",
+        name=f"ShearAlfven ITPA TAE strong scaling, {name}, {grid}"
+        + ("" if variant["a1"] is None else f", hole a1 = {variant['a1']}"),
         description=f"Strong scaling on one node of the ShearAlfven model on the ITPA TAE benchmark ({domain}, "
         f"AdhocTorus, {grid} elements, cubic splines, dt = 0.2, {args.steps} steps): {solver}.",
         physics_problem="Toroidal Alfven eigenmode (TAE) in a large-aspect-ratio tokamak (ITPA benchmark).",
