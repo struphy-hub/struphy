@@ -220,8 +220,12 @@ class PolarDerhamSpace(VectorSpace):
         return PolarVector(self)
 
     def axpy(self, a, x, y):
-        y += a * x
-        pass
+        """In place y = a * x + y (without temporary vectors, as the Krylov solvers call it in every iteration)."""
+        assert isinstance(x, PolarVector) and isinstance(y, PolarVector)
+        assert x.space == self and y.space == self
+        for y_pol, x_pol in zip(y._pol, x._pol):
+            y_pol += a * x_pol
+        self.parent_space.axpy(a, x._tp, y._tp)
 
     def inner(self, x, y):
         assert isinstance(x, PolarVector)
