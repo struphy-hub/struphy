@@ -196,9 +196,9 @@ class CurrentCoupling5DDensity(Propagator):
         self._velocity_mass, self._A = velocity_mass(self, self.options.u_space, self.rho_field)
 
         # magnetic equilibrium field (the field in the space of _b_form)
-        unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._b_eq = getattr(self.projected_equil, "b" + self._b_form)
+        unit_b1 = self.projected_equil.tp.unit_b1
+        curl_unit_b2 = self.projected_equil.tp.curl_unit_b2
+        self._b_eq = getattr(self.projected_equil.tp, "b" + self._b_form)
 
         # scaling factor
         epsilon = self.energetic_ions.species.equation_params.epsilon

@@ -154,10 +154,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner`, built from the equilibrium part
             :math:`\mathbb T` of the basis projection operator; with ``nonlinear=True`` it approximates the Schur
             operator with :math:`\mathbb T + \mathbb T^B`, since :math:`|\tilde{\mathbf B}| \ll |\mathbf B_0|`). The
-            Kronecker preconditioner needs ``algo="implicit"``, ``solver="pcg"`` or ``"pcg_sr"``, ``u_space="Hdiv"``, tensor-product
-            splines (no polar splines) and the global commuting projectors; otherwise it falls back (with a warning) to
-            ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines). ``"MultiGrid"`` is
-            not available here.
+            Kronecker preconditioner needs ``algo="implicit"``, ``solver="pcg"`` or ``"pcg_sr"``, ``u_space="Hdiv"`` and the global
+            commuting projectors (with polar splines its 2D x 1D version is used); otherwise it falls back (with a
+            warning) to ``"MassMatrixPreconditioner"`` (``"PolarMassMatrixPreconditioner"`` with polar splines).
+            ``"MultiGrid"`` and ``"ToroidalFourierPreconditioner"`` are not available here.
         exb_correction : bool, default=True
             For ``precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
             :math:`\mathbf E \times \mathbf B` flows, see
@@ -197,7 +197,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsShearAlfvenPrecond)
-            assert self.precond != "MultiGrid", 'precond="MultiGrid" is not available for ShearAlfvenCurrentCoupling5D.'
+            assert self.precond not in ("MultiGrid", "ToroidalFourierPreconditioner"), (
+                f'precond="{self.precond}" is not available for ShearAlfvenCurrentCoupling5D.'
+            )
             assert self.ep_scale is None or isinstance(self.ep_scale, float)
             assert isinstance(self.nonlinear, bool)
 

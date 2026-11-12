@@ -242,7 +242,7 @@ class VariationalResistivity(Propagator):
         self.tot_rhs = s.space.zeros()
         if True:  # self._linearize_current:
             self._extracted_b2 = self.derham.boundary_ops["2"].dot(
-                self.derham.extraction_ops["2"].dot(self.projected_equil.b2),
+                self.projected_equil.b2,
             )
 
     def __call__(self, dt):
