@@ -21,7 +21,7 @@ hdiv_stiffness 1.3 s (15), hcurl_mass 6.1 s (150), hdiv_mass 11.5 s (210), hcurl
 hdiv_toroidal_fourier needs 2 iterations, but its setup takes about 10 min and holds dense poloidal factorizations on
 every rank (about 5-6 GB per rank, extrapolated from 12 x 44 x 8), so it runs on at most 32 ranks. The geometric
 multigrid preconditioner (6 min and 740 iterations per step) is left out. The `walltime` of a variant is the SLURM time
-limit of its runs (the 4-rank run of 100 steps, with a margin); `--time` overrides it.
+limit of its runs (the 4-rank run of 100 steps, with a margin), scaled with `--steps`; `--time` overrides it.
 """
 
 import argparse
@@ -97,6 +97,13 @@ VARIANTS = {
 }
 
 
+def scaled_walltime(walltime: str, factor: float) -> str:
+    """The time limit ``walltime`` (HH:MM:SS) times ``factor`` (not below 15 min), as HH:MM:SS."""
+    h, m, s = map(int, walltime.split(":"))
+    seconds = max(15 * 60, round((3600 * h + 60 * m + s) * factor))
+    return f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
+
+
 def main() -> None:
 
     # Parse arguments, do not remove --upload
@@ -121,7 +128,7 @@ def main() -> None:
     parser.add_argument(
         "--time",
         default=None,
-        help="SLURM time limit of each run (default: the walltime of the variant, for 100 steps).",
+        help="SLURM time limit of each run (default: the walltime of the variant, for 100 steps, scaled with --steps).",
     )
     parser.add_argument(
         "--slurm-preset",
@@ -183,7 +190,7 @@ def main() -> None:
             num_nodes=1,
             param_flags=param_flags,
             slurm_preset=args.slurm_preset,
-            slurm_options={"time": args.time or variant["walltime"]},
+            slurm_options={"time": args.time or scaled_walltime(variant["walltime"], args.steps / 100)},
         )
 
     # Package and push each run as its own job finishes.

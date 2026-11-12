@@ -134,7 +134,8 @@ def solver_iterations(path_out):
         files = [stdout_file]
     else:
         log_file = os.environ.get("STRUPHY_LOG_FILE") or os.path.join(path_out, "struphy.log")
-        files = [f"{log_file}.{i}" for i in range(9, 0, -1)] + [log_file]
+        # the rotated backups (backupCount of the struphy logger), oldest first
+        files = [f"{log_file}.{i}" for i in range(3, 0, -1)] + [log_file]
     iterations = []
     for file in files:
         if os.path.isfile(file):
