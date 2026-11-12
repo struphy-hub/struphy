@@ -1073,12 +1073,21 @@ class ProjectionAdjointMatrix(LinearOperator):
     kernel on these point sets. Each rank takes the cells in its own elements; :math:`\mathbf z` is read with its ghost
     regions and the ghost contributions are accumulated as in the mass matrices.
 
+    With polar splines, :math:`\hat\Pi^\beta = (\mathbb I^\beta_{\textnormal{pol}})^{-1} \mathbb P \sigma^\beta` with the
+    polar degrees-of-freedom extraction :math:`\mathbb P` of the projector, so the tensor-product degrees of freedom
+    are weighted by :math:`\mathbf z = \mathbb P^\top (\mathbb I^\beta_{\textnormal{pol}})^{-\top} \mathbf y`. The
+    assembled tensor-product matrix is applied with the polar extraction (and boundary) operators of the test and field
+    spaces, as every weighted mass operator. As in :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator`,
+    the interpolation points on the pole are shifted to :math:`\eta_1 = 10^{-5}`; :math:`\mathbf z` vanishes there,
+    which avoids the product of zero and the singular factor :math:`g = 1/\sqrt g` of a velocity 2-form.
+
     Parameters
     ----------
     derham : Derham
-        Discrete de Rham sequence (global commuting projectors, no polar splines, 3d).
+        Discrete de Rham sequence (global commuting projectors, 3d; tensor-product or polar splines).
     mass_ops : WeightedMassOperators
-        Weighted mass operators; the matrix is stored as one of them (with the boundary operators of the spaces).
+        Weighted mass operators; the matrix is stored as one of them (with the extraction and boundary operators of
+        the spaces).
     proj_form : str
         Form of the projection space :math:`V^\beta_h` (``"1"``, ``"2"`` or ``"3"``).
     test_space : str
@@ -1098,7 +1107,6 @@ class ProjectionAdjointMatrix(LinearOperator):
     def __init__(
         self, derham: Derham, mass_ops, proj_form: str, test_space: str, field_space: str, coeffs: dict, y, g=None
     ):
-        assert not derham.polar_splines, "ProjectionAdjointMatrix is not available with polar splines."
         assert not derham._with_local_projectors, "ProjectionAdjointMatrix needs the global commuting projectors."
         assert derham.V0fem.ldim == 3, "ProjectionAdjointMatrix is implemented in 3d."
         self._F = mass_ops.create_weighted_mass(field_space, test_space, name=f"ProjAdj_{proj_form}_{test_space}")
@@ -1108,7 +1116,12 @@ class ProjectionAdjointMatrix(LinearOperator):
 
         P = getattr(derham, f"P{proj_form}")
         z = P.solve(y, True, apply_bc=True)
+        # polar splines: the weights of the tensor-product degrees of freedom (identity otherwise)
+        if derham.polar_splines:
+            z = P.dofs_extraction_op.transpose().dot(z)
         z.update_ghost_regions()
+        # shift the interpolation points on the pole (as in BasisProjectionOperator)
+        polar_shift = derham.polar_splines
 
         Vt = getattr(derham, f"V{derham.space_to_form[test_space]}fem")
         Vf = getattr(derham, f"V{derham.space_to_form[field_space]}fem")
@@ -1144,7 +1157,9 @@ class ProjectionAdjointMatrix(LinearOperator):
                 if not any(key[0] == i and key[1] == k for key in coeffs):
                     continue
                 # projection cells of the whole direction, kept where their element is local to this rank
-                pts, wts, spans_k, bases_k, subs = prepare_projection_of_basis(Vk.spaces, W1d, *all_dofs, nq, False)
+                pts, wts, spans_k, bases_k, subs = prepare_projection_of_basis(
+                    Vk.spaces, W1d, *all_dofs, nq, polar_shift
+                )
                 sel = []
                 for d in range(3):
                     el = spans_k[d][:, 0] - Vk.degree[d]
@@ -1168,7 +1183,7 @@ class ProjectionAdjointMatrix(LinearOperator):
                 for m, Vm in enumerate(Vf_c):
                     if (i, k, m) not in coeffs:
                         continue
-                    _, _, spans_m, bases_m, _ = prepare_projection_of_basis(Vm.spaces, W1d, *all_dofs, nq, False)
+                    _, _, spans_m, bases_m, _ = prepare_projection_of_basis(Vm.spaces, W1d, *all_dofs, nq, polar_shift)
                     for d in range(3):
                         # the mass kernel assumes the same first non-zero basis index for both spaces on a cell
                         assert np.all(spans_k[d][sel[d]] - Vk.degree[d] == spans_m[d][sel[d]] - Vm.degree[d])
