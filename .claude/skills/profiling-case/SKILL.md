@@ -133,6 +133,12 @@ On the cluster (login node, venv activated): `python sweep_<case>.py --upload` o
 `git@github.com:struphy-hub/profiling-data.git` (or `$PROFILING_DATA_REPO_URL`) up front and pushes every run as its
 job finishes. Without `--upload`, the script prints how to push a packaged case later with `profiling/upload.py`.
 
+Only the SLURM scripts, without submitting (to inspect or edit them, or to submit by hand):
+`python profiling/write_scripts.py <submit_or_sweep_script> [its arguments]`, e.g. `--variant <v> --ranks 16`. Off
+the clusters pass the preset with `--slurm-preset` (to submit scripts that accept it). The scripts go to the
+profiling folder and are listed with their `sbatch` command; nothing is compiled, packaged or uploaded, so runs
+submitted this way are not packaged by the driver.
+
 ## 7. PR
 
 New cases go into a PR into `devel` (params/pproc changes, submit and sweep scripts, preset changes in
