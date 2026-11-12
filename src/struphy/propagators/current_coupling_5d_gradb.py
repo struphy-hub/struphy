@@ -580,6 +580,9 @@ class CurrentCoupling5DGradB(Propagator):
                 grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
                 grad_PB_b.update_ghost_regions()
 
+            if particles.energy_budget:
+                particles.budget_begin_push(PB_b if self.b_tilde is not None else None)
+
             # save old u
             u_new = un.copy(out=self._u_new)
             u_temp = un.copy(out=self._u_temp)
@@ -652,6 +655,9 @@ class CurrentCoupling5DGradB(Propagator):
                 PB_b.update_ghost_regions()
                 grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
                 grad_PB_b.update_ghost_regions()
+
+            if particles.energy_budget:
+                particles.budget_begin_push(PB_b if self.b_tilde is not None else None)
 
             # save old u
             u_old = un.copy(out=self._u_old)
@@ -942,3 +948,6 @@ class CurrentCoupling5DGradB(Propagator):
             if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                 logger.info(f"Maxdiff up for CurrentCoupling5DGradB: {diffs['u']}")
                 logger.info("")
+
+        if particles.energy_budget:
+            particles.budget_count_refilled()

@@ -595,9 +595,16 @@ class PushGuidingCenterParallel(Propagator):
         if self.b_tilde is not None:
             self._update_b_tilde()
 
+        particles = self.variables.ions.particles
+        if particles.energy_budget:
+            particles.budget_begin_push(self._B_dot_b_pol if self.b_tilde is not None else None)
+
         # call pusher
         self._pusher(dt)
 
         # update_weights
         if self.variables.ions.species.weights_params.control_variate:
-            self.variables.ions.particles.update_weights()
+            particles.update_weights()
+
+        if particles.energy_budget:
+            particles.budget_count_refilled()

@@ -1,7 +1,6 @@
 import logging
 
 import cunumpy as xp
-from scope_profiler import ProfileManager
 
 from struphy import BaseUnits
 from struphy.io.options import LiteralOptions
@@ -284,28 +283,6 @@ class LinearMHDDriftkineticCC(LinearMHD):
 
         if self.params["energy_budget"]:
             self.energetic_ions.var.particles.enable_energy_budget()
-
-    def _b_par(self):
-        PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
-        if self._b_par_filter is not None:
-            self._b_par_filter(PBb)
-        return PBb
-
-    def integrate(self, dt, split_algo="LieTrotter"):
-        if not self.params["energy_budget"]:
-            super().integrate(dt, split_algo=split_algo)
-            return
-
-        particles = self.energetic_ions.var.particles
-        for name, h in self.propagator_calls(dt, split_algo):
-            propagator = getattr(self.propagators, name)
-            moves_markers = name in ("push_bxe", "push_parallel", "cc5d_gradb", "cc5d_curlb")
-            if moves_markers:
-                particles.budget_begin_push(self._b_par())
-            with ProfileManager.profile_region("prop: " + type(propagator).__name__, functions=[propagator.__call__]):
-                propagator(h)
-            if moves_markers:
-                particles.budget_count_refilled()
 
     def _compute_en_refill(self):
         Ab = self.mhd.mass_number
