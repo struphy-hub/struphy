@@ -370,8 +370,10 @@ class HdivBracketOperator(LinearOperator):
 
     Boundary conditions: only the normal flux of the velocity vanishes (:math:`\hat{\mathbf u} \in Z^0`); the input,
     the output and :math:`\hat{\mathbf y}` are restricted with ``derham.boundary_ops["2"]``.
-    Needs degree :math:`p \geq 2` (2-forms continuous, :math:`\hat{\mathbf y} \in H(\textnormal{curl})`); not
-    available for polar splines.
+    Needs degree :math:`p \geq 2` (2-forms continuous, :math:`\hat{\mathbf y} \in H(\textnormal{curl})`). With polar
+    splines, the matrix-free application (:meth:`apply_values`) integrates against the tensor-product basis functions
+    and applies the polar extraction operators; the weight :math:`1/\sqrt g` is evaluated at the Gauss points, never on
+    the pole.
 
     Parameters
     ----------
@@ -392,9 +394,8 @@ class HdivBracketOperator(LinearOperator):
     """
 
     def __init__(self, derham: Derham, domain, mass_ops, tol: float = 1e-14, maxiter: int = 1000):
-        from struphy.feec.preconditioner import MassMatrixPreconditioner
+        from struphy.feec.preconditioner import mass_matrix_preconditioner
 
-        assert not derham.polar_splines, "HdivBracketOperator is not available for polar splines."
         reduced = tuple(n == 1 and periodic for n, periodic in zip(derham.num_elements, derham.spl_kind))
         assert all(r or p >= 2 for r, p in zip(reduced, derham.degree)), (
             f"The bracket of a velocity in H(div) needs degree >= 2 (except in periodic directions with one "
@@ -414,7 +415,7 @@ class HdivBracketOperator(LinearOperator):
         self._MZ = mass_ops.create_weighted_mass(
             "Hdiv", "Hdiv", weights=("Identity",), name="M2_logical", assemble=True
         )
-        self._pc_MZ = MassMatrixPreconditioner(self._MZ)
+        self._pc_MZ = mass_matrix_preconditioner(self._MZ, dim_reduce=0)
         self._inv_MZ = self.new_momentum_solver()
 
         # local quadrature points of the mass matrices (the same for all spaces)
@@ -471,6 +472,13 @@ class HdivBracketOperator(LinearOperator):
         self._tmp_3b = derham.V3pol.zeros()
         self._tmp_int_2 = derham.V2.zeros()
         self._tmp_int_3 = derham.V3.zeros()
+        # polar splines: integrals against the polar basis functions (extraction of the tensor-product integrals)
+        self._polar = derham.polar_splines
+        if self._polar:
+            self._E2 = derham.extraction_ops["2"]
+            self._E3 = derham.extraction_ops["3"]
+            self._tmp_pol_2 = derham.V2pol.zeros()
+            self._tmp_pol_3 = derham.V3pol.zeros()
 
         self._has_momentum = False
 
@@ -598,6 +606,8 @@ class HdivBracketOperator(LinearOperator):
             g += y_q[k] * u_q[k]
         g *= s
         I3 = self._int_3.integrate([g], out=self._tmp_int_3)
+        if self._polar:
+            I3 = self._E3.dot(I3, out=self._tmp_pol_3)
         self._divT.dot(I3, out=out)
 
         # - int Lambda^2 . (y div u + curl y x u) / sqrt g
@@ -610,6 +620,8 @@ class HdivBracketOperator(LinearOperator):
         for k in range(3):
             f[k] *= -s
         I2 = self._int_2.integrate(f, out=self._tmp_int_2)
+        if self._polar:
+            I2 = self._E2.dot(I2, out=self._tmp_pol_2)
         out += self._bc.dot(I2, out=self._tmp_2)
         return out
 
@@ -2739,7 +2751,9 @@ def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1
     the :math:`\mathbf E \times \mathbf B` flows if ``options.exb_correction``. Its :meth:`build` gives the
     preconditioner for a time step. For a velocity in :math:`H(\textnormal{div})` (``u_space="Hdiv"``), the operators
     are ``basis_ops.T2`` and ``mass_ops.M2n``, as in
-    :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`.
+    :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`. With polar splines, the 2D x 1D
+    version :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner` is built (without the
+    :math:`\mathbf E \times \mathbf B` correction).
 
     Parameters
     ----------
@@ -2764,8 +2778,6 @@ def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1
     unmet = list(unmet)
     if options.solver not in ("pcg", "pbicgstab", "rpbicgstab"):
         unmet += ['solver="pcg", "pbicgstab" or "rpbicgstab"']
-    if propagator.derham.polar_splines:
-        unmet += ["tensor-product splines"]
     if propagator.derham.with_local_projectors:
         unmet += ["the global commuting projectors"]
     if unmet:

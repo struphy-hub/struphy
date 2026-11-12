@@ -282,7 +282,5 @@ class VariationalPerturbativeMHD(VariationalLinearMHD):
           steps)
         - kinetic or particle-resolved plasma effects
         - entropy- or q-based thermodynamic formulations
-        - ``u_space="Hdiv"`` with polar splines (the nonlinear steps in :math:`H(\textnormal{div})` are available for
-          tensor-product splines only)
         - exact energy balance of the dissipation with polar splines (the heating of the pressure is exact only if the
           constants are in the space of 3-forms, which is not the case for polar splines)"""

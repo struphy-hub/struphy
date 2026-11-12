@@ -155,8 +155,7 @@ def test_hdiv_bracket_matrix_free(map_name):
     assert (diff.inner(diff) / Bu.inner(Bu)) ** 0.5 < 1e-10
 
 
-def test_hdiv_bracket_rejects_polar():
-    """Polar splines are not supported."""
+def _polar_derham():
     domain = domains.IGAPolarCylinder(num_elements=(6, 9), degree=(2, 2), a=1.0, Lz=3.0)
     grid = TensorProductGrid(num_elements=(6, 9, 2))
     derham = Derham(
@@ -165,9 +164,46 @@ def test_hdiv_bracket_rejects_polar():
         comm=MPI.COMM_WORLD,
         domain=domain,
     )
+    return derham, domain
+
+
+def _random_polar_vector(derham, form, seed):
+    """A random vector of the polar space of ``form`` (the extraction of random tensor-product coefficients)."""
+    return derham.extraction_ops[form].dot(_random_vector(derham.extraction_ops[form].domain, seed))
+
+
+def test_hdiv_bracket_polar():
+    """With polar splines: the bracket is skew-symmetric, its output satisfies the boundary conditions, and the
+    matrix-free application (tensor-product integrals with the polar extraction) equals the assembled bracket."""
+    derham, domain = _polar_derham()
     mass_ops = WeightedMassOperators(derham, domain)
-    with pytest.raises(AssertionError):
-        HdivBracketOperator(derham, domain, mass_ops)
+    B = HdivBracketOperator(derham, domain, mass_ops)
+    bc = derham.boundary_ops["2"]
+
+    m = mass_ops.M2.dot(_random_polar_vector(derham, "2", 7))
+    B.update_momentum(m)
+    u = bc.dot(_random_polar_vector(derham, "2", 3))
+    v = bc.dot(_random_polar_vector(derham, "2", 5))
+    Bu = B.dot(u)
+    Bv = B.dot(v)
+    scale = (Bu.inner(Bu) * v.inner(v)) ** 0.5
+    assert abs(v.inner(Bu) + u.inner(Bv)) / scale < 1e-12
+    assert abs(u.inner(Bu)) / scale < 1e-12
+    diff = bc.dot(Bu) - Bu
+    assert diff.inner(diff) == 0.0
+
+    shape = B.shape_q
+    u_q = [xp.zeros(shape) for _ in range(3)]
+    divu_q = xp.zeros(shape)
+    B.velocity_values(u, u_q, divu_q)
+    Bu_free = B.apply_values(u_q, divu_q, B._y_q, B._c_q)
+    diff = Bu - Bu_free
+    assert (diff.inner(diff) / Bu.inner(Bu)) ** 0.5 < 1e-12
+
+    D = HdivBracketMomentumDerivative(B)
+    D.set_velocity(u)
+    diff = D.dot(m) - Bu
+    assert (diff.inner(diff) / Bu.inner(Bu)) ** 0.5 < 1e-10
 
 
 if __name__ == "__main__":

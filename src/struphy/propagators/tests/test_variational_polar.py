@@ -54,7 +54,7 @@ def test_variational_mhd_with_q_polar(mpi_out_folder):
 # second-order forces (ProjectionAdjointMatrix: the matrix F of the Alfven step, A of the sound step) with polar splines.
 
 
-def _variational_p_polar(model, out_folder: str, sim_folder: str) -> Simulation:
+def _variational_p_polar(model, out_folder: str, sim_folder: str, degree=(2, 2, 1)) -> Simulation:
     """Allocated simulation of ``model`` (VariationalLinearMHD or VariationalPerturbativeMHD, ideal) on a polar cylinder
     with a screw pinch, with the propagator options of the model and a velocity perturbation."""
     for name, variant in model.propagator_variants.items():
@@ -68,7 +68,7 @@ def _variational_p_polar(model, out_folder: str, sim_folder: str) -> Simulation:
         domain=domains.IGAPolarCylinder(num_elements=(4, 6), degree=(2, 2), a=1.0, Lz=4.0),
         equil=equils.ScrewPinch(a=1.0, R0=4.0 / (2 * np.pi), B0=1.0, q0=1.05, q1=1.8, n1=0.0, n2=0.0, na=1.0, beta=0.1),
         grid=grids.TensorProductGrid(num_elements=(4, 6, 2)),
-        derham_opts=DerhamOptions(degree=(2, 2, 1), bcs=(("free", "dirichlet"), None, None), polar_splines=True),
+        derham_opts=DerhamOptions(degree=degree, bcs=(("free", "dirichlet"), None, None), polar_splines=True),
     )
     for comp, (ls, ms) in enumerate((((1,), (1,)), ((1,), (2,)), ((2,), (1,)))):
         model.mhd.velocity.add_perturbation(
@@ -119,14 +119,20 @@ def test_projection_adjoint_matrices_polar(mpi_out_folder, u_space):
     assert_close(sound._A.dot(p).inner(u), sound._lf0.inner(sound._Ss.dot(u)), "A")
 
 
-# relative change of the energy over three steps; measured: about 2e-9 (VariationalLinearMHD, H1vec), 6e-10 (Hdiv)
-# and 5e-11 (VariationalPerturbativeMHD), bounded by the default solver and Newton tolerances of the propagators
-ENERGY_TOL_P = 1e-8
+# relative change of the energy over three steps; measured: about 2e-9 (VariationalLinearMHD, H1vec), 6e-10 (Hdiv),
+# 5e-11 (VariationalPerturbativeMHD, H1vec) and 5e-9 (Hdiv; 1e-8 for the same case on a hollow cylinder with
+# tensor-product splines), bounded by the default solver and Newton tolerances of the propagators
+ENERGY_TOL_P = 5e-8
 
 
 @pytest.mark.parametrize(
     "model_class, u_space",
-    [("VariationalLinearMHD", "H1vec"), ("VariationalLinearMHD", "Hdiv"), ("VariationalPerturbativeMHD", "H1vec")],
+    [
+        ("VariationalLinearMHD", "H1vec"),
+        ("VariationalLinearMHD", "Hdiv"),
+        ("VariationalPerturbativeMHD", "H1vec"),
+        ("VariationalPerturbativeMHD", "Hdiv"),
+    ],
 )
 def test_variational_p_models_polar(mpi_out_folder, model_class, u_space):
     """The ideal linear and perturbative variational MHD models (pressure p) with polar splines: the velocity changes
@@ -134,7 +140,9 @@ def test_variational_p_models_polar(mpi_out_folder, model_class, u_space):
     from struphy import models
 
     model = getattr(models, model_class)(u_space=u_space, with_viscosity=False, with_resistivity=False)
-    _variational_p_polar(model, mpi_out_folder, f"{model_class}_{u_space}")
+    # the bracket of the nonlinear model with a velocity in H(div) needs degree >= 2 in all directions
+    degree = (2, 2, 2) if (model_class, u_space) == ("VariationalPerturbativeMHD", "Hdiv") else (2, 2, 1)
+    _variational_p_polar(model, mpi_out_folder, f"{model_class}_{u_space}", degree=degree)
 
     def energy():
         model.scalars.update()
