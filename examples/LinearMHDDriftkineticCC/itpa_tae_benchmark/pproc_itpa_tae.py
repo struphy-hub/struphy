@@ -17,6 +17,10 @@ saved time steps) are written into ``<path_out>/results/frames/``: ``u_r_rz`` (t
 (3D, the camera on the poloidal cross-section of the cutaway) and ``u_r_3d`` (3D, the whole torus with the
 cutaway), see ``struphy.post_processing.frames``. Make a video e.g. with
 ``ffmpeg -framerate 25 -i frame_%04d.png -pix_fmt yuv420p u_r_rz.mp4`` in a frames folder.
+
+With ``--save-results`` (passed by ``submit_LinearMHDDriftkineticCC_scaling.py`` after each profiling run,
+``--setup profiling``) the scope-profiler HTML report and a summary of the cost per step and of the solver iterations
+are written into ``<path_out>/results`` instead of the plots.
 """
 
 import argparse
@@ -30,6 +34,7 @@ from matplotlib import pyplot as plt
 from struphy import Output
 from struphy.post_processing.frames import write_videos
 from struphy.post_processing.plot_3d import plot_field_3d
+from struphy.post_processing.profiling import save_profiling_results
 from struphy.post_processing.slices import plot_physical_slices
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -403,6 +408,33 @@ def main(path_out=None, save_figs=True, compare=None, fit_window=FIT_WINDOW, fra
             assert gamma > 0.0, f"The TAE does not grow (gamma = {gamma:.4g})."
 
 
+def save_results(path_out):
+    """Write the scope-profiler report and the summary of the cost per step and of the solver iterations into
+    ``<path_out>/results`` (:func:`struphy.post_processing.profiling.save_profiling_results`)."""
+    info = {
+        "num_elements": list(args.num_elements),
+        "degree": list(args.degree),
+        "b_space": args.b_space,
+        "projected": args.projected,
+        "a1": args.a1,
+        "Np": args.Np,
+        "filter": args.filter,
+        "drift_algo": args.drift_algo,
+        "parallel_algo": args.parallel_algo,
+        "dt": args.dt,
+    }
+    summary = save_profiling_results(path_out, info=info)
+    step_times = summary["step_times"]
+    iterations = ", ".join(
+        f"{mean:.1f} iterations per step ({name})" for name, mean in summary["solver_iterations_mean"].items()
+    )
+    print(
+        f"\nstep: median {1e3 * summary['step_median']:.3f} ms (first step {1e3 * step_times[0]:.3f} ms)"
+        + (f"; {iterations}" if iterations else "")
+    )
+    Output(path_out).profile.results.print_summary(include=["^prop: "], sort="total", title="propagators")
+
+
 def cli():
     """Parse the command line and post-process."""
     # the flags of the run are parsed by the params file, the rest here
@@ -432,7 +464,17 @@ def cli():
     pproc_parser.add_argument(
         "--max-frames", type=int, default=500, help="Largest number of frames per video (default: 500)."
     )
+    pproc_parser.add_argument(
+        "--save-results",
+        action="store_true",
+        help="Write the profiling results (scope-profiler report, cost summary) instead of the plots.",
+    )
     pproc_args = pproc_parser.parse_args(other_flags)
+    if pproc_args.save_results and args.setup != "profiling":
+        pproc_parser.error("--save-results needs the run's --setup profiling")
+    if pproc_args.save_results:
+        save_results(pproc_args.path_out)
+        return
     main(
         pproc_args.path_out,
         save_figs=not pproc_args.show,
