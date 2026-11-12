@@ -140,6 +140,15 @@ parser.add_argument(
     "--a1", type=float, default=0.1, help="Radius of the hole around the magnetic axis (default 0.1, in units of a)."
 )
 parser.add_argument(
+    "--sound-precond",
+    default="auto",
+    choices=["auto", "stiffness", "mass"],
+    help="Preconditioner of the sound wave step: the Kronecker preconditioner of its whole Schur complement "
+    "(StiffnessPreconditioner), the mass matrix preconditioner of the density-weighted mass matrix (polar with "
+    "--polar), or auto (default of SoundWaveLinear: the Kronecker preconditioner with --polar, else the mass matrix "
+    "preconditioner).",
+)
+parser.add_argument(
     "--polar",
     action="store_true",
     help="C1 polar splines on the full torus without hole (IGAPolarTorus) instead of tensor-product splines on the "
@@ -340,7 +349,9 @@ model.propagators.bg_current.options = model.propagators.bg_current.Options(
     precond=mass_precond, solver_params=SolverParameters(info=profiling)
 )
 model.propagators.sound.options = model.propagators.sound.Options(
-    precond=mass_precond, precond_M3=mass_precond, solver_params=SolverParameters(info=profiling)
+    precond={"auto": "auto", "stiffness": "StiffnessPreconditioner", "mass": mass_precond}[args.sound_precond],
+    precond_M3=mass_precond,
+    solver_params=SolverParameters(info=profiling),
 )
 model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 

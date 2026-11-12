@@ -85,6 +85,9 @@ class LiteralOptions:
         "ToroidalFourierPreconditioner",
         None,
     ]
+    OptsSoundWavePrecond = Literal[
+        "auto", "StiffnessPreconditioner", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
+    ]
     OptsMaxwellPrecond = Literal[
         "StiffnessPreconditioner", "MassMatrixPreconditioner", "PolarMassMatrixPreconditioner", None
     ]
