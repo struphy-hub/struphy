@@ -93,6 +93,17 @@ SLURM_PRESETS: dict[str, dict] = {
         "mail_type": "none",
         "time": "00:15:00",
     },
+    # MPCDF Raven, standard CPU nodes (72 cores, 256 GB). Jobs on less than half a node would share it with other
+    # jobs; requesting the memory of the whole node (in MB) allocates the full node also for the small rank counts,
+    # so that all runs of a strong scaling see the same hardware. No account or partition needed.
+    "raven": {
+        "cpus_per_task": 1,
+        "mem": "240000",
+        "output": "./%x.%j.out",
+        "error": "./%x.%j.err",
+        "mail_type": "none",
+        "time": "00:15:00",
+    },
 }
 
 HARDWARE_INFO: dict[str, dict] = {
