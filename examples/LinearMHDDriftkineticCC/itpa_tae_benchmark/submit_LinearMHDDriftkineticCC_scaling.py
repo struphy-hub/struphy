@@ -9,7 +9,7 @@ system, runs directly on this machine, where the rank counts that exceed the loc
 then packages (and with `--upload` uploads) each run as soon as its own job finishes. Each generated script runs the
 simulation by invoking `params_itpa_tae_B0.py` directly (its `__main__` block is the worker) with `--setup profiling`
 (`--steps` time steps, default 50, solver iterations logged), and then writes the scope-profiler report and the cost
-summary (time per step, solver iterations per step of the shear Alfven step, the current couplings and the
+summary (time per step, solver iterations per call of the shear Alfven step, the current couplings and the
 compressional steps) with `pproc_itpa_tae_B0.py --save-results`. The job scripts, SLURM logs and runs go to the
 profiling folder of the driver: on Raven `/ptmp/<user>/struphy_profiling` (the scratch file system,
 `clusters.SCRATCH_DIRS`), elsewhere `_profiling_jobs/` in the repo; `$STRUPHY_PROFILING_DIR/struphy_profiling` if that

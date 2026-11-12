@@ -340,7 +340,7 @@ model.propagators.bg_current.options = model.propagators.bg_current.Options(
     precond=mass_precond, solver_params=SolverParameters(info=profiling)
 )
 model.propagators.sound.options = model.propagators.sound.Options(
-    precond=mass_precond, solver_params=SolverParameters(info=profiling)
+    precond=mass_precond, precond_M3=mass_precond, solver_params=SolverParameters(info=profiling)
 )
 model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 

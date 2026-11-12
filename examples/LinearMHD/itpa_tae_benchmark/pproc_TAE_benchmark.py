@@ -92,7 +92,7 @@ def save_results(path_out):
     summary = save_profiling_results(path_out, info=info)
     step_times = summary["step_times"]
     iterations = ", ".join(
-        f"{mean:.1f} iterations per step ({name})" for name, mean in summary["solver_iterations_mean"].items()
+        f"{mean:.1f} iterations per call ({name})" for name, mean in summary["solver_iterations_mean"].items()
     )
     print(
         f"\nstep: median {1e3 * summary['step_median']:.3f} ms (first step {1e3 * step_times[0]:.3f} ms)"
