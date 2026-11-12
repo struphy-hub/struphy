@@ -7,6 +7,7 @@ from struphy.models.scalars import FunctionScalarPIC
 from struphy.models.species import ParticleSpecies
 from struphy.models.utils import (
     add_energetic_ion_scalars,
+    b_par_filter,
     energetic_ion_mu_energy,
     set_guiding_center_push_algos,
 )
@@ -191,9 +192,12 @@ class PerturbativeMHDWithQDriftkineticCC(PerturbativeMHDWithQ):
 
         # parallel component of the magnetic field perturbation (2-form), a 0-form
         self._PB = Propagator.basis_ops.PB
+        self._b_par_filter = b_par_filter(self.propagators)
 
     def _compute_en_fB(self):
-        return energetic_ion_mu_energy(self.mhd, self.energetic_ions, self._PB, self.em_fields.b_field)
+        return energetic_ion_mu_energy(
+            self.mhd, self.energetic_ions, self._PB, self.em_fields.b_field, b_par_filter=self._b_par_filter
+        )
 
     ## abstract methods for documentation
 

@@ -17,13 +17,11 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
     "g_inv",
     "e",
     "u",
-    "ud",
     "bb",
     "b_star",
     "norm_b1",
     "curl_norm_b",
     "tmp1",
-    "tmp2",
     "b_prod",
     "norm_b_prod",
     "eta_old",
@@ -47,13 +45,24 @@ def push_gc_cc_J2_dg_Hdiv(
     u1: "float[:,:,:]",
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
-    ud1: "float[:,:,:]",
-    ud2: "float[:,:,:]",
-    ud3: "float[:,:,:]",
-    const: float,
     alpha: float,
+    periodic: "bool[:]",
 ):
-    r"""TODO"""
+    r"""One fixed-point iteration of the marker positions of
+    :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB` (``algo="discrete_gradient"``,
+    ``u_space="Hdiv"``):
+
+    .. math::
+
+        \boldsymbol \eta^{k+1}_p = \alpha \big( \boldsymbol \eta^n_p - \Delta t\, \mathbf e_p \big)
+        + (1 - \alpha)\, \boldsymbol \eta^k_p\,, \qquad
+        \mathbf e_p = \frac{1}{\sqrt g\, \hat B^*_\parallel} \hat{\mathbf b}_0 \times \big( \hat{\mathbf B} \times
+        \hat{\mathbf u} \big),
+
+    evaluated at the mid-point :math:`(\boldsymbol \eta^k_p + \boldsymbol \eta^n_p)/2`, with the total field ``b``
+    and the mid-point velocity ``u`` (2-forms). ``alpha`` is the relaxation factor. The mid-point is folded into [0, 1] in the directions where
+    ``periodic`` is False.
+    """
 
     # allocate metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -63,12 +72,10 @@ def push_gc_cc_J2_dg_Hdiv(
 
     # containers for fields
     tmp1 = zeros((3, 3), dtype=float)
-    tmp2 = zeros(3, dtype=float)
     b_prod = zeros((3, 3), dtype=float)
     norm_b_prod = zeros((3, 3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
-    ud = empty(3, dtype=float)
     bb = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
@@ -91,7 +98,14 @@ def push_gc_cc_J2_dg_Hdiv(
         # marker positions, mid point
         eta_old[:] = markers[0:3, ip]
         eta_mid[:] = (markers[0:3, ip] + markers[first_pusher_idx : first_pusher_idx + 3, ip]) / 2.0
-        eta_mid[:] = mod(eta_mid[:], 1.0)
+
+        for i in range(3):
+            if periodic[i]:
+                eta_mid[i] = mod(eta_mid[i], 1.0)
+            else:
+                eta_mid[i] = mod(eta_mid[i], 2.0)
+                if eta_mid[i] > 1.0:
+                    eta_mid[i] = 2.0 - eta_mid[i]
 
         v = markers[3, ip]
 
@@ -135,18 +149,6 @@ def push_gc_cc_J2_dg_Hdiv(
             u2,
             u3,
             u,
-        )
-
-        # ud; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            ud1,
-            ud2,
-            ud3,
-            ud,
         )
 
         # norm_b1; 1form
@@ -196,10 +198,6 @@ def push_gc_cc_J2_dg_Hdiv(
 
         linalg_kernels.matrix_matrix(norm_b_prod, b_prod, tmp1)
         linalg_kernels.matrix_vector(tmp1, u, e)
-        linalg_kernels.matrix_vector(tmp1, ud, tmp2)
-        tmp2 *= const
-
-        e += tmp2
 
         e /= abs_b_star_para
         e /= det_df

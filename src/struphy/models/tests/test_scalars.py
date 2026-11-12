@@ -215,6 +215,7 @@ def test_en_fB_ignores_ghost_markers():
             energetic_ions=SimpleNamespace(var=var),
             _PB=SimpleNamespace(dot=lambda v: None),
             em_fields=SimpleNamespace(b_field=SimpleNamespace(spline=SimpleNamespace(vector=None))),
+            _b_par_filter=None,
         )
         return {GuidingCenter: gc, LinearMHDDriftkineticCC: cc, PerturbativeMHDWithQDriftkineticCC: cc}
 
