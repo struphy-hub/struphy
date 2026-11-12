@@ -21,7 +21,6 @@ cutaway), see ``struphy.post_processing.frames``. Make a video e.g. with
 import argparse
 import json
 import os
-import statistics
 import sys
 from pathlib import Path
 
@@ -31,6 +30,7 @@ from matplotlib import pyplot as plt
 from struphy import Output
 from struphy.post_processing.frames import write_videos
 from struphy.post_processing.plot_3d import plot_field_3d
+from struphy.post_processing.profiling import save_profiling_results
 from struphy.post_processing.slices import plot_physical_slices
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -158,45 +158,29 @@ def finish(figs, results_dir, save_figs):
             plt.close(fig)
 
 
-def save_profiling_results(path_out):
-    """Write the scope-profiler HTML report and a summary of the cost per step into ``<path_out>/results``."""
-    from scope_profiler import create_html_report
-
-    out = Output(path_out)
-    results = out.profile.results  # the scope-profiler results of the run, all ranks merged
-    results_dir = Path(out.path_out) / "results"
-    results_dir.mkdir(exist_ok=True)
-
-    # the full scope-profiler report: call tree, charts, per-rank statistics
-    create_html_report(results, results_dir / "report.html")
-
-    # cost per step from the `model.integrate` region (the maximum over the ranks per step); the first step includes
-    # one-time work (CUDA module loads, allocations of work arrays), so the median leaves it out
-    integrate = results["model.integrate"]
-    per_rank = [integrate[rank].durations for rank in integrate.ranks]
-    n_calls = min(len(durations) for durations in per_rank)
-    step_times = np.max([durations[:n_calls] for durations in per_rank], axis=0)
-    step_median = float(statistics.median(step_times[1:] if len(step_times) > 1 else step_times))
-    summary = {
+def save_results(path_out):
+    """Write the scope-profiler report and the summary of the cost per step into ``<path_out>/results``
+    (:func:`struphy.post_processing.profiling.save_profiling_results`), with the cost per marker and step."""
+    info = {
         "backend": os.environ.get("CUNUMPY_BACKEND", "numpy"),
-        "mpi_ranks": results.num_ranks,
         "num_elements": list(args.num_elements),
         "n_markers": args.Np,
         "filter": args.filter,
-        "steps": len(step_times),
         "dt": args.dt,
-        "step_times": step_times.tolist(),
-        "step_median": step_median,
-        "ns_per_marker_step": 1e9 * step_median / args.Np,
     }
-    (results_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    # the first step includes one-time work (CUDA module loads, allocations of work arrays): the median leaves it out
+    summary = save_profiling_results(path_out, info=info)
+    summary["ns_per_marker_step"] = 1e9 * summary["step_median"] / args.Np
+    (Path(path_out) / "results" / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
     print(
-        f"\nstep: median {1e3 * step_median:.3f} ms (first step {1e3 * step_times[0]:.3f} ms), "
+        f"\nstep: median {1e3 * summary['step_median']:.3f} ms (first step {1e3 * summary['step_times'][0]:.3f} ms), "
         f"{summary['ns_per_marker_step']:.1f} ns per marker and step ({args.Np:,} markers)"
     )
     # the propagators and kernels of the run; on the CuPy backend with GPU columns
-    results.print_summary(include=["^prop: ", "^kernel: "], sort="total", title="propagators and kernels")
+    Output(path_out).profile.results.print_summary(
+        include=["^prop: ", "^kernel: "], sort="total", title="propagators and kernels"
+    )
 
 
 def main(path_out=DEFAULT_OUTPUT, save_figs=True, frames=True, max_frames=500):
@@ -326,7 +310,7 @@ if __name__ == "__main__":
     if pproc_args.save_results and args.setup != "profiling":
         pproc_parser.error("--save-results needs the run's --setup profiling")
     if pproc_args.save_results:
-        save_profiling_results(pproc_args.path_out)
+        save_results(pproc_args.path_out)
     else:
         main(
             pproc_args.path_out,

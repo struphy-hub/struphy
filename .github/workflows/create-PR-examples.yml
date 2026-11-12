@@ -33,11 +33,11 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b from-struphy-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
-            # the submit_*.py scripts of the profiling cases need the profiling driver in profiling/,
+            # the submit_*.py and sweep_*.py scripts of the profiling cases need the profiling driver in profiling/,
             # which is not part of the examples repo;
             # --delete removes examples that were renamed or removed in struphy (excluded files are kept)
             rsync -a --delete \
-              --exclude 'submit_*.py' --exclude '__pycache__' \
+              --exclude 'submit_*.py' --exclude 'sweep_*.py' --exclude '__pycache__' \
               --exclude '.git' --exclude '.github' --exclude '.gitignore' --exclude 'LICENSE' \
               ../examples/ ./
             git status
