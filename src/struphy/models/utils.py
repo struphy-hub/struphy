@@ -365,6 +365,26 @@ def set_guiding_center_push_algos(params_path: str, algos: dict = GC_PUSH_ALGOS)
         f.writelines(lines)
 
 
+def b_par_filter(propagators):
+    """The Fourier filter of the parallel magnetic perturbation: that of the energetic-ion deposit of ``shear_alf``
+    (``use_filter="fourier_in_tor"``), or None. ``push_bxe``, ``push_parallel`` and ``cc5d_gradb`` must filter the
+    parallel magnetic perturbation with the same modes, otherwise the energy is not conserved."""
+
+    def fourier_modes(propagator):
+        params = propagator.options.filter_params
+        return tuple(params.modes) if params.use_filter == "fourier_in_tor" else None
+
+    modes = fourier_modes(propagators.shear_alf)
+    mismatch = [
+        name for name in ("push_bxe", "push_parallel", "cc5d_gradb") if fourier_modes(getattr(propagators, name)) != modes
+    ]
+    if mismatch:
+        expected = f'FilterParameters(use_filter="fourier_in_tor", modes={modes})' if modes else "no Fourier filter"
+        raise ValueError(f"filter_params of {mismatch} must match shear_alf ({expected}) for energy conservation.")
+
+    return propagators.shear_alf._ACC.accfilter if modes is not None else None
+
+
 def energetic_ion_mu_energy(mhd, energetic_ions, PB, b_field: FEECVariable, b_par_filter=None) -> float:
     """Magnetic-moment energy of the guiding centers, :math:`\\frac{A_\\textnormal{h}}{A_\\textnormal{b}} \\sum_p w_p
     \\mu_p |\\mathbf B|(\\boldsymbol \\eta_p)`, with the parallel component of the magnetic field perturbation

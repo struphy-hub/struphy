@@ -14,7 +14,7 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import DiscreteGradientSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
-from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB import cc_lin_mhd_5d_gradB
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg import cc_lin_mhd_5d_gradB_dg
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_gradB_dg_init import cc_lin_mhd_5d_gradB_dg_init
@@ -252,10 +252,13 @@ class CurrentCoupling5DGradB(Propagator):
         self._options = new
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
-    b_par_filter = None
-
     @profile
     def allocate(self):
+        # Fourier filter of the parallel magnetic perturbation (the 0-form deposit of shear_alf is filtered)
+        self._b_par_filter = None
+        if self.options.filter_params.use_filter == "fourier_in_tor":
+            self._b_par_filter = AccumFilter(self.options.filter_params, self.derham, "H1")
+
         # extraction of b_tilde to the tensor-product space read by the kernels (polar splines)
         self._EbT_tilde = self.derham.extraction_ops[self._b_form].transpose()
         self._b_tilde_tp = self._EbT_tilde.codomain.zeros()
@@ -575,8 +578,8 @@ class CurrentCoupling5DGradB(Propagator):
         if self.options.algo == "explicit":
             if self.b_tilde is not None:
                 PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
-                if self.b_par_filter is not None:
-                    self.b_par_filter(PB_b)
+                if self._b_par_filter is not None:
+                    self._b_par_filter(PB_b)
                 grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
                 grad_PB_b.update_ghost_regions()
 
@@ -650,8 +653,8 @@ class CurrentCoupling5DGradB(Propagator):
             PB_b = self._PB_b
             if self.b_tilde is not None:
                 PB_b = self._PB.dot(self.b_tilde.spline.vector, out=self._PB_b)
-                if self.b_par_filter is not None:
-                    self.b_par_filter(PB_b)
+                if self._b_par_filter is not None:
+                    self._b_par_filter(PB_b)
                 PB_b.update_ghost_regions()
                 grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
                 grad_PB_b.update_ghost_regions()

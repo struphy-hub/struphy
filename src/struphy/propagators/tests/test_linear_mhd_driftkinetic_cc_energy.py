@@ -51,8 +51,10 @@ def test_energy_conservation_full_f(use_filter: str):
         filter_params = FilterParameters(use_filter=use_filter, modes=(1,))
         tight = SolverParameters(tol=1e-13)
         props = model.propagators
-        props.push_bxe.options = props.push_bxe.Options(algo="discrete_gradient_2nd_order")
-        props.push_parallel.options = props.push_parallel.Options(algo="discrete_gradient_1st_order_newton")
+        props.push_bxe.options = props.push_bxe.Options(algo="discrete_gradient_2nd_order", filter_params=filter_params)
+        props.push_parallel.options = props.push_parallel.Options(
+            algo="discrete_gradient_1st_order_newton", filter_params=filter_params
+        )
         props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params, solver_params=tight)
         props.cc5d_density.options = props.cc5d_density.Options(solver_params=tight)
         props.cc5d_gradb.options = props.cc5d_gradb.Options(

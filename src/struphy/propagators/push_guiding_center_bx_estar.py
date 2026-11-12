@@ -7,6 +7,7 @@ from typing import Literal
 from line_profiler import profile
 
 from struphy.io.options import LiteralOptions, OptionsBase
+from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.pushing.kernel_setup import KernelSetup
@@ -146,6 +147,10 @@ class PushGuidingCenterBxEstar(Propagator):
 
         mpi_sort : LiteralOptions.OptsMPIsort, default="each"
             MPI sorting policy for particle exchange.
+
+        filter_params : FilterParameters, default=None
+            With ``use_filter="fourier_in_tor"``, the Fourier filter applied to the parallel magnetic perturbation
+            (the filter of the energetic-ion deposits, for energy conservation); defaults to ``FilterParameters()``.
         """
 
         # specific literals
@@ -162,6 +167,7 @@ class PushGuidingCenterBxEstar(Propagator):
         maxiter: int = 20
         tol: float = 1e-7
         mpi_sort: LiteralOptions.OptsMPIsort = "each"
+        filter_params: FilterParameters = None
 
         def __post_init__(self):
             # checks
@@ -171,6 +177,9 @@ class PushGuidingCenterBxEstar(Propagator):
             # defaults
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
+
+            if self.filter_params is None:
+                self.filter_params = FilterParameters()
 
     @property
     def options(self) -> Options:
@@ -184,12 +193,14 @@ class PushGuidingCenterBxEstar(Propagator):
         self._options = new
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
-    b_par_filter = None
-
     @profile
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
+
+        self._b_par_filter = None
+        if self.options.filter_params.use_filter == "fourier_in_tor":
+            self._b_par_filter = AccumFilter(self.options.filter_params, self.derham, "H1")
 
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
@@ -521,8 +532,8 @@ class PushGuidingCenterBxEstar(Propagator):
     def _update_b_tilde(self):
         """Parallel magnetic perturbation and its gradient (plus equilibrium) in the tensor-product spaces."""
         B_dot_b_pol = self._PB.dot(self.b_tilde.spline.vector, out=self._B_dot_b_pol)
-        if self.b_par_filter is not None:
-            self.b_par_filter(B_dot_b_pol)
+        if self._b_par_filter is not None:
+            self._b_par_filter(B_dot_b_pol)
         B_dot_b = self._E0T.dot(B_dot_b_pol, out=self._B_dot_b)
         B_dot_b.update_ghost_regions()
 

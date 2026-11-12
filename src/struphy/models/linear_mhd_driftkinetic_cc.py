@@ -9,6 +9,7 @@ from struphy.models.scalars import FunctionScalarPIC
 from struphy.models.species import ParticleSpecies
 from struphy.models.utils import (
     add_energetic_ion_scalars,
+    b_par_filter,
     energetic_ion_mu_energy,
     magnetic_discretization_doc,
     set_guiding_center_push_algos,
@@ -275,11 +276,7 @@ class LinearMHDDriftkineticCC(LinearMHD):
         # parallel component of the magnetic field perturbation (2-form or 1-form), a 0-form
         self._PB = Propagator.basis_ops.PB if self._b_space == "Hdiv" else Propagator.basis_ops.PB1form
 
-        accfilter = self.propagators.shear_alf._ACC.accfilter
-        self._b_par_filter = accfilter if accfilter.params.use_filter == "fourier_in_tor" else None
-        self.propagators.push_bxe.b_par_filter = self._b_par_filter
-        self.propagators.push_parallel.b_par_filter = self._b_par_filter
-        self.propagators.cc5d_gradb.b_par_filter = self._b_par_filter
+        self._b_par_filter = b_par_filter(self.propagators)
 
         if self.params["energy_budget"]:
             self.energetic_ions.var.particles.enable_energy_budget()
