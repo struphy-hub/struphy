@@ -18,6 +18,7 @@ def eval_magnetic_energy_PBb(
     mu_idx: int,
     abs_B0: "float[:,:,:]",
     PBb: "float[:,:,:]",
+    periodic: "bool[:]",
 ):
     r"""
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
@@ -35,7 +36,15 @@ def eval_magnetic_energy_PBb(
         if markers[0, ip] == -1.0:
             continue
 
-        eta[:] = mod(markers[0:3, ip], 1.0)
+        eta[:] = markers[0:3, ip]
+
+        for i in range(3):
+            if periodic[i]:
+                eta[i] = mod(eta[i], 1.0)
+            else:
+                eta[i] = mod(eta[i], 2.0)
+                if eta[i] > 1.0:
+                    eta[i] = 2.0 - eta[i]
 
         weight = markers[7, ip]
         dweight = markers[5, ip]

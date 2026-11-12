@@ -388,7 +388,7 @@ def marker_operator_dot_args(case):
 
 def eval_magnetic_energy_PBb_args(domain):
     """129 markers in domain `domain` of geometry_domain(): marker 0 is a hole, markers 1 and 2 have positions outside
-    [0, 1) (evaluated at mod(eta, 1)); the result goes to the diagnostics column."""
+    [0, 1) (folded in the non-periodic eta1, wrapped in the periodic eta2); the result goes to the diagnostics column."""
     args_markers, _ = marker_arguments((0, 0, 0))
     markers = args_markers.markers
     markers[0, 1] = 1.3
@@ -401,12 +401,13 @@ def eval_magnetic_energy_PBb_args(domain):
         args_markers.mu_idx,
         *offset_coefficients(1, 56, 2.0),  # abs_B0
         *spline_coefficients(n=1, seed=57),  # PBb
+        xp.array([False, True, True]),  # periodic
     )
 
 
 def eval_gradB_ediff_args(domain):
     """129 markers in domain `domain` of geometry_domain(): marker 0 is a hole, the old positions (first_pusher_idx)
-    are shifted by up to 0.05 and the midpoint of marker 2 lies outside [0, 1) (evaluated at mod(eta_mid, 1)); the
+    are shifted by up to 0.05 and the midpoint of marker 2 lies outside [0, 1) (folded in the non-periodic eta1); the
     result goes to column 19."""
     args_markers, _ = marker_arguments((0, 0, 0))
     markers = args_markers.markers
@@ -420,6 +421,7 @@ def eval_gradB_ediff_args(domain):
         derham_arguments(),
         *spline_coefficients(n=6, seed=59),  # gradB, grad_PB_b
         19,
+        xp.array([False, True, True]),  # periodic
     )
 
 

@@ -257,16 +257,12 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
         markers[0:3, ip] = eta_n + dt * k
         markers[3, ip] = v_n + dt * k_v
 
-        # residual (relative in v, absolute if v_k == 0)
-        v_scale = abs(v_k)
-        if v_scale == 0.0:
-            v_scale = 1.0
-
+        # residual
         markers[residual_idx, ip] = sqrt(
             (markers[0, ip] - eta_k[0]) ** 2
             + (markers[1, ip] - eta_k[1]) ** 2
             + (markers[2, ip] - eta_k[2]) ** 2
-            + ((markers[3, ip] - v_k) / v_scale) ** 2,
+            + (markers[3, ip] - v_k) ** 2,
         )
 
         # apply kinetic boundary conditions
