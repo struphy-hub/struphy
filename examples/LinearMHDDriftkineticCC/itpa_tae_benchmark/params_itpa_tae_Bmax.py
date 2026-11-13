@@ -136,6 +136,13 @@ parser.add_argument(
     help="Number of time steps with --setup profiling (default 50); the first one includes one-time work.",
 )
 parser.add_argument(
+    "--num-clones",
+    type=int,
+    default=1,
+    help="Number of clones (default 1): the MPI ranks are split into this many groups, each with the whole FEEC part "
+    "(domain decomposition within the clone) and its share of the markers; e.g. one clone per node.",
+)
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (num_elements = [8, 32, 4], 2000 markers) and a short run with three saved time steps, "
@@ -330,6 +337,7 @@ env = EnvironmentOptions(
     sim_folder=args.sim_folder,
     max_runtime=24 * 60,
     save_restart=not profiling,
+    num_clones=args.num_clones,
 )
 
 # Time stepping
@@ -366,7 +374,10 @@ if profiling:
     # scope-profiler run label, the name of the run in the comparison plots of the profiling-data page
     num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
     profiling_opts = ProfilingOptions(
-        label=f"{num_ranks} rank" + ("s" if num_ranks != 1 else ""), use_line_profiler=False
+        label=f"{num_ranks} rank"
+        + ("s" if num_ranks != 1 else "")
+        + (f" ({args.num_clones} clones)" if args.num_clones > 1 else ""),
+        use_line_profiler=False,
     )
 else:
     profiling_opts = ProfilingOptions(use_line_profiler=False)

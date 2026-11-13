@@ -1,10 +1,13 @@
-"""ITPA TAE driven by energetic ions (LinearMHDDriftkineticCC): strong scaling on one node, per space of the
-magnetic field.
+"""ITPA TAE driven by energetic ions (LinearMHDDriftkineticCC): strong scaling from half a node to four nodes, per
+space of the magnetic field.
 
 This file defines the profiling case (the `ProfilingCase`) of one variant (space of the magnetic field, with its
-default preconditioner and grid) and submits its runs on 4, 8, 16, 32 and 64 MPI ranks, all on a single node (a Raven
-CPU node, 72 cores, with the `raven` preset of `clusters.SLURM_PRESETS`, which allocates the whole node also for the
-small rank counts). For each rank count, `ProfilingCase.launch` builds and submits a SLURM script, or, without a batch
+default preconditioner and grid) and submits its runs on 36 and 72 MPI ranks on one node, and on 144 ranks (2 nodes,
+2 clones) and 288 ranks (4 nodes, 4 clones): with clones (`--num-clones` of the params file), each node holds one clone
+with the whole FEEC part (domain decomposition on its 72 ranks) and its share of the markers, so that the FEEC solves
+are not spread thinner than over one node while the marker work is divided among all ranks. Raven CPU nodes (72
+cores), `raven` preset of `clusters.SLURM_PRESETS` (whole nodes). Fewer ranks are not run: the markers make them too
+long. For each run, `ProfilingCase.launch` builds and submits a SLURM script, or, without a batch
 system, runs directly on this machine, where the rank counts that exceed the local cores are skipped. `finalize_run`
 then packages (and with `--upload` uploads) each run as soon as its own job finishes. Each generated script runs the
 simulation by invoking `params_itpa_tae_B0.py` directly (its `__main__` block is the worker) with `--setup profiling`
@@ -30,8 +33,9 @@ The variant is chosen with `--variant`; run this script once per variant, or bot
 Cost per step on 4 ranks (local workstation, a quarter of the grid and of the markers, since the full case does not
 fit into its 15 GB): H(div) on 24 x 48 x 8 with 2.5e5 markers 19 s (24 PCG iterations of the shear Alfven step),
 H(curl) on 24 x 22 x 8 with 2.5e5 markers 21 s (69 iterations); most of it is the markers (pushers, accumulations).
-The full case should take about 4 times as long. The `walltime` of a variant is the SLURM time limit of its runs (the
-4-rank run of 50 steps, with a margin), scaled with `--steps`; `--time` overrides it.
+The full case should take about 4 times as long, i.e. roughly 10-20 s per step on 36 ranks. The `walltime` of a
+variant is the SLURM time limit of its runs (the 36-rank run of 50 steps, with a margin), scaled with `--steps`;
+`--time` overrides it.
 """
 
 import argparse
@@ -45,14 +49,14 @@ from profiling_job import ProfilingCase  # noqa: E402
 
 from utils import scaled_walltime  # noqa: E402
 
-# MPI ranks of the strong scaling, all on one node
-RANKS = (4, 8, 16, 32, 64)
+# the runs of the strong scaling: (MPI ranks, nodes, clones); one clone per node with more than one node
+RUNS = ((36, 1, 1), (72, 1, 1), (144, 2, 2), (288, 4, 4))
 
 # number of markers of the energetic ions (the default of the example)
 NP = 1_000_000
 
-# variant (key = label suffix) -> name, description, flags of the params file, grid, SLURM time limit (4-rank run of
-# 50 steps), rank counts
+# variant (key = label suffix) -> name, description, flags of the params file, grid, SLURM time limit (36-rank run of
+# 50 steps), runs
 VARIANTS = {
     "hdiv_stiffness_24x96x16": {
         "name": "B in H(div), Kronecker preconditioner",
@@ -61,8 +65,8 @@ VARIANTS = {
         "correction (StiffnessPreconditioner)",
         "flags": ["--b-space", "Hdiv"],
         "grid": (24, 96, 16),
-        "walltime": "03:00:00",
-        "ranks": RANKS,
+        "walltime": "01:00:00",
+        "runs": RUNS,
     },
     "hcurl_hiptmair_xu_24x44x16": {
         "name": "B in H(curl), Hiptmair-Xu preconditioner",
@@ -70,8 +74,8 @@ VARIANTS = {
         "Alfven step with PCG preconditioned by Hiptmair-Xu",
         "flags": ["--b-space", "Hcurl"],
         "grid": (24, 44, 16),
-        "walltime": "03:00:00",
-        "ranks": RANKS,
+        "walltime": "01:00:00",
+        "runs": RUNS,
     },
 }
 
@@ -93,7 +97,7 @@ def main() -> None:
         type=int,
         nargs="+",
         default=None,
-        help="MPI rank counts of the scaling (default: 4 8 16 32 64).",
+        help="MPI rank counts of the runs to submit, among those of RUNS (default: all, 36 72 144 288).",
     )
     parser.add_argument("--steps", type=int, default=50, help="Time steps per run (default 50).")
     parser.add_argument(
@@ -138,13 +142,21 @@ def main() -> None:
         *variant["flags"],
     ]
 
+    runs = variant["runs"]
+    if args.ranks is not None:
+        unknown = sorted(set(args.ranks) - {ranks for ranks, _, _ in runs})
+        if unknown:
+            parser.error(f"--ranks {unknown}: not among the runs {[ranks for ranks, _, _ in runs]}.")
+        runs = [run for run in runs if run[0] in args.ranks]
+
     # Paths relative to this script's location, so it can be run from anywhere.
     script_dir = Path(__file__).resolve().parent
 
     profiling_case = ProfilingCase(
         label=f"linear_mhd_driftkinetic_cc_itpa_tae_strong_scaling_{args.variant}",
         name=f"LinearMHDDriftkineticCC ITPA TAE strong scaling, {variant['name']}, {grid}, {NP:.0e} markers",
-        description="Strong scaling on one node of the LinearMHDDriftkineticCC model on the ITPA TAE benchmark driven "
+        description="Strong scaling (36 and 72 MPI ranks on one node, 144 and 288 on 2 and 4 nodes with one clone per "
+        "node) of the LinearMHDDriftkineticCC model on the ITPA TAE benchmark driven "
         f"by energetic ions (HollowTorus with tor_period 6 and a hole of radius 0.1, AdhocTorus, {grid} elements, "
         f"cubic splines, dt = 0.25, {args.steps} steps, {NP:.0e} drift-kinetic deuterons of 400 keV with delta-f "
         "weights, canonical Maxwellian with shift B0, toroidal Fourier filter n = 6, second-order discrete-gradient "
@@ -159,12 +171,12 @@ def main() -> None:
         upload=args.upload,
     )
 
-    # Launch one run per rank count, all on a single node
-    for num_tasks in args.ranks or variant["ranks"]:
+    # Launch one run per (ranks, nodes, clones)
+    for num_tasks, num_nodes, num_clones in runs:
         profiling_case.launch(
             num_tasks,
-            num_nodes=1,
-            param_flags=param_flags,
+            num_nodes=num_nodes,
+            param_flags=[*param_flags, "--num-clones", str(num_clones)],
             slurm_preset=args.slurm_preset,
             slurm_options={"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50)},
         )
