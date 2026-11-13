@@ -28,10 +28,18 @@ def main() -> None:
     parser.add_argument("--upload", action="store_true", help="Push the packaged runs to the profiling-data repo.")
     parser.add_argument("--dry-run", action="store_true", help="Only print the commands.")
     parser.add_argument("--poll-interval", type=float, default=30.0, help="Seconds between polls of the SLURM queue.")
+    parser.add_argument(
+        "--mem",
+        default=None,
+        help="SLURM memory per node of every run, passed to each submit script (default: that of each variant).",
+    )
     args = parser.parse_args()
 
+    entries = variant_entries(HERE / "itpa_tae_benchmark" / "submit_LinearMHD_scaling.py")
+    if args.mem:
+        entries = [(script, [*arguments, "--mem", args.mem]) for script, arguments in entries]
     n_failed = run_sweep(
-        variant_entries(HERE / "itpa_tae_benchmark" / "submit_LinearMHD_scaling.py"),
+        entries,
         upload=args.upload,
         dry_run=args.dry_run,
         poll_interval=args.poll_interval,
