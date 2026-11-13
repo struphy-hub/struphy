@@ -31,7 +31,9 @@ Cost per step on 4 ranks (local workstation, hole a1 = 0.1; PCG iterations per s
 wave solves): hcurl_hiptmair_xu 0.71 s (11, 4) on 24 x 44 x 8 and 1.2 s (9, 6) on 24 x 88 x 8, hdiv_stiffness 2.0 s
 (15, 7), hdiv_polar_stiffness 5.6 s (8, 21), hcurl_mass 9.2 s (146, 9), hdiv_mass 12.5 s (211, 8),
 hcurl_projected_mass 14.8 s (106, 10), hdiv_polar_mass 133 s (870, 24). The sound wave step (mass matrix
-preconditioner) takes about 20-25 % of a step with tensor-product splines and about half with polar splines. The
+preconditioner) takes about 20-25 % of a step with tensor-product splines and about half with polar splines; with
+polar splines its default is now the 2D x 1D Kronecker preconditioner of its Schur complement (on 24 x 48 x 8: 3
+instead of 11 iterations, the step 30 % faster), so the polar variants are faster than these numbers. The
 toroidal Fourier variants were not run on their full grids locally (too much memory). The `walltime` of a variant is
 the SLURM time limit of its runs (the 4-rank run of 50 steps, with a margin), scaled with `--steps`; `--time`
 overrides it.

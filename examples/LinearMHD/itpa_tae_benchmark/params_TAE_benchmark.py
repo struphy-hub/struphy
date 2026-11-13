@@ -31,8 +31,9 @@ rad/s). The H(curl) version has no such error (weak products with mass matrices)
 With --polar (Hdiv only), C1 polar splines on the full torus without hole (IGAPolarTorus) replace the
 tensor-product splines on the HollowTorus; the number of elements along eta2 must be a multiple of 3 (e.g.
 --num-elements 24 90 8). The Kronecker preconditioner is then its 2D x 1D polar version (no E x B correction needed);
-the mass matrix preconditioners (shear Alfven, sound wave and background current steps) are
-PolarMassMatrixPreconditioner.
+the mass matrix preconditioners (shear Alfven step with --precond, background current step, the inner solve of the
+sound wave step) are PolarMassMatrixPreconditioner; the sound wave step uses by default (--sound-precond stiffness)
+the 2D x 1D Kronecker preconditioner of its Schur complement.
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -138,6 +139,14 @@ parser.add_argument(
 parser.add_argument("--tend", type=float, default=500.0, help="End time (default 500, about 6.8 TAE periods).")
 parser.add_argument(
     "--a1", type=float, default=0.1, help="Radius of the hole around the magnetic axis (default 0.1, in units of a)."
+)
+parser.add_argument(
+    "--sound-precond",
+    default="stiffness",
+    choices=["stiffness", "mass"],
+    help="Preconditioner of the sound wave step: the Kronecker preconditioner of its whole Schur complement "
+    "(StiffnessPreconditioner, default) or the mass matrix preconditioner of the density-weighted mass matrix (polar "
+    "with --polar).",
 )
 parser.add_argument(
     "--polar",
@@ -340,7 +349,9 @@ model.propagators.bg_current.options = model.propagators.bg_current.Options(
     precond=mass_precond, solver_params=SolverParameters(info=profiling)
 )
 model.propagators.sound.options = model.propagators.sound.Options(
-    precond=mass_precond, precond_M3=mass_precond, solver_params=SolverParameters(info=profiling)
+    precond="StiffnessPreconditioner" if args.sound_precond == "stiffness" else mass_precond,
+    precond_M3=mass_precond,
+    solver_params=SolverParameters(info=profiling),
 )
 model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 
