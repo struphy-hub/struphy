@@ -337,6 +337,35 @@ class WeightedMassOperators:
         return self._M3p_inv
 
     @property
+    def M3p(self):
+        r"""
+        Pressure-weighted mass matrix for 3-forms:
+
+        .. math::
+
+            \mathbb M^{3}_{p_0,\, ijk,mno} =
+            \int \Lambda^3_{ijk}\,\Lambda^3_{mno}
+            \frac{p_0}{\sqrt{g}}\,\mathrm d\boldsymbol\eta.
+
+        Here :math:`p_0` is the equilibrium pressure. It approximates :math:`\mathbb M^3 (\mathbb M^3_{1/p_0})^{-1}
+        \mathbb M^3` (see :attr:`M3p_inv`), e.g. in the Kronecker preconditioner of the sound wave step.
+        """
+        if not hasattr(self, "_M3p"):
+            assert self.eq_mhd is not None, "M3p requires an MHD equilibrium."
+
+            def p0(e1, e2, e3):
+                return self.eq_mhd.p0(e1, e2, e3)
+
+            self._M3p = self.create_weighted_mass(
+                "L2",
+                "L2",
+                weights=(p0, "1/sqrt_g"),
+                name="M3p",
+                assemble=True,
+            )
+        return self._M3p
+
+    @property
     def M3q0(self):
         r"""
         Mass matrix for 3-forms weighted with the square root of the equilibrium pressure,
