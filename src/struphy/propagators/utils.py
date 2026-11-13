@@ -2,7 +2,8 @@
 
 Operators of a velocity 2-form weighted with the total density :math:`\\rho = \\rho_0 + \\tilde \\rho` of the
 perturbative models (density 3-form evolving in time), on the quadrature grid of the mass matrices
-(:class:`HdivDensityOperators`, :class:`VelocityMass`, :func:`velocity_mass`)."""
+(:class:`HdivDensityOperators`, :class:`VelocityMass`, :func:`velocity_mass`); the Kronecker preconditioner of the
+Schur complement of the sound wave steps (:class:`SoundWaveSchurPreconditioner`)."""
 
 import logging
 
@@ -11,6 +12,8 @@ from feectools.linalg.basic import Vector
 from feectools.linalg.solvers import inverse
 from maybempi import MPI
 
+from struphy.feec import preconditioner
+from struphy.feec.kronecker_block import derivative_operator
 from struphy.feec.mass import L2Projector, WeightedMassOperators
 from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.psydac_derham import Derham
@@ -285,3 +288,97 @@ def extracted_ones(derham: Derham, form: str) -> Vector:
     for block in getattr(ones, "blocks", (ones,)):
         block._data[:] = 1.0
     return extraction.dot(ones)
+
+
+class SoundWaveSchurPreconditioner:
+    r"""Kronecker (fast diagonalization) preconditioner of the Schur complement of the implicit sound wave steps
+    (:class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear`,
+    :class:`~struphy.propagators.sound_wave_linear_with_q.SoundWaveLinearWithQ`),
+
+    .. math::
+
+        S \approx \mathbb M^2_{\rho_0} + \frac{\gamma \Delta t^2}{4} \mathbb D^\top \mathbb M^3_{p_0} \mathbb D\,,
+
+    with the pressure-weighted mass matrix :math:`\mathbb M^3_{p_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M3p`)
+    in place of :math:`\mathbb M^3 (\mathbb M^3_{1/p_0})^{-1} \mathbb M^3` (variable :math:`p`) or
+    :math:`\mathbb M^3_{q_0} (\mathbb M^3)^{-1} \mathbb M^3_{q_0}` (variable :math:`q = \sqrt p`):
+    :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` for the divergence with tensor-product splines,
+    :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner` with polar splines. It is rebuilt when the
+    time step size changes. With tensor-product splines, the correction on the kernel of :math:`\mathbb D`
+    (``kernel_correction``) pays off where the stiffness term dominates (high beta, large time steps) and costs where the
+    mass term does (low beta); with ``kernel_correction="auto"``, for each new time step size the first solve is made
+    without and the second with the correction, and the preconditioner with fewer iterations is kept (an unconverged
+    solve loses; ties go to the cheaper one without).
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators (with ``M2n`` and ``M3p``).
+
+    gamma : float
+        Adiabatic index.
+
+    kernel_correction : bool | str
+        ``True``, ``False`` or ``"auto"`` (tensor-product splines only).
+
+    name : str
+        Name of the propagator, for the log message of the trial.
+    """
+
+    def __init__(self, derham: Derham, mass_ops: WeightedMassOperators, gamma: float, kernel_correction, name: str):
+        self._derham = derham
+        self._mass_ops = mass_ops
+        self._gamma = gamma
+        self._kernel_correction = kernel_correction
+        self._name = name
+        self.dt = None
+        # trial of the kernel correction ("auto"): {kernel_correction: (preconditioner, iterations or None)}
+        self.trial = None
+        self.kernel_correction_active = None
+
+    def build(self, dt: float, kernel_correction: bool = False):
+        """The preconditioner for the time step ``dt`` (with tensor-product splines with or without the kernel
+        correction)."""
+        mid = (self._gamma * dt**2 / 4) * self._mass_ops.M3p
+        if self._derham.polar_splines:
+            return preconditioner.PolarKroneckerBlockPreconditioner(
+                self._mass_ops, [(derivative_operator(self._derham, "div"), mid)], stab="M2n", sigma=1.0
+            )
+        return preconditioner.StiffnessPreconditioner(
+            self._mass_ops, "div", sigma=1.0, mid=mid, stab="M2n", kernel_correction=kernel_correction
+        )
+
+    def update(self, schur_solver, dt: float):
+        """Set the preconditioner of ``schur_solver`` for the time step ``dt`` (before the solve)."""
+        trial = self._kernel_correction == "auto" and not self._derham.polar_splines
+        if dt != self.dt:
+            self.dt = dt
+            self.kernel_correction_active = False if trial else self._kernel_correction is True
+            pc = self.build(dt, self.kernel_correction_active)
+            self.trial = {False: (pc, None)} if trial else None
+            schur_solver.precond = pc
+        elif self.trial is not None and self.trial[False][1] is not None and True not in self.trial:
+            # the second solve with this dt: with the kernel correction
+            self.trial[True] = (self.build(dt, True), None)
+            self.kernel_correction_active = True
+            schur_solver.precond = self.trial[True][0]
+
+    def record(self, schur_solver, info: dict):
+        """Record the iterations of a solve (after it) during a trial; after both, keep the faster preconditioner."""
+        if self.trial is None:
+            return
+        pc, _ = self.trial[self.kernel_correction_active]
+        # a solve that did not converge loses the trial
+        self.trial[self.kernel_correction_active] = (pc, info["niter"] if info["success"] else float("inf"))
+        if len(self.trial) == 2:
+            best = self.trial[True][1] < self.trial[False][1]
+            schur_solver.precond = self.trial[best][0]
+            logger.info(
+                f"{self._name} (dt = {self.dt}): kernel correction {'on' if best else 'off'} "
+                f"({self.trial[True][1]} iterations with, {self.trial[False][1]} without)"
+            )
+            self.kernel_correction_active = best
+            self.trial = None

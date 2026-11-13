@@ -363,7 +363,7 @@ def test_stiffness_preconditioner(mpi_out_folder, monkeypatch):
         results[precond] = (u, niter)
         if precond == "StiffnessPreconditioner":
             assert isinstance(sound._schur_solver.precond, StiffnessPreconditioner)
-            assert sound._precond_dt == dts[-1]
+            assert sound._schur_pc.dt == dts[-1]
 
     u_mass, n_mass = results["MassMatrixPreconditioner"]
     u_stiff, n_stiff = results["StiffnessPreconditioner"]
@@ -386,7 +386,7 @@ def test_kernel_correction_auto(mpi_out_folder, monkeypatch):
     for first in (0, 3):
         without, with_, kept = niter[first : first + 3]
         assert with_ < without and kept <= with_ + 1
-    assert sound._kc_active is True and sound._kc_trial is None
+    assert sound._schur_pc.kernel_correction_active is True and sound._schur_pc.trial is None
     with pytest.raises(AssertionError):
         SoundWaveLinear.Options(kernel_correction="yes")
 

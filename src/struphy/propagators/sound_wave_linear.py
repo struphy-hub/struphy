@@ -6,12 +6,12 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.kronecker_block import derivative_operator
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import SoundWaveSchurPreconditioner
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -83,7 +83,8 @@ class SoundWaveLinear(Propagator):
 
         S \approx \mathbb M^2_{\rho_0} + \frac{\gamma \Delta t^2}{4} \mathbb D^\top \mathbb M^3_{p_0} \mathbb D\,,
 
-    i.e. :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` for the divergence, with or without the
+    i.e. :class:`~struphy.propagators.utils.SoundWaveSchurPreconditioner`:
+    :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` for the divergence, with or without the
     correction on the kernel of :math:`\mathbb D` (``Options.kernel_correction``; by default the faster one is chosen
     by trial for each new time step size), and with polar splines its 2D x 1D version
     :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner`, rebuilt when the time step size changes
@@ -250,21 +251,21 @@ class SoundWaveLinear(Propagator):
 
         # preconditioner: the Kronecker preconditioner of the Schur complement is built for the time step at the first
         # call (and rebuilt when it changes)
-        self._precond_dt = None
-        # trial of the kernel correction ("auto"): {kernel_correction: (preconditioner, iterations or None)}
-        self._kc_trial = None
-        self._kc_active = None
-        self._kernel_correction = self.options.kernel_correction
         self._precond = self.options.precond
         if self._precond is not None and self.options.solver == "cg":
             logger.warning(
                 f'solver="cg" of SoundWaveLinear takes no preconditioner; precond="{self._precond}" ignored.'
             )
             self._precond = None
+        self._schur_pc = None
         if self._precond is None or self._precond == "StiffnessPreconditioner":
             pc = None
         else:
             pc = getattr(preconditioner, self._precond)(_A)
+        if self._precond == "StiffnessPreconditioner":
+            self._schur_pc = SoundWaveSchurPreconditioner(
+                self.derham, self.mass_ops, self.gamma, self.options.kernel_correction, "SoundWaveLinear"
+            )
 
         self._schur_solver = SchurSolver(
             _A,
@@ -288,15 +289,14 @@ class SoundWaveLinear(Propagator):
         un = self.variables.u.spline.vector
         pn = self.variables.p.spline.vector
 
-        if self._precond == "StiffnessPreconditioner":
-            self._update_stiffness_precond(dt)
+        if self._schur_pc is not None:
+            self._schur_pc.update(self._schur_solver, dt)
 
         # solve for new u coeffs
         byn = self._B.dot(pn, out=self._byn)
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
-        if self._kc_trial is not None:
-            # a solve that did not converge loses the trial
-            self._record_kc_trial(info["niter"] if info["success"] else float("inf"))
+        if self._schur_pc is not None:
+            self._schur_pc.record(self._schur_solver, info)
 
         # new p and n coeffs from the mid-point velocity
         _u = un.copy(out=self._u_tmp2)
@@ -324,50 +324,3 @@ class SoundWaveLinear(Propagator):
             logger.info(f"Maxdiff u2 for SoundWaveLinear: {diffs['u']}")
             logger.info(f"Maxdiff p3 for SoundWaveLinear: {diffs['p']}")
             logger.info("")
-
-    def _update_stiffness_precond(self, dt):
-        """Set the Kronecker preconditioner for the time step ``dt``: rebuilt when ``dt`` changes; with
-        ``kernel_correction="auto"`` (tensor-product splines), the first solve with a new ``dt`` is made without and the
-        second with the kernel correction (see :meth:`_record_kc_trial`)."""
-        kc = self._kernel_correction
-        trial = kc == "auto" and not self.derham.polar_splines
-        if dt != self._precond_dt:
-            self._precond_dt = dt
-            self._kc_trial = {False: (self._stiffness_precond(dt, False), None)} if trial else None
-            self._kc_active = False if trial else kc is True
-            self._schur_solver.precond = (
-                self._kc_trial[False][0] if trial else self._stiffness_precond(dt, self._kc_active)
-            )
-        elif self._kc_trial is not None and self._kc_trial[False][1] is not None and True not in self._kc_trial:
-            # the second solve with this dt: with the kernel correction
-            self._kc_trial[True] = (self._stiffness_precond(dt, True), None)
-            self._kc_active = True
-            self._schur_solver.precond = self._kc_trial[True][0]
-
-    def _record_kc_trial(self, niter):
-        """Record the iterations of a trial solve; after both, keep the preconditioner with fewer iterations (ties:
-        without the correction, which is cheaper to apply)."""
-        pc, _ = self._kc_trial[self._kc_active]
-        self._kc_trial[self._kc_active] = (pc, niter)
-        if len(self._kc_trial) == 2:
-            best = self._kc_trial[True][1] < self._kc_trial[False][1]
-            self._schur_solver.precond = self._kc_trial[best][0]
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                logger.info(
-                    f"SoundWaveLinear (dt = {self._precond_dt}): kernel correction {'on' if best else 'off'} "
-                    f"({self._kc_trial[True][1]} iterations with, {self._kc_trial[False][1]} without)"
-                )
-            self._kc_active = best
-            self._kc_trial = None
-
-    def _stiffness_precond(self, dt, kernel_correction=False):
-        """The Kronecker preconditioner of the Schur complement M2n + gamma dt^2/4 D^T M3p D for the time step ``dt``,
-        with tensor-product splines with or without the correction on the kernel of D."""
-        mid = (self.gamma * dt**2 / 4) * self.mass_ops.M3p
-        if self.derham.polar_splines:
-            return preconditioner.PolarKroneckerBlockPreconditioner(
-                self.mass_ops, [(derivative_operator(self.derham, "div"), mid)], stab="M2n", sigma=1.0
-            )
-        return preconditioner.StiffnessPreconditioner(
-            self.mass_ops, "div", sigma=1.0, mid=mid, stab="M2n", kernel_correction=kernel_correction
-        )
