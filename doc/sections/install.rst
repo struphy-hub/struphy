@@ -462,7 +462,10 @@ MPCDF Raven installation
     OMPI_MCA_mpi_warn_on_fork=0
     export OMPI_MCA_mpi_warn_on_fork
 
-A job can request at most ``--mem=120000`` (MB) on a standard Raven CPU node (72 cores).
+A standard Raven CPU node has 72 cores and 256 GB. A job on at most half a node (36 cores) shares the node with
+other jobs and can request at most ``--mem=120000`` (MB); larger jobs get their nodes exclusively, with up to
+``--mem=240000`` per node, see the `Raven user guide <https://docs.mpcdf.mpg.de/doc/computing/raven-user-guide.html>`_.
+Launch MPI programs with ``srun`` in batch scripts.
 
 
 MPCDF Viper installation

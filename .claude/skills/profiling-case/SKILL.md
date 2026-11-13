@@ -103,10 +103,12 @@ Decomposition and memory:
   with `n` if `a` is large. Data held on every rank makes `a` large: `ToroidalFourierPreconditioner` (one dense
   poloidal factorization per toroidal mode), polar splines (polar operators, poloidal factors; ITPA 24 x 90 x 8:
   about 2.3 GB per rank). Limit the rank counts of such variants.
-- The memory per node is the `mem` of the preset (Raven: 64000 MB, at most 120000); a variant that needs more
-  passes `slurm_options={"mem": ...}` (see the ITPA submit scripts: variant `mem` and the `--mem` option). Jobs on a
-  fraction of a node may share it with other jobs (memory bandwidth, cache), which disturbs the timings of the small
-  rank counts; requesting the full memory of the node avoids that, but queues longer.
+- Memory per node on Raven (`clusters.SHARED_NODES`): jobs on at most 36 cores share the node with other jobs and
+  request the `mem` of the preset (64000 MB, at most 120000); larger jobs get whole nodes and request 240000 MB
+  automatically. A run passes `slurm_options={"mem_shared": ...}` for more memory of its shared jobs only (above
+  120000 they get exclusive nodes) or `{"mem": ...}` for all jobs; see the ITPA submit scripts (variant `mem_shared`,
+  `--mem` option). Shared nodes disturb the timings of the small rank counts (memory bandwidth, cache of other jobs);
+  requesting a whole node avoids that, but queues longer.
 
 ## 5. Test locally before submitting
 

@@ -95,10 +95,12 @@ SLURM_PRESETS: dict[str, dict] = {
         "mail_type": "none",
         "time": "00:15:00",
     },
-    # MPCDF Raven, standard CPU nodes (72 cores, at most 120000 MB per node for a job). Jobs on less than half a node
-    # can share it with other jobs. The default of 64000 MB is enough for most profiling runs and queues much shorter
-    # than the whole node (120000); a submit script can request more per run (`slurm_options={"mem": ...}`, the
-    # `--mem` option of the ITPA submit scripts). No account or partition needed.
+    # MPCDF Raven, standard CPU nodes (72 cores, 256 GB). Jobs on at most half a node (36 cores) share the node with
+    # other jobs and can request at most 120000 MB; larger jobs get their nodes exclusively, with up to 240000 MB per
+    # node. `mem` is the default of the shared jobs (64000 MB, enough for most profiling runs, queues shorter than a
+    # whole node); the exclusive jobs request the memory of the whole node (`SHARED_NODES`). A run can request other
+    # memory with `slurm_options={"mem": ...}` (all jobs) or `{"mem_shared": ...}` (only the shared jobs; above 120000
+    # MB they get exclusive nodes). No account or partition needed.
     "raven": {
         "cpus_per_task": 1,
         "mem": "64000",
@@ -107,6 +109,14 @@ SLURM_PRESETS: dict[str, dict] = {
         "mail_type": "none",
         "time": "00:15:00",
     },
+}
+
+# Clusters whose nodes are shared by small jobs: a job with at most `max_tasks_per_node` tasks per node may share its
+# node with other jobs (with the `mem` of the preset, or the `mem_shared` run option of `ProfilingCase.launch`); a job
+# with more tasks per node gets its nodes exclusively and requests `mem_exclusive` (MB, the memory of a whole node),
+# unless the run sets `mem`.
+SHARED_NODES: dict[str, dict] = {
+    "raven": {"max_tasks_per_node": 36, "mem_exclusive": "240000"},
 }
 
 # Folder of the profiling output (job scripts, SLURM logs, simulation runs, packaged cases) per cluster, in place of

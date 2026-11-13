@@ -1,23 +1,23 @@
 """ITPA TAE driven by energetic ions (LinearMHDDriftkineticCC): strong scaling from half a node to four nodes, per
 space of the magnetic field.
 
-This file defines the profiling case (the `ProfilingCase`) of one variant (space of the magnetic field, with its
-default preconditioner and grid) and submits its runs on 36 and 72 MPI ranks on one node, and on 144 ranks (2 nodes,
-2 clones) and 288 ranks (4 nodes, 4 clones): with clones (`--num-clones` of the params file), each node holds one clone
-with the whole FEEC part (domain decomposition on its 72 ranks) and its share of the markers, so that the FEEC solves
-are not spread thinner than over one node while the marker work is divided among all ranks. Raven CPU nodes (72
-cores), `raven` preset of `clusters.SLURM_PRESETS`, with the whole memory of a node (120000 MB, not measured on the full
-case; `--mem` overrides it). Fewer ranks are not run: the markers make them too
-long. For each run, `ProfilingCase.launch` builds and submits a SLURM script, or, without a batch
-system, runs directly on this machine, where the rank counts that exceed the local cores are skipped. `finalize_run`
-then packages (and with `--upload` uploads) each run as soon as its own job finishes. Each generated script runs the
-simulation by invoking `params_itpa_tae_B0.py` directly (its `__main__` block is the worker) with `--setup profiling`
-(`--steps` time steps, default 50, solver iterations logged), and then writes the scope-profiler report and the cost
-summary (time per step, solver iterations per call of the shear Alfven step, the current couplings and the
-compressional steps) with `pproc_itpa_tae_B0.py --save-results`. The job scripts, SLURM logs and runs go to the
-profiling folder of the driver: on Raven `/ptmp/<user>/struphy_profiling` (the scratch file system,
-`clusters.SCRATCH_DIRS`), elsewhere `_profiling_jobs/` in the repo; `$STRUPHY_PROFILING_DIR/struphy_profiling` if that
-variable is set.
+This file defines the profiling case (the `ProfilingCase`) of one variant (space of the magnetic field, with its default
+preconditioner and grid) and submits its runs on 36 and 72 MPI ranks on one node, and on 144 ranks (2 nodes, 2 clones)
+and 288 ranks (4 nodes, 4 clones): with clones (`--num-clones` of the params file), each node holds one clone with the
+whole FEEC part (domain decomposition on its 72 ranks) and its share of the markers, so that the FEEC solves are not
+spread thinner than over one node while the marker work is divided among all ranks. Raven CPU nodes (72 cores), `raven`
+preset of `clusters.SLURM_PRESETS`: the 36-rank run shares its node with other jobs and requests 120000 MB (the most a
+shared job can request; the memory of the full case is not measured), the other runs get whole nodes (240000 MB per
+node, `clusters.SHARED_NODES`); `--mem` sets the memory per node of all runs. Fewer ranks are not run: the markers make
+them too long. For each run, `ProfilingCase.launch` builds and submits a SLURM script, or, without a batch system, runs
+directly on this machine, where the rank counts that exceed the local cores are skipped. `finalize_run` then packages
+(and with `--upload` uploads) each run as soon as its own job finishes. Each generated script runs the simulation by
+invoking `params_itpa_tae_B0.py` directly (its `__main__` block is the worker) with `--setup profiling` (`--steps` time
+steps, default 50, solver iterations logged), and then writes the scope-profiler report and the cost summary (time per
+step, solver iterations per call of the shear Alfven step, the current couplings and the compressional steps) with
+`pproc_itpa_tae_B0.py --save-results`. The job scripts, SLURM logs and runs go to the profiling folder of the driver: on
+Raven `/ptmp/<user>/struphy_profiling` (the scratch file system, `clusters.SCRATCH_DIRS`), elsewhere `_profiling_jobs/`
+in the repo; `$STRUPHY_PROFILING_DIR/struphy_profiling` if that variable is set.
 
 The example (`params_itpa_tae_B0.py`) as it is: HollowTorus with tor_period 6 and a hole of radius 0.1, AdhocTorus,
 cubic splines, dt = 0.25, 1e6 drift-kinetic energetic deuterons (delta-f, canonical Maxwellian with shift="B0"), the
@@ -56,8 +56,9 @@ RUNS = ((36, 1, 1), (72, 1, 1), (144, 2, 2), (288, 4, 4))
 # number of markers of the energetic ions (the default of the example)
 NP = 1_000_000
 
-# SLURM memory per node (MB): the most a Raven job can request (the memory of the full case is not measured)
-MEM = "120000"
+# memory per node (MB) of the runs on a shared Raven node (36 ranks): the most a shared job can request (the memory of
+# the full case is not measured); the runs on more ranks per node get the whole node
+MEM_SHARED = "120000"
 
 # variant (key = label suffix) -> name, description, flags of the params file, grid, SLURM time limit (36-rank run of
 # 50 steps), runs
@@ -111,8 +112,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--mem",
-        default=MEM,
-        help=f"SLURM memory per node of each run, in MB or with a unit (e.g. 120000 or 100G; default {MEM}).",
+        default=None,
+        help=f"SLURM memory per node of all runs, in MB or with a unit (e.g. 120000 or 100G; default on Raven: "
+        f"{MEM_SHARED} for the 36-rank run, the whole node, 240000, for the others).",
     )
     parser.add_argument(
         "--slurm-preset",
@@ -187,7 +189,10 @@ def main() -> None:
             num_nodes=num_nodes,
             param_flags=[*param_flags, "--num-clones", str(num_clones)],
             slurm_preset=args.slurm_preset,
-            slurm_options={"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50), "mem": args.mem},
+            slurm_options={
+                "time": args.time or scaled_walltime(variant["walltime"], args.steps / 50),
+                **({"mem": args.mem} if args.mem else {"mem_shared": MEM_SHARED}),
+            },
         )
 
     # Package and push each run as its own job finishes.

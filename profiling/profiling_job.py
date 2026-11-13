@@ -51,7 +51,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from clusters import HARDWARE_INFO, SLURM_PRESETS, detect_machine_name, profiling_base_dir
+from clusters import HARDWARE_INFO, SHARED_NODES, SLURM_PRESETS, detect_machine_name, profiling_base_dir
 from package_profiling_results import (
     RESULTS_DIR_NAME,
     _build_output_name,
@@ -279,7 +279,12 @@ class ProfilingCase:
                 `HARDWARE_INFO` entry is only needed when `num_nodes` is not given.
                 Ignored outside SLURM.
             slurm_options: SLURM pragmas that override those of the preset, e.g.
-                `{"time": "00:30:00"}`. Ignored outside SLURM.
+                `{"time": "00:30:00"}`. On clusters whose small jobs share nodes
+                (`clusters.SHARED_NODES`, e.g. Raven), jobs with more tasks per node
+                than shared nodes allow request the memory of the whole node unless
+                `mem` is given, and the extra key `mem_shared` sets the memory per
+                node of the shared jobs only (ignored on other clusters). Ignored
+                outside SLURM.
 
         Raises:
             ValueError: If `backend` is neither "numpy" nor "cupy", or if
@@ -321,6 +326,16 @@ class ProfilingCase:
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
             cluster_preset = {**SLURM_PRESETS[preset_name], **(slurm_options or {})}
+            # Memory per node on clusters whose small jobs share nodes (`clusters.SHARED_NODES`): `mem` of the run, else
+            # the whole node for exclusive jobs, else `mem_shared` of the run, else the `mem` of the preset.
+            # `mem_shared` is not a SLURM option and is ignored on the other clusters.
+            mem_shared = cluster_preset.pop("mem_shared", None)
+            shared_nodes = SHARED_NODES.get(preset_name)
+            if shared_nodes is not None and "mem" not in (slurm_options or {}):
+                if num_tasks // num_nodes > shared_nodes["max_tasks_per_node"]:
+                    cluster_preset["mem"] = shared_nodes["mem_exclusive"]
+                elif mem_shared is not None:
+                    cluster_preset["mem"] = mem_shared
             # SLURM logs with a relative path would land in the folder sbatch is called from: put them beside the
             # job scripts instead
             for key in ("output", "error"):
