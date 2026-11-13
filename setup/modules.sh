@@ -60,14 +60,16 @@ fi
 # Handle arguments
 ACTION="${1:-display}"  # Default to 'display' if no argument is given
 
-MODULE_FILE="setup/modules.${MACHINE}.sh"
+# next to this file, independent of the current folder (a job script runs in the folder sbatch was called from)
+MODULE_FILE="$(dirname "${BASH_SOURCE[0]}")/modules.${MACHINE}.sh"
 if [[ -f "$MODULE_FILE" ]]; then
     source "$MODULE_FILE"
 else
     echo "Warning: module file $MODULE_FILE not found"
     MODULES_INTEL=""
     MODULES_GCC=""
-    exit 1
+    # return when sourced (e.g. by a job script, which then goes on without modules), exit when executed
+    return 1 2>/dev/null || exit 1
 fi
 
 # Set MODULES to the intel/gcc modules

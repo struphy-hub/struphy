@@ -13,6 +13,9 @@ and drives the run itself, looping over whichever rank counts it wants to profil
   STRUPHY_PROFILING_LOCAL=1) — the caller doesn't need to know which. Pass `param_flags`
   to override the default commands (e.g. to add a case-specific flag such as an arbitrary
   `ppc`) before they're wrapped in a script.
+- With STRUPHY_PROFILING_SCRIPT_ONLY=1 (set by `write_scripts.py`), `launch` only writes the SLURM script of each run
+  (for the preset of the detected cluster or `slurm_preset`), without submitting it; nothing is compiled, cloned,
+  waited on or packaged.
   Under SLURM, the preset of the detected cluster is taken from `clusters.SLURM_PRESETS`
   on each call, unless `slurm_preset` names another one (e.g. a GPU partition);
   `slurm_options` overrides single pragmas of it.
@@ -74,6 +77,12 @@ repo_root = script_dir.parent
 profiling_results_base = profiling_base_dir(repo_root)
 
 default_cluster_name = "pitagora"
+
+
+def script_only() -> bool:
+    """Whether only the SLURM scripts are written, without submitting them (``STRUPHY_PROFILING_SCRIPT_ONLY=1``, set by
+    ``write_scripts.py``)."""
+    return os.environ.get("STRUPHY_PROFILING_SCRIPT_ONLY", "0").lower() in ("1", "true", "yes")
 
 
 def has_module_system() -> bool:
@@ -279,7 +288,7 @@ class ProfilingCase:
         if backend not in ("numpy", "cupy"):
             raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
 
-        if not self.use_slurm:
+        if not self.use_slurm and not script_only():
             available = os.cpu_count() or 1
             if num_tasks > available:
                 print(f"Skipping '{self.label}' ({num_tasks} MPI ranks): exceeds the {available} local cores.")
@@ -289,6 +298,9 @@ class ProfilingCase:
         # the run directory that `build_commands` writes into.
         self.launch_count += 1
         script_path = profiling_results_base / f"job_profile_{self.label}_{self.launch_count:02d}.sh"
+        if script_only():
+            # in the (unique) run folder of this call, so that the scripts of separate calls do not overwrite each other
+            script_path = self.run_results_root / script_path.name
 
         # Build the commands to run this case with the given rank count, and write/submit
         case_commands = self.build_commands(num_tasks, param_flags, backend)
@@ -297,6 +309,11 @@ class ProfilingCase:
         if self.use_slurm:
             # The preset of this run: the caller's choice, or the one of the detected cluster.
             preset_name = slurm_preset or detect_machine_name()
+            if preset_name not in SLURM_PRESETS:
+                raise ValueError(
+                    f"No SLURM preset {preset_name!r} (detected cluster or slurm_preset); choose one of "
+                    f"{sorted(SLURM_PRESETS)} with --slurm-preset."
+                )
             if num_nodes is None:
                 # Compute the number of nodes needed to run `num_tasks` ranks, given the cluster's hardware.
                 cpus_per_node = HARDWARE_INFO[preset_name]["cpus_per_node"]
@@ -320,8 +337,13 @@ class ProfilingCase:
                 **{**cluster_preset, "nodes": num_nodes},
             )
             script_text = str(script)
-            job_id = script.submit_job(str(script_path))
-            print(f"Submitted '{self.label}' ({num_tasks} MPI ranks) as job {job_id}.")
+            if script_only():
+                script.save(str(script_path))
+                job_id = None
+                print(f"Wrote the SLURM script of '{self.label}' ({num_tasks} MPI ranks): {script_path}")
+            else:
+                job_id = script.submit_job(str(script_path))
+                print(f"Submitted '{self.label}' ({num_tasks} MPI ranks) as job {job_id}.")
             script_dict = script.to_dict()
         else:
             job_id = None
@@ -378,6 +400,21 @@ class ProfilingCase:
                 "VIRTUAL_ENV is not set; activate a virtual environment before submitting the job.",
             )
         self.venv_path = Path(virtual_env)
+        profiling_results_base.mkdir(parents=True, exist_ok=True)
+
+        if script_only():
+            # only the SLURM scripts: no compilation, no packaging folder; the run folders are made by the scripts
+            self.run_commit = _git_commit(repo_root)
+            self.run_timestamp = datetime.now(UTC)
+            run_token = f"{self.run_timestamp.strftime('%Y%m%dT%H%M%SZ')}-{_git_commit_short(repo_root)}"
+            self.run_results_root = _make_unique_results_root(profiling_results_base, run_token)
+            self.run_results_root.mkdir(parents=True, exist_ok=True)
+            self.case_output_root = self.run_results_root / self.label
+            self.use_slurm = True
+            # the scripts are for a cluster: with the module lines also when written elsewhere (e.g. to check them)
+            self.use_modules = True
+            self.launcher = "srun"
+            return
 
         # Compile Struphy kernels with the case's language and compiler
         self.compiler_instance = Compiler(language=self.language, compiler=self.compiler)
@@ -385,8 +422,6 @@ class ProfilingCase:
             print("Compiling Struphy kernels ...")
             self.compiler_instance.compile()
         print("Done compiling Struphy kernels.")
-
-        profiling_results_base.mkdir(parents=True, exist_ok=True)
 
         # Results are packaged straight into a clone of the profiling-data repo, so
         # pushing a run is just a commit — there is no intermediate export folder to
@@ -688,7 +723,12 @@ class ProfilingCase:
         """
         if _SWEEP_CASES is not None:
             _SWEEP_CASES.append(self)
+            if script_only():
+                return
             print(f"Submitted {len(self.job_infos)} run(s) of '{self.label}'; packaging deferred to the sweep.")
+            return
+        if script_only():
+            report_scripts([self])
             return
 
         self.package_case_start()
@@ -769,6 +809,18 @@ _SWEEP_CASES: list | None = None
 _PREPARED_OUTPUT_ROOTS: set = set()
 
 
+def report_scripts(cases: list) -> None:
+    """Print the SLURM scripts written by the cases (``STRUPHY_PROFILING_SCRIPT_ONLY``) and how to submit them."""
+    scripts = [info["job_script_path"] for case in cases for info in case.job_infos]
+    print(f"\n{len(scripts)} SLURM script(s) written, nothing submitted. Submit with e.g.:")
+    for path in scripts:
+        print(f"    sbatch {path}")
+    print(
+        "The runs write to the folders named in the scripts (struphy.out, profiling data, results/); "
+        "the driver does not package or upload runs submitted this way."
+    )
+
+
 def begin_sweep() -> None:
     """Start collecting cases: from now on `ProfilingCase.finalize_run` only registers its case.
 
@@ -835,6 +887,9 @@ def finalize_all(cases: list, poll_interval: float = 30.0) -> None:
     """
     if not cases:
         print("No cases to finalize.")
+        return
+    if script_only():
+        report_scripts(cases)
         return
     for case in cases:
         case.package_case_start()
