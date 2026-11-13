@@ -419,26 +419,99 @@ Or, if you want the source code (with tests, examples and tutorials), install fr
     source struphy-env/bin/activate
 
 
-MPCDF cluster installation
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+MPCDF Raven installation
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Load necessary modules::
+1. Load necessary modules (there is no ``mpi4py`` module; it is built in step 3 against the loaded Open MPI)::
 
     module purge
-    module load gcc/14 python-waterboa/2025.06 openmpi/5.0 mpi4py/4.1.1
+    module load gcc/16 python-waterboa/2026.07 openmpi/5.0
 
 2. Create and source virtual environment::
 
     python3 -m venv struphy-env
     source struphy-env/bin/activate
 
-3. Install Struphy by not using the binaries of `mpi4py` (see install methods from above: :ref:`pypi_install` or :ref:`source_install`):
+3. Install Struphy with ``mpi4py`` built from source, not from its binary wheel (which comes with its own MPI)::
 
-    pip install -U struphy --no-binary mpi4py
+    pip install -U "struphy[mpi]" --no-binary mpi4py
+    struphy compile -j 2
+    struphy compile --status
 
-4. When using SLURM, make sure to activate the virtual environment in your BATCH script::
+   ``-j 2`` compiles two kernels at the same time (more jobs can run out of memory on the shared login nodes).
+   ``struphy compile --status`` must show all kernels as compiled; if not, run ``struphy compile -j 2`` again.
 
+   Or, from the source code (``devel`` branch)::
+
+       git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
+       cd struphy
+       pip install ".[mpi]" --no-binary mpi4py
+       struphy compile -j 2
+       struphy compile --status
+
+   Check that ``mpi4py`` uses the module's MPI (both ranks must print a size of 2)::
+
+       mpirun -n 2 python -c "from mpi4py import MPI; print(MPI.COMM_WORLD.Get_rank(), MPI.COMM_WORLD.Get_size())"
+
+4. When using SLURM, make sure to load the same modules and activate the virtual environment in your BATCH script::
+
+    module purge
+    module load gcc/16 python-waterboa/2026.07 openmpi/5.0
     source struphy-env/bin/activate
 
     OMPI_MCA_mpi_warn_on_fork=0
     export OMPI_MCA_mpi_warn_on_fork
+
+A standard Raven CPU node has 72 cores and 256 GB. A job on at most half a node (36 cores) shares the node with
+other jobs and can request at most ``--mem=120000`` (MB); larger jobs get their nodes exclusively, with up to
+``--mem=240000`` per node, see the `Raven user guide <https://docs.mpcdf.mpg.de/doc/computing/raven-user-guide.html>`_.
+Launch MPI programs with ``srun`` in batch scripts.
+
+
+MPCDF Viper installation
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. Load necessary modules (the same on the CPU and the GPU nodes; ``mpi4py`` is built in step 3 against the loaded
+   Open MPI, instead of using the ``mpi4py`` module)::
+
+    module purge
+    module load gcc/16 python-waterboa/2026.07 openmpi/5.0
+
+2. Create and source virtual environment::
+
+    python3 -m venv struphy-env
+    source struphy-env/bin/activate
+
+3. Install Struphy with ``mpi4py`` built from source, not from its binary wheel (which comes with its own MPI)::
+
+    pip install -U "struphy[mpi]" --no-binary mpi4py
+    struphy compile -j 2
+    struphy compile --status
+
+   ``-j 2`` compiles two kernels at the same time (more jobs can run out of memory on the shared login nodes).
+   ``struphy compile --status`` must show all kernels as compiled; if not, run ``struphy compile -j 2`` again.
+
+   Or, from the source code (``devel`` branch)::
+
+       git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
+       cd struphy
+       pip install ".[mpi]" --no-binary mpi4py
+       struphy compile -j 2
+       struphy compile --status
+
+   Check that ``mpi4py`` uses the module's MPI (both ranks must print a size of 2)::
+
+       mpirun -n 2 python -c "from mpi4py import MPI; print(MPI.COMM_WORLD.Get_rank(), MPI.COMM_WORLD.Get_size())"
+
+4. When using SLURM, make sure to load the same modules and activate the virtual environment in your BATCH script::
+
+    module purge
+    module load gcc/16 python-waterboa/2026.07 openmpi/5.0
+    source struphy-env/bin/activate
+
+    OMPI_MCA_mpi_warn_on_fork=0
+    export OMPI_MCA_mpi_warn_on_fork
+
+A job can request at most ``--mem=480000`` (MB) on a standard Viper CPU node (128 cores; ``--mem=250000`` for a job
+that shares the node) and ``--mem=220000`` on a Viper GPU node (two AMD MI300A APUs), see the
+`Viper user guide <https://docs.mpcdf.mpg.de/doc/computing/viper-user-guide.html>`_.
