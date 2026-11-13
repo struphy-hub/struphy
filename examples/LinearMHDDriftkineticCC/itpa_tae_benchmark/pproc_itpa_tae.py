@@ -418,6 +418,7 @@ def save_results(path_out):
         "projected": args.projected,
         "a1": args.a1,
         "Np": args.Np,
+        "num_clones": args.num_clones,
         "filter": args.filter,
         "drift_algo": args.drift_algo,
         "parallel_algo": args.parallel_algo,

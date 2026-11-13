@@ -1,8 +1,9 @@
 """Run all LinearMHDDriftkineticCC ITPA TAE strong-scaling cases as one sweep (see profiling/sweep.py).
 
 Every variant (space of the magnetic field, H(div) and H(curl)) of
-``itpa_tae_benchmark/submit_LinearMHDDriftkineticCC_scaling.py``, 4 to 64 MPI ranks on one Raven CPU node. The
-variants are read from the VARIANTS dict of the submit script, so new variants are picked up.
+``itpa_tae_benchmark/submit_LinearMHDDriftkineticCC_scaling.py``: 36 and 72 MPI ranks on one Raven CPU node, 144 and
+288 ranks on 2 and 4 nodes with one clone per node. The variants are read from the VARIANTS dict of the submit script,
+so new variants are picked up.
 
 All jobs are submitted first (SLURM runs them as the partitions allow); the runs are then packaged, and with
 --upload pushed, one at a time as their jobs finish. Keep this process running until it is done (e.g. in tmux).
