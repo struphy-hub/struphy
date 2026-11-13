@@ -153,6 +153,58 @@ class ProfilingCase:
     def __post_init__(self) -> None:
         self.setup_run()
 
+    @classmethod
+    def from_case_info(cls, case_output_root: Path, output_root: Path) -> "ProfilingCase":
+        """Rebuild a case from the `profiling_case_info.json` its driver wrote, to package its runs afterwards.
+
+        For runs whose driver stopped before packaging them (e.g. the login session ended while the jobs were
+        queued), see `package_case.py`. Nothing is compiled, cloned or submitted (`setup_run` is not called). The
+        packaged folder gets the name the driver gave it: the timestamp is read from the name of the run folder
+        (`<timestamp>-<commit>[-<n>]`), which `setup_run` derived from the same `run_timestamp`.
+
+        Args:
+            case_output_root: The case folder `<run folder>/<label>` that holds `profiling_case_info.json`
+                and the `sim_<launch_id>` folders of the runs.
+            output_root: The folder the case is packaged into.
+        """
+        case_output_root = Path(case_output_root).resolve()
+        info = json.loads((case_output_root / "profiling_case_info.json").read_text(encoding="utf-8"))
+        compiler_info = info.get("compiler") or {}
+
+        case = cls.__new__(cls)
+        case.label = info.get("test_case_identifier", case_output_root.name)
+        case.name = info.get("test_case_name", case.label)
+        case.description = info.get("test_case_description", "")
+        case.physics_problem = info.get("physics_problem", "")
+        case.struphy_model_used = info.get("struphy_model_used", "")
+        case.params_source = Path(info["parameter_file"]) if info.get("parameter_file") else None
+        case.pproc_source = None
+        case.language = compiler_info.get("language", "fortran")
+        case.compiler = compiler_info.get("compiler", "GNU")
+        case.upload = False
+
+        case.venv_path = None
+        case.compiler_instance = None
+        case.run_commit = info.get("struphy_commit")
+        case.run_timestamp = datetime.strptime(
+            case_output_root.parent.name[: len("YYYYmmddTHHMMSSZ")],
+            "%Y%m%dT%H%M%SZ",
+        ).replace(tzinfo=UTC)
+        case.output_root = Path(output_root).resolve()
+        case.run_results_root = case_output_root.parent
+        case.case_output_root = case_output_root
+        case.use_slurm = info.get("scheduler", "slurm") == "slurm"
+        case.use_modules = None
+        case.launcher = None
+
+        case.destination_dir = None
+        case.packaged_runs = []
+        case.job_infos = list(info.get("jobs", []))
+        case.launch_count = len(case.job_infos)
+        case._case_info = info
+        case._packaged_launch_ids = []
+        return case
+
     def build_commands(
         self,
         ntasks: int,
@@ -483,7 +535,11 @@ class ProfilingCase:
     def _packaged_language_and_commit(self, case_info: dict) -> tuple[str, str]:
         """The Pyccel language and Struphy commit the packaged folder is named after."""
         testcase = self.case_output_root.name
-        case_language = case_info.get("pyccel_language") or self.compiler_instance.language
+        case_language = (
+            case_info.get("pyccel_language")
+            or (case_info.get("compiler") or {}).get("language")
+            or (self.compiler_instance.language if self.compiler_instance is not None else None)
+        )
         case_commit = case_info.get("struphy_commit") or self.run_commit
         if case_language is None:
             raise RuntimeError(
