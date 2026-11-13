@@ -53,6 +53,18 @@ case "$CLUSTER" in
         ;;
 esac
 
+# MPCDF machines without $CLUSTER: by the host name of the login and compute nodes
+if [[ "$MACHINE" == "unknown" ]]; then
+    case "$(hostname)" in
+        raven*)
+            MACHINE="raven"
+            ;;
+        viper*)
+            MACHINE="viper"
+            ;;
+    esac
+fi
+
 if [[ "$HPC_SYSTEM" == *"pitagora"* ]]; then
     MACHINE="pitagora"
 fi

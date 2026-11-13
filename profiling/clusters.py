@@ -109,6 +109,18 @@ SLURM_PRESETS: dict[str, dict] = {
         "mail_type": "none",
         "time": "00:15:00",
     },
+    # MPCDF Viper, CPU nodes (128 cores, 512 GB; nodes with more memory are not used). As on Raven: jobs on at most half
+    # a node (64 cores) share the node with other jobs and can request at most 250000 MB; larger jobs get their nodes
+    # exclusively, with up to 480000 MB per node (`SHARED_NODES`). `mem` is the default of the shared jobs. No account
+    # or partition needed (a submit filter chooses the partition).
+    "viper_cpu": {
+        "cpus_per_task": 1,
+        "mem": "64000",
+        "output": "./%x.%j.out",
+        "error": "./%x.%j.err",
+        "mail_type": "none",
+        "time": "00:15:00",
+    },
 }
 
 # Clusters whose nodes are shared by small jobs: a job with at most `max_cores_per_node` cores per node (tasks times
@@ -118,6 +130,7 @@ SLURM_PRESETS: dict[str, dict] = {
 # that needs more than `max_mem_shared` asks for its node exclusively (`#SBATCH --exclusive`).
 SHARED_NODES: dict[str, dict] = {
     "raven": {"max_cores_per_node": 36, "max_mem_shared": 120000, "mem_exclusive": "240000"},
+    "viper_cpu": {"max_cores_per_node": 64, "max_mem_shared": 250000, "mem_exclusive": "480000"},
 }
 
 
@@ -133,6 +146,7 @@ def mem_in_mb(mem: str) -> float:
 # `{user}` is replaced by the user name. `$STRUPHY_PROFILING_DIR` overrides the parent folder on any machine.
 SCRATCH_DIRS: dict[str, str] = {
     "raven": "/ptmp/{user}/struphy_profiling",
+    "viper_cpu": "/ptmp/{user}/struphy_profiling",
 }
 
 

@@ -46,11 +46,13 @@ per node of all runs. Peak memory (local workstation, 2 steps, the setup dominat
 GB divided among the ranks (H(div), Kronecker preconditioner; about 8 GB on 4 ranks and 41 GB on 64 ranks). Polar
 splines hold the polar operators and the poloidal factors of the preconditioner on every rank: about 2.8 GB per rank
 plus 5.9 GB (extrapolated from ShearAlfven, about 1.2 times more on 24 x 48 x 8): about 95 GB on 32 ranks and 185 GB on
-64 ranks, so the polar variants request 120000 MB, the most a shared Raven job can request, on up to 32 ranks. The
-toroidal Fourier variants (dense poloidal factorizations on every rank, about 5-6 GB per rank, not measured on the full
-grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs (shared Raven jobs can request at most
-120000 MB, so the driver adds `#SBATCH --exclusive`); on 32 ranks this is tight (about 200 GB, more with
-polar splines).
+64 ranks, so the polar variants request 120000 MB, the most a shared Raven job can request, on up to 32 ranks, and
+240000 MB on 64 ranks. The toroidal Fourier variants (dense poloidal factorizations on every rank, about 5-6 GB per
+rank, not measured on the full grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs (shared
+Raven jobs can request at most 120000 MB, so the driver adds `#SBATCH --exclusive`); on 32 ranks this is tight (about
+200 GB, more with polar splines). On Viper CPU nodes (128 cores) jobs on at most 64 cores share the node (at most 250000
+MB) and larger jobs get whole nodes (480000 MB): all runs here share their node there, the toroidal Fourier runs without
+`--exclusive`.
 """
 
 import argparse
@@ -66,10 +68,18 @@ from utils import scaled_walltime  # noqa: E402
 
 # MPI ranks of the strong scaling, all on one node
 RANKS = (4, 8, 16, 32, 64)
-# memory per node (MB) of the runs on shared Raven nodes (at most 36 ranks) of the variants that hold global data on
-# every rank: polar splines the most a shared job can request; the toroidal Fourier preconditioner a whole node, on
-# at most 32 ranks
-MEM_POLAR = "120000"
+
+
+def MEM_POLAR(num_tasks):
+    """Memory per node (MB) of a polar run on a shared node: 120000 (the most a shared Raven job can request) up to 32
+    ranks, 240000 on more ranks (about 150-185 GB on 64 ranks; on Raven these runs get the whole node anyway, on Viper
+    a 64-rank job still shares its node)."""
+    return "120000" if num_tasks <= 32 else "240000"
+
+
+# memory per node (MB) of the toroidal Fourier runs (dense poloidal factorizations on every rank), on at most 32
+# ranks: a whole Raven node (`#SBATCH --exclusive`, since shared Raven jobs can request at most 120000 MB); on Viper
+# the runs stay shared (at most 250000 MB)
 MEM_TOROIDAL_FOURIER = "240000"
 RANKS_TOROIDAL_FOURIER = (4, 8, 16, 32)
 
@@ -139,7 +149,8 @@ SOLVERS = {
 def _variant(solver, grid, walltime, ranks=RANKS, a1=None, mem_shared=None):
     """A variant: the solver (key of SOLVERS), grid, SLURM time limit, rank counts, the hole radius (None for the
     default 0.1 of the example; ignored with polar splines) and the memory per node of the runs on
-    shared nodes (`mem_shared` of `ProfilingCase.launch`, Raven only; None for the mem of the SLURM preset)."""
+    shared nodes (`mem_shared` of `ProfilingCase.launch`, Raven and Viper; a function of the number of ranks or a
+    value; None for the mem of the SLURM preset)."""
     return {"solver": solver, "grid": grid, "walltime": walltime, "ranks": ranks, "a1": a1, "mem_shared": mem_shared}
 
 
@@ -264,12 +275,12 @@ def main() -> None:
     )
 
     # Launch one run per rank count, all on a single node
-    slurm_options = {"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50)}
-    if args.mem:
-        slurm_options["mem"] = args.mem
-    elif variant["mem_shared"]:
-        slurm_options["mem_shared"] = variant["mem_shared"]
     for num_tasks in args.ranks or variant["ranks"]:
+        slurm_options = {"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50)}
+        if args.mem:
+            slurm_options["mem"] = args.mem
+        elif mem_shared := variant["mem_shared"]:
+            slurm_options["mem_shared"] = mem_shared(num_tasks) if callable(mem_shared) else mem_shared
         profiling_case.launch(
             num_tasks,
             num_nodes=1,
