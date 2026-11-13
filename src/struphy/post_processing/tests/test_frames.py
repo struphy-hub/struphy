@@ -70,6 +70,20 @@ def check_frames(files, count):
     assert len(lines) == count + 1
 
 
+def assert_same_frame(a, b, label):
+    """The frames ``a`` and ``b`` show the same picture: mean difference at most 1e-3 and at most 0.2 % of the pixels
+    differ by more than 0.02 (colors in [0, 1]). Not bitwise, since the rendering of the 3D views (VTK/OpenGL) is not
+    bitwise reproducible across processes on all platforms (macOS). The frames of the next time steps of
+    :func:`short_torus_run` differ by a mean of >= 6e-3, with >= 0.78 % of the pixels by more than 0.02."""
+    image_a, image_b = imread(a), imread(b)
+    assert image_a.shape == image_b.shape and image_a.ndim == 3, label
+    diff = np.abs(image_a.astype(float) - image_b.astype(float)).max(axis=-1)
+    mean, off = diff.mean(), np.mean(diff > 0.02)
+    assert mean <= 1e-3 and off <= 2e-3, (
+        f"{label}: mean difference {mean:.2e}, {off:.2%} of the pixels differ by > 0.02 (max {diff.max():.3f})"
+    )
+
+
 def test_frames(mpi_out_folder):
     run = short_torus_run(mpi_out_folder)
     rank = MPI.COMM_WORLD.Get_rank()
@@ -251,11 +265,11 @@ def test_frames_in_parallel(mpi_out_folder):
     assert set(serial) == set(parallel) == {"e_field_rz", "e_field_3d_cut", "e_field_3d"}
     for video, files in serial.items():
         check_frames(files, N_SAVED)
-        for a, b in zip(files, parallel[video]):
+        for a, b in zip(files, parallel[video], strict=True):
             assert a.name == b.name
-            assert np.array_equal(imread(a), imread(b)), (video, a.name)
-    for a, b in zip(single, serial["e_field_3d_cut"]):
-        assert np.array_equal(imread(a), imread(b)), a.name
+            assert_same_frame(a, b, (video, a.name))
+    for a, b in zip(single, serial["e_field_3d_cut"], strict=True):
+        assert_same_frame(a, b, a.name)
 
 
 @pytest.mark.mpi_skip
@@ -270,5 +284,5 @@ def test_frames_without_cache(mpi_out_folder, monkeypatch):
     monkeypatch.setattr(frames_module, "FIRST_PASS_CACHE", 0)
     uncached = write_3d_frames(run, "em_fields/e_field", run.path_out / "uncached", workers=2, **kwargs)
     check_frames(uncached, N_SAVED)
-    for a, b in zip(cached, uncached):
-        assert np.array_equal(imread(a), imread(b)), a.name
+    for a, b in zip(cached, uncached, strict=True):
+        assert_same_frame(a, b, a.name)
