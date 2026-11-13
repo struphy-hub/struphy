@@ -419,8 +419,49 @@ Or, if you want the source code (with tests, examples and tutorials), install fr
     source struphy-env/bin/activate
 
 
-MPCDF cluster installation
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+MPCDF Raven installation
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. Load necessary modules (there is no ``mpi4py`` module; it is built in step 3 against the loaded Open MPI)::
+
+    module purge
+    module load gcc/16 python-waterboa/2026.07 openmpi/5.0
+
+2. Create and source virtual environment::
+
+    python3 -m venv struphy-env
+    source struphy-env/bin/activate
+
+3. Install Struphy with ``mpi4py`` built from source, not from its binary wheel (which comes with its own MPI)::
+
+    pip install -U "struphy[mpi]" --no-binary mpi4py
+    struphy compile
+
+   Or, from the source code (``devel`` branch)::
+
+       git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
+       cd struphy
+       pip install ".[mpi]" --no-binary mpi4py
+       struphy compile
+
+   Check that ``mpi4py`` uses the module's MPI (both ranks must print a size of 2)::
+
+       mpirun -n 2 python -c "from mpi4py import MPI; print(MPI.COMM_WORLD.Get_rank(), MPI.COMM_WORLD.Get_size())"
+
+4. When using SLURM, make sure to load the same modules and activate the virtual environment in your BATCH script::
+
+    module purge
+    module load gcc/16 python-waterboa/2026.07 openmpi/5.0
+    source struphy-env/bin/activate
+
+    OMPI_MCA_mpi_warn_on_fork=0
+    export OMPI_MCA_mpi_warn_on_fork
+
+A job can request at most ``--mem=120000`` (MB) on a standard Raven CPU node (72 cores).
+
+
+MPCDF Viper installation
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 1. Load necessary modules::
 
