@@ -60,7 +60,8 @@ fi
 # Handle arguments
 ACTION="${1:-display}"  # Default to 'display' if no argument is given
 
-MODULE_FILE="setup/modules.${MACHINE}.sh"
+# next to this file, independent of the current folder (a job script runs in the folder sbatch was called from)
+MODULE_FILE="$(dirname "${BASH_SOURCE[0]}")/modules.${MACHINE}.sh"
 if [[ -f "$MODULE_FILE" ]]; then
     source "$MODULE_FILE"
 else

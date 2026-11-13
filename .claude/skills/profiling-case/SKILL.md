@@ -138,9 +138,9 @@ Only the SLURM scripts, without submitting (to inspect or edit them, or to submi
 the clusters pass the preset with `--slurm-preset` (to submit scripts that accept it). The scripts go to the
 profiling folder (in the run folder of the call) and are listed with their `sbatch` command. Nothing is compiled,
 packaged or uploaded: compile the kernels in the venv first (`struphy compile`), and runs submitted this way are not
-packaged by the driver. The scripts contain the paths of the writing machine (venv, repo) and its `module` lines
-(only where environment modules exist): write them on the cluster to submit them; written elsewhere, they are for
-inspection only.
+packaged by the driver. The scripts load the modules of `setup/modules.sh` and activate the current venv; they
+contain the paths of the writing machine (venv, repo), so write them on the cluster to submit them; written elsewhere
+(e.g. `--slurm-preset raven` on a workstation), they are for checking only.
 
 ## 7. PR
 

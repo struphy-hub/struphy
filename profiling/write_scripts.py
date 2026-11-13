@@ -6,9 +6,10 @@ script of its run into a new run folder of the profiling folder (``/ptmp/<user>/
 ``clusters.SCRATCH_DIRS``) and prints its path; nothing is compiled, submitted, waited on, packaged or uploaded, so
 compile the kernels first (``struphy compile``), and runs submitted this way are not packaged by the driver. The
 preset is that of the detected cluster, or the one given to the submit script with ``--slurm-preset`` (needed off the
-clusters, e.g. on a laptop). The scripts activate the current venv (``VIRTUAL_ENV`` must be set) and contain the paths
-and the ``module`` lines of the writing machine: write them on the cluster to submit them (inspect, edit, ``sbatch``);
-written elsewhere, they are for inspection only.
+clusters, e.g. on a laptop). The scripts load the modules of ``setup/modules.sh`` (also when written off the
+clusters) and then activate the current venv (``VIRTUAL_ENV`` must be set; the ``python`` module would shadow an
+inherited venv): they contain the paths of the writing machine, so write them on the cluster to submit them (inspect,
+edit, ``sbatch``); written elsewhere, they are for checking only.
 
 Usage (from anywhere, with the struphy venv activated)::
 

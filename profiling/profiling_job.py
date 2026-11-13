@@ -411,7 +411,8 @@ class ProfilingCase:
             self.run_results_root.mkdir(parents=True, exist_ok=True)
             self.case_output_root = self.run_results_root / self.label
             self.use_slurm = True
-            self.use_modules = has_module_system()
+            # the scripts are for a cluster: with the module lines also when written elsewhere (e.g. to check them)
+            self.use_modules = True
             self.launcher = "srun"
             return
 
