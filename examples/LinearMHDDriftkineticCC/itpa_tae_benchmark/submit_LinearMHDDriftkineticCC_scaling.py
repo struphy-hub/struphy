@@ -6,7 +6,8 @@ default preconditioner and grid) and submits its runs on 36 and 72 MPI ranks on 
 2 clones) and 288 ranks (4 nodes, 4 clones): with clones (`--num-clones` of the params file), each node holds one clone
 with the whole FEEC part (domain decomposition on its 72 ranks) and its share of the markers, so that the FEEC solves
 are not spread thinner than over one node while the marker work is divided among all ranks. Raven CPU nodes (72
-cores), `raven` preset of `clusters.SLURM_PRESETS` (whole nodes). Fewer ranks are not run: the markers make them too
+cores), `raven` preset of `clusters.SLURM_PRESETS`, with the whole memory of a node (120000 MB, not measured on the full
+case; `--mem` overrides it). Fewer ranks are not run: the markers make them too
 long. For each run, `ProfilingCase.launch` builds and submits a SLURM script, or, without a batch
 system, runs directly on this machine, where the rank counts that exceed the local cores are skipped. `finalize_run`
 then packages (and with `--upload` uploads) each run as soon as its own job finishes. Each generated script runs the
@@ -54,6 +55,9 @@ RUNS = ((36, 1, 1), (72, 1, 1), (144, 2, 2), (288, 4, 4))
 
 # number of markers of the energetic ions (the default of the example)
 NP = 1_000_000
+
+# SLURM memory per node (MB): the most a Raven job can request (the memory of the full case is not measured)
+MEM = "120000"
 
 # variant (key = label suffix) -> name, description, flags of the params file, grid, SLURM time limit (36-rank run of
 # 50 steps), runs
@@ -104,6 +108,11 @@ def main() -> None:
         "--time",
         default=None,
         help="SLURM time limit of each run (default: the walltime of the variant, for 50 steps, scaled with --steps).",
+    )
+    parser.add_argument(
+        "--mem",
+        default=MEM,
+        help=f"SLURM memory per node of each run, in MB or with a unit (e.g. 120000 or 100G; default {MEM}).",
     )
     parser.add_argument(
         "--slurm-preset",
@@ -178,7 +187,7 @@ def main() -> None:
             num_nodes=num_nodes,
             param_flags=[*param_flags, "--num-clones", str(num_clones)],
             slurm_preset=args.slurm_preset,
-            slurm_options={"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50)},
+            slurm_options={"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50), "mem": args.mem},
         )
 
     # Package and push each run as its own job finishes.

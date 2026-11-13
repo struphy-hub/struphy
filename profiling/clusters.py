@@ -96,11 +96,12 @@ SLURM_PRESETS: dict[str, dict] = {
         "time": "00:15:00",
     },
     # MPCDF Raven, standard CPU nodes (72 cores, at most 120000 MB per node for a job). Jobs on less than half a node
-    # would share it with other jobs; requesting the maximal memory of a node (in MB) allocates the full node also for
-    # the small rank counts, so that all runs of a strong scaling see the same hardware. No account or partition needed.
+    # can share it with other jobs. The default of 64000 MB is enough for most profiling runs and queues much shorter
+    # than the whole node (120000); a submit script can request more per run (`slurm_options={"mem": ...}`, the
+    # `--mem` option of the ITPA submit scripts). No account or partition needed.
     "raven": {
         "cpus_per_task": 1,
-        "mem": "120000",
+        "mem": "64000",
         "output": "./%x.%j.out",
         "error": "./%x.%j.err",
         "mail_type": "none",

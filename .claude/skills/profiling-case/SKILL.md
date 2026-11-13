@@ -97,11 +97,16 @@ Decomposition and memory:
 - Check that every rank count decomposes the grid with at least `degree` elements per rank and direction:
   `feectools.ddm.partition.compute_dims_general(n, num_elements, mpi_dims_mask)`. Polar splines need enough elements
   along eta1 on the pole rank and a multiple of 3 elements along eta2.
-- Preconditioners that hold global dense data on every rank (e.g. `ToroidalFourierPreconditioner`: one dense poloidal
-  factorization per toroidal mode) do not shrink with the rank count: estimate the memory per rank from a smaller
-  grid and limit their rank counts.
-- Under SLURM, jobs on a fraction of a node may share it with other jobs (memory bandwidth, cache), which disturbs
-  the timings of the small rank counts; a preset can request the whole node (e.g. its full memory with `mem`).
+- The memory of a job is about `n * a + b` on `n` ranks: `a` per rank (interpreter and imports, about 0.1 GB, plus
+  data held on every rank), `b` divided among the ranks. Measure the peak per rank on 4 and 8 ranks (e.g.
+  `/usr/bin/time -f %M` per rank, `mpirun --oversubscribe` for the memory only) and fit `a`, `b`; the job total grows
+  with `n` if `a` is large. Data held on every rank makes `a` large: `ToroidalFourierPreconditioner` (one dense
+  poloidal factorization per toroidal mode), polar splines (polar operators, poloidal factors; ITPA 24 x 90 x 8:
+  about 2.3 GB per rank). Limit the rank counts of such variants.
+- The memory per node is the `mem` of the preset (Raven: 64000 MB, at most 120000); a variant that needs more
+  passes `slurm_options={"mem": ...}` (see the ITPA submit scripts: variant `mem` and the `--mem` option). Jobs on a
+  fraction of a node may share it with other jobs (memory bandwidth, cache), which disturbs the timings of the small
+  rank counts; requesting the full memory of the node avoids that, but queues longer.
 
 ## 5. Test locally before submitting
 
