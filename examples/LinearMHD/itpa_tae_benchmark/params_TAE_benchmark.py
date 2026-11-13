@@ -28,6 +28,11 @@ the default grid (4.4 elements per wavelength of the m = 10 harmonic) the effect
 2-3% too small, the continuum is shifted and there is no TAE (ShearAlfven: omega about 0.13 at r = 0.5). Hdiv needs
 about 8 elements per poloidal wavelength, e.g. --num-elements 24 88 8 (ShearAlfven: omega = 0.0835, i.e. 4.07e5
 rad/s). The H(curl) version has no such error (weak products with mass matrices).
+With --polar (Hdiv only), C1 polar splines on the full torus without hole (IGAPolarTorus) replace the
+tensor-product splines on the HollowTorus; the number of elements along eta2 must be a multiple of 3 (e.g.
+--num-elements 24 90 8). The Kronecker preconditioner is then its 2D x 1D polar version (no E x B correction needed);
+the mass matrix preconditioners (shear Alfven, sound wave and background current steps) are
+PolarMassMatrixPreconditioner.
 
 Physics. Shear Alfven waves propagate along the magnetic field with the local frequency
     omega_A(r) = |k_par(r)| v_A(r),   v_A(r) = B(r) / sqrt(mu0 rho(r)),
@@ -77,8 +82,9 @@ from pathlib import Path
 
 # Command line options
 # `--out-folder` and `--sim-folder` set the output folder; `--num-elements` the grid; `--dt` and `--tend` the time
-# stepping; `--a1` the hole around the axis; `--degree` the spline degrees.
+# stepping; `--a1` the hole around the axis (or `--polar`: polar splines without hole); `--degree` the spline degrees.
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
+# `--setup profiling` selects the setup of the profiling runs of submit_LinearMHD_scaling.py.
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
 parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
@@ -106,13 +112,21 @@ parser.add_argument(
 parser.add_argument(
     "--precond",
     default=None,
-    choices=["MassMatrixPreconditioner", "MultiGrid", "StiffnessPreconditioner", "HiptmairXu"],
+    choices=[
+        "MassMatrixPreconditioner",
+        "PolarMassMatrixPreconditioner",
+        "MultiGrid",
+        "StiffnessPreconditioner",
+        "ToroidalFourierPreconditioner",
+        "HiptmairXu",
+    ],
     help="Preconditioner of the shear Alfven solve: the Kronecker (fast diagonalization) preconditioner of the whole "
     "Schur operator with the E x B auxiliary space correction (--b-space Hdiv only, its default; 24x44x8, dt = 0.5, "
     "4 MPI ranks: 2.5 s per time step instead of 17 s with the mass matrix preconditioner), of the mass matrix "
-    "(default with --projected), a geometric multigrid V-cycle of the whole Schur operator (--b-space Hdiv "
-    "only; experimental, currently slower here), or Hiptmair-Xu for the curl-curl operator (--b-space Hcurl only; "
-    "its default without --projected).",
+    "(default with --projected; use PolarMassMatrixPreconditioner with --polar), a geometric multigrid V-cycle of "
+    "the whole Schur operator (--b-space Hdiv only; experimental, currently slower here), the exact inverse of the "
+    "Schur operator of the axisymmetric equilibrium by an FFT along eta3 (ToroidalFourierPreconditioner, --b-space "
+    "Hdiv only), or Hiptmair-Xu for the curl-curl operator (--b-space Hcurl only; its default without --projected).",
 )
 parser.add_argument(
     "--dt",
@@ -125,12 +139,31 @@ parser.add_argument("--tend", type=float, default=500.0, help="End time (default
 parser.add_argument(
     "--a1", type=float, default=0.1, help="Radius of the hole around the magnetic axis (default 0.1, in units of a)."
 )
+parser.add_argument(
+    "--polar",
+    action="store_true",
+    help="C1 polar splines on the full torus without hole (IGAPolarTorus) instead of tensor-product splines on the "
+    "HollowTorus (Hdiv only; the number of elements along eta2 must be a multiple of 3).",
+)
 parser.add_argument("--degree", type=int, nargs=3, default=[3, 3, 3], help="Spline degrees per direction.")
+parser.add_argument(
+    "--setup",
+    default="example",
+    choices=["example", "profiling"],
+    help="example: the TAE run; profiling: setup of the profiling runs profiled with scope-profiler (the grid, "
+    "space and preconditioner of the flags, --profiling-steps steps, solver iterations logged, no restart data).",
+)
+parser.add_argument(
+    "--profiling-steps",
+    type=int,
+    default=50,
+    help="Number of time steps with --setup profiling (default 50); the first one includes one-time work.",
+)
 parser.add_argument(
     "--test-run",
     action="store_true",
-    help="Small resolution (num_elements = [8, 32, 4]) and a short run with three saved time steps, for the tests "
-    "(test_examples.py).",
+    help="Small resolution (num_elements = [8, 32, 4], [8, 33, 4] with --polar) and a short run with three saved "
+    "time steps, for the tests (test_examples.py).",
 )
 args, _ = parser.parse_known_args()
 if args.projected and args.b_space != "Hcurl":
@@ -140,13 +173,32 @@ if args.precond is None:
         args.precond = "StiffnessPreconditioner"
     else:
         args.precond = "MassMatrixPreconditioner" if args.projected else "HiptmairXu"
-if args.precond in ("MultiGrid", "StiffnessPreconditioner") and args.b_space != "Hdiv":
+if args.precond in ("MultiGrid", "StiffnessPreconditioner", "ToroidalFourierPreconditioner") and args.b_space != "Hdiv":
     parser.error(f"--precond {args.precond} requires --b-space Hdiv.")
 if args.precond == "HiptmairXu" and args.b_space != "Hcurl":
     parser.error("--precond HiptmairXu requires --b-space Hcurl.")
-name = f"ITPA TAE benchmark (LinearMHD, b_space={args.b_space}{', projected' if args.projected else ''})"
+if args.polar and args.precond == "MultiGrid":
+    parser.error("--precond MultiGrid does not support --polar.")
+if args.polar and args.b_space != "Hdiv":
+    parser.error("--polar requires --b-space Hdiv.")
+if args.polar != (args.precond == "PolarMassMatrixPreconditioner") and "MassMatrix" in args.precond:
+    parser.error("Use --precond PolarMassMatrixPreconditioner with --polar and MassMatrixPreconditioner without.")
+name = (
+    f"ITPA TAE benchmark (LinearMHD, b_space={args.b_space}{', projected' if args.projected else ''}"
+    f"{', polar splines' if args.polar else ''})"
+)
+profiling = args.setup == "profiling"
 if args.test_run:
-    args.num_elements = [8, 32, 4]
+    args.num_elements = [8, 33, 4] if args.polar else [8, 32, 4]
+if args.polar and args.num_elements[1] % 3 != 0:
+    parser.error("--polar needs a number of elements along eta2 that is a multiple of 3.")
+if profiling:
+    # one BLAS/OpenMP thread per MPI rank, set before NumPy is imported: oversubscribed threaded BLAS makes the MPI
+    # timings meaningless (issue #743)
+    import os
+
+    for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        os.environ.setdefault(_var, "1")
 
 from struphy import set_logging_level
 
@@ -195,16 +247,37 @@ model.mhd.pressure.save_data = True
 
 # Environment options
 env = EnvironmentOptions(
-    out_folders=args.out_folder, save_step=max(1, round(1.0 / args.dt)), sim_folder=args.sim_folder, max_runtime=470
+    out_folders=args.out_folder,
+    save_step=max(1, round(1.0 / args.dt)),
+    sim_folder=args.sim_folder,
+    max_runtime=470,
+    save_restart=not profiling,
 )
 
 # Time stepping
 dt = args.dt
 # --test-run: the initial, a middle and a final saved time step
-time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else args.tend)
+if profiling:
+    time_opts = Time(dt=dt, Tend=round(args.profiling_steps * dt, 14))
+else:
+    time_opts = Time(dt=dt, Tend=2 * env.save_step * dt if args.test_run else args.tend)
 
 # Geometry
-domain = domains.HollowTorus(a1=args.a1, a2=1.0, R0=10.0, sfl=False, pol_period=1, tor_period=6)
+if args.polar:
+    # the spline mapping has the resolution of the grid in the poloidal plane
+    domain = domains.IGAPolarTorus(
+        num_elements=tuple(args.num_elements[:2]),
+        degree=tuple(args.degree[:2]),
+        a=1.0,
+        R0=10.0,
+        sfl=False,
+        tor_period=6,
+    )
+    # radial range of eta1 (no hole)
+    r_min, r_max = 0.0, 1.0
+else:
+    domain = domains.HollowTorus(a1=args.a1, a2=1.0, R0=10.0, sfl=False, pol_period=1, tor_period=6)
+    r_min, r_max = domain.params["a1"], domain.params["a2"]
 
 # Fluid equilibrium (can be used as part of initial conditions)
 equil = equils.AdhocTorus(
@@ -219,10 +292,22 @@ grid = grids.TensorProductGrid(num_elements=tuple(args.num_elements))
 # magnetic field to zero (unphysical, it damps the TAE). With free boundary conditions, u.n = 0 holds weakly in the
 # shear Alfven step and p = 0 weakly in the sound wave step.
 bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "free")
-derham_opts = DerhamOptions(degree=tuple(args.degree), bcs=(bcs_eta1, None, None))
+if args.polar:
+    # no boundary at the pole
+    bcs_eta1 = ("free", bcs_eta1[1])
+derham_opts = DerhamOptions(degree=tuple(args.degree), bcs=(bcs_eta1, None, None), polar_splines=args.polar)
 
 # Profiling options
-profiling_opts = ProfilingOptions(use_line_profiler=True)
+if profiling:
+    from maybempi import MPI, SerialMPI
+
+    # scope-profiler run label, the name of the run in the comparison plots of the profiling-data page
+    num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+    profiling_opts = ProfilingOptions(
+        label=f"{num_ranks} rank" + ("s" if num_ranks != 1 else ""), use_line_profiler=False
+    )
+else:
+    profiling_opts = ProfilingOptions(use_line_profiler=True)
 
 # Simulation object
 sim = Simulation(
@@ -243,9 +328,20 @@ sim = Simulation(
 # Propagator options
 # ------------------
 
-model.propagators.shear_alf.options = model.propagators.shear_alf.Options(precond=args.precond)
-model.propagators.bg_current.options = model.propagators.bg_current.Options()
-model.propagators.sound.options = model.propagators.sound.Options()
+from struphy.linear_algebra.solver import SolverParameters
+
+# with --setup profiling, the solver iterations of each step are logged (read by the pproc script); with --polar,
+# the mass matrix solves of the sound wave and background current steps use the polar mass matrix preconditioner
+mass_precond = "PolarMassMatrixPreconditioner" if args.polar else "MassMatrixPreconditioner"
+model.propagators.shear_alf.options = model.propagators.shear_alf.Options(
+    precond=args.precond, solver_params=SolverParameters(info=profiling)
+)
+model.propagators.bg_current.options = model.propagators.bg_current.Options(
+    precond=mass_precond, solver_params=SolverParameters(info=profiling)
+)
+model.propagators.sound.options = model.propagators.sound.Options(
+    precond=mass_precond, precond_M3=mass_precond, solver_params=SolverParameters(info=profiling)
+)
 model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 
 # ------------------
@@ -259,7 +355,7 @@ model.propagators.bg_pressure.options = model.propagators.bg_pressure.Options()
 # The m = 10 and m = 11 harmonics of the TAE (n = 6: logical mode number -1 along eta3), Gaussian around eta1_c (the
 # radius r_c = 0.5 of the gap), as 2-form components: divergence free for the poloidal amplitude amp / (2 pi m)
 # ("d_exp" is the derivative of "exp")
-eta1_c = (0.5 - domain.params["a1"]) / (domain.params["a2"] - domain.params["a1"])
+eta1_c = (0.5 - r_min) / (r_max - r_min)
 sigma, amp = 0.1, 1e-3
 ms = (10, 11)
 perturbation_radial = perturbations.TorusModesSin(
