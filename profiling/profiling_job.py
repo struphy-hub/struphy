@@ -63,7 +63,6 @@ from package_profiling_results import (
     _run_folder_name,
     _write_run_metadata,
 )
-from slurm_script_generator.pragmas import Pragma
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue, job_states
 from upload import _clone_profiling_data, _push_profiling_data
@@ -78,19 +77,6 @@ repo_root = script_dir.parent
 profiling_results_base = profiling_base_dir(repo_root)
 
 default_cluster_name = "pitagora"
-
-
-class _Exclusive(Pragma):
-    """The SLURM pragma `#SBATCH --exclusive` (nodes allocated exclusively), which `SlurmScript` does not offer."""
-
-    pragma_id = 2
-    pragma_type = "exclusivity_and_sharing"
-    arg_varname = "exclusive"
-    flags = ["--exclusive"]
-    dest = "--exclusive"
-    help = "allocate the nodes exclusively"
-    action = "store_true"
-    type = str
 
 
 def script_only() -> bool:
@@ -299,7 +285,8 @@ class ProfilingCase:
                 `mem` is given, and the extra key `mem_shared` sets the memory per
                 node of the shared jobs only (ignored on other clusters); a shared
                 job whose `mem` or `mem_shared` exceeds what shared jobs can request
-                asks for its nodes exclusively (`#SBATCH --exclusive`).
+                allocates all cores of its node (`ntasks_per_node` = the cores of a
+                node) and runs its `num_tasks` ranks in it (`srun -n num_tasks`).
                 Ignored outside SLURM.
 
         Raises:
@@ -350,17 +337,27 @@ class ProfilingCase:
             # Memory per node on clusters whose small jobs share nodes (`clusters.SHARED_NODES`): `mem` of the run, else
             # the whole node for exclusive jobs, else `mem_shared` of the run, else the `mem` of the preset.
             # `mem_shared` is not a SLURM option and is ignored on the other clusters. A small job that needs more
-            # memory than a shared job can request asks for its nodes exclusively (`#SBATCH --exclusive`).
+            # memory than a shared job can request allocates all cores of its node, which makes it exclusive
+            # (`#SBATCH --exclusive` is not accepted on Raven), and runs only its `num_tasks` ranks in it: the launch
+            # command is `srun -n num_tasks` (`build_commands`).
             mem_shared = cluster_preset.pop("mem_shared", None)
-            pragmas = []
+            tasks_per_node = num_tasks // num_nodes
             shared_nodes = SHARED_NODES.get(preset_name)
             if shared_nodes is not None:
-                cores_per_node = num_tasks // num_nodes * int(cluster_preset.get("cpus_per_task", 1))
+                cores_per_node = tasks_per_node * int(cluster_preset.get("cpus_per_task", 1))
                 exclusive = cores_per_node > shared_nodes["max_cores_per_node"]
                 mem = cluster_preset.get("mem") if "mem" in (slurm_options or {}) else mem_shared
                 if not exclusive and mem is not None and mem_in_mb(mem) > shared_nodes["max_mem_shared"]:
-                    pragmas.append(_Exclusive(True))
+                    cpus_per_task = int(cluster_preset.get("cpus_per_task", 1))
+                    tasks_per_node = HARDWARE_INFO[preset_name]["cpus_per_node"] // cpus_per_task
                     exclusive = True
+                    # srun takes the tasks per node of the allocation by default: give it the ones of the run, so that
+                    # the ranks of a run on several nodes are spread over all of them
+                    launch = f"{self.launcher} -n {num_tasks} "
+                    case_commands = [
+                        line.replace(launch, f"{launch}--ntasks-per-node={num_tasks // num_nodes} ")
+                        for line in case_commands
+                    ]
                 if "mem" not in (slurm_options or {}) and (exclusive or mem_shared is not None):
                     cluster_preset["mem"] = shared_nodes["mem_exclusive"] if exclusive else mem_shared
                     if "mem_per_cpu" not in (slurm_options or {}):
@@ -376,9 +373,8 @@ class ProfilingCase:
                 # The job name is what `%x` expands to in the preset's output/error
                 # paths, so this also names the SLURM log files.
                 job_name=f"profiling_{self.label}_{self.launch_count:02d}",
-                ntasks_per_node=num_tasks // num_nodes,
+                ntasks_per_node=tasks_per_node,
                 custom_commands=case_commands,
-                pragmas=pragmas,
                 **{**cluster_preset, "nodes": num_nodes},
             )
             script_text = str(script)
