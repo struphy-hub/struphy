@@ -95,9 +95,9 @@ SLURM_PRESETS: dict[str, dict] = {
         "mail_type": "none",
         "time": "00:15:00",
     },
-    # MPCDF Raven, standard CPU nodes (72 cores, at most 120000 MB per node for a job). Jobs on less than half a node
-    # would share it with other jobs; requesting the maximal memory of a node (in MB) allocates the full node also for
-    # the small rank counts, so that all runs of a strong scaling see the same hardware. No account or partition needed.
+    # MPCDF Raven, standard CPU nodes (72 cores, 256 GB). Jobs on at most half a node (36 cores) share the node with
+    # other jobs and can request at most 120000 MB; larger jobs get their nodes exclusively, with up to 240000 MB per
+    # node. No account or partition needed.
     "raven": {
         "cpus_per_task": 1,
         "mem": "120000",
