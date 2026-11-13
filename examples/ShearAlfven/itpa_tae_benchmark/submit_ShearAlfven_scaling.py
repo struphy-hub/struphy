@@ -45,10 +45,10 @@ on every rank: about 2.3 GB per rank plus 4.9 GB (extrapolated from 24 x 48, 60 
 150 GB on 64 ranks, so the polar variants request 120000 MB, the most a shared Raven job can request, on up to 32 ranks,
 and 240000 MB on 64 ranks. The toroidal Fourier variants (dense poloidal factorizations on every rank, about 5-6 GB per
 rank, not measured on the full grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs (shared
-Raven jobs can request at most 120000 MB, so the driver adds `#SBATCH --exclusive`); on 32 ranks this is tight (about
-200 GB, more with polar splines). On Viper CPU nodes (128 cores) jobs on at most 64 cores share the node (at most 250000
-MB) and larger jobs get whole nodes (480000 MB): all runs here share their node there, the toroidal Fourier runs without
-`--exclusive`.
+Raven jobs can request at most 120000 MB, so the driver allocates all 72 cores of the node and runs the ranks of the run
+in it); on 32 ranks this is tight (about 200 GB, more with polar splines). On Viper CPU nodes (128 cores) jobs on at
+most 64 cores share the node (at most 250000 MB) and larger jobs get whole nodes (480000 MB): all runs here share their
+node there, also the toroidal Fourier runs.
 """
 
 import argparse
@@ -74,8 +74,8 @@ def MEM_POLAR(num_tasks):
 
 
 # memory per node (MB) of the toroidal Fourier runs (dense poloidal factorizations on every rank), on at most 32
-# ranks: a whole Raven node (`#SBATCH --exclusive`, since shared Raven jobs can request at most 120000 MB); on Viper
-# the runs stay shared (at most 250000 MB)
+# ranks: a whole Raven node (all its cores are allocated, since shared Raven jobs can request at most 120000 MB); on
+# Viper the runs stay shared (at most 250000 MB)
 MEM_TOROIDAL_FOURIER = "240000"
 RANKS_TOROIDAL_FOURIER = (4, 8, 16, 32)
 

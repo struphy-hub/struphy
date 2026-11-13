@@ -107,11 +107,12 @@ Decomposition and memory:
   request the `mem` of the preset (64000 MB, at most 120000); larger jobs get whole nodes and request 240000 MB
   automatically. A run passes `slurm_options={"mem_shared": ...}` for more memory of its shared jobs only or `{"mem":
   ...}` for all jobs; see the ITPA submit scripts (variant `mem_shared`, `--mem` option). Raven caps shared jobs at
-  120000 MB: a small job that asks for more gets `#SBATCH --exclusive` from the driver (check the first such job, e.g.
-  `sbatch --test-only <script>` or `scontrol show job <id>`). Shared nodes disturb the timings of the small rank counts
-  (memory bandwidth, cache of other jobs); requesting a whole node avoids that, but queues longer. Viper CPU
-  (`viper_cpu`) works the same with other limits: jobs on at most 64 cores share the node (at most 250000 MB), larger
-  jobs get whole nodes (480000 MB).
+  120000 MB: a small job that asks for more allocates all cores of the node (`--ntasks-per-node=72`) and the driver
+  starts only its own ranks in it (`srun -n <ranks> --ntasks-per-node=<ranks per node>`; srun may warn that it "can't
+  honor --ntasks-per-node", which is harmless); `#SBATCH --exclusive` is not accepted on Raven. Shared nodes disturb the
+  timings of the small rank counts (memory bandwidth, cache of other jobs); requesting a whole node avoids that, but
+  queues longer. Viper CPU (`viper_cpu`) works the same with other limits: jobs on at most 64 cores share the node (at
+  most 250000 MB), larger jobs get whole nodes (480000 MB).
 
 ## 5. Test locally before submitting
 

@@ -100,7 +100,7 @@ SLURM_PRESETS: dict[str, dict] = {
     # node. `mem` is the default of the shared jobs (64000 MB, enough for most profiling runs, queues shorter than a
     # whole node); the exclusive jobs request the memory of the whole node (`SHARED_NODES`). A run can request other
     # memory with `slurm_options={"mem": ...}` (all jobs) or `{"mem_shared": ...}` (only the shared jobs; above 120000
-    # MB they get `#SBATCH --exclusive`). No account or partition needed.
+    # MB they allocate the whole node). No account or partition needed.
     "raven": {
         "cpus_per_task": 1,
         "mem": "64000",
@@ -127,7 +127,8 @@ SLURM_PRESETS: dict[str, dict] = {
 # cpus_per_task) may share its node with other jobs and request at most `max_mem_shared` (MB) per node (the `mem` of
 # the preset, or the `mem_shared` run option of `ProfilingCase.launch`); a job with more cores per node gets its nodes
 # exclusively and requests `mem_exclusive` (MB, the memory of a whole node), unless the run sets `mem`. A small job
-# that needs more than `max_mem_shared` asks for its node exclusively (`#SBATCH --exclusive`).
+# that needs more than `max_mem_shared` allocates all cores of its node (and runs only its own ranks in it), since
+# `#SBATCH --exclusive` is not accepted on Raven.
 SHARED_NODES: dict[str, dict] = {
     "raven": {"max_cores_per_node": 36, "max_mem_shared": 120000, "mem_exclusive": "240000"},
     "viper_cpu": {"max_cores_per_node": 64, "max_mem_shared": 250000, "mem_exclusive": "480000"},
