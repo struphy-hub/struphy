@@ -97,10 +97,25 @@ SLURM_PRESETS: dict[str, dict] = {
     },
     # MPCDF Raven, standard CPU nodes (72 cores, 256 GB). Jobs on at most half a node (36 cores) share the node with
     # other jobs and can request at most 120000 MB; larger jobs get their nodes exclusively, with up to 240000 MB per
-    # node. No account or partition needed.
+    # node. `mem` is the default of the shared jobs (64000 MB, enough for most profiling runs, queues shorter than a
+    # whole node); the exclusive jobs request the memory of the whole node (`SHARED_NODES`). A run can request other
+    # memory with `slurm_options={"mem": ...}` (all jobs) or `{"mem_shared": ...}` (only the shared jobs; above 120000
+    # MB they allocate the whole node). No account or partition needed.
     "raven": {
         "cpus_per_task": 1,
-        "mem": "120000",
+        "mem": "64000",
+        "output": "./%x.%j.out",
+        "error": "./%x.%j.err",
+        "mail_type": "none",
+        "time": "00:15:00",
+    },
+    # MPCDF Viper, CPU nodes (128 cores, 512 GB; nodes with more memory are not used). As on Raven: jobs on at most half
+    # a node (64 cores) share the node with other jobs and can request at most 250000 MB; larger jobs get their nodes
+    # exclusively, with up to 480000 MB per node (`SHARED_NODES`). `mem` is the default of the shared jobs. No account
+    # or partition needed (a submit filter chooses the partition).
+    "viper_cpu": {
+        "cpus_per_task": 1,
+        "mem": "64000",
         "output": "./%x.%j.out",
         "error": "./%x.%j.err",
         "mail_type": "none",
@@ -108,11 +123,31 @@ SLURM_PRESETS: dict[str, dict] = {
     },
 }
 
+# Clusters whose nodes are shared by small jobs: a job with at most `max_cores_per_node` cores per node (tasks times
+# cpus_per_task) may share its node with other jobs and request at most `max_mem_shared` (MB) per node (the `mem` of
+# the preset, or the `mem_shared` run option of `ProfilingCase.launch`); a job with more cores per node gets its nodes
+# exclusively and requests `mem_exclusive` (MB, the memory of a whole node), unless the run sets `mem`. A small job
+# that needs more than `max_mem_shared` allocates all cores of its node (and runs only its own ranks in it), since
+# `#SBATCH --exclusive` is not accepted on Raven.
+SHARED_NODES: dict[str, dict] = {
+    "raven": {"max_cores_per_node": 36, "max_mem_shared": 120000, "mem_exclusive": "240000"},
+    "viper_cpu": {"max_cores_per_node": 64, "max_mem_shared": 250000, "mem_exclusive": "480000"},
+}
+
+
+def mem_in_mb(mem: str) -> float:
+    """A SLURM memory value (`--mem`: a number in MB or with a unit K, M, G or T) in MB."""
+    mem = str(mem).strip().upper().removesuffix("B")
+    factor = {"K": 1 / 1024, "M": 1, "G": 1024, "T": 1024**2}.get(mem[-1:], None)
+    return float(mem) if factor is None else float(mem[:-1]) * factor
+
+
 # Folder of the profiling output (job scripts, SLURM logs, simulation runs, packaged cases) per cluster, in place of
 # `<repo>/_profiling_jobs`: on clusters whose home file system is small, the runs go to the scratch file system.
 # `{user}` is replaced by the user name. `$STRUPHY_PROFILING_DIR` overrides the parent folder on any machine.
 SCRATCH_DIRS: dict[str, str] = {
     "raven": "/ptmp/{user}/struphy_profiling",
+    "viper_cpu": "/ptmp/{user}/struphy_profiling",
 }
 
 
