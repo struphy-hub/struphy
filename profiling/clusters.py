@@ -111,12 +111,12 @@ SLURM_PRESETS: dict[str, dict] = {
     },
 }
 
-# Clusters whose nodes are shared by small jobs: a job with at most `max_tasks_per_node` tasks per node may share its
-# node with other jobs (with the `mem` of the preset, or the `mem_shared` run option of `ProfilingCase.launch`); a job
-# with more tasks per node gets its nodes exclusively and requests `mem_exclusive` (MB, the memory of a whole node),
-# unless the run sets `mem`.
+# Clusters whose nodes are shared by small jobs: a job with at most `max_cores_per_node` cores per node (tasks times
+# cpus_per_task) may share its node with other jobs (with the `mem` of the preset, or the `mem_shared` run option of
+# `ProfilingCase.launch`); a job with more cores per node gets its nodes exclusively and requests `mem_exclusive` (MB,
+# the memory of a whole node), unless the run sets `mem`.
 SHARED_NODES: dict[str, dict] = {
-    "raven": {"max_tasks_per_node": 36, "mem_exclusive": "240000"},
+    "raven": {"max_cores_per_node": 36, "mem_exclusive": "240000"},
 }
 
 # Folder of the profiling output (job scripts, SLURM logs, simulation runs, packaged cases) per cluster, in place of

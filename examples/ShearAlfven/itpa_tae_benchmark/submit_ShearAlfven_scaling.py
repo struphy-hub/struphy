@@ -44,7 +44,8 @@ matrix preconditioners need less). Polar splines hold the polar operators and th
 on every rank: about 2.3 GB per rank plus 4.9 GB (extrapolated from 24 x 48, 60 and 72 x 8): about 80 GB on 32 ranks and
 150 GB on 64 ranks, so the polar variants request 120000 MB, the most a shared Raven job can request, on up to 32 ranks.
 The toroidal Fourier variants (dense poloidal factorizations on every rank, about 5-6 GB per rank, not measured on the
-full grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs.
+full grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs; on
+32 ranks this is tight (about 200 GB, more with polar splines).
 """
 
 import argparse

@@ -326,13 +326,19 @@ class ProfilingCase:
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
             cluster_preset = {**SLURM_PRESETS[preset_name], **(slurm_options or {})}
+            # `mem` and `mem_per_cpu` exclude each other in SLURM: the one of the run replaces the other of the preset
+            if "mem" in (slurm_options or {}):
+                cluster_preset.pop("mem_per_cpu", None)
+            elif "mem_per_cpu" in (slurm_options or {}):
+                cluster_preset.pop("mem", None)
             # Memory per node on clusters whose small jobs share nodes (`clusters.SHARED_NODES`): `mem` of the run, else
             # the whole node for exclusive jobs, else `mem_shared` of the run, else the `mem` of the preset.
             # `mem_shared` is not a SLURM option and is ignored on the other clusters.
             mem_shared = cluster_preset.pop("mem_shared", None)
             shared_nodes = SHARED_NODES.get(preset_name)
             if shared_nodes is not None and "mem" not in (slurm_options or {}):
-                if num_tasks // num_nodes > shared_nodes["max_tasks_per_node"]:
+                cores_per_node = num_tasks // num_nodes * int(cluster_preset.get("cpus_per_task", 1))
+                if cores_per_node > shared_nodes["max_cores_per_node"]:
                     cluster_preset["mem"] = shared_nodes["mem_exclusive"]
                 elif mem_shared is not None:
                     cluster_preset["mem"] = mem_shared

@@ -45,10 +45,11 @@ Memory: on Raven, the runs on at most 36 ranks share their node with other jobs 
 per node of all runs. Peak memory (local workstation, 2 steps, the setup dominates) is about 0.56 GB per rank plus 5.3
 GB divided among the ranks (H(div), Kronecker preconditioner; about 8 GB on 4 ranks and 41 GB on 64 ranks). Polar
 splines hold the polar operators and the poloidal factors of the preconditioner on every rank: about 2.8 GB per rank
-plus 5.9 GB (extrapolated from ShearAlfven, about 1.2 times more on 24 x 48 x 8): about 95 GB on 32 ranks and 180 GB on
+plus 5.9 GB (extrapolated from ShearAlfven, about 1.2 times more on 24 x 48 x 8): about 95 GB on 32 ranks and 185 GB on
 64 ranks, so the polar variants request 120000 MB, the most a shared Raven job can request, on up to 32 ranks. The
 toroidal Fourier variants (dense poloidal factorizations on every rank, about 5-6 GB per rank, not measured on the full
-grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs.
+grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs; on
+32 ranks this is tight (about 200 GB, more with polar splines).
 """
 
 import argparse
