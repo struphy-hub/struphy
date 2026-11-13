@@ -224,11 +224,11 @@ class PushGuidingCenterParallel(Propagator):
             self._b_par_filter = AccumFilter(self.options.filter_params, self.derham, "H1")
 
         # magnetic equilibrium field
-        self._gradB1 = self.projected_equil.gradB1
-        b_eq = getattr(self.projected_equil, "b" + self._b_form)
-        curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._absB0 = self.projected_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
+        self._gradB1 = self.projected_equil.tp.gradB1
+        b_eq = getattr(self.projected_equil.tp, "b" + self._b_form)
+        curl_unit_b2 = self.projected_equil.tp.curl_unit_b2
+        self._absB0 = self.projected_equil.tp.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.tp.curl_unit_b_dot_b0
 
         # the kernels need tensor-product coefficients: transposed extraction operators
         # PolarVector --> Stencil-/BlockVector (identity maps in case of no polar splines)

@@ -548,6 +548,14 @@ not configuration applied to the model afterwards, such as backgrounds or pertur
     out = struphy.Output("./runs/vm1s_scan_A/sim_1")
     out.domain, out.model.units
 
+The metadata also records how the run was produced: the number of MPI ranks
+(``out.mpi_ranks``), the command line of the run (``out.metadata["command_line"]``) and
+the Struphy version and git state of the code (``out.code_info``, a dict with ``version``,
+``git_commit``, ``git_dirty`` and ``git_branch``; the git entries are ``None`` unless Struphy
+was imported from a git checkout, e.g. an editable install; ``feectools_version`` and
+``feectools_git_commit`` for the FEEC library feectools). The command line is stored as typed, so
+don't pass secrets on the command line of a run.
+
 
 Choosing post-processing options: ``out.pproc()``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -666,6 +674,41 @@ quantities (velocities, ``weight``, ...) depend on the particle class, see
     plt.ylabel("z")
     plt.title("Marker orbit (particle 0)")
     plt.show()
+
+
+Mode analysis: frequencies and mode structures
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For waves and eigenmodes in a torus or cylinder (e.g. shear Alfven waves and TAEs),
+:mod:`struphy.post_processing.mode_analysis` computes the frequencies and the radial
+structure of the poloidal harmonics of a field component:
+
+.. code-block:: python
+
+    from struphy.post_processing import mode_analysis as ma
+
+    # Fourier coefficients c_m(r, t) of the radial velocity (normalized basis) for m = 0..3, n = -1 along eta3
+    coeffs = ma.mode_coefficients(out, "mhd/velocity", ms=(0, 1, 2, 3), n=-1, component=0)
+    spectrum = ma.time_spectrum(coeffs)                   # amplitudes A_m(r, omega), omega >= 0
+    omega = ma.peak_frequency(spectrum, m=1, r=0.5)       # frequency of the largest peak at r = 0.5
+    profiles = ma.filtered_profile(spectrum, omega=omega) # mode structure |A_m(r, omega)|
+
+    ma.plot_spectrum(spectrum, r=0.5, expected=0.067, measured=omega, tolerance=0.1)
+    ma.plot_omega_r(spectrum, out=out, expected=0.067)    # (r, omega) maps with the shear Alfven continua
+    ma.plot_profiles(profiles, mark_r=0.5)
+
+The method in short: the field is evaluated at all saved times on a fixed logical grid
+(independent of the resolution of the run, so runs can be compared point by point) and
+Fourier transformed in the angles, which gives the coefficients :math:`c_{m,n}(r, t)`.
+At every radius and for every :math:`m`, the time series is windowed (Hann) and Fourier
+transformed in time; the amplitudes at :math:`\pm\omega` are combined, so standing and
+travelling waves are treated alike. The *mode structure* is the amplitude at the frequency
+of the mode as a function of the radius: it filters the eigenmode from the other
+oscillations of the run, e.g. from continuum oscillations, whose radial structure gets
+finer in time (phase mixing) and therefore differs between snapshots of runs with different
+resolution. The profiles are moduli (no phase), and the frequency resolution is
+:math:`2\pi/T` for a run of length :math:`T`. See the module documentation for details and
+limitations.
 
 
 VTK output for ParaView and PyVista

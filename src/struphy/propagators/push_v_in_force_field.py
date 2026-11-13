@@ -165,7 +165,7 @@ class PushVinForceField(Propagator):
                 f"magnetic_moment=True needs markers with a magnetic moment (PauliParticles6D), not {self.variables.var.space}."
             )
             assert self.projected_equil is not None, "magnetic_moment=True needs an equilibrium with magnetic field."
-            self._gradB1 = self.projected_equil.gradB1
+            self._gradB1 = self.projected_equil.tp.gradB1
             kernel = push_v_with_efield_mu
             args_kernel += (
                 self._gradB1[0]._data,

@@ -129,6 +129,10 @@ class LinearMHDDriftkineticCC(LinearMHD):
             "cc5d_gradb",
             "cc5d_curlb",
         )
+        # the guiding-center pushers as one symmetric (second-order) block: each of them alone does not conserve the
+        # constants of motion (P_phi, epsilon, mu) of the equilibrium f0, so a Lie splitting of the two creates a
+        # spurious delta-f (and delta-f energy) of first order in dt (issue #882)
+        strang_groups = (("push_bxe", "push_parallel"),) + LinearMHD.Propagators.strang_groups
 
         def __init__(
             self,
@@ -180,7 +184,7 @@ class LinearMHDDriftkineticCC(LinearMHD):
             "cc5d_gradb",
             "cc5d_curlb",
         )
-        strang_groups = ()
+        strang_groups = (("push_bxe", "push_parallel"),)
 
         def __init__(self, b_field: FEECVariable = None, **kwargs):
             super().__init__(b_field=b_field, **kwargs)
@@ -407,12 +411,18 @@ class LinearMHDDriftkineticCC(LinearMHD):
     @classmethod
     def doc_discretization(cls):
         """Time integration is performed by the following propagators (in sequence). The default parameter file of this
-        model (``struphy params LinearMHDDriftkineticCC``) sets the energy-conserving discrete gradient methods of the
-        reference discretization for the guiding-center pushers: ``algo="discrete_gradient_2nd_order"`` (implicit
-        mid-point) for ``push_bxe`` and ``algo="discrete_gradient_1st_order_newton"`` (Itoh-Abe with Newton
-        iterations) for ``push_parallel``. The explicit Runge-Kutta methods (``algo="explicit"``) are cheaper but not
-        energy conserving. With ``magnetosonic_cross_b0=True``, ``bg_current``, ``bg_pressure`` and ``sound`` are replaced
-        by :class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`. The propagators are listed for
+        model (``struphy params LinearMHDDriftkineticCC``) sets the energy-conserving second-order discrete gradient
+        method ``algo="discrete_gradient_2nd_order"`` (implicit mid-point) for both guiding-center pushers,
+        ``push_bxe`` and ``push_parallel``. The two pushers form one symmetric block of the splitting
+        (``strang_groups``: ``push_bxe`` with ``dt/2``, ``push_parallel`` with ``dt``,
+        ``push_bxe`` with ``dt/2``), so that this block (not the whole Lie-Trotter step) is second order in time
+        also with ``split_algo="LieTrotter"``: each pusher alone does not conserve the constants of motion of the
+        equilibrium ``f0``, and a first-order splitting of the two (or a first-order pusher, e.g.
+        ``"discrete_gradient_1st_order_newton"``) creates spurious delta-f weights and a drift of the delta-f energy
+        ``en_fv + en_fB`` of first order in ``dt`` (issue #882). The explicit Runge-Kutta methods
+        (``algo="explicit"``) are cheaper but not energy conserving. With ``magnetosonic_cross_b0=True``,
+        ``bg_current``, ``bg_pressure`` and ``sound`` are replaced by
+        :class:`~struphy.propagators.magnetosonic_cross_b0.MagnetosonicCrossB0`. The propagators are listed for
         ``b_space="Hdiv"``, followed by those that differ with ``b_space="Hcurl"`` (the curl-curl shear-Alfvén step
         coupled to the magnetization of the energetic ions, and the 1-form couplings and guiding-center pushers):"""
         return magnetic_discretization_doc(cls)

@@ -394,9 +394,12 @@ class VariationalPBEvolve(Propagator):
         # Kronecker preconditioner of the Schur operator, built for the time step in prepare_time_step
         # built from the equilibrium: exact for the Schur operator of the linear model, an approximation (still a fixed
         # linear preconditioner) for the perturbative one
+        unmet = [] if self._model in ("linear", "perturbative") else ['model="linear" or "perturbative"']
+        if self.derham.polar_splines:
+            unmet += ["tensor-product splines"]
         self._schur_pc = alfven_schur_preconditioner(
             self,
-            [] if self._model in ("linear", "perturbative") else ['model="linear" or "perturbative"'],
+            unmet,
             u_space=self._u_space,
         )
         self._schur_pc_dt = None
@@ -439,7 +442,7 @@ class VariationalPBEvolve(Propagator):
         self._create_linear_form_p()
 
         if self._linearize:
-            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
+            self._extracted_b2 = self.projected_equil.b2
 
     def prepare_time_step(self, dt: float):
         """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with

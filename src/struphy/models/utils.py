@@ -8,7 +8,6 @@ from struphy.io.options import LiteralOptions
 from struphy.models.base import StruphyModel, apply_splitting_order
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC, KineticEnergyPIC, LostMarkersPIC
 from struphy.models.variables import FEECVariable
-from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.propagators.utils import VelocityMass
 
@@ -86,13 +85,12 @@ def generate_models_message() -> str:
 
 
 def ones_l2():
-    """The vector of ones in the discrete :math:`L^2` space (FE coefficients of a 3-form), for volume integrals of
-    3-forms (allocated, call in ``post_allocate``)."""
-    ones = Propagator.projected_equil.p3.space.zeros()
-    if isinstance(ones, PolarVector):
-        ones.tp[:] = 1.0
-    else:
-        ones[:] = 1.0
+    """The vector of ones in the tensor-product :math:`L^2` space, for volume integrals of 3-forms from their
+    tensor-product coefficients (e.g. ``Propagator.projected_equil.tp.p3.inner(ones_l2())``; the sum of the
+    tensor-product coefficients of a 3-form is its integral over the logical cube). Allocated, call in
+    ``post_allocate``."""
+    ones = Propagator.derham.V3.zeros()
+    ones[:] = 1.0
     return ones
 
 
@@ -337,9 +335,12 @@ def add_binning_plot(params_path: str, binning_plot: str = "BinningPlot(slice='e
 
 
 # algorithms of the guiding-center pushers in the default parameter files of the drift-kinetic hybrids: the
-# energy-conserving discrete gradient methods of the reference discretization, second order (implicit mid-point) for
-# the drift perpendicular to b0, first order (Itoh-Abe) with Newton iterations for the parallel motion
-GC_PUSH_ALGOS = {"push_bxe": "discrete_gradient_2nd_order", "push_parallel": "discrete_gradient_1st_order_newton"}
+# energy-conserving second-order discrete gradient method (implicit mid-point) for the drift perpendicular to b0 and
+# for the parallel motion; with the two pushers in a symmetric (Strang) block of the splitting, the guiding-center
+# push is second order in time, which keeps the delta-f weights of an equilibrium f0(P_phi, epsilon, mu) small
+# (issue #882; the first-order Itoh-Abe method "discrete_gradient_1st_order_newton" for the parallel motion gives a
+# delta-f energy drift of first order in dt and was not cheaper per time step in the ITPA TAE example)
+GC_PUSH_ALGOS = {"push_bxe": "discrete_gradient_2nd_order", "push_parallel": "discrete_gradient_2nd_order"}
 
 
 def set_guiding_center_push_algos(params_path: str, algos: dict = GC_PUSH_ALGOS):
