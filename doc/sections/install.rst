@@ -472,7 +472,7 @@ MPCDF Viper installation
    Open MPI, instead of using the ``mpi4py`` module)::
 
     module purge
-    module load gcc/16 python-waterboa/2025.06 openmpi/5.0
+    module load gcc/16 python-waterboa/2026.07 openmpi/5.0
 
 2. Create and source virtual environment::
 
@@ -503,7 +503,7 @@ MPCDF Viper installation
 4. When using SLURM, make sure to load the same modules and activate the virtual environment in your BATCH script::
 
     module purge
-    module load gcc/16 python-waterboa/2025.06 openmpi/5.0
+    module load gcc/16 python-waterboa/2026.07 openmpi/5.0
     source struphy-env/bin/activate
 
     OMPI_MCA_mpi_warn_on_fork=0

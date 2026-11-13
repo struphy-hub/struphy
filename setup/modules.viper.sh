@@ -5,5 +5,5 @@ pandoc/3.1 \
 git/2.5.0"
 
 MODULES_GCC="gcc/16 \
-python-waterboa/2025.06 \
+python-waterboa/2026.07 \
 openmpi/5.0"
