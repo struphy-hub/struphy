@@ -105,10 +105,11 @@ Decomposition and memory:
   about 2.3 GB per rank). Limit the rank counts of such variants.
 - Memory per node on Raven (`clusters.SHARED_NODES`): jobs on at most 36 cores share the node with other jobs and
   request the `mem` of the preset (64000 MB, at most 120000); larger jobs get whole nodes and request 240000 MB
-  automatically. A run passes `slurm_options={"mem_shared": ...}` for more memory of its shared jobs only (above
-  120000 they get exclusive nodes) or `{"mem": ...}` for all jobs; see the ITPA submit scripts (variant `mem_shared`,
-  `--mem` option). Shared nodes disturb the timings of the small rank counts (memory bandwidth, cache of other jobs);
-  requesting a whole node avoids that, but queues longer.
+  automatically. A run passes `slurm_options={"mem_shared": ...}` for more memory of its shared jobs only or
+  `{"mem": ...}` for all jobs; see the ITPA submit scripts (variant `mem_shared`, `--mem` option). Raven caps shared
+  jobs at 120000 MB: a small job that asks for more gets `#SBATCH --exclusive` from the driver (check the first such
+  job, e.g. `sbatch --test-only <script>` or `scontrol show job <id>`). Shared nodes disturb the timings of the small
+  rank counts (memory bandwidth, cache of other jobs); requesting a whole node avoids that, but queues longer.
 
 ## 5. Test locally before submitting
 

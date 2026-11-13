@@ -48,8 +48,9 @@ splines hold the polar operators and the poloidal factors of the preconditioner 
 plus 5.9 GB (extrapolated from ShearAlfven, about 1.2 times more on 24 x 48 x 8): about 95 GB on 32 ranks and 185 GB on
 64 ranks, so the polar variants request 120000 MB, the most a shared Raven job can request, on up to 32 ranks. The
 toroidal Fourier variants (dense poloidal factorizations on every rank, about 5-6 GB per rank, not measured on the full
-grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs; on
-32 ranks this is tight (about 200 GB, more with polar splines).
+grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs (shared Raven jobs can request at most
+120000 MB, so the driver adds `#SBATCH --exclusive`); on 32 ranks this is tight (about 200 GB, more with
+polar splines).
 """
 
 import argparse

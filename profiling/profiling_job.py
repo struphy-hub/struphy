@@ -51,7 +51,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from clusters import HARDWARE_INFO, SHARED_NODES, SLURM_PRESETS, detect_machine_name, profiling_base_dir
+from clusters import HARDWARE_INFO, SHARED_NODES, SLURM_PRESETS, detect_machine_name, mem_in_mb, profiling_base_dir
 from package_profiling_results import (
     RESULTS_DIR_NAME,
     _build_output_name,
@@ -63,6 +63,7 @@ from package_profiling_results import (
     _run_folder_name,
     _write_run_metadata,
 )
+from slurm_script_generator.pragmas import Pragma
 from slurm_script_generator.slurm_script import SlurmScript
 from slurm_script_generator.squeue import SQueue, job_states
 from upload import _clone_profiling_data, _push_profiling_data
@@ -77,6 +78,19 @@ repo_root = script_dir.parent
 profiling_results_base = profiling_base_dir(repo_root)
 
 default_cluster_name = "pitagora"
+
+
+class _Exclusive(Pragma):
+    """The SLURM pragma `#SBATCH --exclusive` (nodes allocated exclusively), which `SlurmScript` does not offer."""
+
+    pragma_id = 2
+    pragma_type = "exclusivity_and_sharing"
+    arg_varname = "exclusive"
+    flags = ["--exclusive"]
+    dest = "--exclusive"
+    help = "allocate the nodes exclusively"
+    action = "store_true"
+    type = str
 
 
 def script_only() -> bool:
@@ -283,8 +297,10 @@ class ProfilingCase:
                 (`clusters.SHARED_NODES`, e.g. Raven), jobs with more tasks per node
                 than shared nodes allow request the memory of the whole node unless
                 `mem` is given, and the extra key `mem_shared` sets the memory per
-                node of the shared jobs only (ignored on other clusters). Ignored
-                outside SLURM.
+                node of the shared jobs only (ignored on other clusters); a shared
+                job whose `mem` or `mem_shared` exceeds what shared jobs can request
+                asks for its nodes exclusively (`#SBATCH --exclusive`).
+                Ignored outside SLURM.
 
         Raises:
             ValueError: If `backend` is neither "numpy" nor "cupy", or if
@@ -333,15 +349,22 @@ class ProfilingCase:
                 cluster_preset.pop("mem", None)
             # Memory per node on clusters whose small jobs share nodes (`clusters.SHARED_NODES`): `mem` of the run, else
             # the whole node for exclusive jobs, else `mem_shared` of the run, else the `mem` of the preset.
-            # `mem_shared` is not a SLURM option and is ignored on the other clusters.
+            # `mem_shared` is not a SLURM option and is ignored on the other clusters. A small job that needs more
+            # memory than a shared job can request asks for its nodes exclusively (`#SBATCH --exclusive`).
             mem_shared = cluster_preset.pop("mem_shared", None)
+            pragmas = []
             shared_nodes = SHARED_NODES.get(preset_name)
-            if shared_nodes is not None and "mem" not in (slurm_options or {}):
+            if shared_nodes is not None:
                 cores_per_node = num_tasks // num_nodes * int(cluster_preset.get("cpus_per_task", 1))
-                if cores_per_node > shared_nodes["max_cores_per_node"]:
-                    cluster_preset["mem"] = shared_nodes["mem_exclusive"]
-                elif mem_shared is not None:
-                    cluster_preset["mem"] = mem_shared
+                exclusive = cores_per_node > shared_nodes["max_cores_per_node"]
+                mem = cluster_preset.get("mem") if "mem" in (slurm_options or {}) else mem_shared
+                if not exclusive and mem is not None and mem_in_mb(mem) > shared_nodes["max_mem_shared"]:
+                    pragmas.append(_Exclusive(True))
+                    exclusive = True
+                if "mem" not in (slurm_options or {}) and (exclusive or mem_shared is not None):
+                    cluster_preset["mem"] = shared_nodes["mem_exclusive"] if exclusive else mem_shared
+                    if "mem_per_cpu" not in (slurm_options or {}):
+                        cluster_preset.pop("mem_per_cpu", None)
             # SLURM logs with a relative path would land in the folder sbatch is called from: put them beside the
             # job scripts instead
             for key in ("output", "error"):
@@ -355,6 +378,7 @@ class ProfilingCase:
                 job_name=f"profiling_{self.label}_{self.launch_count:02d}",
                 ntasks_per_node=num_tasks // num_nodes,
                 custom_commands=case_commands,
+                pragmas=pragmas,
                 **{**cluster_preset, "nodes": num_nodes},
             )
             script_text = str(script)

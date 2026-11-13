@@ -112,12 +112,21 @@ SLURM_PRESETS: dict[str, dict] = {
 }
 
 # Clusters whose nodes are shared by small jobs: a job with at most `max_cores_per_node` cores per node (tasks times
-# cpus_per_task) may share its node with other jobs (with the `mem` of the preset, or the `mem_shared` run option of
-# `ProfilingCase.launch`); a job with more cores per node gets its nodes exclusively and requests `mem_exclusive` (MB,
-# the memory of a whole node), unless the run sets `mem`.
+# cpus_per_task) may share its node with other jobs and request at most `max_mem_shared` (MB) per node (the `mem` of
+# the preset, or the `mem_shared` run option of `ProfilingCase.launch`); a job with more cores per node gets its nodes
+# exclusively and requests `mem_exclusive` (MB, the memory of a whole node), unless the run sets `mem`. A small job
+# that needs more than `max_mem_shared` asks for its node exclusively (`#SBATCH --exclusive`).
 SHARED_NODES: dict[str, dict] = {
-    "raven": {"max_cores_per_node": 36, "mem_exclusive": "240000"},
+    "raven": {"max_cores_per_node": 36, "max_mem_shared": 120000, "mem_exclusive": "240000"},
 }
+
+
+def mem_in_mb(mem: str) -> float:
+    """A SLURM memory value (`--mem`: a number in MB or with a unit K, M, G or T) in MB."""
+    mem = str(mem).strip().upper().removesuffix("B")
+    factor = {"K": 1 / 1024, "M": 1, "G": 1024, "T": 1024**2}.get(mem[-1:], None)
+    return float(mem) if factor is None else float(mem[:-1]) * factor
+
 
 # Folder of the profiling output (job scripts, SLURM logs, simulation runs, packaged cases) per cluster, in place of
 # `<repo>/_profiling_jobs`: on clusters whose home file system is small, the runs go to the scratch file system.
