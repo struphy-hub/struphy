@@ -78,7 +78,7 @@ def sound_energy(model):
 def test_options():
     options = SoundWaveLinear.Options()
     assert options.solver_params is not None and options.solver_params_M3.tol == 1e-14
-    assert options.precond == "auto"
+    assert options.precond == "StiffnessPreconditioner"
     SoundWaveLinear.Options(precond="StiffnessPreconditioner")
     with pytest.raises(AssertionError):
         SoundWaveLinear.Options(solver="pbicgstab_wrong")
@@ -282,11 +282,13 @@ def test_split_model_energy_homogeneous(tmp_path, b_space):
     assert max(changes) < 1e-10
 
 
-def sound_step(out_folder, name, precond, monkeypatch, dts, polar=False, beta=1.0, num_elements=(4, 6, 4)):
+def sound_step(
+    out_folder, name, precond, monkeypatch, dts, polar=False, beta=1.0, num_elements=(4, 6, 4), kernel_correction="auto"
+):
     """Sound wave steps of sizes ``dts`` with the preconditioner ``precond`` (smooth initial perturbation): the
     propagator, the energies before and after, the final velocity and the PCG iterations of every step. On a slab with
     an inhomogeneous equilibrium, or with ``polar`` on a polar cylinder (screw pinch with plasma beta ``beta``, grid
-    ``num_elements``)."""
+    ``num_elements``); ``kernel_correction`` is the option of the Kronecker preconditioner."""
     from struphy import domains
     from struphy.linear_algebra.schur_solver import SchurSolver
 
@@ -297,8 +299,15 @@ def sound_step(out_folder, name, precond, monkeypatch, dts, polar=False, beta=1.
     model.mhd.velocity.add_perturbation(
         perturbations.ModesSin(ls=(2,), ms=(1,), ns=(1,), given_in_basis="2", comp=2, amps=(1e-2,))
     )
-    model.propagators.sound.options = SoundWaveLinear.Options(
-        precond=precond, solver_params=SolverParameters(tol=1e-12, maxiter=1000)
+    # precond "cg": the solver cg (no preconditioner) with the default precond option
+    model.propagators.sound.options = (
+        SoundWaveLinear.Options(solver="cg", solver_params=SolverParameters(tol=1e-12, maxiter=1000))
+        if precond == "cg"
+        else SoundWaveLinear.Options(
+            precond=precond,
+            kernel_correction=kernel_correction,
+            solver_params=SolverParameters(tol=1e-12, maxiter=1000),
+        )
     )
     if polar:
         geometry = {
@@ -315,7 +324,7 @@ def sound_step(out_folder, name, precond, monkeypatch, dts, polar=False, beta=1.
         }
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=out_folder, sim_folder=f"{name}_{precond}"),
+        env=EnvironmentOptions(out_folders=out_folder, sim_folder=f"{name}_{precond}_{kernel_correction}"),
         time_opts=Time(dt=dts[0], Tend=dts[0]),
         **geometry,
     )
@@ -339,38 +348,57 @@ def sound_step(out_folder, name, precond, monkeypatch, dts, polar=False, beta=1.
 
 
 def test_stiffness_preconditioner(mpi_out_folder, monkeypatch):
-    """The Kronecker preconditioner of the Schur complement M2n + gamma dt^2/4 D^T M3p D gives the step of the mass
-    matrix preconditioner with fewer iterations at beta = 1 (where the stiffness term matters), conserves the energy and
-    is rebuilt when the time step changes; "auto" selects the mass matrix preconditioner with tensor-product splines."""
-    from struphy.feec.preconditioner import MassMatrixPreconditioner, StiffnessPreconditioner
+    """The Kronecker preconditioner of the Schur complement M2n + gamma dt^2/4 D^T M3p D (with the kernel correction,
+    at beta = 1) gives the step of the mass matrix preconditioner with fewer iterations, conserves the energy and is
+    rebuilt when the time step changes; solver="cg" (without preconditioner) gives the same step."""
+    from struphy.feec.preconditioner import StiffnessPreconditioner
 
     dts = (0.5, 0.25)
     results = {}
-    for precond in ("MassMatrixPreconditioner", "StiffnessPreconditioner", "auto"):
-        sound, e_0, e_1, u, niter = sound_step(mpi_out_folder, "tp", precond, monkeypatch, dts)
+    for precond in ("MassMatrixPreconditioner", "StiffnessPreconditioner", "cg"):
+        sound, e_0, e_1, u, niter = sound_step(mpi_out_folder, "tp", precond, monkeypatch, dts, kernel_correction=True)
+        if precond == "cg":
+            assert sound._precond is None
         assert abs(e_1 - e_0) < 1e-9 * e_0
         results[precond] = (u, niter)
         if precond == "StiffnessPreconditioner":
             assert isinstance(sound._schur_solver.precond, StiffnessPreconditioner)
             assert sound._precond_dt == dts[-1]
-    assert isinstance(sound._schur_solver.precond, MassMatrixPreconditioner)
 
     u_mass, n_mass = results["MassMatrixPreconditioner"]
     u_stiff, n_stiff = results["StiffnessPreconditioner"]
     print(f"iterations: mass {n_mass}, stiffness {n_stiff}")
     assert xp.linalg.norm(u_stiff - u_mass) < 1e-8 * xp.linalg.norm(u_mass)
     assert sum(n_stiff) < sum(n_mass)
-    assert results["auto"][1] == n_mass
+    assert xp.linalg.norm(results["cg"][0] - u_mass) < 1e-8 * xp.linalg.norm(u_mass)
+
+
+def test_kernel_correction_auto(mpi_out_folder, monkeypatch):
+    """kernel_correction="auto" (default): for a new time step, the first solve is without and the second with the
+    kernel correction; the faster one (with it, at beta = 1) is kept for the further steps with that time step, and the
+    trial restarts when the time step changes. The steps agree with those of the mass matrix preconditioner."""
+    dts = (0.5, 0.5, 0.5, 0.25, 0.25, 0.25)
+    sound, e_0, e_1, u, niter = sound_step(mpi_out_folder, "auto", "StiffnessPreconditioner", monkeypatch, dts)
+    *_, u_mass, _ = sound_step(mpi_out_folder, "auto", "MassMatrixPreconditioner", monkeypatch, dts)
+    print(f"iterations with kernel_correction='auto': {niter}")
+    assert abs(e_1 - e_0) < 1e-9 * e_0
+    assert xp.linalg.norm(u - u_mass) < 1e-8 * xp.linalg.norm(u_mass)
+    for first in (0, 3):
+        without, with_, kept = niter[first : first + 3]
+        assert with_ < without and kept <= with_ + 1
+    assert sound._kc_active is True and sound._kc_trial is None
+    with pytest.raises(AssertionError):
+        SoundWaveLinear.Options(kernel_correction="yes")
 
 
 def test_stiffness_preconditioner_polar(mpi_out_folder, monkeypatch):
-    """With polar splines, "auto" selects the 2D x 1D Kronecker preconditioner of the Schur complement: the step of the
+    """With polar splines, the default is the 2D x 1D Kronecker preconditioner of the Schur complement: the step of the
     polar mass matrix preconditioner with fewer iterations (17 instead of 42 on 8 x 12 x 4 elements), energy
     conserving."""
     from struphy.feec.preconditioner import PolarKroneckerBlockPreconditioner
 
     results = {}
-    for precond in ("PolarMassMatrixPreconditioner", "auto"):
+    for precond in ("PolarMassMatrixPreconditioner", "StiffnessPreconditioner"):
         sound, e_0, e_1, u, niter = sound_step(
             mpi_out_folder, "polar", precond, monkeypatch, (0.5,), polar=True, num_elements=(8, 12, 4)
         )
@@ -379,7 +407,7 @@ def test_stiffness_preconditioner_polar(mpi_out_folder, monkeypatch):
     assert isinstance(sound._schur_solver.precond, PolarKroneckerBlockPreconditioner)
 
     u_mass, n_mass = results["PolarMassMatrixPreconditioner"]
-    u_auto, n_auto = results["auto"]
-    print(f"iterations: polar mass {n_mass}, polar Kronecker {n_auto}")
-    assert xp.linalg.norm(u_auto - u_mass) < 1e-8 * xp.linalg.norm(u_mass)
-    assert sum(n_auto) < sum(n_mass)
+    u_stiff, n_stiff = results["StiffnessPreconditioner"]
+    print(f"iterations: polar mass {n_mass}, polar Kronecker {n_stiff}")
+    assert xp.linalg.norm(u_stiff - u_mass) < 1e-8 * xp.linalg.norm(u_mass)
+    assert sum(n_stiff) < sum(n_mass)
