@@ -31,8 +31,10 @@ iterations (8 x 32 x 4), while Hiptmair-Xu and the Kronecker preconditioner are 
 hdiv_toroidal_fourier needs 2 iterations, but its setup takes about 10 min and holds dense poloidal factorizations on
 every rank (about 5-6 GB per rank, extrapolated from 12 x 44 x 8), so it runs on at most 32 ranks. The geometric
 multigrid preconditioner (6 min and 740 iterations per step) is left out. With polar splines (serial, 8 x 33 x 4):
-polar Kronecker 5-6, toroidal Fourier 2, polar mass matrix about 80 PCG iterations per step. The `walltime` of a variant is the SLURM time
-limit of its runs (the 4-rank run of 50 steps, with a margin), scaled with `--steps`; `--time` overrides it.
+polar Kronecker 5-6, toroidal Fourier 2, polar mass matrix about 80 PCG iterations per step; on 24 x 90 x 8 (4 ranks,
+LinearMHD, whose shear Alfven step is the same) the polar mass matrix preconditioner needs about 870 iterations and
+130 s per step. The `walltime` of a variant is the SLURM time limit of its runs (the 4-rank run of 50 steps, with a
+margin), scaled with `--steps`; `--time` overrides it.
 """
 
 import argparse
@@ -124,7 +126,7 @@ VARIANTS = {
     "hdiv_polar_toroidal_fourier_24x90x8": _variant(
         "hdiv_polar_toroidal_fourier", POLAR, "01:00:00", ranks=(4, 8, 16, 32)
     ),
-    "hdiv_polar_mass_24x90x8": _variant("hdiv_polar_mass", POLAR, "01:00:00"),
+    "hdiv_polar_mass_24x90x8": _variant("hdiv_polar_mass", POLAR, "03:00:00"),
     "hcurl_hiptmair_xu_24x88x8": _variant("hcurl_hiptmair_xu", FINE, "00:15:00"),
     # the influence of the hole radius on the runtime (not the default of the example)
     "hdiv_stiffness_a1_0.1_24x88x8": _variant("hdiv_stiffness", FINE, "00:15:00", a1=0.1),

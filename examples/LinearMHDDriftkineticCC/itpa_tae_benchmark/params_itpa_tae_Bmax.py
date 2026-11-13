@@ -23,6 +23,7 @@ C_FIT = (0.51643, 0.13619, 0.10274, 0.56458)
 # PR #887, issue #889); `--a1` the hole around the axis; `--degree` the spline degrees (as in the ShearAlfven and
 # LinearMHD ITPA examples).
 # `--test-run` selects a small grid and a short run (three saved time steps) for the tests (test_examples.py).
+# `--setup profiling` selects the setup of the profiling runs of submit_LinearMHDDriftkineticCC_scaling.py.
 # Unknown flags are ignored so that a driver can forward other parameters as well.
 # no -h here when imported by another script, which has its own help
 parser = argparse.ArgumentParser(add_help=__name__ == "__main__")
@@ -122,6 +123,26 @@ parser.add_argument(
     help="Amplitude of the initial m = 10, 11 velocity perturbation (seed of the TAE).",
 )
 parser.add_argument(
+    "--setup",
+    default="example",
+    choices=["example", "profiling"],
+    help="example: the TAE run; profiling: setup of the profiling runs profiled with scope-profiler (the grid, "
+    "space and number of markers of the flags, --profiling-steps steps, solver iterations logged, no restart data).",
+)
+parser.add_argument(
+    "--profiling-steps",
+    type=int,
+    default=50,
+    help="Number of time steps with --setup profiling (default 50); the first one includes one-time work.",
+)
+parser.add_argument(
+    "--num-clones",
+    type=int,
+    default=1,
+    help="Number of clones (default 1): the MPI ranks are split into this many groups, each with the whole FEEC part "
+    "(domain decomposition within the clone) and its share of the markers; e.g. one clone per node.",
+)
+parser.add_argument(
     "--test-run",
     action="store_true",
     help="Small resolution (num_elements = [8, 32, 4], 2000 markers) and a short run with three saved time steps, "
@@ -139,6 +160,14 @@ if args.num_elements is None:
 if args.test_run:
     args.num_elements = [8, 32, 4]
     args.Np = 2000
+profiling = args.setup == "profiling"
+if profiling:
+    # one BLAS/OpenMP thread per MPI rank, set before NumPy is imported: oversubscribed threaded BLAS makes the MPI
+    # timings meaningless (issue #743)
+    import os
+
+    for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        os.environ.setdefault(_var, "1")
 
 if args.T_hot != 400.0:
     logging.getLogger("struphy").warning(
@@ -260,6 +289,7 @@ from struphy import (
     maxwellians,
     perturbations,
 )
+from struphy.linear_algebra.solver import SolverParameters
 
 # ---------------------
 # Instance of the model
@@ -301,11 +331,22 @@ model.energetic_ions.var.save_data = True
 # --------------------------
 
 # Environment options
-env = EnvironmentOptions(out_folders=args.out_folder, save_step=4, sim_folder=args.sim_folder, max_runtime=24 * 60)
+env = EnvironmentOptions(
+    out_folders=args.out_folder,
+    save_step=4,
+    sim_folder=args.sim_folder,
+    max_runtime=24 * 60,
+    save_restart=not profiling,
+    num_clones=args.num_clones,
+)
 
 # Time stepping
 # --test-run: the initial, a middle and a final saved time step
-time_opts = Time(dt=args.dt, Tend=2 * env.save_step * args.dt if args.test_run else args.tend, split_algo="LieTrotter")
+if profiling:
+    tend = round(args.profiling_steps * args.dt, 14)
+else:
+    tend = 2 * env.save_step * args.dt if args.test_run else args.tend
+time_opts = Time(dt=args.dt, Tend=tend, split_algo="LieTrotter")
 
 # Geometry
 a, R0 = 1.0, 10.0
@@ -327,7 +368,19 @@ bcs_eta1 = ("dirichlet", "dirichlet") if args.b_space == "Hdiv" else ("free", "f
 derham_opts = DerhamOptions(degree=tuple(args.degree), bcs=(bcs_eta1, None, None))
 
 # Profiling options
-profiling_opts = ProfilingOptions(use_line_profiler=False)
+if profiling:
+    from maybempi import MPI, SerialMPI
+
+    # scope-profiler run label, the name of the run in the comparison plots of the profiling-data page
+    num_ranks = 1 if isinstance(MPI, SerialMPI) else MPI.COMM_WORLD.Get_size()
+    profiling_opts = ProfilingOptions(
+        label=f"{num_ranks} rank"
+        + ("s" if num_ranks != 1 else "")
+        + (f" ({args.num_clones} clones)" if args.num_clones > 1 else ""),
+        use_line_profiler=False,
+    )
+else:
+    profiling_opts = ProfilingOptions(use_line_profiler=False)
 
 # Simulation object
 sim = Simulation(
@@ -399,12 +452,23 @@ if args.parallel_algo == "rk4":
     )
 else:
     props.push_parallel.options = props.push_parallel.Options(algo=args.parallel_algo, filter_params=filter_params)
-props.shear_alf.options = props.shear_alf.Options(filter_params=filter_params)
-props.cc5d_gradb.options = props.cc5d_gradb.Options(filter_params=filter_params)
+# with --setup profiling, the solver iterations of each step are logged (read by the pproc script)
+props.shear_alf.options = props.shear_alf.Options(
+    filter_params=filter_params, solver_params=SolverParameters(info=profiling)
+)
+props.cc5d_gradb.options = props.cc5d_gradb.Options(
+    filter_params=filter_params, solver_params=SolverParameters(info=profiling)
+)
 # (CurrentCoupling5DDensity accumulates no vector: nothing to filter)
-props.cc5d_curlb.options = props.cc5d_curlb.Options(filter_params=filter_params)
+props.cc5d_density.options = props.cc5d_density.Options(solver_params=SolverParameters(info=profiling))
+props.cc5d_curlb.options = props.cc5d_curlb.Options(
+    filter_params=filter_params, solver_params=SolverParameters(info=profiling)
+)
 if args.magnetosonic_cross_b0:
     props.magnetosonic.options = props.magnetosonic.Options()
+else:
+    props.bg_current.options = props.bg_current.Options(solver_params=SolverParameters(info=profiling))
+    props.sound.options = props.sound.Options(solver_params=SolverParameters(info=profiling))
 
 # ------------------
 # Initial conditions
