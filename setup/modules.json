@@ -63,18 +63,16 @@
       "profiles": {
         "default": {
           "modules_load": [
-            "gcc/15",
-            "openmpi/5.0",
+            "gcc/16",
             "python-waterboa/2025.06",
-            "pandoc/3.1"
+            "openmpi/5.0"
           ]
         },
         "gcc": {
           "modules_load": [
-            "gcc/15",
-            "openmpi/5.0",
+            "gcc/16",
             "python-waterboa/2025.06",
-            "pandoc/3.1"
+            "openmpi/5.0"
           ]
         },
         "intel": {
@@ -94,18 +92,16 @@
       "profiles": {
         "default": {
           "modules_load": [
-            "gcc/15",
-            "openmpi/5.0",
+            "gcc/16",
             "python-waterboa/2025.06",
-            "pandoc/3.1"
+            "openmpi/5.0"
           ]
         },
         "gcc": {
           "modules_load": [
-            "gcc/15",
-            "openmpi/5.0",
+            "gcc/16",
             "python-waterboa/2025.06",
-            "pandoc/3.1"
+            "openmpi/5.0"
           ]
         },
         "intel": {
