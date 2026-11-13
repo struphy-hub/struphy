@@ -87,7 +87,9 @@ repository struphy-hub/struphy-studies, see the skill `.claude/skills/create-stu
   (`src/struphy/conftest.py`): a folder per test in `$STRUPHY_TEST_TMPDIR` (default: system temp dir), the same on all
   MPI ranks, removed unless the test failed on some rank (then kept, with its path in a warning). Don't write into the current
   working directory and don't remove output folders in the test itself. Don't combine it with pytest's `tmp_path`
-  for files that other ranks read (each rank has its own `tmp_path`).
+  for files that other ranks read (each rank has its own `tmp_path`). Its teardown is collective: no `Barrier()` (or
+  other collective) after checks on rank 0 only, since a failed check then hangs the run (mismatched collectives)
+  instead of failing it.
 - NumPy's global random generator is seeded before every test (per rank); use a seed for any other generator.
 - Failed scheduled runs and failed runs on `devel` open (or comment on) an issue labelled `ci-failure`.
   Close it once the workflow is green again.
