@@ -150,7 +150,6 @@ def test_frames(mpi_out_folder):
     if rank == 0:
         with pytest.raises(ValueError):
             write_slice_frames(run, "em_fields/e_field", folder / "bad", plane="ab")
-    MPI.COMM_WORLD.Barrier()
 
 
 @pytest.mark.mpi_skip
@@ -194,7 +193,6 @@ def test_frames_polar_axis(mpi_out_folder):
     )
     if MPI.COMM_WORLD.Get_rank() == 0:
         assert len(files) == 4
-    MPI.COMM_WORLD.Barrier()
 
 
 @pytest.mark.mpi_skip
@@ -234,9 +232,11 @@ def test_videos_on_other_domains(mpi_out_folder, domain):
         assert set(videos) == {"e1_xy", "e1_xz", "e1_yz", "e1_3d_cut", "e1_3d"}
         for files in videos.values():
             check_frames(files, 2)
-    MPI.COMM_WORLD.Barrier()
 
 
+# serial only: in an MPI run the frames are rendered in one process (workers > 1 is ignored), so there is nothing
+# to compare
+@pytest.mark.mpi_skip
 def test_frames_in_parallel(mpi_out_folder):
     """Frames rendered by 2 processes are the same as those rendered in one process (the plane and both 3D views,
     which share one evaluation of the field per frame), and write_3d_frames with one view gives the same frames as
@@ -248,20 +248,17 @@ def test_frames_in_parallel(mpi_out_folder):
     single = write_3d_frames(
         run, "em_fields/e_field", run.path_out / "single", component=0, label="E_1", window_size=(300, 300), workers=1
     )
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        assert set(serial) == set(parallel) == {"e_field_rz", "e_field_3d_cut", "e_field_3d"}
-        for video, files in serial.items():
-            check_frames(files, N_SAVED)
-            for a, b in zip(files, parallel[video]):
-                assert a.name == b.name
-                assert np.array_equal(imread(a), imread(b)), (video, a.name)
-        for a, b in zip(single, serial["e_field_3d_cut"]):
-            assert np.array_equal(imread(a), imread(b)), a.name
-    else:
-        assert all(files == [] for files in parallel.values())
-    MPI.COMM_WORLD.Barrier()
+    assert set(serial) == set(parallel) == {"e_field_rz", "e_field_3d_cut", "e_field_3d"}
+    for video, files in serial.items():
+        check_frames(files, N_SAVED)
+        for a, b in zip(files, parallel[video]):
+            assert a.name == b.name
+            assert np.array_equal(imread(a), imread(b)), (video, a.name)
+    for a, b in zip(single, serial["e_field_3d_cut"]):
+        assert np.array_equal(imread(a), imread(b)), a.name
 
 
+@pytest.mark.mpi_skip
 def test_frames_without_cache(mpi_out_folder, monkeypatch):
     """Without the cache of the first pass (the values of the frames evaluated again while rendering), the frames of
     2 rendering processes are the same as those with the cache in one process."""
@@ -272,8 +269,6 @@ def test_frames_without_cache(mpi_out_folder, monkeypatch):
     cached = write_3d_frames(run, "em_fields/e_field", run.path_out / "cached", workers=1, **kwargs)
     monkeypatch.setattr(frames_module, "FIRST_PASS_CACHE", 0)
     uncached = write_3d_frames(run, "em_fields/e_field", run.path_out / "uncached", workers=2, **kwargs)
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        check_frames(uncached, N_SAVED)
-        for a, b in zip(cached, uncached):
-            assert np.array_equal(imread(a), imread(b)), a.name
-    MPI.COMM_WORLD.Barrier()
+    check_frames(uncached, N_SAVED)
+    for a, b in zip(cached, uncached):
+        assert np.array_equal(imread(a), imread(b)), a.name

@@ -70,6 +70,11 @@ def mpi_out_folder(request) -> str:
     After the test the folder is removed unless the test failed on some rank; otherwise it is kept and its path is
     reported as a warning. Unlike the current working directory, the folder is unique per test, so tests cannot overwrite each
     other's output.
+
+    The teardown is collective (all ranks wait for each other there), so tests using this fixture need no
+    ``Barrier()`` at the end. Don't call one (or another collective) after checks done on rank 0 only: if such a check
+    fails, rank 0 skips it and enters the teardown while the other ranks wait in it, and the run hangs instead of
+    failing.
     """
     comm = MPI.COMM_WORLD
     parallel = comm.Get_size() > 1
