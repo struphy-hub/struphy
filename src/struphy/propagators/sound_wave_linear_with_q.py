@@ -11,7 +11,7 @@ from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
-from struphy.propagators.utils import VelocityMass
+from struphy.propagators.utils import SoundWaveSchurPreconditioner, VelocityMass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -79,9 +79,20 @@ class SoundWaveLinearWithQ(Propagator):
 
         S = \mathbb M^2_{\rho_0} + \frac{\gamma \Delta t^2}{4} \mathbb D^\top \mathbb M^3_{q_0} (\mathbb M^3)^{-1} \mathbb M^3_{q_0} \mathbb D\,,
 
-    solved by ``Options.solver`` with the mass matrix preconditioner ``Options.precond`` of
-    :math:`\mathbb M^2_{\rho_0}`, where :math:`(\mathbb M^3)^{-1}` is an inner iterative solve
-    (``Options.solver_M3``, ``Options.precond_M3``). Then
+    solved by ``Options.solver``, where :math:`(\mathbb M^3)^{-1}` is an inner iterative solve (``Options.solver_M3``,
+    ``Options.precond_M3``). The preconditioner ``Options.precond`` is either the Kronecker (fast diagonalization)
+    preconditioner of the whole Schur complement (``"StiffnessPreconditioner"``, default), with
+    :math:`\mathbb M^3_{q_0} (\mathbb M^3)^{-1} \mathbb M^3_{q_0}` approximated by the pressure-weighted mass matrix
+    :math:`\mathbb M^3_{p_0}` (:attr:`~struphy.feec.mass.WeightedMassOperators.M3p`, :math:`p_0 = q_0^2`),
+
+    .. math::
+
+        S \approx \mathbb M^2_{\rho_0} + \frac{\gamma \Delta t^2}{4} \mathbb D^\top \mathbb M^3_{p_0} \mathbb D\,,
+
+    i.e. :class:`~struphy.propagators.utils.SoundWaveSchurPreconditioner` (as for
+    :class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear`: tensor-product or 2D x 1D polar Kronecker
+    preconditioner, rebuilt when the time step size changes, the kernel correction ``Options.kernel_correction``
+    chosen by trial by default), or the mass matrix preconditioner of :math:`\mathbb M^2_{\rho_0}` alone. Then
 
     .. math::
 
@@ -167,8 +178,15 @@ class SoundWaveLinearWithQ(Propagator):
         ----------
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
             Iterative solver of the (symmetric) Schur complement.
-        precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
-            Preconditioner of the Schur complement, built from :math:`\\mathbb M^2_{\\rho_0}` (``M2n``).
+        precond : LiteralOptions.OptsSoundWavePrecond, default="StiffnessPreconditioner"
+            Preconditioner of the Schur complement: the Kronecker preconditioner of the whole Schur complement
+            (``"StiffnessPreconditioner"``, polar with polar splines), or the mass matrix preconditioner of
+            :math:`\\mathbb M^2_{\\rho_0}` (``M2n``; ``"PolarMassMatrixPreconditioner"`` with polar splines).
+            Ignored (with a warning) with ``solver="cg"``, which takes no preconditioner.
+        kernel_correction : bool | str, default="auto"
+            With ``precond="StiffnessPreconditioner"`` and tensor-product splines: whether to add the correction on the
+            kernel of the divergence (see :class:`~struphy.propagators.utils.SoundWaveSchurPreconditioner`);
+            ``"auto"``: chosen by trial for each new time step size.
         solver_params : SolverParameters, default=None
             Controls of the Schur complement solve; defaults to ``SolverParameters()``.
         solver_M3 : LiteralOptions.OptsSymmSolver, default="pcg"
@@ -181,7 +199,8 @@ class SoundWaveLinearWithQ(Propagator):
         """
 
         solver: LiteralOptions.OptsSymmSolver = "pcg"
-        precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        precond: LiteralOptions.OptsSoundWavePrecond = "StiffnessPreconditioner"
+        kernel_correction: bool | str = "auto"
         solver_params: SolverParameters = None
         solver_M3: LiteralOptions.OptsSymmSolver = "pcg"
         precond_M3: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
@@ -190,9 +209,12 @@ class SoundWaveLinearWithQ(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
-            check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            check_option(self.precond, LiteralOptions.OptsSoundWavePrecond)
             check_option(self.solver_M3, LiteralOptions.OptsSymmSolver)
             check_option(self.precond_M3, LiteralOptions.OptsMassPrecond)
+            assert self.kernel_correction in (True, False, "auto"), (
+                f'kernel_correction must be True, False or "auto", got {self.kernel_correction!r}.'
+            )
 
             # defaults
             if self.solver_params is None:
@@ -248,11 +270,23 @@ class SoundWaveLinearWithQ(Propagator):
         self._C = self.gamma / 4 * self._M3_inv @ _M3q0 @ div
         self._DQ = div @ self.basis_ops.Q2
 
-        # preconditioner
-        if self.options.precond is None:
+        # preconditioner (built from M2n also in the perturbative models): the Kronecker preconditioner of the Schur
+        # complement is built for the time step at the first call (and rebuilt when it changes)
+        self._precond = self.options.precond
+        if self._precond is not None and self.options.solver == "cg":
+            logger.warning(
+                f'solver="cg" of SoundWaveLinearWithQ takes no preconditioner; precond="{self._precond}" ignored.'
+            )
+            self._precond = None
+        self._schur_pc = None
+        if self._precond is None or self._precond == "StiffnessPreconditioner":
             pc = None
         else:
-            pc = getattr(preconditioner, self.options.precond)(self.mass_ops.M2n)
+            pc = getattr(preconditioner, self._precond)(self.mass_ops.M2n)
+        if self._precond == "StiffnessPreconditioner":
+            self._schur_pc = SoundWaveSchurPreconditioner(
+                self.derham, self.mass_ops, self.gamma, self.options.kernel_correction, "SoundWaveLinearWithQ"
+            )
 
         self._schur_solver = SchurSolver(
             _A,
@@ -279,9 +313,14 @@ class SoundWaveLinearWithQ(Propagator):
         # inertia of the total density at t^n (perturbative models)
         self._velocity_mass.update()
 
+        if self._schur_pc is not None:
+            self._schur_pc.update(self._schur_solver, dt)
+
         # solve for new u coeffs
         byn = self._B.dot(qn, out=self._byn)
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
+        if self._schur_pc is not None:
+            self._schur_pc.record(self._schur_solver, info)
 
         # new q and n coeffs from the mid-point velocity
         _u = un.copy(out=self._u_tmp2)

@@ -281,3 +281,103 @@ def test_split_model_energy_homogeneous(tmp_path, b_space):
                 changes.append(abs(total_energy() - e_before) / e0)
     print(f"{b_space = }: max relative energy change per step {max(changes):.2e}")
     assert max(changes) < 1e-10
+
+
+def sound_step_q(out_folder, name, precond, monkeypatch, dts, polar=False, kernel_correction="auto"):
+    """Sound wave steps (variable q) of sizes ``dts`` with the preconditioner ``precond`` (smooth initial velocity), on
+    a slab at beta = 1 or with ``polar`` on a polar cylinder (screw pinch): the propagator, the energies before and after,
+    the final velocity and the PCG iterations of every step."""
+    from struphy import domains
+    from struphy.linear_algebra.schur_solver import SchurSolver
+
+    model = LinearMHDWithQ()
+    model.mhd.velocity.add_perturbation(
+        perturbations.ModesCos(ls=(1,), ms=(1,), given_in_basis="2", comp=0, amps=(1e-2,))
+    )
+    model.mhd.velocity.add_perturbation(
+        perturbations.ModesSin(ls=(2,), ms=(1,), ns=(1,), given_in_basis="2", comp=2, amps=(1e-2,))
+    )
+    model.propagators.sound.options = SoundWaveLinearWithQ.Options(
+        precond=precond, kernel_correction=kernel_correction, solver_params=SolverParameters(tol=1e-12, maxiter=1000)
+    )
+    if polar:
+        geometry = {
+            "domain": domains.IGAPolarCylinder(num_elements=(8, 12), degree=(2, 2), a=1.0, Lz=4.0),
+            "equil": equils.ScrewPinch(a=1.0, R0=4.0 / (2 * xp.pi), B0=1.0, beta=1.0),
+            "grid": grids.TensorProductGrid(num_elements=(8, 12, 4)),
+            "derham_opts": DerhamOptions(degree=(2, 2, 2), bcs=(("free", "dirichlet"), None, None), polar_splines=True),
+        }
+    else:
+        geometry = {
+            "equil": equils.ShearedSlab(beta=1.0, n1=2.0, n2=1.0, na=0.5),
+            "grid": grids.TensorProductGrid(num_elements=(8, 6, 4)),
+            "derham_opts": DerhamOptions(degree=(2, 2, 1), bcs=(("dirichlet", "dirichlet"), None, None)),
+        }
+    sim = Simulation(
+        model=model,
+        env=EnvironmentOptions(out_folders=out_folder, sim_folder=f"{name}_{precond}_{kernel_correction}"),
+        time_opts=Time(dt=dts[0], Tend=dts[0]),
+        **geometry,
+    )
+    sim.allocate()
+    sound = model.propagators.sound
+
+    niter = []
+    call = SchurSolver.__call__
+
+    def recording_call(self, *args, **kwargs):
+        out = call(self, *args, **kwargs)
+        niter.append(out[1]["niter"])
+        return out
+
+    monkeypatch.setattr(SchurSolver, "__call__", recording_call)
+    energy_0 = sound_energy(model)
+    for dt in dts:
+        sound(dt)
+    monkeypatch.undo()
+    return sound, energy_0, sound_energy(model), model.mhd.velocity.spline.vector.toarray(), niter
+
+
+def test_stiffness_preconditioner(mpi_out_folder, monkeypatch):
+    """The Kronecker preconditioner of the Schur complement M2n + gamma dt^2/4 D^T M3p D (default; with the kernel
+    correction at beta = 1) gives the step of the mass matrix preconditioner with fewer iterations and conserves the
+    energy; "auto" chooses the kernel correction by trial (with it at beta = 1)."""
+    from struphy.feec.preconditioner import StiffnessPreconditioner
+
+    assert SoundWaveLinearWithQ.Options().precond == "StiffnessPreconditioner"
+    dts = (0.5, 0.5, 0.5)
+    results = {}
+    for precond, kc in (("MassMatrixPreconditioner", "auto"), ("StiffnessPreconditioner", True)):
+        sound, e_0, e_1, u, niter = sound_step_q(mpi_out_folder, "tp", precond, monkeypatch, dts, kernel_correction=kc)
+        assert abs(e_1 - e_0) < 1e-9 * e_0
+        results[precond] = (u, niter)
+    assert isinstance(sound._schur_solver.precond, StiffnessPreconditioner)
+    u_mass, n_mass = results["MassMatrixPreconditioner"]
+    u_stiff, n_stiff = results["StiffnessPreconditioner"]
+    print(f"iterations: mass {n_mass}, stiffness {n_stiff}")
+    assert xp.linalg.norm(u_stiff - u_mass) < 1e-8 * xp.linalg.norm(u_mass)
+    assert sum(n_stiff) < sum(n_mass)
+
+    sound, e_0, e_1, u, niter = sound_step_q(mpi_out_folder, "tp", "StiffnessPreconditioner", monkeypatch, dts)
+    print(f"iterations with kernel_correction='auto': {niter}")
+    assert xp.linalg.norm(u - u_mass) < 1e-8 * xp.linalg.norm(u_mass)
+    assert niter[1] < niter[0] and niter[2] <= niter[1] + 1
+    assert sound._schur_pc.kernel_correction_active is True and sound._schur_pc.trial is None
+
+
+def test_stiffness_preconditioner_polar(mpi_out_folder, monkeypatch):
+    """With polar splines, the default 2D x 1D Kronecker preconditioner of the Schur complement gives the step of the
+    polar mass matrix preconditioner with fewer iterations, energy conserving."""
+    from struphy.feec.preconditioner import PolarKroneckerBlockPreconditioner
+
+    results = {}
+    for precond in ("PolarMassMatrixPreconditioner", "StiffnessPreconditioner"):
+        sound, e_0, e_1, u, niter = sound_step_q(mpi_out_folder, "polar", precond, monkeypatch, (0.5,), polar=True)
+        assert abs(e_1 - e_0) < 1e-9 * e_0
+        results[precond] = (u, niter)
+    assert isinstance(sound._schur_solver.precond, PolarKroneckerBlockPreconditioner)
+    u_mass, n_mass = results["PolarMassMatrixPreconditioner"]
+    u_stiff, n_stiff = results["StiffnessPreconditioner"]
+    print(f"iterations: polar mass {n_mass}, polar Kronecker {n_stiff}")
+    assert xp.linalg.norm(u_stiff - u_mass) < 1e-8 * xp.linalg.norm(u_mass)
+    assert sum(n_stiff) < sum(n_mass)
