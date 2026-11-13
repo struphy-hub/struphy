@@ -66,7 +66,6 @@ def test_pproc_mpi(mpi_out_folder: str, show_plot=False):
         for expected, actual in zip(serial, parallel):
             assert np.allclose(expected, actual)
         print("All checks passed for parallel pproc vs serial pproc.")
-    MPI.COMM_WORLD.Barrier()
 
 
 @pytest.mark.mpi(min_size=2)
@@ -95,7 +94,6 @@ def test_products_are_processed_in_parallel_on_first_use(mpi_out_folder: str):
     serial = Output(sim.env.path_out).pproc(parallel=False, force=True)
     assert np.allclose(np.asarray(serial.evaluate("kinetic_ions/f")), f)
     assert np.allclose(np.asarray(serial.fields.em_fields.e_field), e)
-    comm.Barrier()
 
 
 def test_pproc_polar(tmp_path):
