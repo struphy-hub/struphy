@@ -435,14 +435,19 @@ MPCDF Raven installation
 3. Install Struphy with ``mpi4py`` built from source, not from its binary wheel (which comes with its own MPI)::
 
     pip install -U "struphy[mpi]" --no-binary mpi4py
-    struphy compile
+    struphy compile -j 2
+    struphy compile --status
+
+   ``-j 2`` compiles two kernels at the same time (more jobs can run out of memory on the shared login nodes).
+   ``struphy compile --status`` must show all kernels as compiled; if not, run ``struphy compile -j 2`` again.
 
    Or, from the source code (``devel`` branch)::
 
        git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
        cd struphy
        pip install ".[mpi]" --no-binary mpi4py
-       struphy compile
+       struphy compile -j 2
+       struphy compile --status
 
    Check that ``mpi4py`` uses the module's MPI (both ranks must print a size of 2)::
 
