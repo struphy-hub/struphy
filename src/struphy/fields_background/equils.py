@@ -2249,7 +2249,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # gvec coordinates
         rho = rmin + eta1 * (1.0 - rmin)
         theta = 2 * xp.pi * eta2
-        zeta = 2 * xp.pi * eta3
+        zeta = 2 * xp.pi * eta3 / self._nfp
 
         # evaluate
         if self.params["use_boozer"]:
