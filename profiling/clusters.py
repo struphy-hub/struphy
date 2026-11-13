@@ -100,7 +100,7 @@ SLURM_PRESETS: dict[str, dict] = {
     # node. `mem` is the default of the shared jobs (64000 MB, enough for most profiling runs, queues shorter than a
     # whole node); the exclusive jobs request the memory of the whole node (`SHARED_NODES`). A run can request other
     # memory with `slurm_options={"mem": ...}` (all jobs) or `{"mem_shared": ...}` (only the shared jobs; above 120000
-    # MB they get exclusive nodes). No account or partition needed.
+    # MB they get `#SBATCH --exclusive`). No account or partition needed.
     "raven": {
         "cpus_per_task": 1,
         "mem": "64000",
