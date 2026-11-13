@@ -85,9 +85,9 @@ class SoundWaveLinear(Propagator):
 
     i.e. :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` for the divergence, with or without the
     correction on the kernel of :math:`\mathbb D` (``Options.kernel_correction``; by default the faster one is chosen
-    by trial for each time step), and with polar splines its 2D x 1D version
-    :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner`, rebuilt when the time step changes
-    (default); or the mass matrix preconditioner of :math:`\mathbb M^2_{\rho_0}` alone. ITPA TAE of LinearMHD (4 MPI
+    by trial for each new time step size), and with polar splines its 2D x 1D version
+    :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner`, rebuilt when the time step size changes
+    (the default ``precond``); or the mass matrix preconditioner of :math:`\mathbb M^2_{\rho_0}` alone. ITPA TAE of LinearMHD (4 MPI
     ranks, low beta, without the correction): 3-5 instead of 6-7 iterations and twice as fast on 24 x 88 x 8
     tensor-product elements, 3 instead of 11 iterations and 3.3 times as fast on 24 x 48 x 8 polar elements. Then
 
@@ -167,7 +167,7 @@ class SoundWaveLinear(Propagator):
             :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` on the kernel of the divergence. It pays off
             where the stiffness term dominates (high beta, large time steps: 19 instead of 42 iterations at beta = 1,
             dt = 0.5) and costs where the mass term does (low beta: twice as many iterations on the ITPA TAE).
-            ``"auto"``: for each new time step, the first solve is made without and the second with the correction,
+            ``"auto"``: for each new time step size, the first solve is made without and the second with the correction,
             and the one with fewer iterations is kept (the steps agree to the solver tolerance either way).
         solver_params : SolverParameters, default=None
             Controls of the Schur complement solve; defaults to ``SolverParameters()``.
@@ -254,6 +254,7 @@ class SoundWaveLinear(Propagator):
         # trial of the kernel correction ("auto"): {kernel_correction: (preconditioner, iterations or None)}
         self._kc_trial = None
         self._kc_active = None
+        self._kernel_correction = self.options.kernel_correction
         self._precond = self.options.precond
         if self._precond is not None and self.options.solver == "cg":
             logger.warning(
@@ -294,7 +295,8 @@ class SoundWaveLinear(Propagator):
         byn = self._B.dot(pn, out=self._byn)
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
         if self._kc_trial is not None:
-            self._record_kc_trial(info["niter"])
+            # a solve that did not converge loses the trial
+            self._record_kc_trial(info["niter"] if info["success"] else float("inf"))
 
         # new p and n coeffs from the mid-point velocity
         _u = un.copy(out=self._u_tmp2)
@@ -327,7 +329,7 @@ class SoundWaveLinear(Propagator):
         """Set the Kronecker preconditioner for the time step ``dt``: rebuilt when ``dt`` changes; with
         ``kernel_correction="auto"`` (tensor-product splines), the first solve with a new ``dt`` is made without and the
         second with the kernel correction (see :meth:`_record_kc_trial`)."""
-        kc = self.options.kernel_correction
+        kc = self._kernel_correction
         trial = kc == "auto" and not self.derham.polar_splines
         if dt != self._precond_dt:
             self._precond_dt = dt
