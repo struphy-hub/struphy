@@ -16,6 +16,10 @@ saved time steps) are written into ``<path_out>/results/frames/``: ``u_r_rz`` (t
 (3D, the camera on the poloidal cross-section of the cutaway) and ``u_r_3d`` (3D, the whole torus with the
 cutaway), see ``struphy.post_processing.frames``. Make a video e.g. with
 ``ffmpeg -framerate 25 -i frame_%04d.png -pix_fmt yuv420p u_r_rz.mp4`` in a frames folder.
+
+With ``--save-results`` (passed by ``submit_LinearMHD_scaling.py`` after each profiling run, ``--setup profiling``)
+the scope-profiler HTML report and a summary of the cost per step and of the solver iterations are written into
+``<path_out>/results`` instead of the plots.
 """
 
 import argparse
@@ -29,6 +33,7 @@ from matplotlib import pyplot as plt
 from struphy import Output
 from struphy.post_processing.frames import write_videos
 from struphy.post_processing.plot_3d import plot_field_3d
+from struphy.post_processing.profiling import save_profiling_results
 from struphy.post_processing.slices import plot_physical_slices
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -62,6 +67,40 @@ TAE_RTOL = 0.1
 OMEGA_ITPA = 4.07e5
 
 
+def radial_range(domain):
+    """The minor radius (r_min, r_max) at eta1 = 0 and 1: the hole and the wall of the HollowTorus, or (0, a) for the
+    IGAPolarTorus of --polar (no hole)."""
+    params = domain.params
+    if "a1" in params:
+        return params["a1"], params["a2"]
+    return 0.0, params["a"]
+
+
+def save_results(path_out):
+    """Write the scope-profiler report and the summary of the cost per step and of the solver iterations into
+    ``<path_out>/results`` (:func:`struphy.post_processing.profiling.save_profiling_results`)."""
+    info = {
+        "num_elements": list(args.num_elements),
+        "degree": list(args.degree),
+        "b_space": args.b_space,
+        "projected": args.projected,
+        "polar": args.polar,
+        "a1": None if args.polar else args.a1,
+        "precond": args.precond,
+        "dt": args.dt,
+    }
+    summary = save_profiling_results(path_out, info=info)
+    step_times = summary["step_times"]
+    iterations = ", ".join(
+        f"{mean:.1f} iterations per call ({name})" for name, mean in summary["solver_iterations_mean"].items()
+    )
+    print(
+        f"\nstep: median {1e3 * summary['step_median']:.3f} ms (first step {1e3 * step_times[0]:.3f} ms)"
+        + (f"; {iterations}" if iterations else "")
+    )
+    Output(path_out).profile.results.print_summary(include=["^prop: "], sort="total", title="propagators")
+
+
 def tae_frequency(run, basis):
     """Measured and expected frequency of the TAE.
 
@@ -76,7 +115,8 @@ def tae_frequency(run, basis):
     n = abs(N_LOGICAL) * params["tor_period"]
     q_c = (2 * M_TAE + 1) / (2 * n)
     r_c = a * np.sqrt((q_c - q0) / (q1 - q0))
-    eta1 = np.array([(r_c - params["a1"]) / (params["a2"] - params["a1"])])
+    r_min, r_max = radial_range(run.domain)
+    eta1 = np.array([(r_c - r_min) / (r_max - r_min)])
     eta2, eta3 = np.linspace(0, 1, 64, endpoint=False), np.linspace(0, 1, 8, endpoint=False)
     abs_b = np.mean(equil.absB0(eta1, eta2, eta3))
     density = np.mean(equil.n0(eta1, eta2, eta3))
@@ -103,8 +143,8 @@ def tae_frequency(run, basis):
 
 
 def minor_radius(run):
-    """The minor radius of the HollowTorus as a function of eta1."""
-    a1, a2 = run.domain.params["a1"], run.domain.params["a2"]
+    """The minor radius as a function of eta1 (HollowTorus or, with --polar, IGAPolarTorus)."""
+    a1, a2 = radial_range(run.domain)
     return lambda eta1: a1 + (a2 - a1) * eta1
 
 
@@ -233,10 +273,20 @@ if __name__ == "__main__":
     pproc_parser.add_argument(
         "--max-frames", type=int, default=500, help="Largest number of frames per video (default: 500)."
     )
-    pproc_args = pproc_parser.parse_args(other_flags)
-    main(
-        pproc_args.path_out,
-        save_figs=not pproc_args.show,
-        frames=not pproc_args.no_frames,
-        max_frames=pproc_args.max_frames,
+    pproc_parser.add_argument(
+        "--save-results",
+        action="store_true",
+        help="Write the profiling results (scope-profiler report, cost summary) instead of the plots.",
     )
+    pproc_args = pproc_parser.parse_args(other_flags)
+    if pproc_args.save_results and args.setup != "profiling":
+        pproc_parser.error("--save-results needs the run's --setup profiling")
+    if pproc_args.save_results:
+        save_results(pproc_args.path_out)
+    else:
+        main(
+            pproc_args.path_out,
+            save_figs=not pproc_args.show,
+            frames=not pproc_args.no_frames,
+            max_frames=pproc_args.max_frames,
+        )
