@@ -111,7 +111,8 @@ Decomposition and memory:
   starts only its own ranks in it (`srun -n <ranks> --ntasks-per-node=<ranks per node>`; srun may warn that it "can't
   honor --ntasks-per-node", which is harmless); `#SBATCH --exclusive` is not accepted on Raven. Shared nodes disturb the
   timings of the small rank counts (memory bandwidth, cache of other jobs); requesting a whole node avoids that, but
-  queues longer.
+  queues longer. Viper CPU (`viper_cpu`) works the same with other limits: jobs on at most 64 cores share the node (at
+  most 250000 MB), larger jobs get whole nodes (480000 MB).
 
 ## 5. Test locally before submitting
 
