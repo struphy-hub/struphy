@@ -2,7 +2,7 @@
 the distribution function.
 
 Run as ``python pproc_tokamak_equilibrium.py [sim_folder] [variant flags of params_tokamak_equilibrium.py]
-[--no-video]``. The variant flags must be those of the run; the run parameters are taken from
+[--video]``. The variant flags must be those of the run; the run parameters are taken from
 ``params_tokamak_equilibrium.py``, which reads them. Written into ``<sim_folder>/results``, where the profiling
 packaging picks them up and uploads them with the run (``submit_tokamak_equilibrium.py`` calls this script after
 each simulation):
@@ -11,8 +11,9 @@ each simulation):
   snapshots, their relative L2 deviation from t=0, the energy drift and the lost markers);
 * ``distribution.png``: the binned distribution in the poloidal plane (R, Z), in (r, v_par) and in (v_par, mu), at
   the first and last saved time and the change f(t) - f(0), with the trapped-passing boundaries;
-* ``frames/distribution.mp4`` (needs ffmpeg, skipped with ``--no-video``): the distribution in the poloidal plane
-  and the change f(t) - f(0) in the poloidal plane and in (r, v_par) over time, with fixed color scales.
+* with ``--video``: ``frames/distribution.mp4`` (needs ffmpeg) and its frames: the distribution in the poloidal
+  plane and the change f(t) - f(0) in the poloidal plane and in (r, v_par) over time, with fixed color scales. Off
+  by default, since the profiling packaging uploads the frames of every run, but not the video.
 
 The change f(t) - f(0) is computed from the same markers (fixed weights), so it does not contain the Monte-Carlo
 noise of the initial loading, only that of the marker motion.
@@ -89,7 +90,8 @@ class _Panels:
         self.pol = _binned(out, "e1_e2")
         self.rv = _binned(out, "e1_v1")
         self.vmu = _binned(out, "v1_v2")
-        self.time = next(b[1] for b in (self.pol, self.rv, self.vmu) if b is not None)
+        # None if the run has none of the 2D slices (e.g. older runs)
+        self.time = next((b[1] for b in (self.pol, self.rv, self.vmu) if b is not None), None)
         if self.pol is not None:
             self.R, self.Z = _poloidal_mesh(out, *self.pol[2])
         if self.rv is not None:
@@ -145,6 +147,8 @@ def plot_distribution(out, results_dir, title):
 
     panels = _Panels(out)
     views = _views(panels)
+    if not views:
+        return
     fig, axs = plt.subplots(len(views), 3, figsize=(14, 4.2 * len(views)), squeeze=False)
     for row, (view, (f, time, _)) in zip(axs, views):
         scale = _scale(f[0])
@@ -211,7 +215,7 @@ def write_distribution_video(out, results_dir, title, max_frames=200):
     return frames_to_video(folder, fps=10)
 
 
-def main(path_out=DEFAULT_OUTPUT, video=True):
+def main(path_out=DEFAULT_OUTPUT, video=False):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -237,6 +241,8 @@ if __name__ == "__main__":
         default=DEFAULT_OUTPUT,
         help="Simulation output folder (default: sim_1 beside this script)",
     )
-    pproc_parser.add_argument("--no-video", action="store_true", help="Skip the frames and the video.")
+    pproc_parser.add_argument(
+        "--video", action="store_true", help="Also write the frames and the video of the distribution function."
+    )
     pproc_args = pproc_parser.parse_args(other_flags)
-    main(pproc_args.path_out, video=not pproc_args.no_video)
+    main(pproc_args.path_out, video=pproc_args.video)
