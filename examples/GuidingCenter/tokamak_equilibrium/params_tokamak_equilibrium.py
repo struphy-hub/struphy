@@ -49,6 +49,13 @@ parser.add_argument(
     choices=["rk4", "forward_euler", "heun2", "rk2", "heun3", "3/8 rule"],
     help="Runge-Kutta method of the explicit algorithm.",
 )
+parser.add_argument(
+    "--shift",
+    default="Bmax",
+    choices=["Bmax", "B0", "none"],
+    help="Shift of psi_c in the canonical Maxwellian (CanonicalMaxwellian2D): Bmax (default) or none give an exact "
+    "equilibrium, B0 (on-axis field) does not (psi_c jumps at the bounce points of barely trapped particles).",
+)
 parser.add_argument("--epsilon", type=float, default=0.05, help="Normalized cyclotron period (size of the drifts).")
 parser.add_argument("--ppc", type=int, default=25, help="Markers per cell.")
 parser.add_argument(
@@ -73,7 +80,8 @@ if args.test_run:
     args.num_elements = [8, 18, 18]
     args.ppc = 5
 
-name = f"GuidingCenter {args.init} Maxwellian in an ad hoc tokamak, {args.algo}"
+init_label = f"{args.init} Maxwellian" + (f" (shift={args.shift})" if args.init == "canonical" else "")
+name = f"GuidingCenter {init_label} in an ad hoc tokamak, {args.algo}"
 description = f"""
 Long-time equilibrium test of the GuidingCenter model (guiding centers in a static magnetic field) in an ad hoc
 tokamak: a canonical Maxwellian, a function of the constants of motion, must stay stationary; a gyro-Maxwellian
@@ -104,8 +112,8 @@ Setup. Full torus without hole (IGAPolarTorus, minor radius a = 1, major radius 
 axis) with an ad hoc tokamak equilibrium (AdhocTorus, circular concentric flux surfaces, B0 = 1 on axis, q(r) =
 1.71 + 0.16 r^2/a^2). With the normalized poloidal flux s in [0, 1], the profiles are n = (1 - s)^2 and vth =
 0.15 + 0.10 (1 - s), as functions of psi_c (canonical) or of the flux label s = eta1^2 of the position (gyro).
-Markers drift through the axis. Initial condition: {args.init} Maxwellian. Binned distributions in position
-(eta1, eta1-eta2) and velocity space (v_parallel, mu, eta1-v_parallel) up to t={args.tend} (dt={args.dt}). The
+Markers drift through the axis. Initial condition: {init_label}. Binned distributions in position
+(eta1, eta1-eta2) and velocity space (v_parallel, mu, v_parallel-mu, eta1-v_parallel) up to t={args.tend} (dt={args.dt}). The
 density vanishes at the edge r=a, where markers on drift orbits leaving the plasma are removed; this small loss is
 not part of the equilibrium. Propagators push_bxe and push_parallel: {args.algo} (Butcher {args.butcher} if
 explicit), epsilon={args.epsilon}, {args.ppc} markers per cell on a grid with {args.num_elements} elements.
@@ -254,6 +262,8 @@ binning_plots = (
     BinningPlot(slice="e1_e2", n_bins=(32, 36), ranges=((0.0, 1.0), (0.0, 1.0))),
     BinningPlot(slice="v1", n_bins=64, ranges=(-v_max, v_max)),
     BinningPlot(slice="v2", n_bins=64, ranges=(0.0, mu_max)),
+    # (v_par, mu) in the thermal range, to show the trapped-passing cones
+    BinningPlot(slice="v1_v2", n_bins=(64, 48), ranges=((-0.8 * v_max, 0.8 * v_max), (0.0, 5.0 * VTH_AXIS**2 / B_min))),
     BinningPlot(slice="e1_v1", n_bins=(32, 64), ranges=((0.0, 1.0), (-v_max, v_max))),
 )
 
@@ -287,7 +297,7 @@ if args.init == "canonical":
         equil=equil,
         epsilon=args.epsilon,
         # "Bmax" (default) or None: exact equilibrium; "B0": psi_c jumps at the bounce points of barely trapped particles
-        shift="Bmax",
+        shift=None if args.shift == "none" else args.shift,
     )
 else:
     background = maxwellians.GyroMaxwellian2D(
