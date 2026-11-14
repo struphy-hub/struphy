@@ -110,37 +110,46 @@ def _packaged_case_commit(case_dir: Path) -> str:
 
 
 def upload_packaged_case(case_dir: Path) -> None:
-    """Push one already-packaged case folder to the profiling-data repo.
+    """Push one already-packaged case folder to the profiling-data repo (see `upload_packaged_cases`)."""
+    upload_packaged_cases([case_dir])
 
-    For a case packaged by a run without `--upload`: the folder is copied into a fresh
-    clone as it stands (replacing an earlier upload of the same folder name) and pushed.
-    Nothing is re-packaged, so a case can be reviewed locally first and uploaded later.
+
+def upload_packaged_cases(case_dirs: list[Path]) -> None:
+    """Push already-packaged case folders to the profiling-data repo, in one clone and one commit.
+
+    For cases packaged by a run without `--upload` (or by `package_case.py`): each folder
+    is copied into a fresh clone as it stands (replacing an earlier upload of the same
+    folder name) and pushed. Nothing is re-packaged, so a case can be reviewed locally
+    first and uploaded later.
     """
-    case_dir = case_dir.resolve()
-    if not (case_dir / "case_metadata.json").exists():
-        raise SystemExit(
-            f"{case_dir} is not a packaged profiling case folder: no case_metadata.json in it.",
-        )
+    case_dirs = [Path(case_dir).resolve() for case_dir in case_dirs]
+    for case_dir in case_dirs:
+        if not (case_dir / "case_metadata.json").exists():
+            raise SystemExit(
+                f"{case_dir} is not a packaged profiling case folder: no case_metadata.json in it.",
+            )
 
     with tempfile.TemporaryDirectory(prefix="profiling-data-") as temporary_dir:
         clone_dir = _clone_profiling_data(Path(temporary_dir) / "profiling-data")
-        destination = clone_dir / case_dir.name
-        if destination.exists():
-            shutil.rmtree(destination)
-        shutil.copytree(case_dir, destination)
-        _push_profiling_data(clone_dir, _packaged_case_commit(case_dir))
+        for case_dir in case_dirs:
+            destination = clone_dir / case_dir.name
+            if destination.exists():
+                shutil.rmtree(destination)
+            shutil.copytree(case_dir, destination)
+        _push_profiling_data(clone_dir, _packaged_case_commit(case_dirs[0]))
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Push an already-packaged profiling case folder to the profiling-data repo.",
+        description="Push already-packaged profiling case folders to the profiling-data repo.",
     )
     parser.add_argument(
-        "case_dir",
+        "case_dirs",
         type=Path,
-        help="The packaged case folder to push, as printed by a run made without --upload.",
+        nargs="+",
+        help="The packaged case folders to push, as printed by a run made without --upload or by package_case.py.",
     )
-    upload_packaged_case(parser.parse_args().case_dir)
+    upload_packaged_cases(parser.parse_args().case_dirs)
 
 
 if __name__ == "__main__":
