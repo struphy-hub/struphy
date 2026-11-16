@@ -1285,6 +1285,481 @@ class TransportAdjointMatrix(ProjectionAdjointMatrix):
         super().__init__(derham, mass_ops, "1", u_space, "Hdiv", self._CROSS, derham.curl_bcfree.T.dot(lf), g=g)
 
 
+class NormalizedInverse(LinearOperator):
+    r"""Inverse of a symmetric positive definite mass matrix :math:`\mathbb M`, applied with a tolerance relative to the
+    norm of the right-hand side (:func:`dot_normalized`): preconditioned CG with the Kronecker preconditioner of
+    :func:`~struphy.feec.preconditioner.mass_matrix_preconditioner` (its 2D x 1D version with polar splines). It is its
+    own transpose.
+
+    Parameters
+    ----------
+    mass : WeightedMassOperator
+        The mass matrix.
+    tol : float
+        Relative tolerance of the solves.
+    maxiter : int
+        Maximum number of iterations.
+    """
+
+    def __init__(self, mass, tol: float = 1e-14, maxiter: int = 3000):
+        self._inv = inverse(
+            mass, "pcg", pc=preconditioner.mass_matrix_preconditioner(mass), tol=tol, maxiter=maxiter, recycle=True
+        )
+        self._domain = mass.codomain
+        self._codomain = mass.domain
+        self._tmp = mass.codomain.zeros()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._inv.dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return self
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._codomain.zeros()
+        v.copy(out=self._tmp)  # dot_normalized scales its input in place
+        return dot_normalized(self._inv, self._tmp, out)
+
+
+def _local_spline_callables(sf, ncomp: int) -> list:
+    """Callables of the components of the spline function ``sf`` for the weights of
+    :meth:`~struphy.feec.mass.WeightedMassOperators.create_weighted_mass`: evaluation on the sparse meshgrid of the local
+    quadrature points, with the local coefficients only (no collective communication)."""
+
+    def comp(c):
+        def f(e1, e2, e3):
+            vals = sf(e1[:, 0, 0], e2[0, :, 0], e3[0, 0, :], local=True)
+            vals = vals[c] if isinstance(vals, (list, tuple)) else vals
+            return xp.asarray(vals).reshape(e1.shape[0], e2.shape[1], e3.shape[2])
+
+        return f
+
+    return [comp(c) for c in range(ncomp)]
+
+
+class _QuadratureValues:
+    """Values of 2-form and 3-form spline functions at the local quadrature points of the mass matrices (the same grid
+    for all spaces), with the local coefficients only, and :math:`1/\\sqrt g` there."""
+
+    def __init__(self, derham: Derham, domain):
+        grids = derham.spline_attributes["Hcurl"].quad_grid_pts
+        pts = [pt.flatten() for pt in grids[0]]
+        for space_id in ("Hcurl", "Hdiv", "L2"):
+            for comp_pts in derham.spline_attributes[space_id].quad_grid_pts:
+                for d in range(3):
+                    assert xp.allclose(comp_pts[d].flatten(), pts[d]), "Quadrature grids differ."
+        self._pts = pts
+        self.inv_sqrt_g = 1.0 / domain.jacobian_det(*pts)
+
+    def __call__(self, sf) -> list:
+        vals = sf(*self._pts, local=True)
+        return list(vals) if isinstance(vals, (list, tuple)) else [vals]
+
+
+class L2TransportOperator(LinearOperator):
+    r"""Transport of a magnetic 2-form by a velocity 2-form with the :math:`L^2` projection of the interior product,
+
+    .. math::
+
+        \mathbb T[\bar{\mathbf b}]\,\mathbf u = \mathbb C\, \mathbb B_1^\top (\mathbb M^1)^{-1}\, \mathbb W[\bar{\mathbf b}]
+        \,\mathbf u \,,\qquad
+        \mathbb W[\bar{\mathbf b}]_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^1_i \cdot G^{-1}
+        \big(\hat{\bar{\mathbf b}} \times \vec{\boldsymbol\Lambda}^2_j\big) \,\textrm d \boldsymbol\eta \,,
+
+    i.e. :math:`-\nabla \times P_{L^2}(\bar{\mathbf B} \times \mathbf u)`, with the :math:`L^2` projection
+    :math:`P_{L^2}` onto :math:`V^1_h` with the tangential boundary condition (``boundary_ops["1"]``, :math:`\mathbb B_1`;
+    :math:`\bar{\mathbf B} \times \mathbf u` is normal on a wall where both are tangential) and :math:`\mathbb C` the
+    curl matrix without boundary conditions. It replaces the commuting projection :math:`\hat\Pi^1` of
+    :class:`Hdiv0_transport_operator`. :math:`P_{L^2}` only uses volume integrals and is stable in :math:`L^2`: it does
+    not evaluate the product on the edges of the histopolation grid, which at a polar axis all start at the same point
+    (the product of two discrete 2-forms has no limit there).
+
+    The matrix :math:`\mathbb W` is assembled once by :meth:`update_coeffs` (``assemble=True``, for a fixed field,
+    e.g. the equilibrium), or :math:`\mathbb W \mathbf u` is integrated matrix-free in every application
+    (``assemble=False``, for a field that changes in every step). The transpose is available with ``assemble=True``.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping.
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    assemble : bool
+        Whether to assemble :math:`\mathbb W` (see above).
+    tol : float
+        Relative tolerance of the solves with :math:`\mathbb M^1`.
+    """
+
+    def __init__(self, derham: Derham, domain, mass_ops, assemble: bool = True, tol: float = 1e-14):
+        self._derham = derham
+        self._mass_ops = mass_ops
+        self._assemble = assemble
+        self._domain = derham.V2pol
+        self._codomain = derham.V2pol
+        self._dtype = derham.V2.dtype
+        self._C = derham.curl_bcfree
+        self._B1 = derham.boundary_ops["1"]
+        self._M1inv = NormalizedInverse(mass_ops.M1, tol=tol)
+        self._bf = derham.create_spline_function("b_L2transport", "Hdiv")
+        self._W = None
+        if not assemble:
+            from struphy.feec.mass import L2Projector
+
+            self._uf = derham.create_spline_function("u_L2transport", "Hdiv")
+            self._quad = _QuadratureValues(derham, domain)
+            self._get_dofs = L2Projector("Hcurl", mass_ops).get_dofs
+        self._tmp_r = derham.V1pol.zeros()
+        self._tmp_x = derham.V1pol.zeros()
+        self._tmp_x2 = derham.V1pol.zeros()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def M1inv(self) -> NormalizedInverse:
+        r"""The inverse of :math:`\mathbb M^1` used by the projection."""
+        return self._M1inv
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def update_coeffs(self, b):
+        r"""Set the field :math:`\bar{\mathbf b}` (polar 2-form coefficients); assembles :math:`\mathbb W` if
+        ``assemble=True`` (collective)."""
+        from struphy.feec.utilities import LocalRotationMatrix
+
+        self._bf.vector = b
+        if self._assemble:
+            rot = LocalRotationMatrix(*_local_spline_callables(self._bf, 3))
+            self._W = self._mass_ops.create_weighted_mass(
+                "Hdiv", "Hcurl", weights=("Ginv", rot), name="W_L2transport", assemble=True
+            )
+
+    def linear_form(self, u, out=None):
+        r""":math:`\mathbb B_1 \mathbb W[\bar{\mathbf b}]\,\mathbf u`, the dual of :math:`\bar{\mathbf B} \times
+        \mathbf u` on :math:`V^1_h` (collective)."""
+        if out is None:
+            out = self._derham.V1pol.zeros()
+        if self._assemble:
+            assert self._W is not None, "update_coeffs must be called first."
+            return self._W.dot(u, out=out)
+        # matrix-free: the 1-form (b x u)/sqrt(g) at the quadrature points, integrated against the 1-form basis with the
+        # metric weight G^-1 sqrt(g) of M1
+        self._uf.vector = u
+        b_q, u_q = self._quad(self._bf), self._quad(self._uf)
+        s = self._quad.inv_sqrt_g
+        f = [
+            (b_q[1] * u_q[2] - b_q[2] * u_q[1]) * s,
+            (b_q[2] * u_q[0] - b_q[0] * u_q[2]) * s,
+            (b_q[0] * u_q[1] - b_q[1] * u_q[0]) * s,
+        ]
+        return self._get_dofs(f, dofs=out, apply_bc=True)
+
+    def dot(self, v, out=None):
+        r = self.linear_form(v, out=self._tmp_r)
+        x = self._M1inv.dot(r, out=self._tmp_x)
+        x = self._B1.T.dot(x, out=self._tmp_x2)
+        return self._C.dot(x, out=out)
+
+    def transpose(self, conjugate=False):
+        assert self._assemble and self._W is not None, "The transpose needs assemble=True and update_coeffs."
+        return self._W.T @ self._M1inv @ self._B1 @ self._C.T
+
+
+class L2TransportAdjointMatrix(LinearOperator):
+    r"""Matrix of the linear map :math:`\mathbf b \mapsto \mathbb T[\mathbf b]^\top \mathbf l` for a fixed linear form
+    :math:`\mathbf l` on 2-forms, with the :math:`L^2` transport of :class:`L2TransportOperator`: with
+    :math:`\mathbf z = (\mathbb M^1)^{-1} \mathbb B_1 \mathbb C^\top \mathbf l \in V^1_h`,
+
+    .. math::
+
+        \big(\mathbb T[\mathbf b]^\top \mathbf l\big)_k = \int_{\hat\Omega} \hat{\mathbf z} \cdot G^{-1}
+        \big(\hat{\mathbf b} \times \vec{\boldsymbol\Lambda}^2_k\big) \,\textrm d \boldsymbol\eta \,,\qquad
+        \mathbb F_{kj} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^2_k \cdot \frac{G\,[\hat{\mathbf z}]_\times\, G}{g}\,
+        \vec{\boldsymbol\Lambda}^2_j \,\textrm d \boldsymbol\eta \,,
+
+    using :math:`[G^{-1}\hat{\mathbf z}]_\times = G\,[\hat{\mathbf z}]_\times\, G / g`. For
+    :math:`\mathbf l = -\mathbb M^2 \mathbf b_0`, :math:`\mathbf z` is minus the weak current of the equilibrium, and the
+    second-order energy :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}` is the exact integral of the product
+    of the discrete fields against it (the projection error is orthogonal to :math:`V^1_h`).
+
+    Parameters
+    ----------
+    transport : L2TransportOperator
+        The transport (for :math:`\mathbb M^1` and the operators of the projection).
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    lf : BlockVector
+        The linear form :math:`\mathbf l`.
+    """
+
+    def __init__(self, transport: L2TransportOperator, mass_ops, lf):
+        from struphy.feec.utilities import LocalRotationMatrix
+
+        derham = transport._derham
+        self.z = transport.M1inv.dot(transport._B1.dot(transport._C.T.dot(lf)))
+        self._zf = derham.create_spline_function("z_L2transport", "Hcurl")
+        self._zf.vector = self.z
+        rot = LocalRotationMatrix(*_local_spline_callables(self._zf, 3))
+        self._F = mass_ops.create_weighted_mass(
+            "Hdiv", "Hdiv", weights=("G", rot, "G", "1/sqrt_g", "1/sqrt_g"), name="F_L2transport", assemble=True
+        )
+        self._domain = self._F.domain
+        self._codomain = self._F.codomain
+        self._dtype = self._F.dtype
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return self._F.transpose(conjugate=conjugate)
+
+    def dot(self, v, out=None):
+        return self._F.dot(v, out=out)
+
+
+class L2PressureTransportOperator(LinearOperator):
+    r"""Transport of a 3-form :math:`\bar p` by a velocity 2-form with :math:`L^2` projections,
+
+    .. math::
+
+        \mathbb S[\bar p]\,\mathbf u = \mathbb D\,(\mathbb M^2)^{-1}\, \mathbb W^2[\bar p]\,\mathbf u
+        + (\kappa - 1)\,(\mathbb M^3)^{-1}\, \mathbb W^3[\bar p]\, \mathbb D\,\mathbf u \,,\qquad
+        \mathbb W^2[\bar p]_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^2_i \cdot G\,\vec{\boldsymbol\Lambda}^2_j
+        \,\frac{\hat{\bar p}}{g}\,\textrm d \boldsymbol\eta \,,\quad
+        \mathbb W^3[\bar p]_{ij} = \int_{\hat\Omega} \Lambda^3_i\,\Lambda^3_j\,\frac{\hat{\bar p}}{g}
+        \,\textrm d \boldsymbol\eta \,,
+
+    i.e. :math:`\nabla\cdot P_{L^2}(\bar p\,\mathbf u) + (\kappa - 1) P_{L^2}(\bar p\,\nabla\cdot\mathbf u)`, with the
+    :math:`L^2` projections onto :math:`V^2_h` (normal boundary condition) and :math:`V^3_h`. It replaces the commuting
+    projections of :class:`Pressure_transport_operator` (velocity in :math:`H(\textnormal{div})`). As for
+    :class:`L2TransportOperator`, :math:`\mathbb W^2, \mathbb W^3` are assembled (``assemble=True``) or applied
+    matrix-free (``assemble=False``).
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping.
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    kappa : float
+        The factor :math:`\kappa` (:math:`\gamma` for the pressure).
+    assemble : bool
+        Whether to assemble the weighted mass matrices.
+    tol : float
+        Relative tolerance of the solves with :math:`\mathbb M^2` and :math:`\mathbb M^3`.
+    """
+
+    def __init__(self, derham: Derham, domain, mass_ops, kappa: float, assemble: bool = True, tol: float = 1e-14):
+        self._derham = derham
+        self._mass_ops = mass_ops
+        self._kappa = kappa
+        self._assemble = assemble
+        self._domain = derham.V2pol
+        self._codomain = derham.V3pol
+        self._dtype = derham.V3.dtype
+        self.div = derham.div
+        self._M2inv = NormalizedInverse(mass_ops.M2, tol=tol)
+        self._M3inv = NormalizedInverse(mass_ops.M3, tol=tol)
+        self._pf = derham.create_spline_function("p_L2transport", "L2")
+        self._W2 = self._W3 = None
+        if not assemble:
+            from struphy.feec.mass import L2Projector
+
+            self._uf = derham.create_spline_function("u_L2ptransport", "Hdiv")
+            self._df = derham.create_spline_function("divu_L2ptransport", "L2")
+            self._quad = _QuadratureValues(derham, domain)
+            self._get_dofs2 = L2Projector("Hdiv", mass_ops).get_dofs
+            self._get_dofs3 = L2Projector("L2", mass_ops).get_dofs
+        self._tmp2 = derham.V2pol.zeros()
+        self._tmp2b = derham.V2pol.zeros()
+        self._tmp3 = derham.V3pol.zeros()
+        self._tmp3b = derham.V3pol.zeros()
+        self._tmp3c = derham.V3pol.zeros()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def M2inv(self) -> NormalizedInverse:
+        return self._M2inv
+
+    @property
+    def M3inv(self) -> NormalizedInverse:
+        return self._M3inv
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def update_coeffs(self, p):
+        r"""Set the weight :math:`\bar p` (polar 3-form coefficients); assembles the weighted mass matrices if
+        ``assemble=True`` (collective)."""
+        self._pf.vector = p
+        if self._assemble:
+            (pw,) = _local_spline_callables(self._pf, 1)
+            self._W2 = self._mass_ops.create_weighted_mass(
+                "Hdiv", "Hdiv", weights=("G", pw, "1/sqrt_g", "1/sqrt_g"), name="W2_L2transport", assemble=True
+            )
+            self._W3 = self._mass_ops.create_weighted_mass(
+                "L2", "L2", weights=(pw, "1/sqrt_g", "1/sqrt_g"), name="W3_L2transport", assemble=True
+            )
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._codomain.zeros()
+        d = self.div.dot(v, out=self._tmp3)
+        if self._assemble:
+            assert self._W2 is not None, "update_coeffs must be called first."
+            r2 = self._W2.dot(v, out=self._tmp2)
+            r3 = self._W3.dot(d, out=self._tmp3b)
+        else:
+            # matrix-free: the 2-form p u and the 3-form p div u (proxies divided by sqrt g) at the quadrature points
+            self._uf.vector = v
+            self._df.vector = d
+            (p_q,) = self._quad(self._pf)
+            u_q = self._quad(self._uf)
+            (d_q,) = self._quad(self._df)
+            ps = p_q * self._quad.inv_sqrt_g
+            r2 = self._get_dofs2([ps * u_q[0], ps * u_q[1], ps * u_q[2]], dofs=self._tmp2, apply_bc=True)
+            r3 = self._get_dofs3(ps * d_q, dofs=self._tmp3b, apply_bc=True)
+        x2 = self._M2inv.dot(r2, out=self._tmp2b)
+        self.div.dot(x2, out=out)
+        x3 = self._M3inv.dot(r3, out=self._tmp3c)
+        x3 *= self._kappa - 1.0
+        out += x3
+        return out
+
+    def transpose(self, conjugate=False):
+        assert self._assemble and self._W2 is not None, "The transpose needs assemble=True and update_coeffs."
+        return self._W2.T @ self._M2inv @ self.div.T + (self._kappa - 1.0) * (self.div.T @ self._W3.T @ self._M3inv)
+
+
+class L2PressureTransportAdjointMatrix(LinearOperator):
+    r"""Matrix of the linear map :math:`\mathbf p \mapsto \mathbb S[\mathbf p]^\top \mathbf l` for a fixed linear form
+    :math:`\mathbf l` on 3-forms, with the :math:`L^2` transport of :class:`L2PressureTransportOperator`:
+
+    .. math::
+
+        \mathbb S[\mathbf p]^\top \mathbf l = \mathbb W^2[\mathbf p]^\top\, \mathbf y_2
+        + (\kappa - 1)\, \mathbb D^\top \mathbb W^3[\mathbf y_3]\, \mathbf p \,,\qquad
+        \mathbf y_2 = (\mathbb M^2)^{-1}\mathbb D^\top \mathbf l\,,\quad \mathbf y_3 = (\mathbb M^3)^{-1}\mathbf l \,,
+
+    (:math:`\mathbb W^3` is symmetric in its two arguments). Only the case :math:`\mathbb D^\top \mathbf l = 0` is
+    implemented, where the first term vanishes: this holds for the dual of the constant,
+    :math:`\mathbf l \propto (\int \Lambda^3_i \,\textrm d\boldsymbol\eta)_i`, the linear form of the energy
+    :math:`\int \hat p` of the linear :math:`p` models (the flux through the boundary vanishes); it is checked.
+
+    Parameters
+    ----------
+    transport : L2PressureTransportOperator
+        The transport (for the mass matrices and the divergence).
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    lf : StencilVector
+        The linear form :math:`\mathbf l`.
+    """
+
+    def __init__(self, transport: L2PressureTransportOperator, mass_ops, lf):
+        derham = transport._derham
+        y2 = transport.M2inv.dot(transport.div.T.dot(lf))
+        self.y3 = transport.M3inv.dot(lf)
+        n2, n3 = float(xp.sqrt(y2.inner(y2))), float(xp.sqrt(self.y3.inner(self.y3)))
+        assert n2 <= 1e-8 * n3, f"D^T l is not zero (|M2^-1 D^T l| = {n2:.2e}, |M3^-1 l| = {n3:.2e}): not implemented."
+        self._yf = derham.create_spline_function("y3_L2transport", "L2")
+        self._yf.vector = self.y3
+        (yw,) = _local_spline_callables(self._yf, 1)
+        W3y = mass_ops.create_weighted_mass(
+            "L2", "L2", weights=(yw, "1/sqrt_g", "1/sqrt_g"), name="W3y_L2transport", assemble=True
+        )
+        self._A = (transport._kappa - 1.0) * (transport.div.T @ W3y)
+        self._domain = self._A.domain
+        self._codomain = self._A.codomain
+        self._dtype = self._A.dtype
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return self._A.transpose(conjugate=conjugate)
+
+    def dot(self, v, out=None):
+        return self._A.dot(v, out=out)
+
+
 class PressureTransportAdjointMatrix(LinearOperator):
     r"""Matrix of the linear map :math:`\mathbf p \mapsto \mathbb S[\mathbf p]^\top \mathbf l` for a fixed linear form
     :math:`\mathbf l` on 3-forms, with the pressure transport operator of :class:`Pressure_transport_operator`,
