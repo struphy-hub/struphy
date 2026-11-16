@@ -16,6 +16,7 @@ from struphy.feec.variational_utilities import (
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
+from struphy.propagators.utils import SoundWaveSchurPreconditioner
 from struphy.propagators.variational_linear_base import VariationalLinearEvolve
 from struphy.utils.utils import check_option
 
@@ -260,6 +261,15 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             :math:`t^n`, normalized before the solve), or absolute, as in the non-variational propagators (e.g.
             :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`). The energy is conserved up
             to the residual of the linear solve.
+        schur_precond : {"MassMatrixPreconditioner", "StiffnessPreconditioner"}, default="MassMatrixPreconditioner"
+            Preconditioner of the Schur system of ``"linear_p"`` with ``weights="midpoint"``: the one of ``precond``
+            (velocity block), or the Kronecker (fast diagonalization) preconditioner of
+            :math:`\mathbb M^2_{\rho_0} + \frac{\gamma \Delta t^2}{4} \mathbb D^\top \mathbb M^3_{p_0} \mathbb D`, the
+            leading part of the Schur complement
+            (:class:`~struphy.propagators.utils.SoundWaveSchurPreconditioner`, as in
+            :class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear`; with polar splines its 2D x 1D version),
+            rebuilt when the time step changes. Velocity in :math:`H(\textnormal{div})` only; otherwise ``precond`` is
+            used (with a warning).
         transport_projection : {"commuting", "L2"}, default="commuting"
             Projections in the transport of the pressure: the commuting projectors :math:`\hat\Pi^2, \hat\Pi^3`, or
             the :math:`L^2` projections (only ``"linear_p"`` with a velocity in :math:`H(\textnormal{div})`, see
@@ -273,6 +283,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         OptsWeights = Literal["frozen", "midpoint"]
         OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"]
         OptsTransportProjection = Literal["commuting", "L2"]
+        OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
         # propagator options
         model: OptsModel = "linear_q"
         gamma: float = 5.0 / 3.0
@@ -284,10 +295,12 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         nonlin_solver: NonlinearSolverParameters = None
         relative_tol: bool = True
         transport_projection: OptsTransportProjection = "commuting"
+        schur_precond: OptsSchurPrecond = "MassMatrixPreconditioner"
 
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
+            check_option(self.schur_precond, self.OptsSchurPrecond)
             check_option(self.transport_projection, self.OptsTransportProjection)
             assert self.transport_projection == "commuting" or self.model == "linear_p", (
                 'transport_projection="L2" is only available for model="linear_p".'
@@ -422,6 +435,24 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         else:
             self._allocate_mass_solver(self.options.solver, self.options.solver_params)
 
+        # Kronecker preconditioner of the Schur complement (linear_p, midpoint), set for the time step in __call__
+        self._schur_pc = None
+        if self.options.schur_precond == "StiffnessPreconditioner":
+            unmet = []
+            if not (self._model == "linear_p" and self._midpoint):
+                unmet += ['model="linear_p" with weights="midpoint"']
+            if self._u_space != "Hdiv":
+                unmet += ['a velocity in "Hdiv"']
+            if unmet:
+                logger.warning(
+                    f'{self.__class__.__name__}: schur_precond="StiffnessPreconditioner" needs {", ".join(unmet)}; '
+                    "falling back to the mass-matrix preconditioner."
+                )
+            else:
+                self._schur_pc = SoundWaveSchurPreconditioner(
+                    self.derham, self.mass_ops, self._gamma, "auto", self.__class__.__name__
+                )
+
         # temporaries
         self._tmp_un1 = u.space.zeros()
         self._tmp_un12 = u.space.zeros()
@@ -472,7 +503,11 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             f_u *= dt
             f_s = self._S0.dot(un, out=self._tmp_fs)
             f_s *= dt
+            if self._schur_pc is not None:
+                self._schur_pc.update(self._inv_J, dt)
             incr = self._solve_increment(dt, f_u, f_s)
+            if self._schur_pc is not None:
+                self._schur_pc.record(self._inv_J, self._inv_J._solver._info)
             un1 = un.copy(out=self._tmp_un1)
             un1 -= incr[0]
             sn1 = sn.copy(out=self._tmp_sn1)

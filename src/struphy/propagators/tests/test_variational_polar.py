@@ -209,3 +209,55 @@ def test_l2_transport_options():
     with pytest.raises(AssertionError):
         VariationalLinearSoundEvolve.Options(model="linear_q", transport_projection="L2")
     VariationalLinearSoundEvolve.Options(model="linear_p", transport_projection="L2")
+
+
+@pytest.mark.parametrize("transport_projection", ["commuting", "L2"])
+def test_sound_schur_preconditioner_polar(mpi_out_folder, transport_projection):
+    """The Kronecker preconditioner of the Schur complement of the sound step (``schur_precond="StiffnessPreconditioner"``,
+    linear p model, velocity in H(div), polar splines): the same velocity and pressure as with the mass-matrix
+    preconditioner, with fewer iterations."""
+    from struphy.models import VariationalLinearMHD
+
+    results = {}
+    for schur_precond in ("MassMatrixPreconditioner", "StiffnessPreconditioner"):
+        model = VariationalLinearMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
+        _variational_p_polar(
+            model,
+            mpi_out_folder,
+            f"sound_pc_{transport_projection}_{schur_precond}",
+            transport_projection=transport_projection,
+        )
+        sound = model.propagators.variat_lin_sound
+        sound.options = sound.Options(
+            model="linear_p", transport_projection=transport_projection, schur_precond=schur_precond
+        )
+        sound.allocate()
+        assert (sound._schur_pc is not None) == (schur_precond == "StiffnessPreconditioner")
+        niter = 0
+        for _ in range(3):
+            sound(0.5)
+            niter += sound._inv_J._solver._info["niter"]
+        # arrays: the two simulations have different Derham objects (and spaces)
+        results[schur_precond] = (
+            model.mhd.velocity.spline.vector.toarray(allreduce=True),
+            model.mhd.pressure.spline.vector.toarray(allreduce=True),
+            niter,
+        )
+
+    (u_m, p_m, it_m), (u_s, p_s, it_s) = results["MassMatrixPreconditioner"], results["StiffnessPreconditioner"]
+    assert np.linalg.norm(u_s - u_m) < 1e-6 * np.linalg.norm(u_m)
+    assert np.linalg.norm(p_s - p_m) < 1e-6 * np.linalg.norm(p_m)
+    assert it_s < it_m, f"{it_s} iterations with the Kronecker preconditioner, {it_m} with the mass matrix"
+
+
+def test_sound_schur_preconditioner_fallback(mpi_out_folder):
+    """``schur_precond="StiffnessPreconditioner"`` with a velocity in H1vec falls back to the mass-matrix
+    preconditioner."""
+    from struphy.models import VariationalLinearMHD
+
+    model = VariationalLinearMHD(u_space="H1vec", with_viscosity=False, with_resistivity=False)
+    _variational_p_polar(model, mpi_out_folder, "sound_pc_fallback")
+    sound = model.propagators.variat_lin_sound
+    sound.options = sound.Options(model="linear_p", schur_precond="StiffnessPreconditioner")
+    sound.allocate()
+    assert sound._schur_pc is None
