@@ -128,7 +128,11 @@ def main():
         print("No entries matched the report updates — pyproject.toml unchanged.")
         return 0
 
-    dump_pyproject(pyproject_data, pyproject_path)
+    try:
+        dump_pyproject(pyproject_data, pyproject_path)
+    except ValueError as exc:
+        print(f"Could not rewrite {pyproject_path}: {exc}", file=sys.stderr)
+        return 2
 
     print(f"Updated {len(updates)} upper bound(s) in {pyproject_path}:")
     for item in report["outdated"]:

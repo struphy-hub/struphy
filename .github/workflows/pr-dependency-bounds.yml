@@ -44,6 +44,10 @@ jobs:
         if: always()
         run: |
           exit_code="${{ steps.check.outputs.exit_code }}"
+          if [[ -z "$exit_code" ]]; then
+            echo "The check step did not run (an earlier step failed or the run was cancelled)."
+            exit 1
+          fi
           {
             echo "## Dependency bounds"
             echo

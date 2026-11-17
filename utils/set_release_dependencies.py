@@ -101,6 +101,10 @@ def build_dependency_entry(entry, resolved_versions, project_name):
     if normalized_name == normalize_name(project_name):
         return entry
 
+    if any(specifier.startswith("==") for specifier in requirement["specifiers"]):
+        # exact pins are deliberate (e.g. ruff) and not managed
+        return entry
+
     resolved_version = resolved_versions.get(normalized_name)
     if resolved_version is None:
         print(
@@ -419,7 +423,11 @@ def main():
             return 1
         return 0
 
-    dump_pyproject(pyproject_data, pyproject_path)
+    try:
+        dump_pyproject(pyproject_data, pyproject_path)
+    except ValueError as exc:
+        print(f"Could not rewrite {pyproject_path}: {exc}", file=sys.stderr)
+        return 2
     return 0
 
 
