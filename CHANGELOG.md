@@ -1,6 +1,75 @@
 # Changelog
 
 
+## Struphy 3.6.2 - 2026-11-17
+
+* [PyPI](https://pypi.org/project/struphy/3.6.2)
+* [GitHub Pages](https://struphy-hub.github.io/struphy/index.html)
+* [GitHub release](https://github.com/struphy-hub/struphy/releases/tag/v3.6.2)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.6.1...v3.6.2)
+
+
+### Headlines
+
+* **Videos of FEEC fields in pproc scripts**: the new module `struphy.post_processing.frames` writes video frames of FEEC fields in physical planes (`write_slice_frames`, planes `xy`, `xz`, `yz`, `rz`) and as 3D cutaway views with PyVista (`write_3d_frames`), for any domain; `write_videos` assembles them. The `ShearAlfven/lowmode_tae` example and the other TAE pproc scripts now produce videos of the radial velocity. https://github.com/struphy-hub/struphy/pull/913
+* **Energy-conserving guiding-center pushers in the drift-kinetic hybrids**: the two guiding-center pushers of `LinearMHDDriftkineticCC` (and the other drift-kinetic hybrids) now form a second-order Strang block, and the parallel pusher uses the second-order discrete gradient. This removes the O(dt) drift of the delta-f energy `en_fB`, which came from the pushers alone (f0 changing at the markers) and dominated the energy budget of the ITPA TAE example (#882). https://github.com/struphy-hub/struphy/pull/914
+* **Fast shear Alfvén step with polar splines**: a polar 2D x 1D Kronecker Schur preconditioner (`PolarKroneckerBlockPreconditioner`) is now the default of `ShearAlfvenPropagator` with polar splines, which does not assume axisymmetry and brings the PCG iterations of the low-mode TAE example from about 160 to 14 per step; an exact `ToroidalFourierPreconditioner` for axisymmetric operators is available as an option. The energy scalar `en_B_eq` no longer crashes with polar splines. https://github.com/struphy-hub/struphy/pull/918
+* **Agent skills for profiling cases and studies**: two Claude Code skills for developers in `.claude/skills/`: `profiling-case` (how to add a `submit_*.py` profiling case, test it locally and upload it to struphy-hub/profiling-data) and `create-study` (how to plan, run, post-process and publish a study on https://struphy-hub.github.io/struphy-studies/). https://github.com/struphy-hub/struphy/pull/933
+* **Variational MHD with polar splines**: `VariationalLinearMHD` and `VariationalPerturbativeMHD` (velocity in H1vec or H(div)) run with polar splines and conserve the energy in the ideal case; the assembled force matrices (`ProjectionAdjointMatrix`) support polar splines, and the Alfvén Schur and velocity mass preconditioners use their polar versions, so polar runs are about as fast as on a hollow torus. https://github.com/struphy-hub/struphy/pull/934
+
+### API changes
+
+* New option `VariationalMomentumAdvection.Options.bracket_momentum` for the bracket of the momentum advection with a velocity in H(div). https://github.com/struphy-hub/struphy/pull/891
+* `VariationalPBEvolve.Options` gets the option `weights` (midpoint weights of the second-order terms), and the default of `solver` is now `None` (chosen by the propagator) instead of `"pcg"`. https://github.com/struphy-hub/struphy/pull/898
+* New options `VariationalDensityEvolve.Options.jacobian_solver` (default `"pbicgstab"`) and `weights`, and `VariationalLinearSoundEvolve.Options.nonlin_solver`, for second-order, stable time stepping of the delta-f variational MHD model. https://github.com/struphy-hub/struphy/pull/906
+* `run_metadata.json` records the Struphy and feectools version and git state (commit, branch, dirty flag) and the command line of the run; new method `Output.code_info()`. https://github.com/struphy-hub/struphy/pull/929
+* New option `filter_params` of `PushGuidingCenterBxEstar.Options` and `PushGuidingCenterParallel.Options` (energy-conserving Fourier filter), and the discrete gradient scheme of `CurrentCoupling5DGradB` works in tokamak geometry, folding back markers that leave the domain during the iterations. https://github.com/struphy-hub/struphy/pull/901
+* `SoundWaveLinear.Options.precond` and `SoundWaveLinearWithQ.Options.precond` default to the new `"StiffnessPreconditioner"`, a Kronecker preconditioner of the whole Schur complement (was `"MassMatrixPreconditioner"`); new option `kernel_correction` (`"auto"` decides by trial). The sound step took 20-50 % of a time step in the ITPA TAE profiling runs. https://github.com/struphy-hub/struphy/pull/941
+
+### Physics models
+
+* New hybrid models `PerturbativeMHDWithQVlasovCC` and `PerturbativeMHDWithQVlasovPC` (children of `PerturbativeMHDWithQ`): nonlinear MHD for the perturbations of a static equilibrium (`q = sqrt(p)`) coupled to 6D Vlasov energetic ions, with the inertia of the total density in the coupling steps. https://github.com/struphy-hub/struphy/pull/893
+* New hybrid model `PerturbativeMHDWithQDriftkineticCC`: nonlinear MHD (`q = sqrt(p)`) coupled to drift-kinetic (5D guiding-center) energetic ions, with the coupling steps of `LinearMHDDriftkineticCC`. https://github.com/struphy-hub/struphy/pull/894
+* The nonlinear `VariationalPerturbativeMHD` runs with the velocity in H(div) (`u_space="Hdiv"`): H(div) versions of the nonlinear density, pressure/magnetic-field and viscosity steps. https://github.com/struphy-hub/struphy/pull/892
+* New model `VariationalLinearMHD` (before: `VariationalPerturbativeMHD` with `linear=True`), with one linear solve per Alfvén and sound step; `VariationalPerturbativeMHD` now inherits from it and adds the new propagator `VariationalNonlinearPBEvolve` for the nonlinear terms (implicit midpoint, Picard iteration). The old Picard path `crank_nicolson=False` is removed. https://github.com/struphy-hub/struphy/pull/900
+
+### Bug fixes
+
+* Fix `ProjectedFluidEquilibrium`, which returned tensor-product coefficients for all quantities, also with polar splines: energy scalars (`M2.dot(b2)`), `SplineFunction.vector` and sums with FEEC variables failed. The properties now return coefficients in the space of the Derham (`PolarVector`s with polar splines); the tensor-product coefficients for the kernels are available via `.tp`. https://github.com/struphy-hub/struphy/pull/922
+* Fix the O(dt) drift of the delta-f energy of the drift-kinetic hybrids, caused by the Lie splitting of the guiding-center pushers and the first-order parallel pusher (see Headlines). https://github.com/struphy-hub/struphy/pull/914
+* Fix `GVECequilibrium`, which evaluated GVEC at `zeta = 2 pi eta3` instead of `2 pi eta3 / nfp` as `GVECunit` maps it, so for `nfp > 1` all equilibrium quantities belonged to the wrong toroidal angle (errors of 20-37 % in `bv` on a test stellarator). https://github.com/struphy-hub/struphy/pull/940
+
+### Internals
+
+* `LinearMHDVlasovCC`, `LinearMHDVlasovPC` and `LinearMHDDriftkineticCC` document their conserved quantities, and the pressure coupling of `LinearMHDVlasovPC` with `use_perp_model` is now perpendicular to `B0` in general geometry (was: to the x-y plane). https://github.com/struphy-hub/struphy/pull/873
+* CI: a core set of verification tests (new marker `verif_pr`) runs on PRs in a parallel job; the full set runs on schedule and when a test file changes. https://github.com/struphy-hub/struphy/pull/902
+* CI: one list of unit test shards (`src/struphy/console/unit_test_shards.py`) with a check that every test file is covered, tests that never ran in CI now run, failed scheduled runs open issues, and pytest markers are strict. https://github.com/struphy-hub/struphy/pull/903
+* CI containers test the exact commit that triggered the run (merge with `devel` included), with a cheaper setup and one PIC MPI job for 1-4 ranks. https://github.com/struphy-hub/struphy/pull/904
+* Tests write output into per-test folders (`mpi_out_folder` fixture) instead of the working directory, NumPy's RNG is seeded before every test, and revived console tests fix `struphy --fluid` and `--short-help`. https://github.com/struphy-hub/struphy/pull/905
+* Tests that only ran code now check results, `mpi_skip` marks only serial tests, and `show_distribution_function` gathers over all ranks. https://github.com/struphy-hub/struphy/pull/907
+* New test that a restarted run equals the uninterrupted run (`Maxwell`, `VlasovAmpereOneSpecies`), down to the markers. https://github.com/struphy-hub/struphy/pull/909
+* The second-order forces of variational MHD are assembled as exact matrices, so the linear Alfvén and sound steps are again one linear solve each. https://github.com/struphy-hub/struphy/pull/899
+* CI: rebalanced unit test shards, a weekly coverage report (`coverage.yml`), and the cluster schedule turned off. https://github.com/struphy-hub/struphy/pull/908
+* `Simulation.run()` no longer does one extra time step when the sum of the time steps ends a round-off below `Tend` (also `run(one_time_step=True)`); the number of steps is now counted from the start time. https://github.com/struphy-hub/struphy/pull/911
+* New verification tests for the parent models `Vlasov`, `ColdPlasma` and `ColdEulerSPH` against exact solutions. https://github.com/struphy-hub/struphy/pull/912
+* The low-mode TAE examples use the initial width `sigma = 0.1` and the hole `a1 = 0.01` (new flag `--a1`), as the ITPA examples. https://github.com/struphy-hub/struphy/pull/915
+* New module `struphy.post_processing.mode_analysis`: frequencies, `(r, omega)` maps and mode structures filtered at a frequency, for waves and eigenmodes in tori and cylinders. https://github.com/struphy-hub/struphy/pull/919
+* CI: the Ubuntu install action no longer adds the deadsnakes PPA, whose Launchpad lookup broke the docs builds. https://github.com/struphy-hub/struphy/pull/930
+* Faster video frames: one evaluation pass for both 3D views and parallel rendering with workers (the videos took most of the post-processing time of the TAE examples). https://github.com/struphy-hub/struphy/pull/928
+* `plot_plane` (`struphy.post_processing.slices`) uses one color scale for all surfaces of a plane, so constant fields no longer show a jump. https://github.com/struphy-hub/struphy/pull/931
+* CI: the scheduled serial-only verification step passes when no test is selected. https://github.com/struphy-hub/struphy/pull/925
+* Single-node strong-scaling profiling cases of the `ShearAlfven` ITPA TAE example per space, preconditioner and grid (4-64 ranks on Raven). https://github.com/struphy-hub/struphy/pull/932
+* The profiling driver writes its output to the scratch file system of the cluster (Raven: `/ptmp/<user>`), or to `$STRUPHY_PROFILING_DIR`. https://github.com/struphy-hub/struphy/pull/935
+* `PolarMassMatrixPreconditioner` includes spline weights (e.g. the density of `WMMnew`, 40 -> 8 PCG iterations), and `PolarVector` gets an in-place axpy. https://github.com/struphy-hub/struphy/pull/937
+* New `profiling/write_scripts.py` writes the SLURM scripts of a profiling case or sweep without submitting them. https://github.com/struphy-hub/struphy/pull/938
+* Single-node strong-scaling profiling cases of the ITPA TAE examples of `LinearMHD` and `LinearMHDDriftkineticCC`, with `--setup profiling` and `--polar` flags. https://github.com/struphy-hub/struphy/pull/936
+* Tests no longer call `Barrier()` after rank-0-only checks, which hung the scheduled macOS CI when a check failed. https://github.com/struphy-hub/struphy/pull/942
+* Raven and Viper: new module environment, mpi4py built from source, `struphy compile -j 2` and memory limits. https://github.com/struphy-hub/struphy/pull/944
+* Profiling on Raven: 64000 MB for shared jobs, whole nodes for exclusive ones, and a `--mem` option. https://github.com/struphy-hub/struphy/pull/945
+* Profiling on MPCDF Viper CPU nodes: SLURM preset `viper_cpu`, shared-node rules and scratch folder. https://github.com/struphy-hub/struphy/pull/946
+* New `profiling/package_case.py` packages and uploads profiling runs after the driver stopped (e.g. a closed login session). https://github.com/struphy-hub/struphy/pull/947
+
+
 ## Struphy 3.6.1 - 2026-11-05
 
 * [PyPI](https://pypi.org/project/struphy/3.6.1)
