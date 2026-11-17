@@ -10,16 +10,26 @@ The **main** branch holds the current release of the code.
 
 # Dependency Bounds On PRs
 
-Pull requests into **devel** are checked for stale dependency upper bounds in `pyproject.toml`.
+Every pull request into **devel** runs the workflow `pr-dependency-bounds.yml`, which checks the upper bounds of the
+dependencies in `pyproject.toml` with `utils/check_dependency_bounds.py`:
 
-The policy is intentionally narrow:
+1. Only `project.dependencies` and, from `project.optional-dependencies`, the groups `phys` and `mpi` are checked.
+2. A bound is outdated when a newer **major** or **minor** stable release exists on PyPI (patch-only updates are
+   ignored) or when no upper bound is declared.
+3. Exact pins (`==`, e.g. `ruff`) are deliberate and not checked.
 
-1. Only `project.dependencies` are checked.
-2. From `project.optional-dependencies`, only `phys` and `mpi` is checked.
-3. Patch-only updates are ignored.
-4. A pull request fails when a newer **major** or **minor** stable release exists on PyPI beyond the declared upper bound.
+When the check fails, the PR author refreshes the bounds and pushes (the job log and summary print the same commands):
 
-When the check fails, the CI summary prints local remediation commands. In short, run the checker locally, run `python utils/update_dependency_bounds.py` on that report, and commit the updated `pyproject.toml`.
+```bash
+python utils/check_dependency_bounds.py   # writes dependency-bounds-report.json
+python utils/update_dependency_bounds.py  # sets the outdated bounds to <=latest in pyproject.toml
+git add pyproject.toml
+git commit -m "Update dependency bounds"
+git push
+```
+
+The update rewrites only the changed requirement strings, so comments and formatting of `pyproject.toml` are kept.
+The PR's CI then tests the new bounds.
 
 
 # Releases
