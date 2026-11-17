@@ -101,6 +101,10 @@ def build_dependency_entry(entry, resolved_versions, project_name):
     if normalized_name == normalize_name(project_name):
         return entry
 
+    if any(specifier.startswith("==") for specifier in requirement["specifiers"]):
+        # exact pins are deliberate (e.g. ruff) and not managed
+        return entry
+
     resolved_version = resolved_versions.get(normalized_name)
     if resolved_version is None:
         print(
@@ -189,15 +193,18 @@ def collect_installed_versions(pyproject_data, optional_groups=None):
     return versions
 
 
+def get_toml_reader():
+    """Return the TOML reader module (``tomllib``, or ``tomli`` on Python 3.10)."""
+    try:
+        return importlib.import_module("tomllib")
+    except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
+        return importlib.import_module("tomli")
+
+
 def load_pyproject(pyproject_path):
     """Load and return parsed pyproject.toml content."""
-    try:
-        toml_reader = importlib.import_module("tomllib")
-    except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
-        toml_reader = importlib.import_module("tomli")
-
     with pyproject_path.open("rb") as handle:
-        return toml_reader.load(handle)
+        return get_toml_reader().load(handle)
 
 
 def load_versions(versions_path):
@@ -244,12 +251,112 @@ def update_pyproject(pyproject_data, resolved_versions, optional_groups=None):
         )
 
 
-def dump_pyproject(pyproject_data, pyproject_path):
-    """Serialize pyproject data back to pyproject.toml."""
-    toml_writer = importlib.import_module("tomli_w")
+def find_array_span(text, header, key):
+    """Return ``(start, end)`` of the TOML array ``key = [...]`` in table ``[header]``.
 
-    with pyproject_path.open("wb") as handle:
-        toml_writer.dump(pyproject_data, handle)
+    ``start`` is the index after the opening ``[``, ``end`` the index of the closing ``]``.
+    Quoted strings (which may contain brackets, e.g. ``pkg[extra]``) and comments are skipped.
+    """
+    table_match = re.search(rf"^\[{re.escape(header)}\][ \t]*$", text, flags=re.MULTILINE)
+    if table_match is None:
+        raise ValueError(f"Table [{header}] not found in pyproject.toml")
+    next_table = re.search(r"^\[", text[table_match.end() :], flags=re.MULTILINE)
+    table_end = table_match.end() + next_table.start() if next_table else len(text)
+
+    key_match = re.compile(rf"^[ \t]*{re.escape(key)}[ \t]*=[ \t]*\[", flags=re.MULTILINE).search(
+        text, table_match.end(), table_end
+    )
+    if key_match is None:
+        raise ValueError(f"Array {key} not found in table [{header}] of pyproject.toml")
+
+    depth = 1
+    pos = key_match.end()
+    while pos < len(text):
+        char = text[pos]
+        if char in "\"'":
+            pos = text.index(char, pos + 1)
+        elif char == "#":
+            pos = text.index("\n", pos)
+        elif char == "[":
+            depth += 1
+        elif char == "]":
+            depth -= 1
+            if depth == 0:
+                return key_match.end(), pos
+        pos += 1
+    raise ValueError(f"Unterminated array {key} in table [{header}] of pyproject.toml")
+
+
+def rewrite_array(array_text, old_entries, new_entries):
+    """Rewrite the changed entries of one dependency array, keeping comments and layout.
+
+    Old and new entries are matched in order by package name. Old entries without a match were dropped;
+    they must stand on a line of their own, which is removed.
+    """
+    replacements = []
+    dropped = []
+    new_index = 0
+    for old_entry in old_entries:
+        old_name = normalize_name(split_requirement(old_entry)["name"])
+        if (
+            new_index < len(new_entries)
+            and normalize_name(split_requirement(new_entries[new_index])["name"]) == old_name
+        ):
+            replacements.append((old_entry, new_entries[new_index]))
+            new_index += 1
+        else:
+            dropped.append(old_entry)
+    if new_index != len(new_entries):
+        raise ValueError("Dependency arrays can only be changed entry by entry or by dropping entries")
+
+    for entry in dropped:
+        for quote in "\"'":
+            line_pattern = rf"^[ \t]*{quote}{re.escape(entry)}{quote}[ \t]*,?[ \t]*(#[^\n]*)?\n"
+            array_text = re.sub(line_pattern, "", array_text, flags=re.MULTILINE)
+
+    for old_entry, new_entry in replacements:
+        if old_entry == new_entry:
+            continue
+        for quote in "\"'":
+            array_text = array_text.replace(f"{quote}{old_entry}{quote}", f'"{new_entry}"')
+    return array_text
+
+
+def dump_pyproject(pyproject_data, pyproject_path):
+    """Write the dependency lists of ``pyproject_data`` back to pyproject.toml.
+
+    Only the changed requirement strings in ``[project].dependencies`` and ``[project.optional-dependencies]``
+    are rewritten in the text, so comments, ordering and formatting of the file are kept. Raises ``ValueError``
+    (and leaves the file unchanged) if the rewritten file does not parse to the expected dependency lists.
+    """
+    original_text = pyproject_path.read_text(encoding="utf-8")
+    original_data = load_pyproject(pyproject_path)
+
+    arrays = [
+        ("project", "dependencies", original_data["project"]["dependencies"], pyproject_data["project"]["dependencies"])
+    ]
+    old_optional = original_data["project"].get("optional-dependencies", {})
+    new_optional = pyproject_data["project"].get("optional-dependencies", {})
+    for group_name, new_entries in new_optional.items():
+        arrays.append(("project.optional-dependencies", group_name, old_optional.get(group_name), new_entries))
+
+    text = original_text
+    for header, key, old_entries, new_entries in arrays:
+        if old_entries == new_entries:
+            continue
+        if old_entries is None:
+            raise ValueError(f"Cannot add the new dependency group {key} to pyproject.toml")
+        start, end = find_array_span(text, header, key)
+        text = text[:start] + rewrite_array(text[start:end], old_entries, new_entries) + text[end:]
+
+    written = get_toml_reader().loads(text)["project"]
+    if (
+        written["dependencies"] != pyproject_data["project"]["dependencies"]
+        or written.get("optional-dependencies", {}) != new_optional
+    ):
+        raise ValueError("Rewriting the dependency bounds in pyproject.toml failed; the file was left unchanged")
+
+    pyproject_path.write_text(text, encoding="utf-8")
 
 
 def parse_args():
@@ -316,7 +423,11 @@ def main():
             return 1
         return 0
 
-    dump_pyproject(pyproject_data, pyproject_path)
+    try:
+        dump_pyproject(pyproject_data, pyproject_path)
+    except ValueError as exc:
+        print(f"Could not rewrite {pyproject_path}: {exc}", file=sys.stderr)
+        return 2
     return 0
 
 
