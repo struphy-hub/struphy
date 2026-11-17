@@ -1,7 +1,8 @@
 """Apply dependency upper bound updates from a check_dependency_bounds.py report.
 
 Reads the JSON report and rewrites only the affected upper bounds in
-pyproject.toml — no package installation required.
+pyproject.toml (only the changed requirement strings, so comments
+and formatting are kept) — no package installation required.
 
 Example: ``python utils/update_dependency_bounds.py``.
 """
@@ -58,18 +59,16 @@ def apply_update(entry, latest_version):
 
 
 def build_update_map(report):
-    """Return ({(group_key, normalized_name): latest_stable}, [skipped_items]).
+    """Return ``{(group_key, normalized_name): latest_stable}`` for all outdated items.
 
+    Covers both newer releases and missing upper bounds (which get ``<=latest_stable``).
     Example: maps ``('optional:phys', 'plotly')`` -> ``'6.7.0'``.
     """
     updates = {}
-    skipped = []
     for item in report.get("outdated", []):
-        if item["kind"] == "newer-release-available":
+        if item["kind"] in ("newer-release-available", "missing-upper-bound"):
             updates[(item["group"], normalize_name(item["dependency"]))] = item["latest_stable"]
-        elif item["kind"] == "missing-upper-bound":
-            skipped.append(item)
-    return updates, skipped
+    return updates
 
 
 def apply_updates_to_pyproject(pyproject_data, updates):
@@ -115,19 +114,10 @@ def main():
         print(f"Report status is '{report.get('status')}', nothing to update.")
         return 0
 
-    updates, skipped = build_update_map(report)
-
-    if skipped:
-        print(
-            f"Warning: {len(skipped)} item(s) with missing upper bounds cannot be updated automatically "
-            "(latest version was not fetched by check_dependency_bounds.py for those):",
-            file=sys.stderr,
-        )
-        for item in skipped:
-            print(f"  - {item['dependency']} ({item['group']}): {item['requirement']}", file=sys.stderr)
+    updates = build_update_map(report)
 
     if not updates:
-        print("No newer-release-available items to update.")
+        print("No outdated items to update.")
         return 0
 
     pyproject_path = Path(args.pyproject_file)
@@ -142,8 +132,8 @@ def main():
 
     print(f"Updated {len(updates)} upper bound(s) in {pyproject_path}:")
     for item in report["outdated"]:
-        if item["kind"] == "newer-release-available":
-            print(f"  - {item['dependency']} ({item['group']}): {item['upper_bound']} -> {item['latest_stable']}")
+        old_bound = item.get("upper_bound") or "none"
+        print(f"  - {item['dependency']} ({item['group']}): {old_bound} -> {item['latest_stable']}")
 
     return 0
 

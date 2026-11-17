@@ -1,0 +1,79 @@
+name: PR - dependency bounds
+
+# Fails when an upper bound in pyproject.toml lags behind the latest stable major/minor release on PyPI
+# (or is missing). The PR author then refreshes the bounds locally, see the job log and summary.
+
+on:
+  pull_request:
+    branches:
+      - devel
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check-dependency-bounds:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check dependency bounds
+        id: check
+        run: |
+          set +e
+          python utils/check_dependency_bounds.py
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Explain and enforce the result
+        if: always()
+        run: |
+          exit_code="${{ steps.check.outputs.exit_code }}"
+          {
+            echo "## Dependency bounds"
+            echo
+            echo "Policy: the upper bounds of \`project.dependencies\` and of the optional groups \`phys\` and \`mpi\`"
+            echo "must not lag behind the latest stable major/minor release on PyPI. Exact pins (\`==\`) are not checked."
+            echo
+            if [[ "$exit_code" == "0" ]]; then
+              echo "All dependency bounds are up to date."
+            elif [[ "$exit_code" == "1" ]]; then
+              echo "### Some upper bounds are outdated (see the list in the step \"Check dependency bounds\")"
+              echo
+              echo "Refresh them in your branch (no package installation needed) and push:"
+              echo
+              echo '```bash'
+              echo "python utils/check_dependency_bounds.py   # writes dependency-bounds-report.json"
+              echo "python utils/update_dependency_bounds.py  # sets the outdated bounds to <=latest in pyproject.toml"
+              echo "git add pyproject.toml"
+              echo "git commit -m \"Update dependency bounds\""
+              echo "git push"
+              echo '```'
+            else
+              echo "### The check could not run (exit code $exit_code)"
+              echo
+              echo "Usually a PyPI lookup error, see the step \"Check dependency bounds\". Re-run the job."
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$exit_code" == "1" ]]; then
+            echo "::error::Dependency upper bounds are outdated. Run utils/check_dependency_bounds.py and utils/update_dependency_bounds.py, then commit pyproject.toml (see the job log)."
+          elif [[ "$exit_code" != "0" ]]; then
+            echo "::error::check_dependency_bounds.py failed with exit code $exit_code (see the job log)."
+          fi
+          exit "$exit_code"
