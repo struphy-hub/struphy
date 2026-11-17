@@ -68,6 +68,7 @@
 * Profiling on Raven: 64000 MB for shared jobs, whole nodes for exclusive ones, and a `--mem` option. https://github.com/struphy-hub/struphy/pull/945
 * Profiling on MPCDF Viper CPU nodes: SLURM preset `viper_cpu`, shared-node rules and scratch folder. https://github.com/struphy-hub/struphy/pull/946
 * New `profiling/package_case.py` packages and uploads profiling runs after the driver stopped (e.g. a closed login session). https://github.com/struphy-hub/struphy/pull/947
+* CI: the dependency upper bounds in `pyproject.toml` are checked on every PR again (the nightly bot could never open its PR and is removed); `utils/update_dependency_bounds.py` keeps the comments of `pyproject.toml`. https://github.com/struphy-hub/struphy/pull/953
 
 
 ## Struphy 3.6.1 - 2026-11-05
