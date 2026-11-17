@@ -21,13 +21,15 @@ def eval_canonical_toroidal_moment_5d(
     psi_axis: float,
     psi_edge: float,
     bmax_table: "float[:]",
+    shift_radius: float,
 ):
     """
     Evaluate the shifted canonical toroidal momentum of each particles and assign it into markers[idx_can_momentum, ip].
 
     The shift uses the reference field B_ref = B0 (``shift_mode=1``) or the maximum of abs(B) on the flux surface
     psi = P_phi (``shift_mode=2``, linear interpolation in ``bmax_table`` on equidistant values of the square root of the
-    normalized flux in [0, 1] between ``psi_axis`` and ``psi_edge``); no shift for ``shift_mode=0``, see
+    normalized flux in [0, 1] between ``psi_axis`` and ``psi_edge``); ``shift_mode=3`` uses the same B_ref, with the
+    radius ``shift_radius`` instead of R0 B0 / B_ref in front of the square root; no shift for ``shift_mode=0``, see
     :class:`~struphy.kinetic_background.maxwellians.CanonicalMaxwellian2D`.
     """
 
@@ -67,7 +69,7 @@ def eval_canonical_toroidal_moment_5d(
         if shift_mode == 1:
             if energy - mu * B0 > 0:
                 markers[idx_can_momentum, ip] += epsilon * sign(v_para) * sqrt(2 * (energy - mu * B0)) * R0
-        elif shift_mode == 2:
+        elif shift_mode == 2 or shift_mode == 3:
             # maximum of abs(B) on the flux surface psi = p_phi (table in the square root of the clamped normalized flux)
             s = (p_phi - psi_axis) / (psi_edge - psi_axis)
             # clamp to [0, 1] (a NaN goes to 0, never out of the table)
@@ -80,6 +82,9 @@ def eval_canonical_toroidal_moment_5d(
             b_ref = bmax_table[i_tab] + (rho - i_tab) * (bmax_table[i_tab + 1] - bmax_table[i_tab])
 
             if energy - mu * b_ref > 0:
-                markers[idx_can_momentum, ip] += (
-                    epsilon * sign(v_para) * sqrt(2 * (energy - mu * b_ref)) * R0 * (B0 / b_ref)
-                )
+                # radius of the shift: R0 B0 / b_ref (inboard radius, mode 2) or shift_radius (mode 3)
+                if shift_mode == 2:
+                    radius = R0 * (B0 / b_ref)
+                else:
+                    radius = shift_radius
+                markers[idx_can_momentum, ip] += epsilon * sign(v_para) * sqrt(2 * (energy - mu * b_ref)) * radius

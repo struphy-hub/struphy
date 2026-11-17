@@ -1863,6 +1863,46 @@ def test_canonical_maxwellian_shift_options():
 
 
 @pytest.mark.mpi_skip
+def test_canonical_maxwellian_shift_bmax_R():
+    """``shift="Bmax_R"`` is the ``"Bmax"`` shift with the radius R0 B0 / B_ref replaced by ``R_pref`` (default R0):
+    psi_c - P_phi scales with R_pref B_ref / (R0 B0) (with and without the cache buffers); ``R_pref`` is stored in
+    ``params`` and rejected for the other shifts and for R_pref <= 0."""
+    import cunumpy as xp
+
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
+
+    equil, epsilon, markers = _canonical_test_setup()
+    B0, R0 = equil.params["B0"], equil.params["R0"]
+    n_mks = markers.shape[1]
+
+    for cache_size in (None, n_mks):
+        p_phi = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, shift=None).eval_psic(markers).copy()
+        shift_bmax = (
+            CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, cache_size=cache_size, shift="Bmax")
+            .eval_psic(markers)
+            .copy()
+            - p_phi
+        )
+        B_ref = equil.absB_max(p_phi)
+        assert xp.any(shift_bmax != 0.0)
+        for R_pref in (None, 1.04 * R0, 0.5 * R0):
+            cm = CanonicalMaxwellian2D(
+                equil=equil, epsilon=epsilon, cache_size=cache_size, shift="Bmax_R", R_pref=R_pref
+            )
+            assert cm.params["R_pref"] == R_pref
+            radius = R0 if R_pref is None else R_pref
+            assert cm.R_pref == radius
+            expected = shift_bmax * radius * B_ref / (R0 * B0)
+            assert xp.allclose(cm.eval_psic(markers) - p_phi, expected, rtol=1e-12, atol=1e-14)
+
+    for shift in ("Bmax", "B0", None):
+        with pytest.raises(AssertionError):
+            CanonicalMaxwellian2D(equil=equil, shift=shift, R_pref=R0)
+    with pytest.raises(AssertionError):
+        CanonicalMaxwellian2D(equil=equil, shift="Bmax_R", R_pref=-1.0)
+
+
+@pytest.mark.mpi_skip
 @pytest.mark.parametrize("equil_name", ["AdhocTorus", "AdhocTorusQPsi", "CircularTokamak"])
 def test_absB_max_on_flux_surface(equil_name):
     """AxisymmMHDequilibrium.absB_max is the maximum of |B| on the flux surface: it bounds |B| at random points of
@@ -1923,7 +1963,7 @@ def test_canonical_maxwellian_bounce_invariance():
     n_mks = markers.shape[1]
 
     jumps = {}
-    for shift in ("Bmax", "B0", None):
+    for shift in ("Bmax", "Bmax_R", "B0", None):
         maxwellian = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, shift=shift)
         jumps[shift] = []
         for delta in (1e-3, 1e-5, 1e-7):
@@ -1933,15 +1973,17 @@ def test_canonical_maxwellian_bounce_invariance():
             minus[3] = -delta
             jumps[shift] += [xp.max(xp.abs(maxwellian.eval_psic(plus) - maxwellian.eval_psic(minus)))]
 
-    for shift in ("Bmax", None):
+    for shift in ("Bmax", "Bmax_R", None):
         assert jumps[shift][-1] < 1e-6, (shift, jumps[shift])
         assert jumps[shift][-1] < jumps[shift][0]
     assert min(jumps["B0"]) > 1e-2, jumps["B0"]
     assert n_mks == markers.shape[1]
 
 
-@pytest.mark.parametrize("shift", ["Bmax", "B0", None])
-def test_canonical_toroidal_moment_kernel(shift):
+@pytest.mark.parametrize(
+    "shift, R_pref", [("Bmax", None), ("Bmax_R", None), ("Bmax_R", 1.3), ("B0", None), (None, None)]
+)
+def test_canonical_toroidal_moment_kernel(shift, R_pref):
     """The compiled kernel eval_canonical_toroidal_moment_5d (marker diagnostics) agrees with
     CanonicalMaxwellian2D.eval_psic (up to the spline approximation of |B0| in the kernel)."""
     import cunumpy as xp
@@ -1973,7 +2015,7 @@ def test_canonical_toroidal_moment_kernel(shift):
     for i in range(3):
         markers[i] = dom[3 * i] + (dom[3 * i + 1] - dom[3 * i]) * markers[i]
 
-    maxwellian = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, shift=shift)
+    maxwellian = CanonicalMaxwellian2D(equil=equil, epsilon=epsilon, shift=shift, R_pref=R_pref)
     psic = maxwellian.eval_psic(markers)
 
     # columns: eta1, eta2, eta3, v_par, mu, energy, psi (overwritten by psi_c)
