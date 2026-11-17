@@ -98,7 +98,9 @@ class VariationalMomentumAdvection(Propagator):
     - \frac{\Delta t}{2} \mathbb D[\mathbf u^{n+1/2}] \mathbb M^2_\rho` with the derivative :math:`\mathbb D` of the
     bracket with respect to the momentum,
     :class:`~struphy.feec.variational_utilities.HdivBracketMomentumDerivative`), followed by one linear solve with the
-    momentum of the last iterate. Since :math:`\mathbb B` is skew-symmetric for any momentum, both conserve the kinetic energy
+    momentum of the last iterate. With ``bracket_representer="L2"``, the bracket of two velocities is instead
+    projected on the discrete spaces and paired with :math:`\mathbf m` (no covariant representer; see
+    :class:`~struphy.feec.variational_utilities.HdivBracketOperator`). Since :math:`\mathbb B` is skew-symmetric for any momentum, both conserve the kinetic energy
     :math:`\frac 12 \mathbf u^\top \mathbb M^2_\rho \mathbf u` exactly (up to the solver tolerances).
     Not available with ``divdiv_alpha > 0``.
     """
@@ -164,9 +166,14 @@ class VariationalMomentumAdvection(Propagator):
             Velocity in ``"Hdiv"``: time of the momentum in the bracket, :math:`t^n` (one linear solve) or
             :math:`t^{n+1/2}` (Picard or Newton iteration, ``nonlin_solver.type``). Must be ``"n"`` for a velocity in
             ``"H1vec"``.
+        bracket_representer : {"logical", "L2"}, default="logical"
+            Velocity in ``"Hdiv"``: momentum representer of the bracket (``representer`` of
+            :class:`~struphy.feec.variational_utilities.HdivBracketOperator`), the covariant representer with the
+            logical mass matrix (``"logical"``) or the projected bracket (``"L2"``, consistent at a polar axis).
         """
 
         OptsBracketMomentum = Literal["n", "n+1/2"]
+        OptsBracketRepresenter = Literal["logical", "L2"]
 
         # propagator options
         solver: LiteralOptions.OptsSymmSolver = "pcg"
@@ -174,12 +181,14 @@ class VariationalMomentumAdvection(Propagator):
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         bracket_momentum: OptsBracketMomentum = "n"
+        bracket_representer: OptsBracketRepresenter = "logical"
 
         def __post_init__(self):
             # checks
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
             check_option(self.bracket_momentum, self.OptsBracketMomentum)
+            check_option(self.bracket_representer, self.OptsBracketRepresenter)
 
             # defaults
             if self.solver_params is None:
@@ -281,7 +290,9 @@ class VariationalMomentumAdvection(Propagator):
             recycle=True,
         )
 
-        self.brack = HdivBracketOperator(self.derham, self.domain, self.mass_ops, tol=1e-14)
+        self.brack = HdivBracketOperator(
+            self.derham, self.domain, self.mass_ops, tol=1e-14, representer=self.options.bracket_representer
+        )
         # M - dt/2 B, with the scalar set in each step
         self._dt2_brack = -0.5 * self.brack
         self._lhs = M + self._dt2_brack

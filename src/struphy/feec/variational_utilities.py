@@ -1,5 +1,6 @@
 import logging
 from copy import deepcopy
+from typing import Literal
 
 import cunumpy as xp
 import numpy as np
@@ -375,6 +376,38 @@ class HdivBracketOperator(LinearOperator):
     and applies the polar extraction operators; the weight :math:`1/\sqrt g` is evaluated at the Gauss points, never on
     the pole.
 
+    **Projected bracket** (``representer="L2"``). The bracket of two velocities is projected back on the discrete
+    spaces and paired with the momentum, as for the velocity in ``H1vec`` (:class:`BracketOperator`). As a 2-form,
+    :math:`[\mathbf u, \mathbf v] = \mathbf u\, \nabla\cdot\mathbf v - \mathbf v\, \nabla\cdot\mathbf u
+    - \nabla \times (\mathbf u \times \mathbf v)` has the logical components
+    :math:`(\hat{\boldsymbol\omega}_{\mathbf u} \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf v}
+    - \hat{\boldsymbol\omega}_{\mathbf v} \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf u})/\sqrt g
+    - \textnormal{curl}\,\boldsymbol\alpha` with the 1-form
+    :math:`\boldsymbol\alpha = \hat{\boldsymbol\omega}_{\mathbf u} \times \hat{\boldsymbol\omega}_{\mathbf v}/\sqrt g`
+    (the covariant components of :math:`\mathbf u \times \mathbf v`). With the :math:`L^2` projections
+    :math:`P^1 = (\mathbb M^1)^{-1} \ldots` on :math:`V^1_h` (without boundary conditions:
+    :math:`\mathbf u \times \mathbf v` is normal on a wall, while the curl of the momentum is not) and
+    :math:`P^2 = (\mathbb M^2)^{-1}\ldots` on :math:`V^2_h` (with boundary conditions, also applied after
+    :math:`\mathbb C`),
+
+    .. math::
+
+        \mathbf v^\top \mathbb B\, \mathbf u = \mathbf m^\top \Big( P^2\big[(\hat{\boldsymbol\omega}_{\mathbf u}
+        \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf v} - \hat{\boldsymbol\omega}_{\mathbf v}
+        \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf u})/\sqrt g\big] - \mathbb C P^1 \boldsymbol\alpha \Big)
+        = \int \Big[ \frac{\hat{\mathbf y}^\top G}{g} (\hat{\boldsymbol\omega}_{\mathbf u}
+        \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf v} - \hat{\boldsymbol\omega}_{\mathbf v}
+        \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf u}) - \hat{\mathbf z}^\top G^{-1}
+        (\hat{\boldsymbol\omega}_{\mathbf u} \times \hat{\boldsymbol\omega}_{\mathbf v}) \Big]
+        \textnormal d\boldsymbol\eta\,,
+
+    with the 2-form :math:`\hat{\mathbf y} = (\mathbb M^2)^{-1}\mathbf m` and the weak curl
+    :math:`\hat{\mathbf z} = (\mathbb M^1)^{-1} \mathbb C^\top \mathbf m` of the momentum. This is the integrand
+    above with :math:`\hat{\mathbf y} \to G\hat{\mathbf y}/\sqrt g` and
+    :math:`\textnormal{curl}\,\hat{\mathbf y} \to \sqrt g\, G^{-1} \hat{\mathbf z}`: still skew, no derivatives of
+    the mapping, and with polar splines no momentum representer in covariant components (whose pole conditions are
+    those of the 2-forms).
+
     Parameters
     ----------
     derham : Derham
@@ -387,14 +420,29 @@ class HdivBracketOperator(LinearOperator):
         Weighted mass operators of ``derham`` (for :math:`\mathbb M^Z`, :math:`\mathbb N` and :math:`\mathbb R`).
 
     tol : float
-        Tolerance of the solves with :math:`\mathbb M^Z`.
+        Tolerance of the solves with :math:`\mathbb M^Z` (or :math:`\mathbb M^2` and :math:`\mathbb M^1`).
 
     maxiter : int
         Maximum number of iterations of these solves.
+
+    representer : {"logical", "L2"}
+        Momentum representer: :math:`\hat{\mathbf y} = (\mathbb M^Z)^{-1}\mathbf m` in covariant components
+        (``"logical"``), or the projected bracket (``"L2"``).
     """
 
-    def __init__(self, derham: Derham, domain, mass_ops, tol: float = 1e-14, maxiter: int = 1000):
+    def __init__(
+        self,
+        derham: Derham,
+        domain,
+        mass_ops,
+        tol: float = 1e-14,
+        maxiter: int = 1000,
+        representer: Literal["logical", "L2"] = "logical",
+    ):
         from struphy.feec.preconditioner import mass_matrix_preconditioner
+
+        assert representer in ("logical", "L2"), f"Unknown representer {representer}."
+        self._representer = representer
 
         reduced = tuple(n == 1 and periodic for n, periodic in zip(derham.num_elements, derham.spl_kind))
         assert all(r or p >= 2 for r, p in zip(reduced, derham.degree)), (
@@ -416,6 +464,47 @@ class HdivBracketOperator(LinearOperator):
             "Hdiv", "Hdiv", weights=("Identity",), name="M2_logical", assemble=True
         )
         self._pc_MZ = mass_matrix_preconditioner(self._MZ, dim_reduce=0)
+        if representer == "L2":
+            from struphy.feec.mass import WeightedMassOperator
+
+            # the projection P^1 is on V^1_h without boundary conditions (u x v is normal on a wall, its tangential
+            # part vanishes there anyway, while curl of the momentum does not), hence the curl without boundary
+            # conditions, followed by those of the 2-forms
+            w1, sf1 = mass_ops._eval_tuple_weights(("Ginv", "sqrt_g"), "Hcurl", "Hcurl")
+            self._M1 = WeightedMassOperator(
+                derham,
+                derham.fem_spaces["Hcurl"],
+                derham.fem_spaces["Hcurl"],
+                name="M1_bracket_bcfree",
+                V_extraction_op=derham.extraction_ops["1"],
+                W_extraction_op=derham.extraction_ops["1"],
+                weights_info=w1,
+                spline_functions=sf1,
+                matrix_free=mass_ops.matrix_free,
+            )
+            self._M1.assemble()
+            self._M2 = mass_ops.M2
+            self._pc_M1 = mass_matrix_preconditioner(self._M1, dim_reduce=0)
+            self._pc_M2 = mass_matrix_preconditioner(self._M2, dim_reduce=0)
+            # int y . curl phi dx for phi in V^1_h without boundary conditions: the 2-form mass matrix from Z^0 to V^2_h
+            # without boundary conditions, then the transposed curl without boundary conditions
+            w2, sf2 = mass_ops._eval_tuple_weights(("G", "1/sqrt_g"), "Hdiv", "Hdiv")
+            self._M2_free = WeightedMassOperator(
+                derham,
+                derham.fem_spaces["Hdiv"],
+                derham.fem_spaces["Hdiv"],
+                name="M2_bracket_bcfree_rows",
+                V_extraction_op=derham.extraction_ops["2"],
+                W_extraction_op=derham.extraction_ops["2"],
+                V_boundary_op=derham.boundary_ops["2"],
+                weights_info=w2,
+                spline_functions=sf2,
+                matrix_free=mass_ops.matrix_free,
+            )
+            self._M2_free.assemble()
+            self._curlT = derham.curl_bcfree.T
+            self._tmp_2free = derham.V2pol.zeros()
+            self._setup_wall_integrals(derham, domain)
         self._inv_MZ = self.new_momentum_solver()
 
         # local quadrature points of the mass matrices (the same for all spaces)
@@ -427,6 +516,12 @@ class HdivBracketOperator(LinearOperator):
         self._shape = tuple(pt.size for pt in pts)
         self._s = 1.0 / domain.jacobian_det(*pts)
         assert self._s.shape == self._shape
+        if representer == "L2":
+            # G / sqrt g and sqrt g G^{-1} at the quadrature points
+            G = domain.metric(*pts)
+            Ginv = domain.metric_inv(*pts)
+            self._G_s = [[G[i, j] * self._s for j in range(3)] for i in range(3)]
+            self._Ginv_g = [[Ginv[i, j] / self._s for j in range(3)] for i in range(3)]
 
         # values (and first derivatives) of the basis functions of the 2-forms and 3-forms at the quadrature points
         spans, bn, bd, dbn, dbd = derham.prepare_eval_tp_fixed(pts, derivatives=True)
@@ -442,9 +537,16 @@ class HdivBracketOperator(LinearOperator):
             for j in range(3)
         ]
         self._bases_3 = list(bd)
+        # component k of the 1-forms: D-splines in direction k, N-splines in the others
+        self._bases_1 = [[bd[d] if d == k else bn[d] for d in range(3)] for k in range(3)]
         self._u2f = derham.create_spline_function("u2_bracket", "Hdiv")
         self._y2f = derham.create_spline_function("y2_bracket", "Hdiv")
         self._div3f = derham.create_spline_function("divu3_bracket", "L2")
+        if representer == "L2":
+            self._z1f = derham.create_spline_function("z1_bracket", "Hcurl")
+            self._tmp_z = derham.V1pol.zeros()
+            self._tmp_cm = derham.V1pol.zeros()
+            self._yz_q = [xp.zeros(self._shape, dtype=float) for _ in range(3)]
 
         # integration against the basis functions of the 2-forms and 3-forms (matrix-free applications)
         self._int_2 = QuadratureIntegrator(derham, "Hdiv")
@@ -501,21 +603,37 @@ class HdivBracketOperator(LinearOperator):
 
     @property
     def y_hat(self):
-        r"""The coefficients of the momentum representer :math:`\hat{\mathbf y} \in Z^0`."""
+        r"""The coefficients of the momentum representer :math:`\hat{\mathbf y} \in Z^0` (a 2-form for
+        ``representer="L2"``)."""
         return self._tmp_y
+
+    @property
+    def representer(self) -> str:
+        """The momentum representer, "logical" or "L2"."""
+        return self._representer
 
     def transpose(self, conjugate=False):
         return -self
 
     def new_momentum_solver(self):
-        r"""A new solver with the logical mass matrix :math:`\mathbb M^Z` (own initial guesses)."""
+        r"""A new solver with the logical mass matrix :math:`\mathbb M^Z` (own initial guesses); for
+        ``representer="L2"`` the pair of solvers with :math:`\mathbb M^2` and :math:`\mathbb M^1`."""
+        if self._representer == "L2":
+            kw = dict(tol=self._tol, maxiter=self._maxiter, recycle=True)
+            return (
+                inverse(self._M2, "pcg", pc=self._pc_M2, **kw),
+                inverse(self._M1, "pcg", pc=self._pc_M1, **kw),
+            )
         return inverse(self._MZ, "pcg", pc=self._pc_MZ, tol=self._tol, maxiter=self._maxiter, recycle=True)
 
     def momentum_values(self, m: BlockVector, inv_MZ, y: BlockVector, y_q: list, c_q: list) -> tuple:
         r"""Values at the quadrature points of the representer :math:`\hat{\mathbf y} = (\mathbb M^{Z})^{-1} \mathbf m`
         (written to ``y``, solved with ``inv_MZ``, e.g. :meth:`new_momentum_solver`) and of its logical curl
-        (written to ``y_q`` and ``c_q``)."""
+        (written to ``y_q`` and ``c_q``). For ``representer="L2"``, the values of :math:`G\hat{\mathbf y}/\sqrt g`
+        and :math:`\sqrt g\, G^{-1}\hat{\mathbf z}` take their place (see the class docstring)."""
         assert m.space == self.domain
+        if self._representer == "L2":
+            return self._momentum_values_l2(m, inv_MZ, y, y_q, c_q)
         inv_MZ.dot(m, out=y)
         self._y2f.vector = y
         self._y2f.eval_tp_fixed_loc(self._spans, self._bases_2, out=y_q)
@@ -527,6 +645,108 @@ class HdivBracketOperator(LinearOperator):
         xp.subtract(dy[2][0], dy[0][2], out=c_q[1])
         xp.subtract(dy[0][1], dy[1][0], out=c_q[2])
         return y_q, c_q
+
+    def _momentum_values_l2(self, m: BlockVector, inv, y: BlockVector, y_q: list, c_q: list) -> tuple:
+        inv_M2, inv_M1 = inv
+        inv_M2.dot(m, out=y)
+        # z = P^1 curl y: int z . phi = int y . curl phi + int_wall (y x phi) . n dS for all phi in V^1_h
+        self._curlT.dot(self._M2_free.dot(y, out=self._tmp_2free), out=self._tmp_cm)
+        self._tmp_cm += self._wall_integrals(y)
+        inv_M1.dot(self._tmp_cm, out=self._tmp_z)
+        tmp = self._yz_q
+        # G y / sqrt g
+        self._y2f.vector = y
+        self._y2f.eval_tp_fixed_loc(self._spans, self._bases_2, out=tmp)
+        for i in range(3):
+            xp.multiply(self._G_s[i][0], tmp[0], out=y_q[i])
+            y_q[i] += self._G_s[i][1] * tmp[1]
+            y_q[i] += self._G_s[i][2] * tmp[2]
+        # sqrt g G^{-1} z
+        self._z1f.vector = self._tmp_z
+        self._z1f.eval_tp_fixed_loc(self._spans, self._bases_1, out=tmp)
+        for i in range(3):
+            xp.multiply(self._Ginv_g[i][0], tmp[0], out=c_q[i])
+            c_q[i] += self._Ginv_g[i][1] * tmp[1]
+            c_q[i] += self._Ginv_g[i][2] * tmp[2]
+        return y_q, c_q
+
+    def _setup_wall_integrals(self, derham: Derham, domain):
+        r"""Data of the boundary integrals :math:`\int_{\eta_1 = \textnormal{const}} (\mathbf y \times \boldsymbol\varphi)
+        \cdot \mathbf n\, \textnormal dS = \pm\int (\hat y^\flat_2 \hat\varphi_3 - \hat y^\flat_3 \hat\varphi_2)\,
+        \textnormal d\eta_2 \textnormal d\eta_3` on the walls, with the covariant components
+        :math:`\hat{\mathbf y}^\flat = G\hat{\mathbf y}/\sqrt g` of the 2-form :math:`\hat{\mathbf y}` (no derivatives
+        of the mapping). A polar axis has no area; walls only at :math:`\eta_1 \in \{0, 1\}`."""
+        assert not any(derham.dirichlet_bc[1]) and not any(derham.dirichlet_bc[2]), (
+            'representer="L2" supports walls only at eta1 = 0, 1.'
+        )
+        attr = derham.spline_attributes["Hcurl"]
+        pts = [pt.flatten() for pt in derham.V0splines.quad_grid_pts[0]]
+        self._walls = []
+        for side, wall in enumerate(derham.dirichlet_bc[0]):
+            if not wall:
+                assert derham.spl_kind[0] or (side == 0 and derham.polar_splines), (
+                    'representer="L2" needs walls (or a polar axis) at non-periodic boundaries.'
+                )
+                continue
+            # 1-form components 2 and 3 (N-splines in eta1): the only non-zero basis function on the wall is the
+            # first (side 0) or the last (side 1) one, with value 1
+            fs = attr.tensor_spaces[1]
+            cs = fs.coeff_space
+            owns = cs.starts[0] == 0 if side == 0 else cs.ends[0] == fs.spaces[0].nbasis - 1
+            if not owns:
+                continue
+            pts_f = [xp.array([float(side)]), pts[1], pts[2]]
+            spans_f, bn_f, bd_f = derham.prepare_eval_tp_fixed(pts_f)
+            bases_f = [[bn_f[d] if d == k else bd_f[d] for d in range(3)] for k in range(3)]
+            G = domain.metric(*pts_f)
+            s_f = 1.0 / domain.jacobian_det(*pts_f)
+            G_s = [[G[i, j] * s_f for j in range(3)] for i in range(3)]
+            quad = []
+            for c in (1, 2):
+                spans = list(attr.quad_grid_spans[c])
+                bases = list(attr.quad_grid_bases[c])
+                e = 0 if side == 0 else -1
+                spans[0] = spans[0][e:][:1].copy()
+                b0 = xp.zeros_like(bases[0][e:][:1, :, :, :1])
+                b0[0, 0 if side == 0 else -1, 0, 0] = 1.0
+                bases[0] = b0
+                wts = [xp.ones((1, 1)), attr.quad_grid_wts[c][1], attr.quad_grid_wts[c][2]]
+                quad.append((attr.tensor_spaces[c], spans, wts, bases))
+            sign = 1.0 if side == 1 else -1.0
+            vals = [xp.zeros((1, pts[1].size, pts[2].size)) for _ in range(3)]
+            self._walls.append((sign, spans_f, bases_f, G_s, quad, vals))
+        self._tmp_wall = derham.V1.zeros()
+        self._tmp_wall_pol = derham.V1pol.zeros()
+        self._E1 = derham.extraction_ops["1"]
+
+    def _wall_integrals(self, y):
+        """The boundary integrals of :meth:`_setup_wall_integrals` against the 1-forms (polar if polar splines)."""
+        from struphy.feec.kernels.kernel_3d_vec import kernel_3d_vec
+
+        out = self._tmp_wall
+        for block in out.blocks:
+            block._data[:] = 0.0
+        self._y2f.vector = y
+        for sign, spans_f, bases_f, G_s, quad, vals in self._walls:
+            yv = self._y2f.eval_tp_fixed_loc(spans_f, bases_f, out=vals)
+            yflat = [G_s[i][0] * yv[0] + G_s[i][1] * yv[1] + G_s[i][2] * yv[2] for i in range(3)]
+            # phi_2 gets -y_3, phi_3 gets +y_2
+            for (fs, spans, wts, bases), f, c in zip(quad, (-sign * yflat[2], sign * yflat[1]), (1, 2)):
+                kernel_3d_vec(
+                    *spans,
+                    *fs.degree,
+                    *[int(st) for st in fs.coeff_space.starts],
+                    *fs.coeff_space.pads,
+                    *wts,
+                    *bases,
+                    xp.ascontiguousarray(f),
+                    out.blocks[c]._data,
+                )
+        out.exchange_assembly_data()
+        out.update_ghost_regions()
+        if self._polar:
+            return self._E1.dot(out, out=self._tmp_wall_pol)
+        return out
 
     def velocity_values(self, u: BlockVector, u_q: list, divu_q) -> tuple:
         r"""Values at the quadrature points of the flux coefficients of the velocity ``u`` and of their logical
