@@ -140,16 +140,29 @@ class MagnetosonicCrossB0(Propagator):
         solver_params : SolverParameters, default=None
             Iterative-solver controls. If ``None``, defaults to
             ``SolverParameters()``.
+
+        sonic : bool, default=True
+            Sonic response: the pressure and density equations and the pressure force. If ``False``, only the
+            force :math:`\mathbf J_0 \times \tilde{\mathbf B}` acts, :math:`\tilde\rho` and :math:`\tilde p` are not
+            updated and the step is exact in time,
+            :math:`\mathbf u^{n+1} = \mathbf u^n + \Delta t\,(\mathbb M^2_{\rho_0})^{-1} \mathbb M^J \mathbf b`.
+
+        j0xb : bool, default=True
+            Force of the equilibrium current :math:`\mathbf J_0 \times \tilde{\mathbf B}` (the term
+            :math:`\mathbb M^J \mathbf b`). If ``False``, only the sonic response is computed.
         """
 
         solver: LiteralOptions.OptsGenSolver = "pbicgstab"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
+        sonic: bool = True
+        j0xb: bool = True
 
         def __post_init__(self):
             # checks
             check_option(self.solver, LiteralOptions.OptsGenSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
+            assert self.sonic or self.j0xb, "sonic=False and j0xb=False: the step does nothing, remove the propagator."
 
             # defaults
             if self.solver_params is None:
@@ -171,6 +184,27 @@ class MagnetosonicCrossB0(Propagator):
     def allocate(self):
         self._info = self.options.solver_params.info
 
+        if self._allocate_b_field:
+            self.b_field.allocate(self.derham, self.domain)
+        self._b = self.b_field.spline.vector
+
+        self._u_tmp1 = self.variables.u.spline.vector.space.zeros()
+
+        if not self.options.sonic:
+            # only J0 x b: u^{n+1} = u^n + dt M2n^{-1} M^J b (exact in time, b is fixed during the step)
+            self._MJ = self._jxb_operator()
+            _A = self.mass_ops.M2n
+            pc = None if self.options.precond is None else getattr(preconditioner, self.options.precond)(_A)
+            self._A_inv = inverse(
+                _A,
+                "pcg",
+                pc=pc,
+                tol=self.options.solver_params.tol,
+                maxiter=self.options.solver_params.maxiter,
+            )
+            self._u_rhs = self.variables.u.spline.vector.space.zeros()
+            return
+
         div, M3 = self.derham.div, self.mass_ops.M3
         T2 = self.basis_ops.T2
 
@@ -186,12 +220,8 @@ class MagnetosonicCrossB0(Propagator):
         )
         self._C = 1 / 2.0 * (_Kdiv + self._M3_inv @ _gradp0_T2)
 
-        self._MJ = self._jxb_operator()
+        self._MJ = self._jxb_operator() if self.options.j0xb else None
         self._DQ = div @ self.basis_ops.Q2
-
-        if self._allocate_b_field:
-            self.b_field.allocate(self.derham, self.domain)
-        self._b = self.b_field.spline.vector
 
         _A = self.mass_ops.M2n
         if self.options.precond is None:
@@ -211,7 +241,6 @@ class MagnetosonicCrossB0(Propagator):
         )
 
         # allocate dummy vectors to avoid temporary array allocations
-        self._u_tmp1 = self.variables.u.spline.vector.space.zeros()
         self._u_tmp2 = self.variables.u.spline.vector.space.zeros()
         self._p_tmp1 = self.variables.p.spline.vector.space.zeros()
         self._n_tmp1 = self.variables.n.spline.vector.space.zeros()
@@ -273,11 +302,23 @@ class MagnetosonicCrossB0(Propagator):
         un = self.variables.u.spline.vector
         pn = self.variables.p.spline.vector
 
+        if not self.options.sonic:
+            # only J0 x b, exact in time; n and p are not updated
+            rhs = self._MJ.dot(self._b, out=self._u_rhs)
+            un1 = self._A_inv.dot(rhs, out=self._u_tmp1)
+            un1 *= dt
+            un1 += un
+            diffs = self.update_feec_variables(u=un1)
+            if self._info and MPI.COMM_WORLD.Get_rank() == 0:
+                logger.info(f"Maxdiff up for MagnetosonicCrossB0 (j0xb only): {diffs['u']}")
+            return
+
         # solve for new u coeffs (no tmps created here)
         byn1 = self._B.dot(pn, out=self._byn1)
-        byn2 = self._MJ.dot(self._b, out=self._byn2)
-        byn2 *= 1 / 2
-        byn1 -= byn2
+        if self._MJ is not None:
+            byn2 = self._MJ.dot(self._b, out=self._byn2)
+            byn2 *= 1 / 2
+            byn1 -= byn2
 
         un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
 
