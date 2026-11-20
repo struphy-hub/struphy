@@ -7,6 +7,8 @@ from line_profiler import profile
 
 from struphy.feec.mass import L2Projector
 from struphy.feec.variational_utilities import (
+    L2PressureTransportAdjointMatrix,
+    L2PressureTransportOperator,
     Pressure_transport_operator,
     PressureTransportAdjointMatrix,
     dot_normalized,
@@ -141,6 +143,15 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
     :math:`\mathbb S[\bar s] = \mathbb D \hat\Pi^2[\hat{\bar s} \vec{\boldsymbol\Lambda}^2/\sqrt g]
     + (\kappa - 1) \hat\Pi^3[\hat{\bar s}/\sqrt g\, \vec{\boldsymbol\Lambda}^3] \mathbb D`. The energy is conserved in
     the same way.
+
+    With ``transport_projection="L2"`` (velocity in :math:`H(\textnormal{div})`, ``"linear_p"``, without
+    ``total_weight``), the commuting projections are replaced by :math:`L^2` projections,
+    :math:`\mathbb S[\bar p] = \mathbb D (\mathbb M^2)^{-1} \mathbb W^2[\bar p]
+    + (\kappa - 1) (\mathbb M^3)^{-1} \mathbb W^3[\bar p]\, \mathbb D`
+    (:class:`~struphy.feec.variational_utilities.L2PressureTransportOperator`), and :math:`\mathbb A` by
+    :class:`~struphy.feec.variational_utilities.L2PressureTransportAdjointMatrix`. As in
+    :class:`~struphy.propagators.variational_linear_alfven_evolve.VariationalLinearAlfvenEvolve`, this avoids the
+    evaluation of the products of the discrete fields on the edges and faces of the projection grids at a polar axis.
     """
 
     class Variables:
@@ -249,6 +260,11 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             :math:`t^n`, normalized before the solve), or absolute, as in the non-variational propagators (e.g.
             :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`). The energy is conserved up
             to the residual of the linear solve.
+        transport_projection : {"commuting", "L2"}, default="commuting"
+            Projections in the transport of the pressure: the commuting projectors :math:`\hat\Pi^2, \hat\Pi^3`, or
+            the :math:`L^2` projections (only ``"linear_p"`` with a velocity in :math:`H(\textnormal{div})`, see
+            above). Meant for the linear model :class:`~struphy.models.VariationalLinearMHD`: the nonlinear steps of
+            the perturbative model still use the commuting projectors.
         """
 
         # specific literals
@@ -256,6 +272,7 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         OptsPrecond = Literal["MassMatrixPreconditioner", None]
         OptsWeights = Literal["frozen", "midpoint"]
         OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"]
+        OptsTransportProjection = Literal["commuting", "L2"]
         # propagator options
         model: OptsModel = "linear_q"
         gamma: float = 5.0 / 3.0
@@ -266,10 +283,15 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         info: bool = False
         nonlin_solver: NonlinearSolverParameters = None
         relative_tol: bool = True
+        transport_projection: OptsTransportProjection = "commuting"
 
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
+            check_option(self.transport_projection, self.OptsTransportProjection)
+            assert self.transport_projection == "commuting" or self.model == "linear_p", (
+                'transport_projection="L2" is only available for model="linear_p".'
+            )
             if self.weights is None:
                 self.weights = "midpoint" if self.model == "linear_p" else "frozen"
             check_option(self.weights, self.OptsWeights)
@@ -325,19 +347,29 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
         else:
             kappa = self._gamma
             s0 = self.projected_equil.p3
-        # equilibrium transport (the same operator as in the perturbative model, VariationalPBEvolve)
-        self._S0 = Pressure_transport_operator(
-            self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
-        )
-        self._S0.update_coeffs(s0)
+        self._l2 = self.options.transport_projection == "L2"
+        if self._l2:
+            assert self._u_space == "Hdiv", 'transport_projection="L2" needs a velocity in "Hdiv".'
+            assert not self.total_weight, 'transport_projection="L2" is not available with total_weight=True.'
+            # equilibrium transport with L2 projections (weighted mass matrices assembled once), and the transport with
+            # the perturbation as weight (matrix-free, for p-hat)
+            self._S0 = L2PressureTransportOperator(self.derham, self.domain, self.mass_ops, kappa, assemble=True)
+            self._S0.update_coeffs(s0)
+            self._Ss = L2PressureTransportOperator(self.derham, self.domain, self.mass_ops, kappa, assemble=False)
+        else:
+            # equilibrium transport (the same operator as in the perturbative model, VariationalPBEvolve)
+            self._S0 = Pressure_transport_operator(
+                self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
+            )
+            self._S0.update_coeffs(s0)
+            # transport operator with the perturbation as weight
+            self._Ss = Pressure_transport_operator(
+                self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
+            )
+            self._SsT = self._Ss.T
 
         u = self.variables.u.spline.vector
         s = self.variables.s.spline.vector
-        # transport operator with the perturbation as weight
-        self._Ss = Pressure_transport_operator(
-            self.derham, self.domain, self.basis_ops.Uv, kappa, u_space=self._u_space
-        )
-        self._SsT = self._Ss.T
         self._div_u = self._Ss.div
         if self._model == "linear_q":
             # linear form of the equilibrium, -2/(gamma-1) M3 q0
@@ -348,9 +380,12 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             self._lf0 = L2Projector("L2", self.mass_ops).get_dofs(self.domain.jacobian_det)
             self._lf0 *= -1.0 / (self._gamma - 1.0)
             # the matrix A of p -> S[p]^T l: the force is linear in the weight, A p^w (assembled once, exact)
-            self._A = PressureTransportAdjointMatrix(
-                self.derham, self.domain, self.mass_ops, self.basis_ops, self._u_space, kappa, self._lf0
-            )
+            if self._l2:
+                self._A = L2PressureTransportAdjointMatrix(self._S0, self.mass_ops, self._lf0)
+            else:
+                self._A = PressureTransportAdjointMatrix(
+                    self.derham, self.domain, self.mass_ops, self.basis_ops, self._u_space, kappa, self._lf0
+                )
 
         self._midpoint = self.options.weights == "midpoint"
         if self.total_weight:

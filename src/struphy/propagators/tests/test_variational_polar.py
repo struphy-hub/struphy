@@ -54,13 +54,22 @@ def test_variational_mhd_with_q_polar(mpi_out_folder):
 # second-order forces (ProjectionAdjointMatrix: the matrix F of the Alfven step, A of the sound step) with polar splines.
 
 
-def _variational_p_polar(model, out_folder: str, sim_folder: str, degree=(2, 2, 1)) -> Simulation:
+def _variational_p_polar(
+    model, out_folder: str, sim_folder: str, degree=(2, 2, 1), transport_projection: str = "commuting"
+) -> Simulation:
     """Allocated simulation of ``model`` (VariationalLinearMHD or VariationalPerturbativeMHD, ideal) on a polar cylinder
-    with a screw pinch, with the propagator options of the model and a velocity perturbation."""
+    with a screw pinch, with the propagator options of the model and a velocity perturbation; ``transport_projection``
+    of the linear Alfven and sound steps."""
     for name, variant in model.propagator_variants.items():
         prop = getattr(model.propagators, name, None)
         if prop is not None:
-            prop.options = prop.Options(model=variant)
+            kw = dict(model=variant)
+            if name == "variat_lin_sound":
+                kw["transport_projection"] = transport_projection
+            prop.options = prop.Options(**kw)
+    alfven = getattr(model.propagators, "variat_lin_alfven", None)
+    if alfven is not None:
+        alfven.options = alfven.Options(transport_projection=transport_projection)
     sim = Simulation(
         model=model,
         env=EnvironmentOptions(out_folders=out_folder, sim_folder=sim_folder),
@@ -90,16 +99,21 @@ def _random_vector(derham, form: str, rng):
     return derham.boundary_ops[form].dot(derham.extraction_ops[form].dot(v))
 
 
-@pytest.mark.parametrize("u_space", ["H1vec", "Hdiv"])
-def test_projection_adjoint_matrices_polar(mpi_out_folder, u_space):
+@pytest.mark.parametrize(
+    "u_space, transport_projection", [("H1vec", "commuting"), ("Hdiv", "commuting"), ("Hdiv", "L2")]
+)
+def test_projection_adjoint_matrices_polar(mpi_out_folder, u_space, transport_projection):
     """With polar splines, the assembled matrices of the second-order forces are the adjoints of the transport
     operators: :math:`(\\mathbb F \\mathbf b) \\cdot \\mathbf u = \\mathbf l_0 \\cdot \\mathbb T[\\mathbf b] \\mathbf u`
     (Alfven step) and :math:`(\\mathbb A \\mathbf p) \\cdot \\mathbf u = \\mathbf l_0 \\cdot \\mathbb S[\\mathbf p]
-    \\mathbf u` (sound step), and :math:`\\mathbb T_0^\\top` is the transpose of :math:`\\mathbb T_0`."""
+    \\mathbf u` (sound step), and :math:`\\mathbb T_0^\\top` is the transpose of :math:`\\mathbb T_0`, with the
+    commuting and the :math:`L^2` projections in the transport."""
     from struphy.models import VariationalLinearMHD
 
     model = VariationalLinearMHD(u_space=u_space, with_viscosity=False, with_resistivity=False)
-    _variational_p_polar(model, mpi_out_folder, f"adjoint_{u_space}")
+    _variational_p_polar(
+        model, mpi_out_folder, f"adjoint_{u_space}_{transport_projection}", transport_projection=transport_projection
+    )
     alfven = model.propagators.variat_lin_alfven
     sound = model.propagators.variat_lin_sound
     derham = alfven.derham
@@ -157,3 +171,41 @@ def test_variational_p_models_polar(mpi_out_folder, model_class, u_space):
     du = model.mhd.velocity.spline.vector - u0
     assert du.inner(du) > 0.0
     assert abs(en1 - en0) / en0 < ENERGY_TOL_P, f"relative energy change {abs(en1 - en0) / en0:.2e}"
+
+
+def test_l2_transport_polar(mpi_out_folder):
+    """The linear variational MHD model with a velocity in H(div) and the :math:`L^2` projections in the transport
+    (``transport_projection="L2"`` in the Alfven and sound steps) on a polar cylinder: the velocity changes and the
+    energy ``en_tot`` (with the second-order fields) is conserved (measured: 3e-10)."""
+    from struphy.models import VariationalLinearMHD
+
+    model = VariationalLinearMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
+    from struphy.feec.variational_utilities import L2PressureTransportOperator, L2TransportOperator
+
+    _variational_p_polar(model, mpi_out_folder, "l2_transport", transport_projection="L2")
+    assert isinstance(model.propagators.variat_lin_alfven._T0, L2TransportOperator)
+    assert isinstance(model.propagators.variat_lin_sound._S0, L2PressureTransportOperator)
+
+    def energy():
+        model.scalars.update()
+        return float(np.squeeze(model.scalars.host_value("en_tot")))
+
+    en0 = energy()
+    u0 = model.mhd.velocity.spline.vector.copy()
+    for _ in range(3):
+        for prop in vars(model.propagators).values():
+            prop(0.02)
+    en1 = energy()
+    du = model.mhd.velocity.spline.vector - u0
+    assert du.inner(du) > 0.0
+    assert abs(en1 - en0) / en0 < ENERGY_TOL_P, f"relative energy change {abs(en1 - en0) / en0:.2e}"
+
+
+@pytest.mark.mpi_skip
+def test_l2_transport_options():
+    """The :math:`L^2` transport of the sound step is only available for the pressure model."""
+    from struphy.propagators.variational_linear_sound_evolve import VariationalLinearSoundEvolve
+
+    with pytest.raises(AssertionError):
+        VariationalLinearSoundEvolve.Options(model="linear_q", transport_projection="L2")
+    VariationalLinearSoundEvolve.Options(model="linear_p", transport_projection="L2")
