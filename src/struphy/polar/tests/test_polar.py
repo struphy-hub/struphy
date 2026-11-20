@@ -786,3 +786,164 @@ if __name__ == "__main__":
     # test_spaces([6, 9, 4], [2, 2, 2], [False, True, False])
     # test_extraction_ops_and_derivatives([8, 12, 6], [2, 2, 3], [False, True, False])
     test_projectors([8, 12, 4], [3, 3, 2], (("free", "dirichlet"), None, None))
+
+
+_POLE_SPACES = {"0": "H1", "1": "Hcurl", "2": "Hdiv", "3": "L2", "v": "H1vec"}
+_KNOWN_MULTIVALUED = (
+    "the C1 polar complex only makes the logical component vanish at the pole (axial 2-form, 3-form) or uses C1 "
+    "0-forms per contravariant component (H1vec), so the physical limit at the axis depends on theta"
+)
+
+
+def _pole_parts(derham, domain, form, r, e2, e3, seed=7):
+    """Push-forward of a random polar vector of the space ``form`` on the circle eta1 = r, split into the part along
+    the axis (direction of d F / d eta3) and the part in the poloidal plane; scalars are returned as one part."""
+    import cunumpy as xp
+
+    sf = derham.create_spline_function(f"pole_{form}", _POLE_SPACES[form])
+    sf.vector = _rand_polar_vector(derham, getattr(derham, f"V{form}pol"), seed=seed)
+    F = xp.asarray(domain.push(sf, xp.array([r]), e2, e3, kind=form))
+    if F.ndim == 3:  # scalar (0- and 3-forms)
+        return {"scalar": F[0][None]}
+    F = F[:, 0]
+    DF = xp.asarray(domain.jacobian(xp.array([r]), e2, e3))[:, :, 0]
+    t = DF[:, 2] / xp.linalg.norm(DF[:, 2], axis=0)
+    ax = (F * t).sum(0)
+    return {"in-plane": F - ax * t, "axial": ax[None]}
+
+
+@pytest.mark.parametrize("mapping", ["IGAPolarCylinder", "IGAPolarTorus"])
+@pytest.mark.parametrize(
+    "form, part, c1",
+    [
+        ("0", "scalar", True),
+        ("1", "in-plane", False),
+        ("1", "axial", True),
+        ("2", "in-plane", False),
+        pytest.param("2", "axial", False, marks=pytest.mark.xfail(strict=True, reason=_KNOWN_MULTIVALUED)),
+        pytest.param("3", "scalar", False, marks=pytest.mark.xfail(strict=True, reason=_KNOWN_MULTIVALUED)),
+        pytest.param("v", "in-plane", False, marks=pytest.mark.xfail(strict=True, reason=_KNOWN_MULTIVALUED)),
+        ("v", "axial", True),
+    ],
+)
+def test_pole_regularity(mapping, form, part, c1):
+    """Physical push-forward of polar splines at the pole: bounded (no 1/sqrt(g) blow-up), single-valued (the limit
+    at the axis does not depend on theta) and, where the space is C1 at the pole, of the form c + r (a cos theta +
+    b sin theta). Tested on a random element of each space, split into the axial and the poloidal-plane part."""
+    import cunumpy as xp
+    from maybempi import MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    if mapping == "IGAPolarCylinder":
+        domain = domains.IGAPolarCylinder(num_elements=(8, 12), degree=(3, 3), a=1.0, Lz=3.0)
+    else:
+        domain = domains.IGAPolarTorus(num_elements=(8, 12), degree=(3, 3), a=1.0, R0=3.0, tor_period=1)
+    derham = Derham(
+        TensorProductGrid(num_elements=(8, 12, 4)),
+        DerhamOptions(degree=(3, 3, 2), bcs=(("free", "free"), None, None), polar_splines=True),
+        comm=MPI.COMM_WORLD,
+        domain=domain,
+    )
+    e2 = xp.arange(64) / 64
+    e3 = xp.array([0.1, 0.6])
+
+    scale = max(float(xp.abs(v).max()) for v in _pole_parts(derham, domain, form, 0.05, e2, e3).values())
+    near = _pole_parts(derham, domain, form, 1e-6, e2, e3)[part]
+
+    # bounded: a 1/sqrt(g) singularity would give values ~ 1e6 times the field at r = 0.05
+    assert float(xp.abs(near).max()) < 10 * scale, (form, part)
+
+    # single-valued: spread over theta of each Cartesian component on the circle eta1 = 1e-6
+    spread = max(float(xp.ptp(c, axis=0).max()) for c in near) / scale
+    logger.info(f"{mapping}, V{form} {part}: theta-spread at the pole {spread:.2e}")
+    assert spread < 1e-3, (form, part, spread)
+
+    if c1:
+        # C1: f(r, theta) = f(0) + r h(theta) with h containing only the harmonics |m| = 1
+        f0 = _pole_parts(derham, domain, form, 1e-7, e2, e3)[part]
+        f3 = _pole_parts(derham, domain, form, 1e-3, e2, e3)[part]
+        for a, b in zip(f3, f0):
+            h = (a - b.mean(axis=0)) / 1e-3
+            p = xp.abs(xp.fft.rfft(h, axis=0)) ** 2
+            p[1:] *= 2
+            frac = float(((p.sum(0) - p[1]) / p.sum(0)).max())
+            assert frac < 1e-2, (form, part, frac)
+
+
+@pytest.mark.parametrize("num_elements", [[8, 12, 4]])
+@pytest.mark.parametrize("degree", [[3, 3, 2], [2, 3, 1]])
+def test_polar_commuting_curl_div(num_elements, degree):
+    """Commuting projectors of the polar complex for the curl and the divergence: curl P1 a = P2 curl a and
+    div P2 b = P3 div b (exact up to the finite-difference error of the reference), for a 1-form a and a 2-form b
+    that are pull-backs of smooth Cartesian fields (regular at the pole) under the disc map
+    (eta1 cos, eta1 sin, eta3)."""
+    import cunumpy as xp
+    from maybempi import MPI
+
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.io.options import DerhamOptions
+    from struphy.topology.grids import TensorProductGrid
+
+    domain = IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], Lz=3.0, a=1.0)
+    derham = Derham(
+        TensorProductGrid(num_elements=num_elements),
+        DerhamOptions(degree=degree, bcs=(("free", "free"), None, None), nquads_proj=[6, 6, 6], polar_splines=True),
+        comm=MPI.COMM_WORLD,
+        domain=domain,
+    )
+    tp = 2 * xp.pi
+
+    def cart(e1, e2):
+        return e1 * xp.cos(tp * e2), e1 * xp.sin(tp * e2)
+
+    def A(e1, e2, e3):
+        x, y = cart(e1, e2)
+        return xp.sin(y + 0.3) * xp.cos(tp * e3), xp.cos(x) * xp.sin(y) + 0.2, x * y * xp.cos(tp * e3)
+
+    def B(e1, e2, e3):
+        x, y = cart(e1, e2)
+        return xp.cos(y) * xp.cos(tp * e3), xp.sin(x + 0.1), x**2 + xp.cos(y) * xp.sin(tp * e3)
+
+    def one_form(e1, e2, e3):
+        ax, ay, az = A(e1, e2, e3)
+        c, s = xp.cos(tp * e2), xp.sin(tp * e2)
+        return ax * c + ay * s, tp * e1 * (-ax * s + ay * c), az
+
+    def two_form(e1, e2, e3):
+        bx, by, bz = B(e1, e2, e3)
+        c, s = xp.cos(tp * e2), xp.sin(tp * e2)
+        return tp * e1 * (bx * c + by * s), -bx * s + by * c, tp * e1 * bz
+
+    h = 1e-5
+
+    def d(fun, comp, direction):
+        def df(e1, e2, e3):
+            ep, em = [e1, e2, e3], [e1, e2, e3]
+            ep[direction] = ep[direction] + h
+            em[direction] = em[direction] - h
+            return (fun(*ep)[comp] - fun(*em)[comp]) / (2 * h)
+
+        return df
+
+    # logical curl of a 1-form and divergence of a 2-form (metric-free)
+    curl_a = [
+        lambda e1, e2, e3: d(one_form, 2, 1)(e1, e2, e3) - d(one_form, 1, 2)(e1, e2, e3),
+        lambda e1, e2, e3: d(one_form, 0, 2)(e1, e2, e3) - d(one_form, 2, 0)(e1, e2, e3),
+        lambda e1, e2, e3: d(one_form, 1, 0)(e1, e2, e3) - d(one_form, 0, 1)(e1, e2, e3),
+    ]
+
+    def div_b(e1, e2, e3):
+        return sum(d(two_form, i, i)(e1, e2, e3) for i in range(3))
+
+    a1 = derham.P1([lambda e1, e2, e3, i=i: one_form(e1, e2, e3)[i] for i in range(3)], apply_bc=False)
+    err_curl = _rel_err(derham.curl_bcfree.dot(a1), derham.P2(curl_a, apply_bc=False))
+    b2 = derham.P2([lambda e1, e2, e3, i=i: two_form(e1, e2, e3)[i] for i in range(3)], apply_bc=False)
+    err_div = _rel_err(derham.div_bcfree.dot(b2), derham.P3(div_b, apply_bc=False))
+    logger.info(f"{degree = }: |curl P1 a - P2 curl a| rel. {err_curl:.2e}, |div P2 b - P3 div b| rel. {err_div:.2e}")
+    assert err_curl < 1e-7
+    assert err_div < 1e-7
