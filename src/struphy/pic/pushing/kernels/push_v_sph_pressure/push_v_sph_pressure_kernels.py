@@ -7,10 +7,11 @@ import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
+import struphy.pic.sph_metric_kernels as sph_metric_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
 
 
-@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
+@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT", "glsg")
 def push_v_sph_pressure(
     dt: float,
     stage: int,
@@ -33,12 +34,15 @@ def push_v_sph_pressure(
 
     .. math::
 
-        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mathbf g - \sum_{i=1}^N w_i \left( \frac{\kappa}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{\kappa}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mathbf g - DF^{-\top} \left[ \sum_{i=1}^N w_i \left( \frac{\kappa}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{\kappa}{\rho^{N,h}(\boldsymbol \eta_i)} \right) \nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) - \kappa \nabla \ln \sqrt g(\boldsymbol\eta_p) \right] \,,
 
     where :math:`\mathbf g` is a constant acceleration, the second term corresponds to the pressure gradient
     in the isothermal closure (with constant :math:`\kappa`), and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
     arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
-    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`. The term with :math:`\sqrt g = |\det DF|` comes from
+    the physical density :math:`\rho^{N,h}/\sqrt g` in the internal energy (see
+    :class:`~struphy.propagators.push_v_in_sph_pressure.PushVinSPHpressure`); its gradient is computed by
+    finite differences (:mod:`~struphy.pic.sph_metric_kernels`), in the directions resolved by the kernel.
 
     The smoothed SPH density is given by
 
@@ -51,7 +55,7 @@ def push_v_sph_pressure(
     * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[first_free_idx, :]``)
     * The coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` to be pre-computed for each particle and stored at ``markers[first_free_idx + 1, :]``)
 
-    This is accomplished by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_pressure_coeffs`, which needs
+    This is accomplished by the kernel :func:`~struphy.pic.pushing.kernels.sph_pressure_coeffs.sph_pressure_coeffs_kernels.sph_pressure_coeffs`, which needs
     to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
 
     Parameters
@@ -86,6 +90,7 @@ def push_v_sph_pressure(
     tmp1 = zeros((3, 3), dtype=float)
     dfinv = zeros((3, 3), dtype=float)
     dfinvT = zeros((3, 3), dtype=float)
+    glsg = zeros(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -96,7 +101,7 @@ def push_v_sph_pressure(
     n_cols = shape(markers)[0]
 
     # fmt: off
-    #$ omp parallel firstprivate(grad_u) private(dfinv, dfinvT, eta1, eta2, eta3, grad_u_cart, ip, loc_box, n_at_eta, sum2, sum4, sum6, tmp1)
+    #$ omp parallel firstprivate(grad_u) private(dfinv, dfinvT, eta1, eta2, eta3, glsg, grad_u_cart, ip, loc_box, n_at_eta, sum2, sum4, sum6, tmp1)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -237,6 +242,15 @@ def push_v_sph_pressure(
             )
             sum6 *= kappa
             grad_u[2] += sum6
+
+        # metric correction of the variational force, -U'(rho_p) rho_p grad ln sqrt(g) (U' rho = kappa),
+        # in the directions resolved by the kernel
+        sph_metric_kernels.grad_log_sqrt_g(eta1, eta2, eta3, args_domain, glsg)
+        grad_u[0] -= kappa * glsg[0]
+        if kernel_type >= 340:
+            grad_u[1] -= kappa * glsg[1]
+        if kernel_type >= 670:
+            grad_u[2] -= kappa * glsg[2]
 
         # push to Cartesian coordinates
         evaluation_kernels.df_inv(

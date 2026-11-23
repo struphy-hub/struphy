@@ -152,7 +152,7 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
 
         .. math::
 
-            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla p - \nabla \cdot \boldsymbol{\sigma}
+            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla p + \nabla \cdot \boldsymbol{\sigma}
             + \frac{\rho}{\varepsilon} \left( \mathbf{F} + \mathbf{u} \times \mathbf{B}_0 \right)
             \\[2mm]
             \nabla \cdot \mathbf{u} = 0\,,
@@ -165,7 +165,7 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
 
         .. math::
 
-            \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
+            \boldsymbol{\sigma} = \mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
 
         where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
 
@@ -183,7 +183,7 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
         .. math::
 
             \frac{\textnormal d}{\textnormal d t} \frac 12 \int \rho |\mathbf u|^2 \, \textnormal d \mathbf x
-            = \int \boldsymbol \sigma : \nabla \mathbf u \, \textnormal d \mathbf x \leq 0
+            = - \int \boldsymbol \sigma : \nabla \mathbf u \, \textnormal d \mathbf x \leq 0
         """
 
     @classmethod

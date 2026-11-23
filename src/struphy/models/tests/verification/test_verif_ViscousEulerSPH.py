@@ -32,8 +32,9 @@ set_logging_level(logging.INFO)
 @pytest.mark.parametrize("plot_pts", [21])
 def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = False):
     """Verification test for SPH discretization of viscous isothermal Euler equations.
-    A standing sound wave decays at rate mu*k^2/2.
-    The numerical decay rate is extracted from local maxima of the current, analogous to Landau damping.
+    A standing sound wave decays at the rate (2/3) mu k^2 / rho0 (rho0 = 1).
+    The numerical decay rate is fitted to the energy a^2 + b^2 of the mode, with the amplitudes a of the current
+    (sin(k x)) and b of the density (cos(k x)) projected from all bins.
     """
 
     # environment options
@@ -58,7 +59,7 @@ def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot:
     # light-weight model instance
     model = ViscousEulerSPH()
 
-    loading_params = LoadingParameters(ppb=8, loading="tesselation")
+    loading_params = LoadingParameters(ppb=32, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters()
     sorting_params = SortingParameters(
@@ -135,27 +136,29 @@ def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot:
         idx_max = int(np.argmin(np.abs(e1_np - 0.25 * r1)))
         amplitude = np.asarray(j1_binned[:, idx_max]).flatten()
 
-        # analytical decay rate: gamma = -mu*k^2/2 for the acoustic mode
+        # analytical decay rate: gamma = -(2/3) mu k^2 for the acoustic mode
         k = 2.0 * np.pi / r1
         gamma_analytical = -mu * 4 / 3 * k**2 / 2
 
         A0 = amplitude[0]
         amplitude_analytical = A0 * np.exp(gamma_analytical * times)
 
-        # find local maxima of the oscillating amplitude (analogous to Landau damping)
-        logA = np.log(np.abs(amplitude) + 1e-15)
-        dlogA = (np.roll(logA, -1) - np.roll(logA, 1))[1:-1] / (2.0 * dt)
-        zeros = dlogA * np.roll(dlogA, -1) < 0.0
-        maxima_inds = np.where(np.logical_and(zeros, dlogA > 0.0))[0] + 1
-        maxima = logA[maxima_inds]
-        print(f"{maxima_inds = }, {times.shape = }")
-        t_maxima = times[maxima_inds]
+        # mode amplitudes from all bins: u = a(t) sin(k x) (current, rho0 = 1), dn = b(t) cos(k x).
+        # For the isothermal wave with c_s^2 = kappa = 1, the mode energy E = a^2 + b^2 is constant without
+        # viscosity and decays like exp(2 gamma t) with viscosity; fitting log E avoids the noisy detection of
+        # the local maxima of a single bin.
+        x_bins = e1_np * r1
+        j1_np = np.asarray(j1_binned).reshape(Nt + 1, -1)
+        n_np = np.asarray(run.distributions.fluid.e1_density.f.values).reshape(Nt + 1, -1)
+        dn_np = n_np - n_np.mean(axis=1, keepdims=True)
+        a_mode = 2.0 * np.mean(j1_np * np.sin(k * x_bins), axis=1)
+        b_mode = 2.0 * np.mean(dn_np * np.cos(k * x_bins), axis=1)
+        log_energy = np.log(a_mode**2 + b_mode**2)
+        energy_fit = np.polyfit(times, log_energy, 1)
+        gamma_numerical = energy_fit[0] / 2.0
 
-        # linear fit to log(maxima) vs time gives the decay rate
-        linfit = np.polyfit(t_maxima, maxima, 1)
-        gamma_numerical = linfit[0]
 
-        logger.info(f"Analytical decay rate: gamma = -mu*k^2/2 = {gamma_analytical:.4f}")
+        logger.info(f"Analytical decay rate: gamma = -(2/3) mu k^2 = {gamma_analytical:.4f}")
         logger.info(f"Numerical  decay rate: gamma             = {gamma_numerical:.4f}")
 
         if do_plot:
@@ -185,7 +188,6 @@ def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot:
             ax = axes[0]
             ax.plot(times, amplitude, label=f"numerical j1 at x={e1_np[idx_max]:.3f}")
             ax.plot(times, amplitude_analytical, "--", label=f"analytical envelope (gamma={gamma_analytical:.3f})")
-            ax.plot(t_maxima, amplitude[maxima_inds], "ro", markersize=6, label="local maxima")
             ax.set_xlabel("time")
             ax.set_ylabel("velocity amplitude")
             ax.set_title("Damped sound wave: velocity at antinode")
@@ -193,22 +195,22 @@ def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot:
             ax.grid(True)
 
             ax = axes[1]
-            ax.plot(t_maxima, maxima, "ro", markersize=6, label="log(maxima)")
+            ax.plot(times, log_energy / 2.0, label="log(sqrt(a^2 + b^2)) of the mode")
             ax.plot(
                 times,
-                np.polyval(linfit, times),
+                np.polyval(energy_fit, times) / 2.0,
                 "--",
                 label=f"fit: gamma={gamma_numerical:.3f}",
             )
             ax.axline(
-                (0, np.log(np.abs(A0) + 1e-15)),
+                (0, log_energy[0] / 2.0),
                 slope=gamma_analytical,
                 color="k",
                 linestyle=":",
                 label=f"analytical: gamma={gamma_analytical:.3f}",
             )
             ax.set_xlabel("time")
-            ax.set_ylabel("log(amplitude)")
+            ax.set_ylabel("log(mode amplitude)")
             ax.set_title("Decay rate: numerical vs analytical")
             ax.legend()
             ax.grid(True)
@@ -218,24 +220,26 @@ def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot:
 
         rel_error = abs(gamma_numerical - gamma_analytical) / abs(gamma_analytical)
         logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
-        assert rel_error < 0.16, (
+        assert rel_error < 0.05, (
             f"Numerical decay rate {gamma_numerical:.4f} deviates {rel_error * 100:.1f}% "
-            f"from analytical {gamma_analytical:.4f} (tolerance 16%)"
+            f"from analytical {gamma_analytical:.4f} (tolerance 5%)"
         )
         logger.info("Damped sound wave decay rate assertion passed.")
 
 
 @pytest.mark.parametrize("nx", [8])
 @pytest.mark.parametrize("plot_pts", [11])
-def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = False):
-    """Verification test for SPH discretization of isthermal Euler equations.
-    A standing sound wave with c_s=1 is damped at the rate mu*k^2/2 by viscosity.
+@pytest.mark.parametrize("n0", [1.0, 2.0])
+def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, n0: float, do_plot: bool = False):
+    """Verification test for the SPH viscous force of a pressureless fluid with uniform density n0.
+    A shear-free velocity mode u_x = sin(k x) decays at the rate (4/3) mu k^2 / n0 (the viscous acceleration
+    is div(sigma) / rho).
     """
 
     # environment options
     test_folder = mpi_out_folder
     out_folders = os.path.join(test_folder, "ViscousEulerSPH")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder="velocity_diffusion")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder=f"velocity_diffusion_n{n0}")
 
     # time stepping
     time_opts = Time(dt=0.0025, Tend=0.1, split_algo="Strang")
@@ -292,7 +296,7 @@ def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, do_plot
 
     # background, perturbations and initial conditions
     ux_mean = 0.0
-    background = equils.ConstantVelocity(ux=ux_mean)
+    background = equils.ConstantVelocity(ux=ux_mean, n=n0)
     model.fluid.var.add_background(background)
     perturbation = perturbations.ModesSin(ls=(1,), amps=(0.5,))
     # perturbation = GenericPerturbation(fun=lambda e1, e2, e3: 0.2*xp.exp(-20 * (e1 - 0.5) ** 2))
@@ -337,9 +341,9 @@ def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, do_plot
         # amplitude time series at the peak bin
         amplitude = np.asarray(j1_binned[:, idx_max]).flatten()
 
-        # analytical decay rate: gamma = mu * k^2, k = 2*pi/r1 for mode l=1
+        # analytical decay rate: gamma = (4/3) mu k^2 / n0, k = 2*pi/r1 for mode l=1
         k = 2.0 * np.pi / r1
-        gamma_analytical = mu * 4 / 3 * k**2
+        gamma_analytical = mu * 4 / 3 * k**2 / n0
 
         A0 = amplitude[0]
         amplitude_analytical = A0 * np.exp(-gamma_analytical * times)
@@ -421,8 +425,10 @@ def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, do_plot
 
         error = xp.max(xp.abs(j1_binned[-1] - ux_mean))
         logger.info(f"SPH sound wave {error =}.")
-        assert error < 0.0022
-        logger.info("Assertion passed.")
+        if n0 == 1.0:
+            # absolute bound calibrated for n0 = 1; the decay rate is checked for all n0 below
+            assert error < 0.0022
+            logger.info("Assertion passed.")
 
         rel_error = abs(gamma_numerical - gamma_analytical) / gamma_analytical
         logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
@@ -695,15 +701,15 @@ def test_dam_break(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = 
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="dam_break")
 
     # physical parameters
-    # WCSPH liquid regime: kappa = c_s^2 must satisfy c_s >> U_max = sqrt(2*g*H).
-    # With g=10, H=0.5: U_max ≈ 3.2.  kappa=50 → c_s≈7, Ma≈0.45 (subsonic, liquid-like).
-    # Raising gravity would increase Ma and make things more gas-like — wrong direction.
-    kappa = 0.2  # isothermal coefficient (= c_s^2); controls fluid stiffness
-    mu = 0.05  # dynamic viscosity
+    # isothermal coefficient (= c_s^2); controls fluid stiffness. This is a robustness test only: with
+    # g=10 and H=0.5, U_max ≈ sqrt(2*g*H) ≈ 3.2 > c_s ≈ 0.45 (a liquid-like regime would need kappa >~ 50).
+    kappa = 0.2
     g_y = 10.0  # gravitational acceleration (downward, i.e. −y)
     r1 = 1.0  # domain width  (x-direction)
     r2 = 1.0  # domain height (y-direction)
     n_high = 0.1  # density of the fluid column (uniform → no initial pressure gradient)
+    nu = 0.05  # kinematic viscosity mu / rho (sets the explicit viscous time-step limit)
+    mu = nu * n_high  # dynamic viscosity
 
     # free-fall time sqrt(2*H/g) ≈ 0.32 s; acoustic CFL: h/c_s = (1/nx)/sqrt(kappa) ≈ 0.018
     time_opts = Time(dt=0.02, Tend=3.0, split_algo="Strang")

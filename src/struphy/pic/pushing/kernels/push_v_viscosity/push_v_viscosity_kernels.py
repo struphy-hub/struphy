@@ -31,14 +31,16 @@ def push_v_viscosity(
     .. math::
 
         \frac{v_{p,j}^{n+1} - v_{p,j}^n}{\Delta t}
-        = \frac{1}{\sqrt g(\boldsymbol \eta_p)} \sum_{i=1}^N
+        = \frac{1}{\rho_p \sqrt g(\boldsymbol \eta_p)} \sum_{i=1}^N
           \frac{w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \,
           (DF^{-1})_{km}(\boldsymbol \eta_i)}{\rho^{N,h}(\boldsymbol \eta_i)} \,
           (\nabla W_h)_k(\boldsymbol \eta_p - \boldsymbol \eta_i)\,,
 
     where :math:`\sigma_{jm} = \mu \left[(\partial_{x_m} v_j^{N,h} + \partial_{x_j} v_m^{N,h}) - \tfrac{2}{3}\delta_{jm}\partial_{x_l} v_l^{N,h}\right]`
-    is the (Cartesian) deviatoric strain rate and :math:`\sqrt g = \det DF`. This is the SPH discretization
-    of the Cartesian divergence :math:`\nabla_x \cdot \sigma` written in logical coordinates (Piola form),
+    is the (Cartesian) deviatoric strain rate, :math:`\sqrt g = \det DF` and
+    :math:`\rho_p = \rho^{N,h}(\boldsymbol \eta_p) / |\det DF(\boldsymbol \eta_p)|` is the physical density,
+    with the SPH density :math:`\rho^{N,h}` evaluated at the marker. This is the SPH discretization of
+    :math:`\frac{1}{\rho} \nabla_x \cdot \sigma`, with the divergence written in logical coordinates (Piola form),
     :math:`(\nabla_x \cdot \sigma)_j = \frac{1}{\sqrt g} \partial_{\eta_k} \bigl(\sqrt g \, (DF^{-1})_{km} \sigma_{jm}\bigr)`,
     with the gradient of the smoothing kernel :math:`W_h` chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
 
@@ -85,12 +87,13 @@ def push_v_viscosity(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     first_free_idx = args_markers.first_free_idx
+    weight_idx = args_markers.weight_idx
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[0]
     f_visc = zeros(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private(coeff_idx, detdf, eta1, eta2, eta3, f_visc, ip, j, k, loc_box, tmp1)
+    #$ omp parallel private(coeff_idx, detdf, eta1, eta2, eta3, f_visc, ip, j, k, loc_box, n_at_eta, rho_p, tmp1)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -149,7 +152,27 @@ def push_v_viscosity(
         )
 
         # update velocities
-        markers[3:6, ip] -= dt * f_visc / detdf
+        # momentum equation rho du/dt = div(sigma): divide by the physical density rho_p = rho^eta_p / |det DF|
+        n_at_eta = sph_eval_kernels.box_based_kernel(
+            args_markers,
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            weight_idx,
+            kernel_type,
+            h1,
+            h2,
+            h3,
+        )
+        rho_p = n_at_eta / abs(detdf)
+        markers[3:6, ip] -= dt * f_visc / detdf / rho_p
 
     # fmt: off
     #$ omp end parallel

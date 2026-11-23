@@ -26,19 +26,18 @@ class PushVinViscousPotential(Propagator):
 
     .. math::
 
-        \partial_t \mathbf u = \nabla \cdot \boldsymbol\sigma\,, \qquad
+        \rho\, \partial_t \mathbf u = \nabla \cdot \boldsymbol\sigma\,, \qquad
         \boldsymbol\sigma = \mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
 
-    with dynamic viscosity :math:`\mu \geq 0`. Compared with the momentum equation
-    :math:`\rho\, \textnormal d \mathbf u / \textnormal d t = \nabla \cdot \boldsymbol \sigma`, the factor
-    :math:`1/\rho` is omitted, which is exact for :math:`\rho = 1`.
+    with mass density :math:`\rho` and dynamic viscosity :math:`\mu \geq 0`.
 
-    **Semi-discrete problem:** with the SPH density and velocity interpolant
+    **Semi-discrete problem:** the kernel :math:`W_h` from :mod:`~struphy.pic.sph_smoothing_kernels` is evaluated in
+    logical coordinates. With the density 3-form and the velocity interpolant
 
     .. math::
 
-        \rho_i = \sum_{j=1}^N w_j\, W_h(\boldsymbol\eta_i - \boldsymbol\eta_j)\,, \qquad
-        \mathbf u_h(\boldsymbol\eta) = \sum_{j=1}^N \frac{w_j}{\rho_j}\, \mathbf v_j\, W_h(\boldsymbol\eta - \boldsymbol\eta_j)\,,
+        \rho^\eta_i = \sum_{j=1}^N w_j\, W_h(\boldsymbol\eta_i - \boldsymbol\eta_j)\,, \qquad
+        \mathbf u_h(\boldsymbol\eta) = \sum_{j=1}^N \frac{w_j}{\rho^\eta_j}\, \mathbf v_j\, W_h(\boldsymbol\eta - \boldsymbol\eta_j)\,,
 
     the stress :math:`\boldsymbol\sigma_i` is computed at each marker from the gradient of :math:`\mathbf u_h`
     (transformed to Cartesian derivatives with :math:`DF^{-1}`), and for each marker :math:`p`
@@ -46,13 +45,13 @@ class PushVinViscousPotential(Propagator):
     .. math::
 
         \frac{\textnormal d \mathbf v_p}{\textnormal d t}
-        = \frac{1}{\sqrt g(\boldsymbol\eta_p)} \sum_{i=1}^N \frac{w_i}{\rho_i}\, \sqrt g(\boldsymbol\eta_i)\,
+        = \frac{1}{\rho_p\, \sqrt g(\boldsymbol\eta_p)} \sum_{i=1}^N \frac{w_i}{\rho^\eta_i}\, \sqrt g(\boldsymbol\eta_i)\,
         \boldsymbol\sigma_i\, DF^{-\top}(\boldsymbol\eta_i)\, \nabla W_h(\boldsymbol\eta_p - \boldsymbol\eta_i)\,,
 
-    which is the SPH estimate of :math:`\nabla \cdot \boldsymbol\sigma` in Piola form. :math:`W_h` is a smoothing kernel
-    from :mod:`~struphy.pic.sph_smoothing_kernels`; the coefficients :math:`w_i \mathbf v_i/\rho_i` and
-    :math:`\sqrt g\, (w_i/\rho_i) \boldsymbol\sigma_i DF^{-\top}` are computed once per time step and stored (with a minus sign) in the
-    marker array.
+    which is the SPH estimate of :math:`\frac 1\rho \nabla \cdot \boldsymbol\sigma` in Piola form, with the physical
+    density :math:`\rho_p = \rho^\eta_p / \sqrt g(\boldsymbol\eta_p)` and :math:`\sqrt g = |\det DF|`. The
+    coefficients :math:`w_i \mathbf v_i/\rho^\eta_i` and :math:`\sqrt g\, (w_i/\rho^\eta_i) \boldsymbol\sigma_i DF^{-\top}`
+    (with a minus sign) are computed once per time step and stored in the marker array.
 
     **Time discretization:** forward Euler (``algo="forward_euler"``),
 

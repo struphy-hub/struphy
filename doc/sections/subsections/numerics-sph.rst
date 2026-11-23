@@ -98,6 +98,9 @@ A Struphy SPH simulation consists of the following steps:
    :math:`\sum_p w_p` is the total mass (exactly up to quadrature for tessellation, approximately for random loading). The velocities are set to the initial fluid velocity,
    :math:`\mathbf v_p(0) = \mathbf u_\textnormal{in}(\mathbf x_p(0))`. The initial condition is a fluid background
    (e.g. :class:`~struphy.fields_background.equils.ConstantVelocity`) with perturbations of the density or velocity.
+   For SPH, the density :math:`n` of the background and perturbations is the 3-form in logical coordinates,
+   :math:`n = \rho \sqrt g`: on a curved mapping, a uniform physical density :math:`\rho` needs
+   :math:`n(\boldsymbol\eta) = \rho \sqrt g(\boldsymbol\eta)`.
 
 3. **Time stepping.** The propagators of the model (:ref:`sph_models`) are applied by operator splitting. In each
    time step they
@@ -410,17 +413,32 @@ This is the standard symmetric SPH pressure force, here derived from a variation
       - :math:`\kappa\, \rho^\gamma`
       - :math:`\kappa\, \rho^{\gamma - 2}`
 
-The constant :math:`\kappa` is the option ``kappa`` (:math:`\kappa = 0` gives a pressureless fluid); the adiabatic
-index is fixed to :math:`\gamma = 5/3` in the kernels. A constant acceleration :math:`\mathbf g` (option ``gravity``)
-plays the role of :math:`-\nabla V/m`.
+The constant :math:`\kappa` is the option ``kappa`` (:math:`\kappa = 0` gives a pressureless fluid), the adiabatic
+index :math:`\gamma > 1` the option ``gamma`` (default :math:`5/3`). A constant acceleration :math:`\mathbf g`
+(option ``gravity``) plays the role of :math:`-\nabla V/m`.
 
 **In logical coordinates.** Struphy evaluates the kernels in :math:`\boldsymbol\eta`, with
 :math:`\nabla_{\mathbf x} W_h = DF^{-\top} \nabla_{\boldsymbol\eta} W_h`. With the masses :math:`w_j` as weights, the sum
 :math:numref:`sph:density` with a kernel normalized in :math:`\boldsymbol\eta` approximates the density as a 3-form
-in logical space, :math:`\rho \sqrt g` (see :meth:`~struphy.pic.base.Particles.eval_density`), and this is the
-:math:`\rho_p` used in the pressure force. For mappings with constant :math:`\sqrt g` (e.g.
-:class:`~struphy.geometry.domains.Cuboid`), the factors :math:`\sqrt g` cancel for the isothermal closure, and the
-polytropic :math:`\kappa` is rescaled by :math:`(\sqrt g)^{\gamma - 1}`.
+in logical space, :math:`\rho^\eta_p \approx \rho \sqrt g` (see :meth:`~struphy.pic.base.Particles.eval_density`),
+and the physical density is :math:`\rho_p = \rho^\eta_p / \sqrt g(\boldsymbol\eta_p)`. Using :math:`\rho_p` in the
+internal energy of the Lagrangian, the Euler-Lagrange equations become
+
+.. math::
+    :label: sph:pressure_force_logical
+
+    \dot{\mathbf v}_p = \mathbf g - DF^{-\top}(\boldsymbol\eta_p) \Bigg[
+    \sum_{j=1}^N w_j \left( \frac{\mathcal U'(\rho_p)}{\sqrt g(\boldsymbol\eta_p)} + \frac{\mathcal U'(\rho_j)}{\sqrt g(\boldsymbol\eta_j)} \right)
+    \nabla_{\boldsymbol\eta} W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)
+    - \mathcal U'(\rho_p)\, \rho_p\, \nabla_{\boldsymbol\eta} \ln \sqrt g(\boldsymbol\eta_p) \Bigg]\,,
+
+because :math:`\rho_p` depends on :math:`\boldsymbol\eta_p` also through :math:`\sqrt g(\boldsymbol\eta_p)`. The last
+term vanishes for mappings with constant :math:`\sqrt g` (e.g. :class:`~struphy.geometry.domains.Cuboid`); in general
+it is needed so that a fluid with uniform physical density and pressure is at rest. In the continuum limit, with
+:math:`\sum_j w_j A_j \nabla W_h(\boldsymbol\eta_p - \boldsymbol\eta_j) \approx \nabla_{\boldsymbol\eta} (A \rho^\eta)`, the
+bracket tends to :math:`\nabla_{\boldsymbol\eta} p / \rho`, as it should. Struphy computes
+:math:`\nabla_{\boldsymbol\eta} \ln \sqrt g` by finite differences of :math:`\det DF`
+(:mod:`struphy.pic.sph_metric_kernels`).
 
 
 .. _sph_conservation:
@@ -464,23 +482,20 @@ the velocity gradient,
     \boldsymbol\sigma = \mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
     \qquad \boldsymbol\sigma = \boldsymbol\sigma^\top\,, \quad \textnormal{tr}\, \boldsymbol\sigma = 0\,.
 
-The model docstrings of :class:`~struphy.models.ViscousEulerSPH` and :class:`~struphy.models.IncompressibleNavierStokesSPH` use the opposite sign convention (stress tensor :math:`-\boldsymbol\sigma`). Viscosity is dissipative and not part of the Lagrangian; it is added to the equations of motion. In SPH, the stress is
+Viscosity is dissipative and not part of the Lagrangian; it is added to the equations of motion. In SPH, the stress is
 evaluated at the markers from the gradient of the smoothed velocity :math:numref:`sph:velocity`,
 :math:`\boldsymbol \sigma_i := \boldsymbol\sigma(\nabla \mathbf u_h(\mathbf x_i))`, and the force is the SPH estimate of
-its divergence:
+its divergence, divided by the density:
 
 .. math::
     :label: sph:viscous_force
 
-    \dot{\mathbf v}_p = (\nabla \cdot \boldsymbol\sigma)_h(\mathbf x_p) = \sum_{i=1}^N \frac{w_i}{\rho_i}\, \boldsymbol\sigma_i\, \nabla W_h(\mathbf x_p - \mathbf x_i)\,.
+    \dot{\mathbf v}_p = \frac{1}{\rho_p} (\nabla \cdot \boldsymbol\sigma)_h(\mathbf x_p) = \frac{1}{\rho_p} \sum_{i=1}^N \frac{w_i}{\rho_i}\, \boldsymbol\sigma_i\, \nabla W_h(\mathbf x_p - \mathbf x_i)\,.
 
 This is implemented in :class:`~struphy.propagators.push_v_in_viscous_potential.PushVinViscousPotential` (in logical
-coordinates in Piola form, with forward Euler time stepping). Two remarks:
-
-* the factor :math:`1/\rho_p` of the momentum equation :math:numref:`sph:euler` is not applied, so the viscous term is
-  exact for :math:`\rho = 1` (as in the verification tests below);
-* the force :math:numref:`sph:viscous_force` is not pairwise antisymmetric, so momentum is conserved only
-  approximately by the viscous step.
+coordinates in Piola form, with the physical density :math:`\rho_p = \rho^\eta_p/\sqrt g` and forward Euler time
+stepping). The force :math:numref:`sph:viscous_force` is not pairwise antisymmetric, so momentum is conserved only
+approximately by the viscous step.
 
 
 .. _sph_bcs:

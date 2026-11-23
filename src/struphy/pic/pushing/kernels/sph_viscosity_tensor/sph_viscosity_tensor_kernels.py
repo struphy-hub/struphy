@@ -56,7 +56,7 @@ def sph_viscosity_tensor(
 
     .. math::
 
-        (-\nabla \cdot \Pi_{\textrm{vis}})^{N,h}_j(\boldsymbol \eta_i)
+        (\nabla \cdot \sigma)^{N,h}_j(\boldsymbol \eta_i)
         = -\frac{1}{\sqrt g(\boldsymbol \eta_i)} \sum_l \frac{ w_l \, \sqrt g(\boldsymbol \eta_l) \,
           \sigma_{jm}(\boldsymbol \eta_l) \, (DF^{-1})_{km}(\boldsymbol \eta_l)}{\rho^{N,h}(\boldsymbol \eta_l)} \,
           (\nabla W_h)_k(\boldsymbol \eta_i - \boldsymbol \eta_l)\,.

@@ -93,7 +93,8 @@ def test_sph_vector_destinations(marker_args, kernel):
     setup = KernelSetup(
         kernel=kernel,
         output_indices=(30, None, 24),
-        args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5),
+        args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5)
+        + ((5.0 / 3.0,) if kernel.name == "sph_pressure_coeffs" else ()),
     )
     before = marker_args.markers.copy()
     setup.evaluate(marker_args, Cuboid().args_domain)
