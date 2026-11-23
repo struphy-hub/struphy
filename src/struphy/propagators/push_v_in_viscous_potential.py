@@ -20,22 +20,45 @@ logger = logging.getLogger("struphy")
 
 
 class PushVinViscousPotential(Propagator):
-    r"""For each marker :math:`p`, solves
+    r"""Viscous force on SPH markers, see :ref:`sph_viscosity`.
+
+    **Continuous problem:** the velocity is accelerated by the divergence of the viscous stress,
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \kappa_p \sum_{i=1}^N w_i \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+        \partial_t \mathbf u = \nabla \cdot \boldsymbol\sigma\,, \qquad
+        \boldsymbol\sigma = \mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
 
-    where :math:`DF^{-\top}` denotes the inverse transpose Jacobian, and with the smoothed density
+    with dynamic viscosity :math:`\mu \geq 0`. Compared with the momentum equation
+    :math:`\rho\, \textnormal d \mathbf u / \textnormal d t = \nabla \cdot \boldsymbol \sigma`, the factor
+    :math:`1/\rho` is omitted, which is exact for :math:`\rho = 1`.
+
+    **Semi-discrete problem:** with the SPH density and velocity interpolant
 
     .. math::
 
-        \rho^{N,h}(\boldsymbol \eta) = \frac 1N \sum_{j=1}^N w_j \, W_h(\boldsymbol \eta - \boldsymbol \eta_j)\,,
+        \rho_i = \sum_{j=1}^N w_j\, W_h(\boldsymbol\eta_i - \boldsymbol\eta_j)\,, \qquad
+        \mathbf u_h(\boldsymbol\eta) = \sum_{j=1}^N \frac{w_j}{\rho_j}\, \mathbf v_j\, W_h(\boldsymbol\eta - \boldsymbol\eta_j)\,,
 
-    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
-    Time stepping:
+    the stress :math:`\boldsymbol\sigma_i` is computed at each marker from the gradient of :math:`\mathbf u_h`
+    (transformed to Cartesian derivatives with :math:`DF^{-1}`), and for each marker :math:`p`
 
-    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p}{\textnormal d t}
+        = \frac{1}{\sqrt g(\boldsymbol\eta_p)} \sum_{i=1}^N \frac{w_i}{\rho_i}\, \sqrt g(\boldsymbol\eta_i)\,
+        \boldsymbol\sigma_i\, DF^{-\top}(\boldsymbol\eta_i)\, \nabla W_h(\boldsymbol\eta_p - \boldsymbol\eta_i)\,,
+
+    which is the SPH estimate of :math:`\nabla \cdot \boldsymbol\sigma` in Piola form. :math:`W_h` is a smoothing kernel
+    from :mod:`~struphy.pic.sph_smoothing_kernels`; the coefficients :math:`w_i \mathbf v_i/\rho_i` and
+    :math:`\sqrt g\, (w_i/\rho_i) \boldsymbol\sigma_i DF^{-\top}` are computed once per time step and stored (with a minus sign) in the
+    marker array.
+
+    **Time discretization:** forward Euler (``algo="forward_euler"``),
+
+    .. math::
+
+        \mathbf v_p^{n+1} = \mathbf v_p^n + \Delta t\, \frac{\textnormal d \mathbf v_p}{\textnormal d t}\Big|^n\,.
     """
 
     class Variables:

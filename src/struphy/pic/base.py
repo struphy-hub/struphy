@@ -3645,10 +3645,13 @@ Increase the value of "box_bufsize" in the markers parameters for the next run.'
         self, *marker_array_names, is_domain_boundary: dict | None = None, mean_velocity_index: int | None = None
     ):
         """
-        Mirror the positions and velocities of the particles in the ghost marker arrays for the boundary conditions.
+        Mirror the positions and velocities of the particles in the ghost marker arrays for the boundary conditions
+        (see :ref:`sph_bcs`).
         For "mirror" boundary condition, the positions are mirrored and the velocities are unchanged.
-        For "fixed" boundary condition, the positions are mirrored and the velocities are set to zero (or to the value of f_init if provided).
-        For "noslip" boundary condition, the positions are mirrored and the velocities are inverted to have zero velocity at the boundary.
+        For "fixed" boundary condition, the positions are mirrored and the weights are set to ``-f_init / s0 / Np``
+        at the mirrored positions, so that the SPH density tends to zero at the boundary.
+        For "noslip" boundary condition, the positions are mirrored and the velocities (and the mean-velocity
+        coefficients) are inverted to have zero velocity at the boundary.
 
         Parameters
         ----------

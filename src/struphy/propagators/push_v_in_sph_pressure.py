@@ -35,8 +35,9 @@ class PushVinSPHpressure(Propagator):
     Two choices of the internal energy are implemented:
 
     * Isothermal closure: :math:`\mathcal U(\rho) = \kappa \, \ln(\rho)`, where :math:`\kappa` is constant.
-    * Polytropic closure: :math:`\mathcal U(\rho) = \kappa \, \rho^{\gamma - 1} / (\gamma - 1)`, where :math:`\kappa` is the polytropic constant and :math:`\gamma = C_p / C_v` is the polytropic index.
+    * Polytropic closure: :math:`\mathcal U(\rho) = \kappa \, \rho^{\gamma - 1} / (\gamma - 1)`, where :math:`\kappa` is the polytropic constant and :math:`\gamma = C_p / C_v` is the polytropic index (fixed to :math:`\gamma = 5/3` in the kernels).
 
+    The force is the Euler-Lagrange equation of the SPH Lagrangian, see :ref:`sph_pressure`.
     Time stepping is forward Euler.
     """
 
