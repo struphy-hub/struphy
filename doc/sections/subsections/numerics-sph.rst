@@ -563,7 +563,8 @@ Incompressible flows
 
 For incompressible flows, :math:`\nabla \cdot \mathbf u = 0`, the pressure is not a function of the density but a
 Lagrange multiplier. :class:`~struphy.models.IncompressibleNavierStokesSPH` computes it with **Chorin's projection
-method** (for a projection method entirely in SPH, see :footcite:t:`Cummins1999`) on the finite element grid (see :ref:`geomFE`): after the viscous step, the divergence of the marker
+method** :footcite:p:`Chorin1968` (for projection methods entirely in SPH, see :footcite:t:`Cummins1999` and
+:footcite:t:`Shao2003`) on the finite element grid (see :ref:`geomFE`): after the viscous step, the divergence of the marker
 velocities is deposited on the grid, the pressure :math:`p \in H^1` is found from the Poisson equation
 :math:`\Delta p = \nabla \cdot \mathbf u / \Delta t` (:class:`~struphy.propagators.poisson_solve.PoissonSolve`), and the
 markers are pushed by the pressure gradient
