@@ -1128,7 +1128,7 @@ class Particles(metaclass=ABCMeta):
 
         .. math::
 
-            s^\textrm{vol}_{\textnormal{in}}(\boldsymbol \eta, \mathbf v) = n^3(\boldsymbol \eta)\, \mathcal G(\mathbf v)\,,
+            s^\textrm{vol}_{\textnormal{in}}(\boldsymbol \eta, \mathbf v) = n^{(3)}(\boldsymbol \eta)\, \mathcal G(\mathbf v)\,,
 
         with :math:`\mathcal G(\mathbf v)` a multi-variate Gaussian:
 
@@ -1139,17 +1139,17 @@ class Particles(metaclass=ABCMeta):
 
         where :math:`d_v` stands for the dimension in velocity space, :math:`u_i` are velocity constant shifts
         and :math:`v_{\mathrm{th},i}` are constant thermal velocities (standard deviations).
-        The function :math:`n^3:(0,1)^3 \to \mathbb R^+` is a normalized 3-form on the unit cube,
+        The function :math:`n^{(3)}:(0,1)^3 \to \mathbb R^+` is a normalized 3-form on the unit cube,
 
         .. math::
 
-            \int_{(0,1)^3} n^3(\eta)\,\textnormal d \eta = 1\,.
+            \int_{(0,1)^3} n^{(3)}(\eta)\,\textnormal d \eta = 1\,.
 
         The following choices are available in Struphy:
 
-        1. Uniform distribution on the unit cube: :math:`n^3(\eta) = 1`
+        1. Uniform distribution on the unit cube: :math:`n^{(3)}(\eta) = 1`
 
-        2. Uniform distribution on the disc: :math:`n^3(\eta) = 2\eta_1` (radial coordinate = volume element of square-to-disc mapping) 
+        2. Uniform distribution on the disc: :math:`n^{(3)}(\eta) = 2\eta_1` (radial coordinate = volume element of square-to-disc mapping) 
 
         Velocities are sampled via inverse transform sampling.
         In case of Particles6D, velocities are sampled as a Maxwellian in each 3 directions,

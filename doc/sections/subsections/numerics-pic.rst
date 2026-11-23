@@ -239,10 +239,22 @@ is constant along particle orbits. The same holds for the sampling density :math
 is why Struphy evaluates :math:`s^0` only once, at loading, and stores it with each marker (column ``s0`` of the
 marker array, see :class:`~struphy.pic.base.Particles`).
 
-For guiding centers, the phase-space volume conserved by the flow is :math:`B^*_\parallel\, \textrm d v_\parallel\, \textrm d \mu`
-(times the spatial volume), with the modified field :math:`B^*_\parallel = B_\parallel + O(\epsilon)` of
-guiding-center theory. With Struphy's :math:`J_v = B_0`, the 0-forms :math:`f^0` and :math:`s^0` are therefore
-constant along guiding-center orbits only up to the ratio :math:`B^*_\parallel / B_0 = 1 + O(\epsilon)`.
+**Guiding centers.** The guiding-center flow conserves the phase-space volume
+:math:`J^*\, \textrm d \mathbf z` with :math:`J^* = |\det DF|\, B^*_\parallel`, where
+:math:`B^*_\parallel = B_\parallel + O(\epsilon)` is the modified field of guiding-center theory. Struphy's pushers
+use :math:`B^*_\parallel`, so the argument above holds with :math:`J^*`: without source, the weights are exactly
+constant along the orbits. The initial weights, however, are computed with :math:`J_v = B_0`,
+
+.. math::
+
+    w_{p0} = \frac 1N \frac{f^0_\textnormal{in}\, |\det DF|\, B_0}{s^\textrm{vol}_\textnormal{in}}(\mathbf z_{p0})
+    = \frac 1N \frac{f^0_\textnormal{in}\, J^*}{s^*}(\mathbf z_{p0})\,, \qquad
+    s^* := s^\textrm{vol}_\textnormal{in}\, \frac{B^*_\parallel}{B_0}\,.
+
+They are the exact Monte-Carlo weights for markers distributed according to :math:`s^*`. Since the markers are drawn
+from :math:`s^\textrm{vol}_\textnormal{in}`, the marker ensemble represents the initial 0-form
+:math:`f^0_\textnormal{in}\, B_0/B^*_\parallel` instead of :math:`f^0_\textnormal{in}`. This is an :math:`O(\epsilon)`
+error of the initial condition only; it is then transported exactly and does not accumulate in time.
 
 
 .. _monte_carlo:
@@ -411,7 +423,7 @@ For the Monte-Carlo algorithms the sampling density is a product of a spatial pa
 
 .. math::
 
-    s^\textrm{vol}_\textnormal{in}(\boldsymbol\eta, \mathbf v) = n^3(\boldsymbol\eta)\, \mathcal G(\mathbf v)\,,
+    s^\textrm{vol}_\textnormal{in}(\boldsymbol\eta, \mathbf v) = n^{(3)}(\boldsymbol\eta)\, \mathcal G(\mathbf v)\,,
     \qquad
     \mathcal G(\mathbf v) = \prod_{i=1}^{d_v} \frac{1}{\sqrt{2\pi}\, v_{\textrm{th},i}}
     \exp\left[-\frac{(v_i - u_i)^2}{2 v_{\textrm{th},i}^2}\right]\,,
@@ -420,7 +432,7 @@ where :math:`d_v` is the dimension of velocity space. The shifts :math:`u_i` and
 :math:`v_{\textrm{th},i}` are given by ``moments``; the default is :math:`u_i = 0` and
 :math:`v_{\textrm{th},i} = 1`. Adapting them to the distribution function reduces the noise (importance sampling,
 see :ref:`monte_carlo`). The spatial part is a normalized 3-form on the unit cube, chosen with
-``spatial``: ``"uniform"`` gives :math:`n^3 = 1`, ``"disc"`` gives :math:`n^3 = 2\eta_1`, which is uniform on the
+``spatial``: ``"uniform"`` gives :math:`n^{(3)} = 1`, ``"disc"`` gives :math:`n^{(3)} = 2\eta_1`, which is uniform on the
 image of the unit square under a polar (disc) mapping. Velocities are drawn by inverse transform sampling, see
 :meth:`~struphy.pic.base.Particles.draw_markers` for details, also for guiding-center markers.
 
@@ -674,18 +686,20 @@ Then :math:numref:`int:1` is decomposed as
     \\[2mm]
     &= \int_\Omega A\, \frac{f^\textrm{vol} - \mathcal M^\textrm{vol}}{s^\textrm{vol}}\, s^\textrm{vol}\,\textrm d \mathbf z + I_{\mathcal M}
     \\[2mm]
-    &\approx \sum_{p=1}^N w_p^\delta(t)\, A\big(t, \mathbf z_p(t)\big) + I_{\mathcal M}\,,
+    &\approx \sum_{p=1}^N \delta w_p(t)\, A\big(t, \mathbf z_p(t)\big) + I_{\mathcal M}\,,
 
 with the time-dependent **delta-f weights**
 
 .. math::
     :label: pic:cv_weights
 
-    w^\delta_p(t) = \frac 1N \frac{f^\textrm{vol} - \mathcal M^\textrm{vol}}{s^\textrm{vol}}\Big|_{(t, \mathbf z_p(t))}
+    \delta w_p(t) = \frac 1N \frac{f^\textrm{vol} - \mathcal M^\textrm{vol}}{s^\textrm{vol}}\Big|_{(t, \mathbf z_p(t))}
     = w_{p0} - \frac 1N \frac{\mathcal M^0\big(t, \mathbf z_p(t)\big)}{s^0_\textnormal{in}(\mathbf z_{p0})}\,.
 
 For the second equality we used that, without source, :math:`f^0/s^0 = N w_{p0}` and :math:`s^0` are constant along
-the trajectories (:ref:`pic_eom`; for guiding centers up to :math:`O(\epsilon)`, see :ref:`pic_phase_space`).
+the trajectories (:ref:`pic_eom`). For guiding centers, both terms carry the same factor :math:`B_0/B^*_\parallel`
+at the initial marker position (see :ref:`pic_phase_space`), so the delta-f weights are consistent with the
+initial condition represented by the markers.
 The full-f weights :math:`w_{p0}` stay constant; the delta-f weights are
 recomputed from them whenever the markers have moved. The variance is now
 
@@ -700,7 +714,7 @@ In Struphy, the control variate is switched on with ``control_variate=True`` in
 :class:`~struphy.particles.parameters.WeightsParameters`; the background :math:`\mathcal M` is the background of the
 species (:attr:`~struphy.pic.base.Particles.f0`). The weights :math:numref:`pic:cv_weights` are computed in
 :meth:`struphy.pic.base.Particles.update_weights`, which the propagators call after pushing the markers. The marker
-array stores both: ``w0`` (:math:`w_{p0}`) and ``weights`` (:math:`w^\delta_p`).
+array stores both: ``w0`` (:math:`w_{p0}`) and ``weights`` (:math:`\delta w_p`).
 
 
 .. _pic_deltaf:
