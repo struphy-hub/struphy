@@ -92,6 +92,7 @@ doc = [
     "lxml_html_clean",
     "sphinxcontrib-napoleon",
     "sphinx-copybutton",
+    "sphinxcontrib-bibtex",
     "sphinx-collections",
     "pydata-sphinx-theme",
     "nbsphinx",

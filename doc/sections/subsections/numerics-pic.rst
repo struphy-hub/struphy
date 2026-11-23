@@ -9,6 +9,10 @@ The first sections explain the idea and the algorithm without proofs; the deriva
 Parts of the material and the figures are adapted from the lecture
 `Meshless Structure-Preserving Algorithms <https://github.com/spossann/2026_SPEGEO_Strasbourg_school>`_
 (SPEGEO school, Strasbourg 2026).
+Classic introductions to particle methods for plasmas are the textbooks :footcite:t:`Birdsall1991` and
+:footcite:t:`Hockney1988`, and the lecture notes :footcite:t:`Sonnendruecker2013`; the geometric PIC framework
+used in Struphy (GEMPIC) is described in :footcite:t:`Kraus2017`. A list of all references is at the
+:ref:`end of the page <pic_references>`.
 
 
 .. _pic_overview:
@@ -81,7 +85,7 @@ In Struphy, the initial markers are usually drawn at random (Monte-Carlo loading
     w_{p0} = \frac{1}{N}\,\frac{f^\textrm{vol}_\textnormal{in}(\mathbf z_{p0})}{s^\textrm{vol}_\textnormal{in}(\mathbf z_{p0})}\,.
 
 This choice makes the marker sums Monte-Carlo estimates of the integrals, with an error that decreases like
-:math:`1/\sqrt N` (see :ref:`monte_carlo`). Note that in Struphy the factor :math:`1/N` is part of the weights.
+:math:`1/\sqrt N` (see :ref:`monte_carlo` and :footcite:t:`Aydemir1994`). Note that in Struphy the factor :math:`1/N` is part of the weights.
 
 
 .. _pic_algo:
@@ -166,7 +170,8 @@ Phase space, 0-forms and volume forms
 
 Struphy computes in logical coordinates :math:`\boldsymbol\eta \in (0,1)^3`, mapped to physical space by
 :math:`\mathbf x = F(\boldsymbol\eta)` (see :ref:`geomFE`), and in velocity coordinates :math:`\mathbf v`
-(Cartesian velocities in 6D, :math:`(v_\parallel, \mu)` in 5D). A phase-space volume element transforms as
+(Cartesian velocities in 6D, guiding-center coordinates :math:`(v_\parallel, \mu)` in 5D
+:footcite:p:`Littlejohn1983,Possanner2018`). A phase-space volume element transforms as
 
 .. math::
 
@@ -241,7 +246,8 @@ marker array, see :class:`~struphy.pic.base.Particles`).
 
 **Guiding centers.** The guiding-center flow conserves the phase-space volume
 :math:`J^*\, \textrm d \mathbf z` with :math:`J^* = |\det DF|\, B^*_\parallel`, where
-:math:`B^*_\parallel = B_\parallel + O(\epsilon)` is the modified field of guiding-center theory. Struphy's pushers
+:math:`B^*_\parallel = B_\parallel + O(\epsilon)` is the modified field of guiding-center theory
+:footcite:p:`Littlejohn1983`. Struphy's pushers
 use :math:`B^*_\parallel`, so the argument above holds with :math:`J^*`: without source, the weights are exactly
 constant along the orbits. The initial weights, however, are computed with :math:`J_v = B_0`,
 
@@ -262,7 +268,9 @@ error of the initial condition only; it is then transported exactly and does not
 Monte-Carlo integration
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-At the core of the PIC method is the approximation of integrals
+At the core of the PIC method is the approximation of integrals by Monte-Carlo integration; a unified Monte-Carlo
+interpretation of particle simulations, including the error and noise estimates below, is given by
+:footcite:t:`Aydemir1994`. We consider integrals
 
 .. math::
     :label: int:1
@@ -270,7 +278,7 @@ At the core of the PIC method is the approximation of integrals
     I = \int_\Omega A(\mathbf z)\, f^\textrm{vol}(\mathbf z)\,\textrm d \mathbf z
       = \int_\Omega A(\mathbf z)\, f^0(\mathbf z)\, J(\mathbf z)\,\textrm d \mathbf z
 
-by Monte-Carlo (MC) integration, where :math:`A` is a 0-form (e.g. a velocity moment times a finite element basis
+where :math:`A` is a 0-form (e.g. a velocity moment times a finite element basis
 function). Let :math:`s^\textrm{vol}` be a probability density on :math:`\Omega`,
 
 .. math::
@@ -334,7 +342,7 @@ There are two ways to reduce the error at fixed :math:`N`, both by making :math:
   see :ref:`control_var`.
 
 Quasi-random (low-discrepancy) samples such as Sobol sequences can also improve the convergence rate beyond
-:math:`1/\sqrt N` for smooth integrands; they are available as loading options.
+:math:`1/\sqrt N` for smooth integrands :footcite:p:`Niederreiter1992`; they are available as loading options.
 
 
 .. _pic_two_ways:
@@ -447,7 +455,8 @@ Marker equations of motion
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We now derive the equations for :math:`\mathbf z_p(t)` and :math:`w_p(t)` from the conservation law
-:math:numref:`conservelaw` with a general source :math:`S`. Three derivations are given: a short one from the weak
+:math:numref:`conservelaw` with a general source :math:`S` (see also :footcite:t:`Aydemir1994` and
+:footcite:t:`Sonnendruecker2013`). Three derivations are given: a short one from the weak
 form (:ref:`pic_eom_weak`), a longer one based on Monte-Carlo estimates of each term (:ref:`pic_eom_mc`), and a
 geometric argument for constant weights (:ref:`pic_eom_flow`). They lead to the same result.
 
@@ -667,7 +676,7 @@ Control variate method
 The Monte-Carlo error :math:numref:`mc:error` is proportional to the standard deviation :math:`\sigma` of the
 integrand. In many plasma applications, :math:`f` stays close to a known background :math:`\mathcal M` (e.g. a
 Maxwellian equilibrium), and only the small deviation :math:`f - \mathcal M` carries the interesting physics. The
-control variate method exploits this. It relies on
+control variate method exploits this :footcite:p:`Aydemir1994,Hatzky2002,Kleiber2011`. It relies on
 
 1. the ability to compute the integral :math:numref:`int:1` of the background without Monte-Carlo
    (analytically or by quadrature):
@@ -723,8 +732,8 @@ Delta-f method
 ^^^^^^^^^^^^^^
 
 The control variate method solves the full equation for :math:`f` and only changes how integrals are estimated. In
-the **delta-f method**, the markers instead solve an equation for the perturbation :math:`\delta f = f - \mathcal M`
-directly. Writing the characteristics as :math:`\mathbf u = \mathbf u_0 + \mathbf u_1`, where the background is
+the **delta-f method** :footcite:p:`Parker1993,Dimits1993,Hu1994`, the markers instead solve an equation for the
+perturbation :math:`\delta f = f - \mathcal M` directly. Writing the characteristics as :math:`\mathbf u = \mathbf u_0 + \mathbf u_1`, where the background is
 stationary under :math:`\mathbf u_0`, i.e. :math:`\nabla_{\mathbf z} \cdot (\mathbf u_0 \mathcal M^\textrm{vol}) = 0`,
 the conservation law :math:numref:`conservelaw` (with :math:`S = 0`) becomes
 
@@ -853,7 +862,8 @@ Kernel density estimation
 
 The marker approximation :math:numref:`pic:ansatz` is a sum of delta distributions, while the true solution is
 smooth. A smooth approximation that can be evaluated at any point is obtained by convolution with a **smoothing
-kernel** :math:`W_h` of width :math:`h` (e.g. a Gaussian), normalized to :math:`\int W_h\, \textrm d \mathbf z = 1`:
+kernel** :math:`W_h` of width :math:`h` (e.g. a Gaussian; kernel density estimation, see
+:footcite:t:`Silverman1986`), normalized to :math:`\int W_h\, \textrm d \mathbf z = 1`:
 
 .. math::
 
@@ -905,3 +915,11 @@ diagnostic, it is switched on with :class:`~struphy.particles.parameters.KernelD
 parameters; the kernel is then a Gaussian with a width of one sorting box in each direction. With the control
 variate or delta-f markers, the current weights are used, so the estimate is that of :math:`\delta f`. The same technique is the basis of
 :ref:`smoothed particle hydrodynamics <sph_method>`.
+
+
+.. _pic_references:
+
+References
+^^^^^^^^^^
+
+.. footbibliography::
