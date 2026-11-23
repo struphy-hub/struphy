@@ -503,14 +503,15 @@ class Particles(metaclass=ABCMeta):
     @property
     @abstractmethod
     def sampling_density(self):
-        """Marker sampling density function :math:`s^\textrm{vol}` as a volume form, see :ref:`monte_carlo`.
-        Must be normalized to 1. Its coordinates are the coordinates used in Monte-Carlo Integrals
-        approximated by the particles."""
+        r"""Marker sampling density :math:`s^\textrm{vol}_\textnormal{in}(\mathbf z)` as a volume form, see
+        :ref:`monte_carlo` and :ref:`pic_loading`. Must be normalized to 1. Its coordinates :math:`\mathbf z` are the
+        phase-space coordinates used in the Monte-Carlo integrals approximated by the particles."""
         pass
 
     @abstractmethod
     def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
-        r"""0-form corresponding to :ref:`~struphy.pic.base.Particles.sampling_density`.
+        r"""0-form :math:`s^0_\textnormal{in} = s^\textrm{vol}_\textnormal{in} / J` corresponding to
+        :attr:`~struphy.pic.base.Particles.sampling_density`, see :ref:`pic_phase_space`.
         This is the quantity stored in each marker's ``s0`` column (see the class docstring)
         and used to compute initial weights ``w0 = f_init / s0 / Np``."""
         pass
@@ -1116,20 +1117,24 @@ class Particles(metaclass=ABCMeta):
         r""" 
         Drawing markers 
         
-        * for PIC: according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`
+        * for PIC: according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}(\mathbf z)`
+          on phase space, :math:`\mathbf z = (\boldsymbol \eta, \mathbf v)`, see :ref:`pic_loading`
         * for SPH: from unity/disc in space and according to the vector-field representation of the fluid velocity
-        
-        In Struphy, the initial marker distribution :math:`s^\textrm{vol}_{\textnormal{in}}` is always of the form
+
+        The markers are drawn with the algorithm ``loading`` of the
+        :class:`~struphy.particles.parameters.LoadingParameters`: pseudo-random numbers, Sobol sequences
+        (standard or antithetic), a regular tesselation of the sorting boxes, or read from a restart or external
+        file. For the random and Sobol algorithms, the initial marker distribution is of the form
 
         .. math::
 
-            s^\textrm{vol}_{\textnormal{in}}(\eta,v) = n^3(\eta)\, \mathcal M(v)\,,
+            s^\textrm{vol}_{\textnormal{in}}(\boldsymbol \eta, \mathbf v) = n^3(\boldsymbol \eta)\, \mathcal G(\mathbf v)\,,
 
-        with :math:`\mathcal M(v)` a multi-variate Gaussian:
+        with :math:`\mathcal G(\mathbf v)` a multi-variate Gaussian:
 
-        .. math:: 
+        .. math::
 
-            \mathcal M(v) = \prod_{i=1}^{d_v} \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th},i}}
+            \mathcal G(\mathbf v) = \prod_{i=1}^{d_v} \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th},i}}
                 \exp\left[-\frac{(v_i-u_i)^2}{2 v_{\mathrm{th},i}^2}\right]\,,
 
         where :math:`d_v` stands for the dimension in velocity space, :math:`u_i` are velocity constant shifts
@@ -1151,7 +1156,7 @@ class Particles(metaclass=ABCMeta):
 
         .. math::
 
-            r_i = \int^{v_i}_{-\infty} \mathcal M(v^\prime_i) \textnormal{d} v^\prime_i = \frac{1}{2}\left[ 1 + \text{erf}\left(\frac{v_i - u_i}{\sqrt{2}v_{\mathrm{th},i}}\right)\right] \,,
+            r_i = \int^{v_i}_{-\infty} \mathcal G(v^\prime_i) \textnormal{d} v^\prime_i = \frac{1}{2}\left[ 1 + \text{erf}\left(\frac{v_i - u_i}{\sqrt{2}v_{\mathrm{th},i}}\right)\right] \,,
 
         where :math:`r_i \in \mathcal R(0,1)` is a uniformly drawn random number in the unit interval. So then
 
@@ -1164,18 +1169,18 @@ class Particles(metaclass=ABCMeta):
 
         .. math::
 
-            \mathcal{M}(v_1, v_2) \, \textnormal{d} v_1 \textnormal{d} v_2 &=  \prod_{i=1}^{2} \frac{1}{\sqrt{2\pi}}\frac{1}{v_{\mathrm{th},i}}
+            \mathcal{G}(v_1, v_2) \, \textnormal{d} v_1 \textnormal{d} v_2 &=  \prod_{i=1}^{2} \frac{1}{\sqrt{2\pi}}\frac{1}{v_{\mathrm{th},i}}
                 \exp\left[-\frac{(v_i-u_i)^2}{2 v_{\mathrm{th},i}^2}\right] \textnormal{d} v_i\,,
             \\
             &= \frac{1}{v_\mathrm{th}^2}v_\perp \exp\left[-\frac{(v_\perp-u)^2}{2 v_\mathrm{th}^2}\right] \textnormal{d} v_\perp\,,
             \\
-            &= \mathcal{M}^{\textnormal{pol}}(v_\perp) \, \textnormal{d} v_\perp \,.
+            &= \mathcal{G}^{\textnormal{pol}}(v_\perp) \, \textnormal{d} v_\perp \,.
 
         Then,
 
         .. math::
 
-            r = \int^{v_\perp}_0 \mathcal{M}^{\textnormal{pol}} \textnormal{d} v_\perp = 1 - \exp\left[-\frac{(v_\perp-u)^2}{2 v_\mathrm{th}^2}\right] \,.
+            r = \int^{v_\perp}_0 \mathcal{G}^{\textnormal{pol}} \textnormal{d} v_\perp = 1 - \exp\left[-\frac{(v_\perp-u)^2}{2 v_\mathrm{th}^2}\right] \,.
 
         So then,
 
@@ -1183,7 +1188,7 @@ class Particles(metaclass=ABCMeta):
 
             v_\perp = \sqrt{- \ln(1-r)}\sqrt{2}v_\mathrm{th} + u \,.
 
-        All needed parameters can be set in the parameter file, see :ref:`params_yml`.
+        All parameters are set with :class:`~struphy.particles.parameters.LoadingParameters`.
 
         On several processes, the markers are always sent to the process of their domain after drawing
         (:meth:`mpi_sort_markers`). They are also sorted into boxes if sort is True (default) and sorting
@@ -1517,10 +1522,15 @@ class Particles(metaclass=ABCMeta):
 
         .. math::
 
-            w_{k0} := \frac{f^0(t, q_k(t)) }{s^0(t, q_k(t)) } = \frac{f^0(0, q_k(0)) }{s^0(0, q_k(0)) } = \frac{f^0_{\textnormal{in}}(q_{k0}) }{s^0_{\textnormal{in}}(q_{k0}) }
+            w_{p0} := \frac 1N \frac{f^0_{\textnormal{in}}(\mathbf z_{p0}) }{s^0_{\textnormal{in}}(\mathbf z_{p0}) }
+            = \frac 1N \frac{f^\textrm{vol}_{\textnormal{in}}(\mathbf z_{p0}) }{s^\textrm{vol}_{\textnormal{in}}(\mathbf z_{p0}) }
 
-        from the initial distribution function :math:`f^0_{\textnormal{in}}` specified in the parmeter file
-        and from the initial volume density :math:`s^n_{\textnormal{vol}}` specified in :meth:`~struphy.pic.base.Particles.draw_markers`.
+        of the markers :math:`p = 1, \ldots, N` at their initial positions :math:`\mathbf z_{p0}` in phase space
+        (see :ref:`particle_discrete`), from the initial distribution function :math:`f^0_{\textnormal{in}}`
+        specified in the parameter file and from the sampling density :math:`s^0_{\textnormal{in}}` of
+        :meth:`~struphy.pic.base.Particles.draw_markers`. Volume-form initial conditions are transformed to
+        0-forms first. With ``loading="tesselation"``, the weights are the cell averages of
+        :math:`f^\textrm{vol}_{\textnormal{in}}` over the tiles instead.
         Moreover, it sets the corresponding columns for "w0", "s0" and "weights" in the markers array.
         If :attr:`~struphy.pic.base.Particles.control_variate` is True, the background :attr:`~struphy.pic.base.Particles.f0` is subtracted.
 
