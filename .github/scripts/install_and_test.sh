@@ -55,7 +55,7 @@ echo "----------------------------------------"
 pip install --upgrade pip
 pip install -e ".[dev]"
 pip uninstall mpi4py -y
-pip install --no-binary=mpi4py mpi4py
+pip install --no-binary=mpi4py "mpi4py<=4.1.1"
 echo "Installed packages:"
 pip list
 echo

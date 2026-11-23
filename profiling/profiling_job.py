@@ -51,7 +51,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from clusters import HARDWARE_INFO, SLURM_PRESETS, detect_machine_name, profiling_base_dir
+from clusters import HARDWARE_INFO, SHARED_NODES, SLURM_PRESETS, detect_machine_name, mem_in_mb, profiling_base_dir
 from package_profiling_results import (
     RESULTS_DIR_NAME,
     _build_output_name,
@@ -152,6 +152,58 @@ class ProfilingCase:
 
     def __post_init__(self) -> None:
         self.setup_run()
+
+    @classmethod
+    def from_case_info(cls, case_output_root: Path, output_root: Path) -> "ProfilingCase":
+        """Rebuild a case from the `profiling_case_info.json` its driver wrote, to package its runs afterwards.
+
+        For runs whose driver stopped before packaging them (e.g. the login session ended while the jobs were
+        queued), see `package_case.py`. Nothing is compiled, cloned or submitted (`setup_run` is not called). The
+        packaged folder gets the name the driver gave it: the timestamp is read from the name of the run folder
+        (`<timestamp>-<commit>[-<n>]`), which `setup_run` derived from the same `run_timestamp`.
+
+        Args:
+            case_output_root: The case folder `<run folder>/<label>` that holds `profiling_case_info.json`
+                and the `sim_<launch_id>` folders of the runs.
+            output_root: The folder the case is packaged into.
+        """
+        case_output_root = Path(case_output_root).resolve()
+        info = json.loads((case_output_root / "profiling_case_info.json").read_text(encoding="utf-8"))
+        compiler_info = info.get("compiler") or {}
+
+        case = cls.__new__(cls)
+        case.label = info.get("test_case_identifier", case_output_root.name)
+        case.name = info.get("test_case_name", case.label)
+        case.description = info.get("test_case_description", "")
+        case.physics_problem = info.get("physics_problem", "")
+        case.struphy_model_used = info.get("struphy_model_used", "")
+        case.params_source = Path(info["parameter_file"]) if info.get("parameter_file") else None
+        case.pproc_source = None
+        case.language = compiler_info.get("language", "fortran")
+        case.compiler = compiler_info.get("compiler", "GNU")
+        case.upload = False
+
+        case.venv_path = None
+        case.compiler_instance = None
+        case.run_commit = info.get("struphy_commit")
+        case.run_timestamp = datetime.strptime(
+            case_output_root.parent.name[: len("YYYYmmddTHHMMSSZ")],
+            "%Y%m%dT%H%M%SZ",
+        ).replace(tzinfo=UTC)
+        case.output_root = Path(output_root).resolve()
+        case.run_results_root = case_output_root.parent
+        case.case_output_root = case_output_root
+        case.use_slurm = info.get("scheduler", "slurm") == "slurm"
+        case.use_modules = None
+        case.launcher = None
+
+        case.destination_dir = None
+        case.packaged_runs = []
+        case.job_infos = list(info.get("jobs", []))
+        case.launch_count = len(case.job_infos)
+        case._case_info = info
+        case._packaged_launch_ids = []
+        return case
 
     def build_commands(
         self,
@@ -279,7 +331,15 @@ class ProfilingCase:
                 `HARDWARE_INFO` entry is only needed when `num_nodes` is not given.
                 Ignored outside SLURM.
             slurm_options: SLURM pragmas that override those of the preset, e.g.
-                `{"time": "00:30:00"}`. Ignored outside SLURM.
+                `{"time": "00:30:00"}`. On clusters whose small jobs share nodes
+                (`clusters.SHARED_NODES`, e.g. Raven), jobs with more tasks per node
+                than shared nodes allow request the memory of the whole node unless
+                `mem` is given, and the extra key `mem_shared` sets the memory per
+                node of the shared jobs only (ignored on other clusters); a shared
+                job whose `mem` or `mem_shared` exceeds what shared jobs can request
+                allocates all cores of its node (`ntasks_per_node` = the cores of a
+                node) and runs its `num_tasks` ranks in it (`srun -n num_tasks`).
+                Ignored outside SLURM.
 
         Raises:
             ValueError: If `backend` is neither "numpy" nor "cupy", or if
@@ -321,6 +381,39 @@ class ProfilingCase:
             if num_tasks % num_nodes != 0:
                 raise ValueError(f"num_tasks ({num_tasks}) is not evenly divisible by num_nodes ({num_nodes}).")
             cluster_preset = {**SLURM_PRESETS[preset_name], **(slurm_options or {})}
+            # `mem` and `mem_per_cpu` exclude each other in SLURM: the one of the run replaces the other of the preset
+            if "mem" in (slurm_options or {}):
+                cluster_preset.pop("mem_per_cpu", None)
+            elif "mem_per_cpu" in (slurm_options or {}):
+                cluster_preset.pop("mem", None)
+            # Memory per node on clusters whose small jobs share nodes (`clusters.SHARED_NODES`): `mem` of the run, else
+            # the whole node for exclusive jobs, else `mem_shared` of the run, else the `mem` of the preset.
+            # `mem_shared` is not a SLURM option and is ignored on the other clusters. A small job that needs more
+            # memory than a shared job can request allocates all cores of its node, which makes it exclusive
+            # (`#SBATCH --exclusive` is not accepted on Raven), and runs only its `num_tasks` ranks in it: the launch
+            # command is `srun -n num_tasks` (`build_commands`).
+            mem_shared = cluster_preset.pop("mem_shared", None)
+            tasks_per_node = num_tasks // num_nodes
+            shared_nodes = SHARED_NODES.get(preset_name)
+            if shared_nodes is not None:
+                cores_per_node = tasks_per_node * int(cluster_preset.get("cpus_per_task", 1))
+                exclusive = cores_per_node > shared_nodes["max_cores_per_node"]
+                mem = cluster_preset.get("mem") if "mem" in (slurm_options or {}) else mem_shared
+                if not exclusive and mem is not None and mem_in_mb(mem) > shared_nodes["max_mem_shared"]:
+                    cpus_per_task = int(cluster_preset.get("cpus_per_task", 1))
+                    tasks_per_node = HARDWARE_INFO[preset_name]["cpus_per_node"] // cpus_per_task
+                    exclusive = True
+                    # srun takes the tasks per node of the allocation by default: give it the ones of the run, so that
+                    # the ranks of a run on several nodes are spread over all of them
+                    launch = f"{self.launcher} -n {num_tasks} "
+                    case_commands = [
+                        line.replace(launch, f"{launch}--ntasks-per-node={num_tasks // num_nodes} ")
+                        for line in case_commands
+                    ]
+                if "mem" not in (slurm_options or {}) and (exclusive or mem_shared is not None):
+                    cluster_preset["mem"] = shared_nodes["mem_exclusive"] if exclusive else mem_shared
+                    if "mem_per_cpu" not in (slurm_options or {}):
+                        cluster_preset.pop("mem_per_cpu", None)
             # SLURM logs with a relative path would land in the folder sbatch is called from: put them beside the
             # job scripts instead
             for key in ("output", "error"):
@@ -332,7 +425,7 @@ class ProfilingCase:
                 # The job name is what `%x` expands to in the preset's output/error
                 # paths, so this also names the SLURM log files.
                 job_name=f"profiling_{self.label}_{self.launch_count:02d}",
-                ntasks_per_node=num_tasks // num_nodes,
+                ntasks_per_node=tasks_per_node,
                 custom_commands=case_commands,
                 **{**cluster_preset, "nodes": num_nodes},
             )
@@ -483,7 +576,11 @@ class ProfilingCase:
     def _packaged_language_and_commit(self, case_info: dict) -> tuple[str, str]:
         """The Pyccel language and Struphy commit the packaged folder is named after."""
         testcase = self.case_output_root.name
-        case_language = case_info.get("pyccel_language") or self.compiler_instance.language
+        case_language = (
+            case_info.get("pyccel_language")
+            or (case_info.get("compiler") or {}).get("language")
+            or (self.compiler_instance.language if self.compiler_instance is not None else None)
+        )
         case_commit = case_info.get("struphy_commit") or self.run_commit
         if case_language is None:
             raise RuntimeError(

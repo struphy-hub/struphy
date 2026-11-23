@@ -1,10 +1,10 @@
 """ITPA TAE (LinearMHD): strong scaling on one node, per space of the magnetic field, preconditioner and grid.
 
 This file defines the profiling case (the `ProfilingCase`) of one variant (space of the magnetic field, preconditioner
-of the shear Alfven solve and grid) and submits its runs on 4, 8, 16, 32 and 64 MPI ranks, all on a single node (a
-Raven CPU node, 72 cores, with the `raven` preset of `clusters.SLURM_PRESETS`, which allocates the whole node also
-for the small rank counts). For each rank count, `ProfilingCase.launch` builds and submits a SLURM script, or, without
-a batch system, runs directly on this machine, where the rank counts that exceed the local cores are skipped.
+of the shear Alfven solve and grid) and submits its runs on 4, 8, 16, 32 and 64 MPI ranks, all on a single node (a Raven
+CPU node, 72 cores, with the `raven` preset of `clusters.SLURM_PRESETS`); the toroidal Fourier variants on at most 32
+ranks (see the memory below). For each rank count, `ProfilingCase.launch` builds and submits a SLURM script, or,
+without a batch system, runs directly on this machine, where the rank counts that exceed the local cores are skipped.
 `finalize_run` then packages (and with `--upload` uploads) each run as soon as its own job finishes. Each generated
 script runs the simulation by invoking `params_TAE_benchmark.py` directly (its `__main__` block is the worker) with
 `--setup profiling` (`--steps` time steps, default 50, solver iterations logged), and then writes the scope-profiler
@@ -39,6 +39,20 @@ the SLURM time limit of its runs (the 4-rank run of 50 steps, with a margin), sc
 overrides it.
 ToroidalFourierPreconditioner holds dense poloidal factorizations on every rank (about 5-6 GB per rank at
 24 x 88 x 8), so it runs on at most 32 ranks.
+
+Memory: on Raven, the runs on at most 36 ranks share their node with other jobs and request 64000 MB by default (the
+`raven` preset), the runs on more ranks get the whole node (240000 MB, `clusters.SHARED_NODES`); `--mem` sets the memory
+per node of all runs. Peak memory (local workstation, 2 steps, the setup dominates) is about 0.56 GB per rank plus 5.3
+GB divided among the ranks (H(div), Kronecker preconditioner; about 8 GB on 4 ranks and 41 GB on 64 ranks). Polar
+splines hold the polar operators and the poloidal factors of the preconditioner on every rank: about 2.8 GB per rank
+plus 5.9 GB (extrapolated from ShearAlfven, about 1.2 times more on 24 x 48 x 8): about 95 GB on 32 ranks and 185 GB on
+64 ranks, so the polar variants request 120000 MB, the most a shared Raven job can request, on up to 32 ranks, and
+240000 MB on 64 ranks. The toroidal Fourier variants (dense poloidal factorizations on every rank, about 5-6 GB per
+rank, not measured on the full grid) run on at most 32 ranks and request a whole node (240000 MB) for all runs (shared
+Raven jobs can request at most 120000 MB, so the driver allocates all 72 cores of the node and runs the ranks of the run
+in it); on 32 ranks this is tight (about 200 GB, more with polar splines). On Viper CPU nodes (128 cores) jobs on at
+most 64 cores share the node (at most 250000 MB) and larger jobs get whole nodes (480000 MB): all runs here share their
+node there, also the toroidal Fourier runs.
 """
 
 import argparse
@@ -54,6 +68,20 @@ from utils import scaled_walltime  # noqa: E402
 
 # MPI ranks of the strong scaling, all on one node
 RANKS = (4, 8, 16, 32, 64)
+
+
+def MEM_POLAR(num_tasks):
+    """Memory per node (MB) of a polar run on a shared node: 120000 (the most a shared Raven job can request) up to 32
+    ranks, 240000 on more ranks (about 150-185 GB on 64 ranks; on Raven these runs get the whole node anyway, on Viper
+    a 64-rank job still shares its node)."""
+    return "120000" if num_tasks <= 32 else "240000"
+
+
+# memory per node (MB) of the toroidal Fourier runs (dense poloidal factorizations on every rank), on at most 32
+# ranks: a whole Raven node (all its cores are allocated, since shared Raven jobs can request at most 120000 MB); on
+# Viper the runs stay shared (at most 250000 MB)
+MEM_TOROIDAL_FOURIER = "240000"
+RANKS_TOROIDAL_FOURIER = (4, 8, 16, 32)
 
 FINE, COARSE, POLAR = (24, 88, 8), (24, 44, 8), (24, 90, 8)
 
@@ -118,22 +146,27 @@ SOLVERS = {
 }
 
 
-def _variant(solver, grid, walltime, ranks=RANKS, a1=None):
-    """A variant: the solver (key of SOLVERS), grid, SLURM time limit, rank counts and the hole radius (None for the
-    default 0.1 of the example; ignored with polar splines)."""
-    return {"solver": solver, "grid": grid, "walltime": walltime, "ranks": ranks, "a1": a1}
+def _variant(solver, grid, walltime, ranks=RANKS, a1=None, mem_shared=None):
+    """A variant: the solver (key of SOLVERS), grid, SLURM time limit, rank counts, the hole radius (None for the
+    default 0.1 of the example; ignored with polar splines) and the memory per node of the runs on
+    shared nodes (`mem_shared` of `ProfilingCase.launch`, Raven and Viper; a function of the number of ranks or a
+    value; None for the mem of the SLURM preset)."""
+    return {"solver": solver, "grid": grid, "walltime": walltime, "ranks": ranks, "a1": a1, "mem_shared": mem_shared}
 
 
-# variant (key = label suffix) -> solver, grid, SLURM time limit (4-rank run of 50 steps), rank counts, hole radius a1
+# variant (key = label suffix) -> solver, grid, SLURM time limit (4-rank run of 50 steps), rank counts, hole radius a1,
+# memory of the runs on shared nodes
 VARIANTS = {
     "hdiv_stiffness_24x88x8": _variant("hdiv_stiffness", FINE, "00:20:00"),
-    "hdiv_toroidal_fourier_24x88x8": _variant("hdiv_toroidal_fourier", FINE, "01:00:00", ranks=(4, 8, 16, 32)),
-    "hdiv_mass_24x88x8": _variant("hdiv_mass", FINE, "01:00:00"),
-    "hdiv_polar_stiffness_24x90x8": _variant("hdiv_polar_stiffness", POLAR, "00:30:00"),
-    "hdiv_polar_toroidal_fourier_24x90x8": _variant(
-        "hdiv_polar_toroidal_fourier", POLAR, "01:00:00", ranks=(4, 8, 16, 32)
+    "hdiv_toroidal_fourier_24x88x8": _variant(
+        "hdiv_toroidal_fourier", FINE, "01:00:00", ranks=RANKS_TOROIDAL_FOURIER, mem_shared=MEM_TOROIDAL_FOURIER
     ),
-    "hdiv_polar_mass_24x90x8": _variant("hdiv_polar_mass", POLAR, "03:00:00"),
+    "hdiv_mass_24x88x8": _variant("hdiv_mass", FINE, "01:00:00"),
+    "hdiv_polar_stiffness_24x90x8": _variant("hdiv_polar_stiffness", POLAR, "00:30:00", mem_shared=MEM_POLAR),
+    "hdiv_polar_toroidal_fourier_24x90x8": _variant(
+        "hdiv_polar_toroidal_fourier", POLAR, "01:00:00", ranks=RANKS_TOROIDAL_FOURIER, mem_shared=MEM_TOROIDAL_FOURIER
+    ),
+    "hdiv_polar_mass_24x90x8": _variant("hdiv_polar_mass", POLAR, "03:00:00", mem_shared=MEM_POLAR),
     "hcurl_hiptmair_xu_24x88x8": _variant("hcurl_hiptmair_xu", FINE, "00:20:00"),
     # the influence of the hole radius on the runtime (not the default of the example)
     "hdiv_stiffness_a1_0.01_24x88x8": _variant("hdiv_stiffness", FINE, "00:20:00", a1=0.01),
@@ -164,13 +197,20 @@ def main() -> None:
         nargs="+",
         default=None,
         help="MPI rank counts of the scaling (default: those of the variant, 4 8 16 32 64; up to 32 for the "
-        "toroidal Fourier preconditioner).",
+        "toroidal Fourier variants).",
     )
     parser.add_argument("--steps", type=int, default=50, help="Time steps per run (default 50).")
     parser.add_argument(
         "--time",
         default=None,
         help="SLURM time limit of each run (default: the walltime of the variant, for 50 steps, scaled with --steps).",
+    )
+    parser.add_argument(
+        "--mem",
+        default=None,
+        help="SLURM memory per node of all runs, in MB or with a unit (e.g. 120000 or 100G; default on Raven: on "
+        "at most 36 ranks 64000, 120000 for the polar and 240000 for the toroidal Fourier variants; on more ranks "
+        "the whole node, 240000).",
     )
     parser.add_argument(
         "--slurm-preset",
@@ -236,12 +276,17 @@ def main() -> None:
 
     # Launch one run per rank count, all on a single node
     for num_tasks in args.ranks or variant["ranks"]:
+        slurm_options = {"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50)}
+        if args.mem:
+            slurm_options["mem"] = args.mem
+        elif mem_shared := variant["mem_shared"]:
+            slurm_options["mem_shared"] = mem_shared(num_tasks) if callable(mem_shared) else mem_shared
         profiling_case.launch(
             num_tasks,
             num_nodes=1,
             param_flags=param_flags,
             slurm_preset=args.slurm_preset,
-            slurm_options={"time": args.time or scaled_walltime(variant["walltime"], args.steps / 50)},
+            slurm_options=slurm_options,
         )
 
     # Package and push each run as its own job finishes.
