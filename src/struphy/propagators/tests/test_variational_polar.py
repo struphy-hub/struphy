@@ -209,3 +209,35 @@ def test_l2_transport_options():
     with pytest.raises(AssertionError):
         VariationalLinearSoundEvolve.Options(model="linear_q", transport_projection="L2")
     VariationalLinearSoundEvolve.Options(model="linear_p", transport_projection="L2")
+
+
+def test_normalized_inverse_warning(mpi_out_folder, caplog):
+    """The inner mass solves of the :math:`L^2` transport (NormalizedInverse, polar splines) converge with the default
+    tolerance and iteration limit, and a solve that does not converge is logged as a warning."""
+    import logging
+
+    from struphy.feec.variational_utilities import NormalizedInverse
+    from struphy.models import VariationalLinearMHD
+
+    model = VariationalLinearMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
+    _variational_p_polar(model, mpi_out_folder, "normalized_inverse", transport_projection="L2")
+    alfven = model.propagators.variat_lin_alfven
+    b = _random_vector(alfven.derham, "1", np.random.default_rng(0))
+    # a mass matrix with a weight that is not separable, so that its Kronecker preconditioner is not exact (that of M1
+    # nearly is on the cylinder)
+    M = alfven.mass_ops.create_weighted_mass(
+        "Hcurl",
+        "Hcurl",
+        name="M1w",
+        weights=("Ginv", "sqrt_g", lambda e1, e2, e3: 1.0 + 0.9 * e1 * np.sin(2 * np.pi * e2) * np.cos(2 * np.pi * e3)),
+        assemble=True,
+    )
+    with caplog.at_level(logging.WARNING, logger="struphy"):
+        x = NormalizedInverse(M).dot(b)
+        r = M.dot(x) - b
+        assert np.sqrt(r.inner(r)) < 1e-12 * np.sqrt(b.inner(b))
+        assert "did not converge" not in caplog.text
+        NormalizedInverse(M, maxiter=3).dot(b)
+        # the struphy logger writes on rank 0 only
+        if alfven.derham.comm is None or alfven.derham.comm.Get_rank() == 0:
+            assert "NormalizedInverse(M1w): pcg did not converge in 3 iterations" in caplog.text
