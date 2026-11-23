@@ -131,6 +131,9 @@ class ViscousEulerSPH(EulerSPH):
     def doc_long_description(cls):
         r"""ViscousEulerSPH is the particle-based SPH fluid model with pressure and
         viscosity. It is intended for meshfree fluid experiments rather than FEEC-based field simulations.
+        The pressure force follows from a discrete Lagrangian of the particles (variational SPH, see
+        :footcite:p:`Bonet2004` and :ref:`sph_pressure`); the viscous force is added to the resulting equations of
+        motion (see :ref:`sph_viscosity`).
 
         In the SPH family it extends :class:`~struphy.models.EulerSPH` by the viscous force and inherits its
         species, propagators and scalars."""
