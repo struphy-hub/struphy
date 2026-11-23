@@ -208,8 +208,6 @@ def test_sound_schur_preconditioner_polar(mpi_out_folder, transport_projection):
     """The Kronecker preconditioner of the Schur complement of the sound step (``schur_precond="StiffnessPreconditioner"``,
     linear p model, velocity in H(div), polar splines): the same velocity and pressure as with the mass-matrix
     preconditioner, with fewer iterations."""
-    from struphy.models import VariationalLinearMHD
-
     results = {}
     for schur_precond in ("MassMatrixPreconditioner", "StiffnessPreconditioner"):
         model = VariationalLinearMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
@@ -245,8 +243,6 @@ def test_sound_schur_preconditioner_polar(mpi_out_folder, transport_projection):
 def test_sound_schur_preconditioner_fallback(mpi_out_folder):
     """``schur_precond="StiffnessPreconditioner"`` with a velocity in H1vec falls back to the mass-matrix
     preconditioner."""
-    from struphy.models import VariationalLinearMHD
-
     model = VariationalLinearMHD(u_space="H1vec", with_viscosity=False, with_resistivity=False)
     _variational_p_polar(model, mpi_out_folder, "sound_pc_fallback")
     sound = model.propagators.variat_lin_sound
