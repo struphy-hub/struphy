@@ -179,8 +179,8 @@ def partition_figure():
     ax.text(0.0, 0.0, r"$\Phi_t$", fontsize=15, color=ARROW, ha="center")
     ax.text(-3.1, 0.15, r"$\Omega_0 = \bigcup_p \Omega_0^p$", fontsize=14, color=BLUE_EDGE, ha="right")
     ax.text(-3.1, -0.3, r"$f^{\mathrm{vol}}(0,\mathbf{z}_0)$", fontsize=13.5, color=BLUE_EDGE, ha="right")
-    ax.text(3.3, -0.2, r"$\Phi_t(\Omega_0)$", fontsize=14.5, color=ORANGE_EDGE, ha="center")
-    ax.text(3.2, -0.5, r"$f^{\mathrm{vol}}(t,\mathbf{z})$", fontsize=13.5, color=ORANGE_EDGE, ha="center")
+    ax.text(3.75, -0.25, r"$\Phi_t(\Omega_0)$", fontsize=14.5, color=ORANGE_EDGE, ha="center")
+    ax.text(3.65, -0.55, r"$f^{\mathrm{vol}}(t,\mathbf{z})$", fontsize=13.5, color=ORANGE_EDGE, ha="center")
 
     ax.set_aspect("equal")
     ax.set_xlim(-4.3, 4.2)
@@ -217,7 +217,17 @@ def kernel_density_figure(with_boxes):
         ax.plot([px, z_star[0]], [py, z_star[1]], color="#d95f02", lw=1.1, alpha=0.32, zorder=2)
 
     ax.scatter([z_star[0]], [z_star[1]], s=size, color="#1f5f8b", edgecolor="white", linewidth=1.1, zorder=5)
-    ax.text(0.1, 0.0, r"$\mathbf{z}^*$", color="#1f5f8b", fontsize=15, weight="bold")
+    ax.text(
+        -0.08,
+        0.08,
+        r"$\mathbf{z}^*$",
+        color="#1f5f8b",
+        fontsize=15,
+        weight="bold",
+        ha="right",
+        zorder=7,
+        bbox=dict(boxstyle="round,pad=0.1", facecolor="white", edgecolor="none", alpha=0.8),
+    )
     ax.annotate(
         "",
         xy=(h / np.sqrt(2), -h / np.sqrt(2)),

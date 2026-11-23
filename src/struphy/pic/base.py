@@ -1529,8 +1529,8 @@ class Particles(metaclass=ABCMeta):
         (see :ref:`particle_discrete`), from the initial distribution function :math:`f^0_{\textnormal{in}}`
         specified in the parameter file and from the sampling density :math:`s^0_{\textnormal{in}}` of
         :meth:`~struphy.pic.base.Particles.draw_markers`. Volume-form initial conditions are transformed to
-        0-forms first. With ``loading="tesselation"``, the weights are the cell averages of
-        :math:`f^\textrm{vol}_{\textnormal{in}}` over the tiles instead.
+        0-forms first. With ``loading="tesselation"``, the weights are the integrals of
+        :math:`f^\textrm{vol}_{\textnormal{in}}` over the tiles instead (Gauss-Legendre quadrature).
         Moreover, it sets the corresponding columns for "w0", "s0" and "weights" in the markers array.
         If :attr:`~struphy.pic.base.Particles.control_variate` is True, the background :attr:`~struphy.pic.base.Particles.f0` is subtracted.
 
@@ -2276,7 +2276,9 @@ class Particles(metaclass=ABCMeta):
         derivative=0,
         fast=True,
     ):
-        """Evaluate particle number density (0-form) using an SPH smoothing kernel.
+        """Evaluate the particle number density as a 3-form in logical space (sum of the marker weights times an
+        SPH smoothing kernel), see :ref:`pic_kde`. Divide by the Jacobian determinant of the mapping to obtain
+        the density in physical space.
 
         Parameters
         ----------

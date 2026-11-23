@@ -27,7 +27,7 @@ Most kinetic equations in Struphy are conservation laws of the form
     \partial_t f^\textrm{vol} + \nabla_{\mathbf z} \cdot \big(\mathbf u(t, \mathbf z)\, f^\textrm{vol}\big) = S\,,
     \qquad f^\textrm{vol}(0, \mathbf z) = f^\textrm{vol}_\textnormal{in}(\mathbf z)\,,
 
-where :math:`\mathbf u: (t, \mathbf z) \mapsto \mathbb R^n` is the phase-space velocity (the characteristics of
+where :math:`\mathbf u: \mathbb R \times \Omega \to \mathbb R^n` is the phase-space velocity (the characteristics of
 the equation), :math:`S` is a source term (zero for the Vlasov equation, non-zero e.g. for collisions or for the
 :ref:`delta-f method <pic_deltaf>`), and :math:`f^\textrm{vol}` is the distribution function as a *density*
 (or *volume form*), whose integral over a region of phase space is the number of particles in that region
@@ -72,7 +72,7 @@ and without source term (:math:`S = 0`) **the weights stay constant**. The initi
     of the kinetic equation. The density :math:`f^\textrm{vol}` is transported with them; the number of particles
     in :math:`\Phi_t(\Omega_0)` is the same as in :math:`\Omega_0`.
 
-In Struphy, the initial markers are drawn at random from a *sampling density* :math:`s^\textrm{vol}_\textnormal{in}`
+In Struphy, the initial markers are usually drawn at random (Monte-Carlo loading) from a *sampling density* :math:`s^\textrm{vol}_\textnormal{in}`
 (a probability density on :math:`\Omega`), and the initial weights are
 
 .. math::
@@ -122,7 +122,8 @@ a. the Monte-Carlo error :math:`\sim 1/\sqrt N` does not depend on the dimension
    while the cost of grids grows exponentially with :math:`n`;
 b. markers move independently of each other, which makes PIC easy to parallelize;
 c. the markers follow the characteristics exactly (up to the time integrator): there is no numerical diffusion
-   and no CFL condition from phase-space advection.
+   and no CFL condition from phase-space advection (the time step is still limited by the accuracy and
+   stability of the pusher and of the coupling to the fields).
 
 The price is the slow convergence :math:`\sim 1/\sqrt N` and the associated noise in the simulations.
 Noise reduction techniques such as the :ref:`control_var` and the :ref:`delta-f method <pic_deltaf>` are therefore
@@ -173,8 +174,8 @@ Struphy computes in logical coordinates :math:`\boldsymbol\eta \in (0,1)^3`, map
     \qquad J(\mathbf z) = |\det DF(\boldsymbol\eta)|\, J_v(\mathbf z)\,,
 
 where :math:`J_v` is the Jacobian determinant of the velocity coordinates (:math:`J_v = 1` for Cartesian
-velocities, :math:`J_v = B_0` for :math:`(v_\parallel, \mu)`, see ``velocity_jacobian_det`` of the
-backgrounds in :mod:`struphy.kinetic_background.maxwellians`).
+velocities, :math:`J_v = B_0` (up to constants) for :math:`(v_\parallel, \mu)`, see ``velocity_jacobian_det``
+of the backgrounds in :mod:`struphy.kinetic_background.maxwellians`).
 
 A distribution function can therefore be given in two ways:
 
@@ -221,8 +222,8 @@ this is equivalent to
     \frac{\textrm d}{\textrm d t} f^\textrm{vol}\big(t, \mathbf z_p(t)\big) = - f^\textrm{vol}\, \nabla_{\mathbf z} \cdot \mathbf u
     \qquad \textnormal{along}\quad \dot{\mathbf z}_p = \mathbf u(t, \mathbf z_p)\,.
 
-**Liouville's theorem.** The physical flows of Struphy's kinetic equations preserve the physical phase-space
-volume. In logical coordinates this means :math:`\nabla_{\mathbf z} \cdot (J \mathbf u) = 0`, i.e.
+**Liouville's theorem.** The Vlasov flow preserves the physical phase-space volume (the Lorentz force is
+divergence-free in velocity space). In logical coordinates this means :math:`\nabla_{\mathbf z} \cdot (J \mathbf u) = 0`, i.e.
 :math:`J\, \nabla_{\mathbf z} \cdot \mathbf u = - \mathbf u \cdot \nabla_{\mathbf z} J`. Then, from
 :math:numref:`pic:transport_vol_ode`,
 
@@ -231,12 +232,17 @@ volume. In logical coordinates this means :math:`\nabla_{\mathbf z} \cdot (J \ma
     \frac{\textrm d}{\textrm d t} f^0\big(t, \mathbf z_p(t)\big)
     = \frac{\textrm d}{\textrm d t} \frac{f^\textrm{vol}}{J}
     = \frac{-f^\textrm{vol}\, \nabla_{\mathbf z} \cdot \mathbf u}{J} - \frac{f^\textrm{vol}}{J^2}\, \mathbf u \cdot \nabla_{\mathbf z} J
-    = 0\,:
+    = 0\,.
 
-**the 0-form is constant along the characteristics**, the familiar statement that the distribution function is
-constant along particle orbits. The same holds for the sampling density :math:`s^0` (see :ref:`pic_eom`), which is
-why Struphy evaluates :math:`s^0` only once, at loading, and stores it with each marker (column ``s0`` of the
+Hence **the 0-form is constant along the characteristics**, the familiar statement that the distribution function
+is constant along particle orbits. The same holds for the sampling density :math:`s^0` (see :ref:`pic_eom`), which
+is why Struphy evaluates :math:`s^0` only once, at loading, and stores it with each marker (column ``s0`` of the
 marker array, see :class:`~struphy.pic.base.Particles`).
+
+For guiding centers, the phase-space volume conserved by the flow is :math:`B^*_\parallel\, \textrm d v_\parallel\, \textrm d \mu`
+(times the spatial volume), with the modified field :math:`B^*_\parallel = B_\parallel + O(\epsilon)` of
+guiding-center theory. With Struphy's :math:`J_v = B_0`, the 0-forms :math:`f^0` and :math:`s^0` are therefore
+constant along guiding-center orbits only up to the ratio :math:`B^*_\parallel / B_0 = 1 + O(\epsilon)`.
 
 
 .. _monte_carlo:
@@ -393,11 +399,13 @@ Loading is configured with :class:`~struphy.particles.parameters.LoadingParamete
   * ``"sobol_standard"``: quasi-random Sobol sequence;
   * ``"sobol_antithetic"``: Sobol points, each mirrored into 64 symmetric markers (only for 3 velocity
     dimensions), which removes odd moments of the sampling error;
-  * ``"tesselation"``: markers on a regular grid of tiles in each sorting box, with weights from cell averages of
-    :math:`f^\textrm{vol}_\textnormal{in}` computed by Gauss-Legendre quadrature (``n_quad`` points),
-    see :ref:`pic_two_ways`;
-  * ``"restart"`` / ``"external"``: read markers from a restart file or an external HDF5 file;
-  * ``specific_markers``: markers at given phase-space points (e.g. for orbit tests).
+  * ``"tesselation"``: markers on a regular grid of tiles in each sorting box, with weights equal to the
+    integrals of :math:`f^\textrm{vol}_\textnormal{in}` over the tiles, computed by Gauss-Legendre quadrature
+    (``n_quad`` points), see :ref:`pic_two_ways`;
+  * ``"restart"`` / ``"external"``: read markers from a restart file or an external HDF5 file.
+
+* **Specific markers** (``specific_markers``): after loading, the first markers are replaced by markers at given
+  phase-space points (e.g. for orbit tests).
 
 For the Monte-Carlo algorithms the sampling density is a product of a spatial part and a Gaussian in velocity,
 
@@ -409,8 +417,9 @@ For the Monte-Carlo algorithms the sampling density is a product of a spatial pa
     \exp\left[-\frac{(v_i - u_i)^2}{2 v_{\textrm{th},i}^2}\right]\,,
 
 where :math:`d_v` is the dimension of velocity space. The shifts :math:`u_i` and thermal velocities
-:math:`v_{\textrm{th},i}` are given by ``moments`` or taken from the background of the species (importance
-sampling, see :ref:`monte_carlo`). The spatial part is a normalized 3-form on the unit cube, chosen with
+:math:`v_{\textrm{th},i}` are given by ``moments``; the default is :math:`u_i = 0` and
+:math:`v_{\textrm{th},i} = 1`. Adapting them to the distribution function reduces the noise (importance sampling,
+see :ref:`monte_carlo`). The spatial part is a normalized 3-form on the unit cube, chosen with
 ``spatial``: ``"uniform"`` gives :math:`n^3 = 1`, ``"disc"`` gives :math:`n^3 = 2\eta_1`, which is uniform on the
 image of the unit square under a polar (disc) mapping. Velocities are drawn by inverse transform sampling, see
 :meth:`~struphy.pic.base.Particles.draw_markers` for details, also for guiding-center markers.
@@ -477,9 +486,9 @@ Comparing with :math:numref:`int_fh` term by term (a sufficient condition for al
 .. math::
     :label: def:dot_qw
 
-    \dot{\mathbf z}_p &= \mathbf u(t, \mathbf z_p)\,, \qquad && \mathbf z_p(0) = \mathbf z_{p0}\,,
+    \dot{\mathbf z}_p &= \mathbf u(t, \mathbf z_p)\,, \qquad \mathbf z_p(0) = \mathbf z_{p0}\,,
     \\[2mm]
-    \dot w_p &= \frac 1N\, \frac{S(t, \mathbf z_p)}{s^\textrm{vol}(t, \mathbf z_p)}\,, \qquad && w_p(0) = w_{p0}\,.
+    \dot w_p &= \frac 1N\, \frac{S(t, \mathbf z_p)}{s^\textrm{vol}(t, \mathbf z_p)}\,, \qquad w_p(0) = w_{p0}\,.
 
 **The sampling density.** The markers are drawn from :math:`s^\textrm{vol}_\textnormal{in}` and then move with
 :math:`\dot{\mathbf z}_p = \mathbf u`. Their density at time :math:`t` is therefore the transported density,
@@ -560,7 +569,8 @@ with :math:numref:`int_fh` (a sufficient condition for :math:numref:`pic:princip
     \dot w_p &= \frac 1N \frac{S(t, \mathbf z_p)}{s^\textrm{vol}(t, \mathbf z_p)}\,.
 
 These are two equations for three unknowns (:math:`\mathbf z_p`, :math:`w_p` and :math:`s^\textrm{vol}`). We close
-them by *defining* the weights as
+them by *defining* the weights as (assuming :math:`f^\textrm{vol} \neq 0` at the markers, so that we can divide by
+:math:`w_p` and :math:`f^\textrm{vol}` below)
 
 .. math::
     :label: def:weights_t
@@ -601,9 +611,9 @@ obtained by solving
 .. math::
     :label: pic:eqs:compressible
 
-    \dot{\mathbf z}_p &= \mathbf u(t, \mathbf z_p)\,, \qquad &&\mathbf z_p(0) = \mathbf z_{p0} \sim s^\textrm{vol}_\textnormal{in}\,,
+    \dot{\mathbf z}_p &= \mathbf u(t, \mathbf z_p)\,, \qquad \mathbf z_p(0) = \mathbf z_{p0} \sim s^\textrm{vol}_\textnormal{in}\,,
     \\[2mm]
-    \dot w_p &= \frac 1N \frac{S(t, \mathbf z_p)}{s^\textrm{vol}(t, \mathbf z_p)}\,, \qquad &&w_p(0) = \frac 1N \frac{f^\textrm{vol}_\textnormal{in}(\mathbf z_{p0})}{s^\textrm{vol}_\textnormal{in}(\mathbf z_{p0})}\,,
+    \dot w_p &= \frac 1N \frac{S(t, \mathbf z_p)}{s^\textrm{vol}(t, \mathbf z_p)}\,, \qquad w_p(0) = \frac 1N \frac{f^\textrm{vol}_\textnormal{in}(\mathbf z_{p0})}{s^\textrm{vol}_\textnormal{in}(\mathbf z_{p0})}\,,
 
 with :math:`s^\textrm{vol}(t, \mathbf z_p(t)) = s^\textrm{vol}_\textnormal{in}(\mathbf z_{p0}) \exp\big(-\int_0^t \nabla_{\mathbf z} \cdot \mathbf u(\tau, \mathbf z_p(\tau))\,\textrm d \tau\big)`.
 For incompressible flow, :math:`\nabla_{\mathbf z} \cdot \mathbf u = 0`, the sampling density is constant along
@@ -675,7 +685,8 @@ with the time-dependent **delta-f weights**
     = w_{p0} - \frac 1N \frac{\mathcal M^0\big(t, \mathbf z_p(t)\big)}{s^0_\textnormal{in}(\mathbf z_{p0})}\,.
 
 For the second equality we used that, without source, :math:`f^0/s^0 = N w_{p0}` and :math:`s^0` are constant along
-the trajectories (:ref:`pic_eom`). The full-f weights :math:`w_{p0}` stay constant; the delta-f weights are
+the trajectories (:ref:`pic_eom`; for guiding centers up to :math:`O(\epsilon)`, see :ref:`pic_phase_space`).
+The full-f weights :math:`w_{p0}` stay constant; the delta-f weights are
 recomputed from them whenever the markers have moved. The variance is now
 
 .. math::
@@ -784,8 +795,8 @@ We want an approximation of the *reduced* 2D density
     f^\textnormal{red}(t, \eta_1, v_1) := \int_{(0, 1)^2}\int_{\mathbb R^2} g(t, \boldsymbol\eta, \mathbf v)\,\textrm d \eta_2\, \textrm d \eta_3\, \textrm d v_2\, \textrm dv_3\,,
 
 where :math:`g` is either the volume form :math:`f^\textrm{vol}` or the distribution function per logical volume,
-:math:`f^\textrm{vol}/|\det DF|` (which equals the 0-form :math:`f^0` for Cartesian velocities). Note that a 0-form
-integrated over some of the coordinates depends on the coordinates; the result is still a useful picture of the
+:math:`f^\textrm{vol}/|\det DF|` (which equals the 0-form :math:`f^0` for Cartesian velocities). Note that the
+reduced function depends on the choice of coordinates (it is not invariant); it is still a useful picture of the
 distribution function. Given bin edges :math:`(\eta_{1,i})_i` and :math:`(v_{1,j})_j`, we approximate
 :math:`f^\textnormal{red}` on a bin :math:`\Omega_{ij} = (\eta_{1,i}, \eta_{1,i+1}) \times (v_{1,j}, v_{1,j+1})` by its
 mean value over that bin:
@@ -813,7 +824,10 @@ In Struphy, binning is done by :meth:`struphy.pic.base.Particles.binning`, confi
 :class:`~struphy.particles.parameters.BinningPlot`. It returns two histograms: the **full-f** histogram with the
 initial weights :math:`w_{p0}` (which represent :math:`f` when there is no source), and the **delta-f** histogram with
 the current weights :math:`w_p` (equal to :math:`w_{p0}` without control variate, the delta-f weights
-:math:numref:`pic:cv_weights` with control variate). ``divide_by_jac`` selects :math:`g = f^\textrm{vol}/|\det DF|`.
+:math:numref:`pic:cv_weights` with control variate). For :ref:`delta-f markers <pic_deltaf>`, both histograms
+represent the perturbation: the initial weights carry :math:`\delta f_\textnormal{in}` and the current weights
+:math:`\delta f(t)`. ``divide_by_jac=True`` (default) selects :math:`g = f^\textrm{vol}/|\det DF|`; only the spatial
+Jacobian is divided out, so for guiding-center markers :math:`g = J_v f^0`.
 Besides the density, velocity moments can be binned by multiplying the weights with :math:`v_i`
 (``"current"``), :math:`v_i v_j` (``"energy_tensor"``) or :math:`|\mathbf v|^2 v_i` (``"heat_flux"``).
 
@@ -829,7 +843,7 @@ kernel** :math:`W_h` of width :math:`h` (e.g. a Gaussian), normalized to :math:`
 
 .. math::
 
-    f_{h,N}(t, \mathbf z) := (W_h * f_h)(t, \mathbf z) = \int_\Omega W_h(\mathbf z - \mathbf z')\, f_h(t, \mathbf z')\,\textrm d \mathbf z'
+    \tilde f_h(t, \mathbf z) := (W_h * f_h)(t, \mathbf z) = \int_\Omega W_h(\mathbf z - \mathbf z')\, f_h(t, \mathbf z')\,\textrm d \mathbf z'
     = \sum_{p=1}^N w_p\, W_h\big(\mathbf z - \mathbf z_p(t)\big)\,.
 
 If :math:`W_h` vanishes outside a ball of radius :math:`h`, only markers within distance :math:`h` of the evaluation
@@ -837,7 +851,7 @@ point :math:`\mathbf z^*` contribute (:ref:`figure <fig:pic_kernel_density>`):
 
 .. math::
 
-    f_{h,N}(t, \mathbf z^*) = \sum_{p\,:\, |\mathbf z^* - \mathbf z_p(t)| < h} w_p\, W_h\big(\mathbf z^* - \mathbf z_p(t)\big)\,.
+    \tilde f_h(t, \mathbf z^*) = \sum_{p\,:\, |\mathbf z^* - \mathbf z_p(t)| < h} w_p\, W_h\big(\mathbf z^* - \mathbf z_p(t)\big)\,.
 
 .. _fig:pic_kernel_density:
 
@@ -862,9 +876,18 @@ are sorted into **boxes** of size at least :math:`h`. To evaluate at :math:`\mat
     Box-based evaluation: the markers are sorted into boxes of size :math:`\geq h`; for the evaluation at
     :math:`\mathbf z^*` only the box of :math:`\mathbf z^*` (dark) and its neighbours (light) are searched.
 
-In Struphy, the density in logical space is evaluated by :meth:`struphy.pic.base.Particles.eval_density`, which
-uses the sorting boxes (``boxes_per_dim`` in :class:`~struphy.particles.parameters.SortingParameters`) and the
-smoothing kernels in ``struphy.pic.sph_smoothing_kernels`` (trigonometric, Gaussian, linear; 1D, 2D, 3D). As
-a diagnostic, it is switched on with :class:`~struphy.particles.parameters.KernelDensityPlot` in the saving
-parameters; the kernel width is then one sorting box in each direction. The same technique is the basis of
+In Struphy, kernel density estimates are computed in position space only:
+:meth:`struphy.pic.base.Particles.eval_density` evaluates
+
+.. math::
+
+    n_h(t, \boldsymbol\eta) = \sum_{p=1}^N w_p\, W_h\big(\boldsymbol\eta - \boldsymbol\eta_p(t)\big)
+    \approx \int f^\textrm{vol}(t, \boldsymbol\eta, \mathbf v)\,\textrm d \mathbf v\,,
+
+the number density as a 3-form in logical coordinates (divide by :math:`|\det DF|` to get the physical density).
+It uses the sorting boxes (``boxes_per_dim`` in :class:`~struphy.particles.parameters.SortingParameters`) and the
+smoothing kernels in ``struphy.pic.sph_smoothing_kernels`` (trigonometric, Gaussian, linear; 1D, 2D, 3D). As a
+diagnostic, it is switched on with :class:`~struphy.particles.parameters.KernelDensityPlot` in the saving
+parameters; the kernel is then a Gaussian with a width of one sorting box in each direction. With the control
+variate or delta-f markers, the current weights are used, so the estimate is that of :math:`\delta f`. The same technique is the basis of
 :ref:`smoothed particle hydrodynamics <sph_method>`.
