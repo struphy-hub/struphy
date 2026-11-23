@@ -11,6 +11,11 @@ representation of densities with the :ref:`particle_discrete`, which is assumed 
 Parts of the material and the figures are adapted from the lecture
 `Meshless Structure-Preserving Algorithms <https://github.com/spossann/2026_SPEGEO_Strasbourg_school>`_
 (SPEGEO school, Strasbourg 2026).
+SPH was introduced by :footcite:t:`Gingold1977` and :footcite:t:`Lucy1977`. Reviews of the method are
+:footcite:t:`Monaghan2005`, :footcite:t:`Price2012` (with the derivation from a Lagrangian used here),
+:footcite:t:`Springel2010` (astrophysics), :footcite:t:`Wang2016` (multiphase flows) and
+:footcite:t:`Lind2020` (convergence and accuracy); a textbook is :footcite:t:`Violeau2012`. A list of all
+references is at the :ref:`end of the page <sph_references>`.
 
 
 .. _sph_overview:
@@ -77,7 +82,8 @@ c. it is Lagrangian: there is no numerical diffusion from advection.
 
 Its weaknesses are the smoothing error (bias) of order :math:`h^2`, the sampling noise for too few markers per
 kernel, the treatment of boundaries by ghost particles (:ref:`sph_bcs`), and instabilities of regular marker
-arrangements (e.g. the "zig-zag" pattern of tessellated markers in shear flow).
+arrangements (e.g. the "zig-zag" pattern of tessellated markers in shear flow, related to the tensile
+instability :footcite:p:`Swegle1995`).
 
 
 .. _sph_algo:
@@ -220,7 +226,8 @@ makes the action stationary,
     \qquad\Longleftrightarrow\qquad
     m \ddot{\mathbf x} = - \nabla V(\mathbf x)\,.
 
-**Lagrangian action of a fluid.** For a fluid with initial mass density :math:`\rho(0, \mathbf x_0)` and internal
+**Lagrangian action of a fluid** (see :footcite:t:`Salmon1988` and :footcite:t:`Morrison1998` for the
+variational and Hamiltonian formulations of fluid mechanics). For a fluid with initial mass density :math:`\rho(0, \mathbf x_0)` and internal
 energy per unit mass :math:`\mathcal U(\rho)`, the action is the sum of the parcel actions, weighted by their
 masses:
 
@@ -241,7 +248,8 @@ masses:
     \rho\, \textrm d \mathbf x\, \textrm d t\,.
 
 The variations of :math:`\mathbf u` and :math:`\rho` are not free: they are induced by variations of the flow map,
-:math:`\boldsymbol\xi := \delta \Phi_t \circ \Phi_t^{-1}`, which gives (Euler-Poincaré reduction)
+:math:`\boldsymbol\xi := \delta \Phi_t \circ \Phi_t^{-1}`, which gives (Euler-Poincaré reduction,
+:footcite:t:`Holm1998`)
 
 .. math::
 
@@ -337,7 +345,9 @@ logical coordinates :math:`\boldsymbol \eta`; gradients are mapped to physical s
 :math:`h` (the kernel is too wide and smooths out features), and the *sampling noise* grows when too few markers lie
 in the support of the kernel (small :math:`h` at fixed :math:`N`). For each :math:`N` there is an optimal
 :math:`h`, which decreases as :math:`N` grows. Convergence :math:`\rho_h \to \rho` requires :math:`h \to 0` and
-:math:`N \to \infty` with :math:`N h^d \to \infty`, i.e. more and more markers per kernel support.
+:math:`N \to \infty` with :math:`N h^d \to \infty`, i.e. more and more markers per kernel support. The
+truncation error of SPH sums is analysed in :footcite:t:`Quinlan2006`; corrected (renormalized) kernel gradients
+that improve the order of convergence are discussed in :footcite:t:`Oger2007` and :footcite:t:`Lind2020`.
 
 .. _fig:sph_convergence:
 
@@ -388,7 +398,8 @@ with :math:`\mathcal U' = \partial_\rho \mathcal U`. Dividing by :math:`w_p`:
     - \sum_{j=1}^N w_j \Big( \mathcal U'(\rho_p) + \mathcal U'(\rho_j) \Big) \nabla W_h(\mathbf x_p - \mathbf x_j)\,,
     \qquad \mathcal U'(\rho) = \frac{p(\rho)}{\rho^2}\,.
 
-This is the standard symmetric SPH pressure force, here derived from a variational principle.
+This is the standard symmetric SPH pressure force, here derived from a variational principle, as in
+:footcite:t:`Bonet2004`, :footcite:t:`Price2004`, :footcite:t:`Springel2002` and :footcite:t:`Price2012`.
 
 **Internal energies in Struphy** (option ``thermodynamics`` of
 :class:`~struphy.propagators.push_v_in_sph_pressure.PushVinSPHpressure`):
@@ -464,7 +475,8 @@ the velocity gradient,
     \boldsymbol\sigma = \mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
     \qquad \boldsymbol\sigma = \boldsymbol\sigma^\top\,, \quad \textnormal{tr}\, \boldsymbol\sigma = 0\,.
 
-The model docstrings of :class:`~struphy.models.ViscousEulerSPH` and :class:`~struphy.models.IncompressibleNavierStokesSPH` use the opposite sign convention (stress tensor :math:`-\boldsymbol\sigma`). Viscosity is dissipative and not part of the Lagrangian; it is added to the equations of motion. In SPH, the stress is
+The model docstrings of :class:`~struphy.models.ViscousEulerSPH` and :class:`~struphy.models.IncompressibleNavierStokesSPH` use the opposite sign convention (stress tensor :math:`-\boldsymbol\sigma`). Viscosity is dissipative and not part of the Lagrangian; it is added to the equations of motion (for SPH
+formulations of viscous flows, see e.g. :footcite:t:`Morris1997`). In SPH, the stress is
 evaluated at the markers from the gradient of the smoothed velocity :math:numref:`sph:velocity`,
 :math:`\boldsymbol \sigma_i := \boldsymbol\sigma(\nabla \mathbf u_h(\mathbf x_i))`, and the force is the SPH estimate of
 its divergence:
@@ -551,7 +563,7 @@ Incompressible flows
 
 For incompressible flows, :math:`\nabla \cdot \mathbf u = 0`, the pressure is not a function of the density but a
 Lagrange multiplier. :class:`~struphy.models.IncompressibleNavierStokesSPH` computes it with **Chorin's projection
-method** on the finite element grid (see :ref:`geomFE`): after the viscous step, the divergence of the marker
+method** (for a projection method entirely in SPH, see :footcite:t:`Cummins1999`) on the finite element grid (see :ref:`geomFE`): after the viscous step, the divergence of the marker
 velocities is deposited on the grid, the pressure :math:`p \in H^1` is found from the Poisson equation
 :math:`\Delta p = \nabla \cdot \mathbf u / \Delta t` (:class:`~struphy.propagators.poisson_solve.PoissonSolve`), and the
 markers are pushed by the pressure gradient
@@ -593,10 +605,20 @@ The models are verified against analytic solutions in ``src/struphy/models/tests
   splitting, mass conserved to machine precision);
 * ``EulerSPH``: isothermal standing sound wave in 1D over one period;
 * ``ViscousEulerSPH``: damped sound wave (decay rate :math:`\frac 23 \mu k^2`), velocity diffusion (decay rate
-  :math:`\frac 43 \mu k^2`) and Hagen-Poiseuille flow (parabolic profile between no-slip walls);
+  :math:`\frac 43 \mu k^2`) and Hagen-Poiseuille flow (parabolic profile between no-slip walls, as in
+  :footcite:t:`Morris1997`);
 * ``IncompressibleNavierStokesSPH``: Chorin projection and decay of a shear flow between no-slip walls.
 
-The dam break test (``ViscousEulerSPH``) is a robustness check only: it verifies that the markers stay in the domain.
+The dam break test (``ViscousEulerSPH``, a classic SPH free-surface problem :footcite:p:`Monaghan1994`) is a
+robustness check only: it verifies that the markers stay in the domain.
 
 The Hagen-Poiseuille flow and the dam break are shown with animations in the tutorials
 (see :ref:`sph_algo`).
+
+
+.. _sph_references:
+
+References
+^^^^^^^^^^
+
+.. footbibliography::
