@@ -38,8 +38,8 @@ class LoadingParameters:
         If None, no seed is applied.
 
     moments : tuple, optional
-        Mean velocities and temperatures defining the Gaussian velocity distribution.
-        If None, automatically computed from the background distribution.
+        Mean velocities and thermal velocities defining the Gaussian velocity distribution of the markers,
+        as ``(u_1, ..., u_vdim, vth_1, ..., vth_vdim)``. If None, zero mean and unit thermal velocities are used.
 
     B0 : float | Callable | "equil", default="equil"
         Magnetic field strength :math:`B_0` used to draw the magnetic moment :math:`\\mu = v_\\perp^2/(2B_0)`
