@@ -152,8 +152,9 @@ class VariationalPerturbativeMHD(VariationalLinearMHD):
         if self.propagators.variat_lin_alfven.options.transport_projection == "L2":
             logger.warning(
                 f'{self.__class__.__name__}: transport_projection="L2" of variat_lin_alfven is meant for the linear '
-                "model VariationalLinearMHD; the nonlinear steps of this model still use the commuting projectors "
-                "(at a polar axis, the nonlinear model is not yet available)."
+                "model VariationalLinearMHD; the nonlinear steps of this model still use the commuting projectors. "
+                "With polar splines the momentum advection of this model does not work yet (no good representation "
+                "of the hat map of the commutator)."
             )
         # velocity in Hdiv: mass matrix of the total density for the kinetic energy
         if self._u_space == "Hdiv":
@@ -294,5 +295,7 @@ class VariationalPerturbativeMHD(VariationalLinearMHD):
           steps)
         - kinetic or particle-resolved plasma effects
         - entropy- or q-based thermodynamic formulations
+        - polar splines: the momentum advection does not work yet, since there is no good representation of the hat
+          map of the commutator with polar splines
         - exact energy balance of the dissipation with polar splines (the heating of the pressure is exact only if the
           constants are in the space of 3-forms, which is not the case for polar splines)"""
