@@ -1486,6 +1486,8 @@ class L2TransportOperator(LinearOperator):
             out = self._derham.V1pol.zeros()
         if self._assemble:
             assert self._W is not None, "update_coeffs must be called first."
+            # B1 is part of W: the operators of create_weighted_mass apply B_W E_W M E_V^T B_V^T (boundary and polar
+            # extraction operators of both spaces, WeightedMassOperator.dot with apply_bc=True), so W.dot is B1 W u
             return self._W.dot(u, out=out)
         # matrix-free: the 1-form (b x u)/sqrt(g) at the quadrature points, integrated against the 1-form basis with the
         # metric weight G^-1 sqrt(g) of M1
@@ -1497,6 +1499,7 @@ class L2TransportOperator(LinearOperator):
             (b_q[2] * u_q[0] - b_q[0] * u_q[2]) * s,
             (b_q[0] * u_q[1] - b_q[1] * u_q[0]) * s,
         ]
+        # apply_bc=True: the boundary operator B1 on the dofs
         return self._get_dofs(f, dofs=out, apply_bc=True)
 
     def dot(self, v, out=None):
@@ -1683,6 +1686,7 @@ class L2PressureTransportOperator(LinearOperator):
         d = self.div.dot(v, out=self._tmp3)
         if self._assemble:
             assert self._W2 is not None, "update_coeffs must be called first."
+            # the boundary operators B2, B3 are part of W2, W3 (create_weighted_mass, see L2TransportOperator)
             r2 = self._W2.dot(v, out=self._tmp2)
             r3 = self._W3.dot(d, out=self._tmp3b)
         else:
