@@ -63,7 +63,7 @@ equations of motion (:ref:`sph_pressure`):
     - \sum_{j=1}^N w_j \left( \frac{p(\rho_p)}{\rho_p^2} + \frac{p(\rho_j)}{\rho_j^2} \right) \nabla W_h(\mathbf x_p - \mathbf x_j)
     + \big(\tfrac 1\rho \nabla \cdot \boldsymbol\sigma\big)_h(\mathbf x_p)\,.
 
-The pressure force is a sum over pairs of markers. Because :math:`W_h` vanishes outside a ball of radius
+The pressure force is a sum over pairs of markers. Because :math:`W_h` vanishes outside a box of half-width
 :math:`h`, only neighbouring markers interact, and the cost is :math:`O(N)` with a box-based neighbour search
 (:ref:`sph_neighbours`).
 
@@ -95,7 +95,7 @@ A Struphy SPH simulation consists of the following steps:
 2. **Weights and velocities.** The weights are the masses of the markers,
    :math:`w_p = \int_{\Omega_0^p} \rho_\textnormal{in}\, \textrm d \mathbf x` for tessellation (integrals over the
    tiles) or :math:`w_p = \rho_\textnormal{in}/(N s)` for random loading, see :ref:`pic_two_ways`; then
-   :math:`\sum_p w_p` is the total mass. The velocities are set to the initial fluid velocity,
+   :math:`\sum_p w_p` is the total mass (exactly up to quadrature for tessellation, approximately for random loading). The velocities are set to the initial fluid velocity,
    :math:`\mathbf v_p(0) = \mathbf u_\textnormal{in}(\mathbf x_p(0))`. The initial condition is a fluid background
    (e.g. :class:`~struphy.fields_background.equils.ConstantVelocity`) with perturbations of the density or velocity.
 
@@ -137,7 +137,7 @@ The evaluation of SPH densities is shown in the developer tutorial
       - physical and logical coordinates, :math:`\mathbf x = F(\boldsymbol\eta)`, :math:`\sqrt g = |\det DF|`
     * - :math:`\rho`, :math:`\mathbf u`
       - mass density (a volume form) and fluid velocity
-    * - :math:`p`, :math:`j`, :math:`N`
+    * - :math:`p`, :math:`i`, :math:`j`, :math:`q`, :math:`N`
       - marker indices, number of markers (:math:`p` is also the pressure :math:`p(\rho)`; the meaning is clear from
         the context)
     * - :math:`\mathbf x_p`, :math:`\mathbf v_p`, :math:`w_p`
@@ -270,7 +270,7 @@ Smoothing kernels
 ^^^^^^^^^^^^^^^^^
 
 A smoothing kernel :math:`W_h` is a non-negative, even function with :math:`\int W_h\, \textrm d \mathbf x = 1` that
-vanishes outside a ball of radius :math:`h` and tends to the delta distribution as :math:`h \to 0`. Then
+vanishes outside a neighbourhood of size :math:`h` of the origin (a box of half-widths :math:`h_i` for the tensor-product kernels of Struphy) and tends to the delta distribution as :math:`h \to 0`. Then
 
 .. math::
 
@@ -365,8 +365,8 @@ one for the marker trajectories:
 
 The internal energy :math:`\mathcal U(\rho(t, \mathbf x_p))` cannot be evaluated with the delta distributions; it is
 evaluated with the smoothed density :math:`\rho_p` of :math:numref:`sph:density`, which depends on the positions of
-all markers. Without potential and internal energy, the markers are :math:`N` independent free particles: a
-pressureless fluid in a given potential reduces to :math:`N` copies of Newton's equation
+all markers. Without internal energy (pressureless fluid) the markers decouple: the fluid in a given potential
+reduces to :math:`N` copies of Newton's equation
 :math:`\ddot{\mathbf x}_p = -\nabla V(\mathbf x_p)/m`, while a grid-based discretization of the same problem would
 have to solve the nonlinear PDEs :math:numref:`sph:euler`.
 
@@ -419,7 +419,8 @@ plays the role of :math:`-\nabla V/m`.
 :math:numref:`sph:density` with a kernel normalized in :math:`\boldsymbol\eta` approximates the density as a 3-form
 in logical space, :math:`\rho \sqrt g` (see :meth:`~struphy.pic.base.Particles.eval_density`), and this is the
 :math:`\rho_p` used in the pressure force. For mappings with constant :math:`\sqrt g` (e.g.
-:class:`~struphy.geometry.domains.Cuboid`) this only rescales :math:`\kappa`.
+:class:`~struphy.geometry.domains.Cuboid`), the factors :math:`\sqrt g` cancel for the isothermal closure, and the
+polytropic :math:`\kappa` is rescaled by :math:`(\sqrt g)^{\gamma - 1}`.
 
 
 .. _sph_conservation:
@@ -437,12 +438,17 @@ The semi-discrete equations :math:numref:`sph:pressure_force` inherit the struct
 * **Energy** :math:`H_N = \sum_p w_p \big( \frac 12 |\mathbf v_p|^2 + \mathcal U(\rho_p) + V(\mathbf x_p)/m \big)` is
   conserved, because :math:`L_N` does not depend explicitly on time.
 * **Angular momentum** is conserved for radial kernels, for which :math:`\nabla W_h(\mathbf x_p - \mathbf x_j)` is
-  parallel to :math:`\mathbf x_p - \mathbf x_j`; the tensor-product kernels of Struphy are not radial (except
-  ``"linear_isotropic_3d"``).
+  parallel to :math:`\mathbf x_p - \mathbf x_j`. Most kernels of Struphy are tensor products and not radial;
+  ``"linear_isotropic_3d"`` is radial in :math:`\boldsymbol\eta`, hence in :math:`\mathbf x` only for mappings whose
+  Jacobian is a multiple of an orthogonal matrix.
 
-These statements hold for the time-continuous equations in Cartesian coordinates. Struphy integrates the pressure
-force with the forward Euler method, which does not conserve the energy exactly and needs small time steps
-(e.g. :math:`\Delta t = 10^{-3}` in the default parameters of :class:`~struphy.models.EulerSPH`).
+**Time discretization.** The pressure step keeps the positions fixed, so its right-hand side is constant during the
+step and the forward Euler update is exact; the same holds for the position step
+(:class:`~struphy.propagators.push_eta.PushEta`) in Cartesian coordinates. Splitting these two steps gives the
+symplectic Euler method (Lie-Trotter splitting) or the Störmer-Verlet method (Strang splitting): the scheme is
+symplectic, conserves linear momentum exactly, and has a bounded energy error. The time step is limited by the
+stability of the explicit scheme (a CFL condition with the sound speed :math:`\sqrt{p'(\rho)}` and the kernel width),
+e.g. :math:`\Delta t = 10^{-3}` in the default parameters of :class:`~struphy.models.EulerSPH`.
 
 
 .. _sph_viscosity:
@@ -458,7 +464,7 @@ the velocity gradient,
     \boldsymbol\sigma = \mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
     \qquad \boldsymbol\sigma = \boldsymbol\sigma^\top\,, \quad \textnormal{tr}\, \boldsymbol\sigma = 0\,.
 
-Viscosity is dissipative and not part of the Lagrangian; it is added to the equations of motion. In SPH, the stress is
+The model docstrings of :class:`~struphy.models.ViscousEulerSPH` and :class:`~struphy.models.IncompressibleNavierStokesSPH` use the opposite sign convention (stress tensor :math:`-\boldsymbol\sigma`). Viscosity is dissipative and not part of the Lagrangian; it is added to the equations of motion. In SPH, the stress is
 evaluated at the markers from the gradient of the smoothed velocity :math:numref:`sph:velocity`,
 :math:`\boldsymbol \sigma_i := \boldsymbol\sigma(\nabla \mathbf u_h(\mathbf x_i))`, and the force is the SPH estimate of
 its divergence:
@@ -501,7 +507,7 @@ with ``bc_sph`` in :class:`~struphy.particles.parameters.BoundaryParameters`:
       - periodic density and velocity
     * - ``"mirror"``
       - mirrored positions, same weights and velocities
-      - even density at the wall (zero normal derivative), e.g. a free-slip wall
+      - even density at the wall (zero normal derivative); velocities are not mirrored. Used for walls of pressure-driven flows (dam break), with the markers reflected by ``bc="reflect"``
     * - ``"fixed"``
       - mirrored positions, negative weights :math:`-f_\textnormal{in}/(N s^0)`
       - odd density, :math:`\rho \to 0` at the wall
@@ -572,10 +578,10 @@ The SPH models form one family; each model adds terms (propagators) to its paren
       - :class:`~struphy.propagators.push_eta.PushEta`, :class:`~struphy.propagators.push_vxb.PushVxB`,
         :class:`~struphy.propagators.push_v_in_force_field.PushVinForceField`
     * - :class:`~struphy.models.EulerSPH`
-      - + pressure :math:`p(\rho)` and gravity
+      - adds pressure :math:`p(\rho)` and gravity
       - :class:`~struphy.propagators.push_v_in_sph_pressure.PushVinSPHpressure`
     * - :class:`~struphy.models.ViscousEulerSPH`
-      - + viscous stress
+      - adds the viscous stress
       - :class:`~struphy.propagators.push_v_in_viscous_potential.PushVinViscousPotential`
     * - :class:`~struphy.models.IncompressibleNavierStokesSPH`
       - incompressible Navier-Stokes (child of ``ColdEulerSPH``)
@@ -586,9 +592,11 @@ The models are verified against analytic solutions in ``src/struphy/models/tests
 * ``ColdEulerSPH``: oscillation in a harmonic potential (second-order convergence in :math:`\Delta t` with Strang
   splitting, mass conserved to machine precision);
 * ``EulerSPH``: isothermal standing sound wave in 1D over one period;
-* ``ViscousEulerSPH``: damped sound wave and velocity diffusion (decay rates :math:`\propto \frac 43 \mu k^2`),
-  Hagen-Poiseuille flow (parabolic profile between no-slip walls), dam break;
+* ``ViscousEulerSPH``: damped sound wave (decay rate :math:`\frac 23 \mu k^2`), velocity diffusion (decay rate
+  :math:`\frac 43 \mu k^2`) and Hagen-Poiseuille flow (parabolic profile between no-slip walls);
 * ``IncompressibleNavierStokesSPH``: Chorin projection and decay of a shear flow between no-slip walls.
+
+The dam break test (``ViscousEulerSPH``) is a robustness check only: it verifies that the markers stay in the domain.
 
 The Hagen-Poiseuille flow and the dam break are shown with animations in the tutorials
 (see :ref:`sph_algo`).

@@ -41,7 +41,7 @@ class PushVinViscousPotential(Propagator):
         \mathbf u_h(\boldsymbol\eta) = \sum_{j=1}^N \frac{w_j}{\rho_j}\, \mathbf v_j\, W_h(\boldsymbol\eta - \boldsymbol\eta_j)\,,
 
     the stress :math:`\boldsymbol\sigma_i` is computed at each marker from the gradient of :math:`\mathbf u_h`
-    (pulled back with :math:`DF^{-1}`), and for each marker :math:`p`
+    (transformed to Cartesian derivatives with :math:`DF^{-1}`), and for each marker :math:`p`
 
     .. math::
 
@@ -51,7 +51,7 @@ class PushVinViscousPotential(Propagator):
 
     which is the SPH estimate of :math:`\nabla \cdot \boldsymbol\sigma` in Piola form. :math:`W_h` is a smoothing kernel
     from :mod:`~struphy.pic.sph_smoothing_kernels`; the coefficients :math:`w_i \mathbf v_i/\rho_i` and
-    :math:`\sqrt g\, (w_i/\rho_i) \boldsymbol\sigma_i DF^{-\top}` are computed once per time step and stored in the
+    :math:`\sqrt g\, (w_i/\rho_i) \boldsymbol\sigma_i DF^{-\top}` are computed once per time step and stored (with a minus sign) in the
     marker array.
 
     **Time discretization:** forward Euler (``algo="forward_euler"``),
