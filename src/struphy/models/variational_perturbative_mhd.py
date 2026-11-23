@@ -1,3 +1,5 @@
+import logging
+
 from struphy.io.options import BaseUnits
 from struphy.models.scalars import BilinearEnergyFEEC, FunctionScalarFEEC
 from struphy.models.variables import FEECVariable
@@ -10,6 +12,8 @@ from struphy.propagators.variational_momentum_advection import VariationalMoment
 from struphy.propagators.variational_nonlinear_pb_evolve import VariationalNonlinearPBEvolve
 from struphy.propagators.variational_resistivity import VariationalResistivity
 from struphy.propagators.variational_viscosity import VariationalViscosity
+
+logger = logging.getLogger("struphy")
 
 
 class VariationalPerturbativeMHD(VariationalLinearMHD):
@@ -143,6 +147,14 @@ class VariationalPerturbativeMHD(VariationalLinearMHD):
     def post_allocate(self):
         """:meta private:"""
         super().post_allocate()
+        # the L2 transport of the linear Alfven step (the sound step rejects it with total_weight=True): the nonlinear
+        # steps keep the commuting projectors, whose problem at a polar axis it is meant to avoid
+        if self.propagators.variat_lin_alfven.options.transport_projection == "L2":
+            logger.warning(
+                f'{self.__class__.__name__}: transport_projection="L2" of variat_lin_alfven is meant for the linear '
+                "model VariationalLinearMHD; the nonlinear steps of this model still use the commuting projectors "
+                "(at a polar axis, the nonlinear model is not yet available)."
+            )
         # velocity in Hdiv: mass matrix of the total density for the kinetic energy
         if self._u_space == "Hdiv":
             self._velocity_mass = VelocityMass(
