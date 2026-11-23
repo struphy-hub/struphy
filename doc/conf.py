@@ -47,7 +47,14 @@ extensions = [
     "myst_parser",
     "sphinx_design",
     "sphinx_copybutton",
+    "sphinxcontrib.bibtex",
 ]
+
+# Bibliography (sphinxcontrib-bibtex): all references in doc/references.bib. Pages cite with :footcite:p:`key`
+# (or :footcite:t:`key`) and list their references at the end with ".. footbibliography::".
+bibtex_bibfiles = ["references.bib"]
+bibtex_default_style = "plain"
+bibtex_foot_reference_style = "foot"
 
 _skip_tutorials = os.environ.get("STRUPHY_DOCS_SKIP_TUTORIALS") == "1"
 if not _skip_tutorials:
