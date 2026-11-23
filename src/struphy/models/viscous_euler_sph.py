@@ -70,7 +70,7 @@ class ViscousEulerSPH(EulerSPH):
 
         .. math::
 
-            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla \left( \rho^2 \frac{\partial \mathcal{U}(\rho, S)}{\partial \rho} \right) + \nabla \cdot \boldsymbol{\sigma}
+            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla \left( \rho^2 \frac{\partial \mathcal{U}(\rho, S)}{\partial \rho} \right) - \nabla \cdot \boldsymbol{\sigma}
             + \rho \mathbf g + \frac{\rho}{\varepsilon} \left( \mathbf{F} + \mathbf{u} \times \mathbf{B}_0 \right)
 
         Entropy:
@@ -79,7 +79,7 @@ class ViscousEulerSPH(EulerSPH):
 
             \partial_t S + \mathbf{u} \cdot \nabla S = 0
 
-        where :math:`S` denotes the entropy per unit mass, :math:`\boldsymbol{\sigma}` is the viscous stress tensor and
+        where :math:`S` denotes the entropy per unit mass, :math:`\boldsymbol{\sigma}` is the viscous stress tensor (the viscous momentum flux) and
         :math:`\mathbf g`, :math:`\mathbf F`, :math:`\mathbf B_0`, :math:`\varepsilon` are as in
         :class:`~struphy.models.EulerSPH`.
 
@@ -87,7 +87,7 @@ class ViscousEulerSPH(EulerSPH):
 
         .. math::
 
-            \boldsymbol{\sigma} = \mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
+            \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
 
         where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
 

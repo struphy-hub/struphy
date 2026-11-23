@@ -31,22 +31,22 @@ def push_v_viscosity(
     .. math::
 
         \frac{v_{p,j}^{n+1} - v_{p,j}^n}{\Delta t}
-        = \frac{1}{\rho_p \sqrt g(\boldsymbol \eta_p)} \sum_{i=1}^N
+        = -\frac{1}{\rho_p \sqrt g(\boldsymbol \eta_p)} \sum_{i=1}^N
           \frac{w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \,
           (DF^{-1})_{km}(\boldsymbol \eta_i)}{\rho^{N,h}(\boldsymbol \eta_i)} \,
           (\nabla W_h)_k(\boldsymbol \eta_p - \boldsymbol \eta_i)\,,
 
-    where :math:`\sigma_{jm} = \mu \left[(\partial_{x_m} v_j^{N,h} + \partial_{x_j} v_m^{N,h}) - \tfrac{2}{3}\delta_{jm}\partial_{x_l} v_l^{N,h}\right]`
-    is the (Cartesian) deviatoric strain rate, :math:`\sqrt g = \det DF` and
+    where :math:`\sigma_{jm} = -\mu \left[(\partial_{x_m} v_j^{N,h} + \partial_{x_j} v_m^{N,h}) - \tfrac{2}{3}\delta_{jm}\partial_{x_l} v_l^{N,h}\right]`
+    is the (Cartesian) viscous stress (momentum flux), :math:`\sqrt g = \det DF` and
     :math:`\rho_p = \rho^{N,h}(\boldsymbol \eta_p) / |\det DF(\boldsymbol \eta_p)|` is the physical density,
     with the SPH density :math:`\rho^{N,h}` evaluated at the marker. This is the SPH discretization of
-    :math:`\frac{1}{\rho} \nabla_x \cdot \sigma`, with the divergence written in logical coordinates (Piola form),
+    :math:`-\frac{1}{\rho} \nabla_x \cdot \sigma`, with the divergence written in logical coordinates (Piola form),
     :math:`(\nabla_x \cdot \sigma)_j = \frac{1}{\sqrt g} \partial_{\eta_k} \bigl(\sqrt g \, (DF^{-1})_{km} \sigma_{jm}\bigr)`,
     with the gradient of the smoothing kernel :math:`W_h` chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
 
     This kernel requires the 9 coefficients
 
-    * :math:`- w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
+    * :math:`w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
       / \rho^{N,h}(\boldsymbol \eta_i)` to be
       pre-computed for each particle and stored at ``markers[first_free_idx + 3*(j+1) + k, :]``
       for :math:`j, k = 0, 1, 2`
@@ -152,7 +152,8 @@ def push_v_viscosity(
         )
 
         # update velocities
-        # momentum equation rho du/dt = div(sigma): divide by the physical density rho_p = rho^eta_p / |det DF|
+        # momentum equation rho du/dt = -div(sigma) (the stored coefficients contain sigma, hence -=):
+        # divide by the physical density rho_p = rho^eta_p / |det DF|
         n_at_eta = sph_eval_kernels.box_based_kernel(
             args_markers,
             eta1,

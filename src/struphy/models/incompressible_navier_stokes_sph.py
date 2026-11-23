@@ -152,20 +152,20 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
 
         .. math::
 
-            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla p + \nabla \cdot \boldsymbol{\sigma}
+            \rho (\partial_t \mathbf{u} + \mathbf{u} \cdot \nabla \mathbf{u}) = -\nabla p - \nabla \cdot \boldsymbol{\sigma}
             + \frac{\rho}{\varepsilon} \left( \mathbf{F} + \mathbf{u} \times \mathbf{B}_0 \right)
             \\[2mm]
             \nabla \cdot \mathbf{u} = 0\,,
 
         where the pressure :math:`p` is the Lagrange multiplier of the incompressibility constraint,
-        :math:`\boldsymbol{\sigma}` is the viscous stress tensor, and :math:`\mathbf F`, :math:`\mathbf B_0`,
+        :math:`\boldsymbol{\sigma}` is the viscous stress tensor (the viscous momentum flux), and :math:`\mathbf F`, :math:`\mathbf B_0`,
         :math:`\varepsilon` are as in :class:`~struphy.models.ColdEulerSPH` (here :math:`\varepsilon = 1`).
 
         The viscous stress tensor for a Newtonian fluid is given by:
 
         .. math::
 
-            \boldsymbol{\sigma} = \mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
+            \boldsymbol{\sigma} = -\mu \left( \nabla \mathbf{u} + (\nabla \mathbf{u})^T - \frac{2}{3} (\nabla \cdot \mathbf{u}) \mathbf{I} \right)
 
         where :math:`\mu` is the dynamic (shear) viscosity and :math:`\mathbf{I}` is the identity tensor.
 
@@ -183,7 +183,7 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
         .. math::
 
             \frac{\textnormal d}{\textnormal d t} \frac 12 \int \rho |\mathbf u|^2 \, \textnormal d \mathbf x
-            = - \int \boldsymbol \sigma : \nabla \mathbf u \, \textnormal d \mathbf x \leq 0
+            = \int \boldsymbol \sigma : \nabla \mathbf u \, \textnormal d \mathbf x \leq 0
         """
 
     @classmethod

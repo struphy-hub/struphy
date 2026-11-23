@@ -31,7 +31,7 @@ We consider a compressible fluid with mass density :math:`\rho(t, \mathbf x)` an
 
     \partial_t \rho + \nabla \cdot (\rho\, \mathbf u) &= 0\,,
     \\[2mm]
-    \rho\, \big(\partial_t \mathbf u + (\mathbf u \cdot \nabla) \mathbf u\big) &= - \nabla p(\rho) - \frac{\rho}{m} \nabla V + \nabla \cdot \boldsymbol\sigma\,,
+    \rho\, \big(\partial_t \mathbf u + (\mathbf u \cdot \nabla) \mathbf u\big) &= - \nabla p(\rho) - \frac{\rho}{m} \nabla V - \nabla \cdot \boldsymbol\sigma\,,
 
 with a pressure :math:`p(\rho)`, an external potential :math:`V` (e.g. gravity) and, for viscous fluids, a viscous
 stress :math:`\boldsymbol \sigma`.
@@ -66,7 +66,7 @@ equations of motion (:ref:`sph_pressure`):
     \\[2mm]
     \dot{\mathbf v}_p &= - \frac{1}{m} \nabla V(\mathbf x_p)
     - \sum_{j=1}^N w_j \left( \frac{p(\rho_p)}{\rho_p^2} + \frac{p(\rho_j)}{\rho_j^2} \right) \nabla W_h(\mathbf x_p - \mathbf x_j)
-    + \big(\tfrac 1\rho \nabla \cdot \boldsymbol\sigma\big)_h(\mathbf x_p)\,.
+    - \big(\tfrac 1\rho \nabla \cdot \boldsymbol\sigma\big)_h(\mathbf x_p)\,.
 
 The pressure force is a sum over pairs of markers. Because :math:`W_h` vanishes outside a box of half-width
 :math:`h`, only neighbouring markers interact, and the cost is :math:`O(N)` with a box-based neighbour search
@@ -488,24 +488,29 @@ e.g. :math:`\Delta t = 10^{-3}` in the default parameters of :class:`~struphy.mo
 Viscosity
 ^^^^^^^^^
 
-The viscous stress of a Newtonian fluid with dynamic viscosity :math:`\mu \geq 0` is the traceless symmetric part of
-the velocity gradient,
+The viscous stress of a Newtonian fluid with dynamic viscosity :math:`\mu \geq 0` is the viscous momentum
+flux, minus :math:`\mu` times twice the traceless symmetric part of the velocity gradient,
 
 .. math::
 
-    \boldsymbol\sigma = \mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
+    \boldsymbol\sigma = -\mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
     \qquad \boldsymbol\sigma = \boldsymbol\sigma^\top\,, \quad \textnormal{tr}\, \boldsymbol\sigma = 0\,.
+
+With this sign, momentum conservation reads
+:math:`\partial_t (\rho \mathbf u) + \nabla \cdot (\rho\, \mathbf u \mathbf u^\top + p\, \mathbb I + \boldsymbol\sigma) = 0`, and the
+kinetic energy is dissipated, :math:`\frac{\textrm d}{\textrm d t} \int \frac 12 \rho |\mathbf u|^2 \textrm d \mathbf x = \int \boldsymbol\sigma : \nabla \mathbf u\, \textrm d \mathbf x \leq 0`
+(without pressure work and with periodic or no-slip boundaries).
 
 Viscosity is dissipative and not part of the Lagrangian; it is added to the equations of motion (for SPH
 formulations of viscous flows, see e.g. :footcite:t:`Morris1997`). In SPH, the stress is
 evaluated at the markers from the gradient of the smoothed velocity :math:numref:`sph:velocity`,
 :math:`\boldsymbol \sigma_i := \boldsymbol\sigma(\nabla \mathbf u_h(\mathbf x_i))`, and the force is the SPH estimate of
-its divergence, divided by the density:
+minus its divergence, divided by the density:
 
 .. math::
     :label: sph:viscous_force
 
-    \dot{\mathbf v}_p = \frac{1}{\rho_p} (\nabla \cdot \boldsymbol\sigma)_h(\mathbf x_p) = \frac{1}{\rho_p} \sum_{i=1}^N \frac{w_i}{\rho_i}\, \boldsymbol\sigma_i\, \nabla W_h(\mathbf x_p - \mathbf x_i)\,.
+    \dot{\mathbf v}_p = -\frac{1}{\rho_p} (\nabla \cdot \boldsymbol\sigma)_h(\mathbf x_p) = -\frac{1}{\rho_p} \sum_{i=1}^N \frac{w_i}{\rho_i}\, \boldsymbol\sigma_i\, \nabla W_h(\mathbf x_p - \mathbf x_i)\,.
 
 This is implemented in :class:`~struphy.propagators.push_v_in_viscous_potential.PushVinViscousPotential` (in logical
 coordinates in Piola form, with the physical density :math:`\rho_p = \rho^\eta_p/\sqrt g` and forward Euler time

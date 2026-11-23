@@ -22,12 +22,12 @@ logger = logging.getLogger("struphy")
 class PushVinViscousPotential(Propagator):
     r"""Viscous force on SPH markers, see :ref:`sph_viscosity`.
 
-    **Continuous problem:** the velocity is accelerated by the divergence of the viscous stress,
+    **Continuous problem:** the velocity changes by the divergence of the viscous stress (the viscous momentum flux),
 
     .. math::
 
-        \rho\, \partial_t \mathbf u = \nabla \cdot \boldsymbol\sigma\,, \qquad
-        \boldsymbol\sigma = \mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
+        \rho\, \partial_t \mathbf u = - \nabla \cdot \boldsymbol\sigma\,, \qquad
+        \boldsymbol\sigma = -\mu \left( \nabla \mathbf u + (\nabla \mathbf u)^\top - \frac 23 (\nabla \cdot \mathbf u)\, \mathbb I \right)\,,
 
     with mass density :math:`\rho` and dynamic viscosity :math:`\mu \geq 0`.
 
@@ -45,13 +45,13 @@ class PushVinViscousPotential(Propagator):
     .. math::
 
         \frac{\textnormal d \mathbf v_p}{\textnormal d t}
-        = \frac{1}{\rho_p\, \sqrt g(\boldsymbol\eta_p)} \sum_{i=1}^N \frac{w_i}{\rho^\eta_i}\, \sqrt g(\boldsymbol\eta_i)\,
+        = - \frac{1}{\rho_p\, \sqrt g(\boldsymbol\eta_p)} \sum_{i=1}^N \frac{w_i}{\rho^\eta_i}\, \sqrt g(\boldsymbol\eta_i)\,
         \boldsymbol\sigma_i\, DF^{-\top}(\boldsymbol\eta_i)\, \nabla W_h(\boldsymbol\eta_p - \boldsymbol\eta_i)\,,
 
-    which is the SPH estimate of :math:`\frac 1\rho \nabla \cdot \boldsymbol\sigma` in Piola form, with the physical
+    which is the SPH estimate of :math:`-\frac 1\rho \nabla \cdot \boldsymbol\sigma` in Piola form, with the physical
     density :math:`\rho_p = \rho^\eta_p / \sqrt g(\boldsymbol\eta_p)` and :math:`\sqrt g = |\det DF|`. The
     coefficients :math:`w_i \mathbf v_i/\rho^\eta_i` and :math:`\sqrt g\, (w_i/\rho^\eta_i) \boldsymbol\sigma_i DF^{-\top}`
-    (with a minus sign) are computed once per time step and stored in the marker array.
+    are computed once per time step and stored in the marker array.
 
     **Time discretization:** forward Euler (``algo="forward_euler"``),
 
