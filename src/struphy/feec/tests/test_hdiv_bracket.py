@@ -41,15 +41,16 @@ def _random_vector(space, seed):
     return v
 
 
+@pytest.mark.parametrize("representer", ["logical", "L2"])
 @pytest.mark.parametrize("map_name", ["Cuboid", "Colella", "HollowTorus"])
 @pytest.mark.parametrize("degree", [(2, 2, 2), (3, 2, 3)])
-def test_hdiv_bracket_skew(map_name, degree):
+def test_hdiv_bracket_skew(map_name, degree, representer):
     """The bracket is skew-symmetric for any momentum (conservation of kinetic energy), and its result satisfies the
     boundary conditions of the velocity."""
     domain = MAPS[map_name]()
     derham = _derham(domain, (6, 6, 4), degree)
     mass_ops = WeightedMassOperators(derham, domain)
-    B = HdivBracketOperator(derham, domain, mass_ops)
+    B = HdivBracketOperator(derham, domain, mass_ops, representer=representer)
 
     B.update_momentum(mass_ops.M2.dot(_random_vector(derham.V2pol, 7)))
     bc = derham.boundary_ops["2"]
@@ -68,8 +69,9 @@ def test_hdiv_bracket_skew(map_name, degree):
     assert diff.inner(diff) == 0.0
 
 
+@pytest.mark.parametrize("representer", ["logical", "L2"])
 @pytest.mark.parametrize("map_name", ["Cuboid", "Colella"])
-def test_hdiv_bracket_convergence(map_name):
+def test_hdiv_bracket_convergence(map_name, representer):
     r"""v^T B u converges to int m . [u, v] dx for smooth fields (in logical coordinates:
     int (G u_m) . [u, v]_eta sqrt g d eta, with contravariant components u, v, u_m that vanish in direction 1 at the
     walls, 2-form coefficients sqrt g u and momentum m = M2 omega_m)."""
@@ -108,7 +110,7 @@ def test_hdiv_bracket_convergence(map_name):
     for n in (4, 8):
         derham = _derham(domain, (n, n, n), (2, 2, 2))
         mass_ops = WeightedMassOperators(derham, domain)
-        B = HdivBracketOperator(derham, domain, mass_ops)
+        B = HdivBracketOperator(derham, domain, mass_ops, representer=representer)
 
         def two_form(f):
             comps = [lambda e1, e2, e3, i=i: domain.jacobian_det(e1, e2, e3) * f(e1, e2, e3)[i] for i in range(3)]
@@ -124,14 +126,15 @@ def test_hdiv_bracket_convergence(map_name):
     assert errors[0] / errors[1] > 8.0, f"{errors = }"
 
 
+@pytest.mark.parametrize("representer", ["logical", "L2"])
 @pytest.mark.parametrize("map_name", ["Colella", "HollowTorus"])
-def test_hdiv_bracket_matrix_free(map_name):
+def test_hdiv_bracket_matrix_free(map_name, representer):
     """The assembled bracket (N, R) equals its matrix-free application, and the derivative with respect to the
     momentum is consistent with the bracket (bilinearity)."""
     domain = MAPS[map_name]()
     derham = _derham(domain, (6, 6, 4), (3, 2, 2))
     mass_ops = WeightedMassOperators(derham, domain)
-    B = HdivBracketOperator(derham, domain, mass_ops)
+    B = HdivBracketOperator(derham, domain, mass_ops, representer=representer)
     bc = derham.boundary_ops["2"]
 
     m = mass_ops.M2.dot(_random_vector(derham.V2pol, 11))
@@ -172,12 +175,13 @@ def _random_polar_vector(derham, form, seed):
     return derham.extraction_ops[form].dot(_random_vector(derham.extraction_ops[form].domain, seed))
 
 
-def test_hdiv_bracket_polar():
+@pytest.mark.parametrize("representer", ["logical", "L2"])
+def test_hdiv_bracket_polar(representer):
     """With polar splines: the bracket is skew-symmetric, its output satisfies the boundary conditions, and the
     matrix-free application (tensor-product integrals with the polar extraction) equals the assembled bracket."""
     derham, domain = _polar_derham()
     mass_ops = WeightedMassOperators(derham, domain)
-    B = HdivBracketOperator(derham, domain, mass_ops)
+    B = HdivBracketOperator(derham, domain, mass_ops, representer=representer)
     bc = derham.boundary_ops["2"]
 
     m = mass_ops.M2.dot(_random_polar_vector(derham, "2", 7))
@@ -204,6 +208,60 @@ def test_hdiv_bracket_polar():
     D.set_velocity(u)
     diff = D.dot(m) - Bu
     assert (diff.inner(diff) / Bu.inner(Bu)) ** 0.5 < 1e-10
+
+
+def _polar_consistency_error(n, representer):
+    """Dual-norm error ||B[m] u - b||_{M2^-1} / ||b||_{M2^-1} on the polar cylinder for a flow through the axis,
+    b_i = int w . [u, Lambda^2_i] dx the exact functional, m = M2 P2(w) (w tangential on the wall)."""
+    from feectools.linalg.solvers import inverse
+
+    from struphy.feec.preconditioner import mass_matrix_preconditioner
+
+    def fu(x, y, z):
+        return [1 - x**2 - y**2, 0 * x, y]
+
+    def fw(x, y, z):
+        return [(1 - x**2 - y**2) * (1 + y), (1 - x**2 - y**2) * x, 1 + 0 * x]
+
+    def fcurlw(x, y, z):  # curl w
+        return [0 * x, 0 * x, (1 - x**2 - y**2) - 2 * x * x - (-2 * y * (1 + y) + (1 - x**2 - y**2))]
+
+    domain = domains.IGAPolarCylinder(num_elements=(n, 3 * n // 2), degree=(3, 3), a=1.0, Lz=3.0)
+    grid = TensorProductGrid(num_elements=(n, 3 * n // 2, 4))
+    bcs = (("free", "dirichlet"), None, None)
+    derham = Derham(
+        grid, DerhamOptions(degree=(3, 3, 2), bcs=bcs, polar_splines=True), comm=MPI.COMM_WORLD, domain=domain
+    )
+    mass_ops = WeightedMassOperators(derham, domain)
+    bc = derham.boundary_ops["2"]
+
+    def two_form(f):
+        return bc.dot(derham.P2([lambda *e, k=k: domain.pull(f, *e, kind="2")[k] for k in range(3)]))
+
+    B = HdivBracketOperator(derham, domain, mass_ops, tol=1e-13, representer=representer)
+    B.update_momentum(mass_ops.M2.dot(two_form(fw)))
+    pts = [pt.flatten() for pt in derham.V0splines.quad_grid_pts[0]]
+    E = np.meshgrid(*pts, indexing="ij")
+    x, y, _ = domain(*E)
+    div_u = (-2 * x) * domain.jacobian_det(*E)  # logical divergence of the 2-form: sqrt(g) div u
+    b = B.apply_values(
+        list(domain.pull(fu, *E, kind="2")),
+        div_u,
+        list(domain.pull(fw, *E, kind="1")),
+        list(domain.pull(fcurlw, *E, kind="2")),
+    )
+    inv_M2 = inverse(mass_ops.M2, "pcg", pc=mass_matrix_preconditioner(mass_ops.M2, dim_reduce=0), tol=1e-13)
+    e = B.dot(two_form(fu)) - b
+    return (e.inner(inv_M2.dot(e)) / b.inner(inv_M2.dot(b))) ** 0.5
+
+
+def test_hdiv_bracket_polar_consistency():
+    """On a polar mesh, the projected bracket (representer="L2") is consistent for a flow through the axis (it
+    converges to the exact functional in the dual norm), while the logical covariant representer is not."""
+    errors = [_polar_consistency_error(n, "L2") for n in (4, 8)]
+    assert errors[-1] < 1e-2, f"{errors = }"
+    assert errors[0] / errors[1] > 8.0, f"{errors = }"
+    assert _polar_consistency_error(4, "logical") > 0.1
 
 
 if __name__ == "__main__":

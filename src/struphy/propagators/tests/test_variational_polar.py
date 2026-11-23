@@ -54,13 +54,17 @@ def test_variational_mhd_with_q_polar(mpi_out_folder):
 # second-order forces (ProjectionAdjointMatrix: the matrix F of the Alfven step, A of the sound step) with polar splines.
 
 
-def _variational_p_polar(model, out_folder: str, sim_folder: str, degree=(2, 2, 1)) -> Simulation:
+def _variational_p_polar(
+    model, out_folder: str, sim_folder: str, degree=(2, 2, 1), bracket_representer: str = "logical"
+) -> Simulation:
     """Allocated simulation of ``model`` (VariationalLinearMHD or VariationalPerturbativeMHD, ideal) on a polar cylinder
     with a screw pinch, with the propagator options of the model and a velocity perturbation."""
     for name, variant in model.propagator_variants.items():
         prop = getattr(model.propagators, name, None)
         if prop is not None:
             prop.options = prop.Options(model=variant)
+    if hasattr(model.propagators, "variat_mom"):
+        model.propagators.variat_mom.options.bracket_representer = bracket_representer
     sim = Simulation(
         model=model,
         env=EnvironmentOptions(out_folders=out_folder, sim_folder=sim_folder),
@@ -126,15 +130,16 @@ ENERGY_TOL_P = 5e-8
 
 
 @pytest.mark.parametrize(
-    "model_class, u_space",
+    "model_class, u_space, bracket_representer",
     [
-        ("VariationalLinearMHD", "H1vec"),
-        ("VariationalLinearMHD", "Hdiv"),
-        ("VariationalPerturbativeMHD", "H1vec"),
-        ("VariationalPerturbativeMHD", "Hdiv"),
+        ("VariationalLinearMHD", "H1vec", "logical"),
+        ("VariationalLinearMHD", "Hdiv", "logical"),
+        ("VariationalPerturbativeMHD", "H1vec", "logical"),
+        ("VariationalPerturbativeMHD", "Hdiv", "logical"),
+        ("VariationalPerturbativeMHD", "Hdiv", "L2"),
     ],
 )
-def test_variational_p_models_polar(mpi_out_folder, model_class, u_space):
+def test_variational_p_models_polar(mpi_out_folder, model_class, u_space, bracket_representer):
     """The ideal linear and perturbative variational MHD models (pressure p) with polar splines: the velocity changes
     and the energy ``en_tot`` is conserved."""
     from struphy import models
@@ -142,7 +147,13 @@ def test_variational_p_models_polar(mpi_out_folder, model_class, u_space):
     model = getattr(models, model_class)(u_space=u_space, with_viscosity=False, with_resistivity=False)
     # the bracket of the nonlinear model with a velocity in H(div) needs degree >= 2 in all directions
     degree = (2, 2, 2) if (model_class, u_space) == ("VariationalPerturbativeMHD", "Hdiv") else (2, 2, 1)
-    _variational_p_polar(model, mpi_out_folder, f"{model_class}_{u_space}", degree=degree)
+    _variational_p_polar(
+        model,
+        mpi_out_folder,
+        f"{model_class}_{u_space}_{bracket_representer}",
+        degree=degree,
+        bracket_representer=bracket_representer,
+    )
 
     def energy():
         model.scalars.update()
