@@ -11,7 +11,7 @@ from feectools.linalg.block import BlockVector
 from struphy import DerhamOptions, EnvironmentOptions, Simulation, Time, domains, equils, grids, models
 from struphy.feec.variational_utilities import L2PressureTransportOperator, L2TransportOperator, NormalizedInverse
 from struphy.initial import perturbations
-from struphy.models import VariationalLinearMHD, VariationalMHD_with_q
+from struphy.models import VariationalLinearMHD, VariationalMHD_with_q, VariationalPerturbativeMHD
 from struphy.propagators.variational_linear_sound_evolve import VariationalLinearSoundEvolve
 
 # relative change of the energy over the steps below: about 1e-8 with the polar coefficients in the evaluation of the
@@ -228,3 +228,19 @@ def test_normalized_inverse_warning(mpi_out_folder, caplog):
         # the struphy logger writes on rank 0 only
         if alfven.derham.comm is None or alfven.derham.comm.Get_rank() == 0:
             assert "NormalizedInverse(M1w): pcg did not converge in 3 iterations" in caplog.text
+
+
+def test_l2_transport_perturbative_warning(mpi_out_folder, caplog):
+    """``transport_projection="L2"`` in the linear Alfven step of the perturbative model is logged as a warning (its
+    nonlinear steps keep the commuting projectors)."""
+    model = VariationalPerturbativeMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
+    _variational_p_polar(model, mpi_out_folder, "l2_perturbative", degree=(2, 2, 2))
+    alfven = model.propagators.variat_lin_alfven
+    with caplog.at_level(logging.WARNING, logger="struphy"):
+        model.post_allocate()
+        assert "transport_projection" not in caplog.text
+        alfven.options = alfven.Options(transport_projection="L2")
+        model.post_allocate()
+        # the struphy logger writes on rank 0 only
+        if alfven.derham.comm is None or alfven.derham.comm.Get_rank() == 0:
+            assert 'transport_projection="L2" of variat_lin_alfven is meant for the linear model' in caplog.text
