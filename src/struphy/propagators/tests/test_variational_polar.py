@@ -59,17 +59,23 @@ def test_variational_mhd_with_q_polar(mpi_out_folder):
 
 
 def _variational_p_polar(
-    model, out_folder: str, sim_folder: str, degree=(2, 2, 1), transport_projection: str = "commuting"
+    model,
+    out_folder: str,
+    sim_folder: str,
+    degree=(2, 2, 1),
+    transport_projection: str = "commuting",
+    sound_options: dict = None,
 ) -> Simulation:
     """Allocated simulation of ``model`` (VariationalLinearMHD or VariationalPerturbativeMHD, ideal) on a polar cylinder
     with a screw pinch, with the propagator options of the model and a velocity perturbation; ``transport_projection``
-    of the linear Alfven and sound steps."""
+    of the linear Alfven and sound steps, and further options ``sound_options`` of the sound step."""
     for name, variant in model.propagator_variants.items():
         prop = getattr(model.propagators, name, None)
         if prop is not None:
             kw = dict(model=variant)
             if name == "variat_lin_sound":
                 kw["transport_projection"] = transport_projection
+                kw.update(sound_options or {})
             prop.options = prop.Options(**kw)
     alfven = getattr(model.propagators, "variat_lin_alfven", None)
     if alfven is not None:
@@ -206,8 +212,8 @@ def test_l2_transport_options():
 @pytest.mark.parametrize("transport_projection", ["commuting", "L2"])
 def test_sound_schur_preconditioner_polar(mpi_out_folder, transport_projection):
     """The Kronecker preconditioner of the Schur complement of the sound step (``schur_precond="StiffnessPreconditioner"``,
-    linear p model, velocity in H(div), polar splines): the same velocity and pressure as with the mass-matrix
-    preconditioner, with fewer iterations."""
+    linear p model, velocity in H(div), polar splines): built in the setup (``prepare_time_step``), the same velocity
+    and pressure as with the mass-matrix preconditioner, with fewer iterations."""
     results = {}
     for schur_precond in ("MassMatrixPreconditioner", "StiffnessPreconditioner"):
         model = VariationalLinearMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
@@ -216,13 +222,13 @@ def test_sound_schur_preconditioner_polar(mpi_out_folder, transport_projection):
             mpi_out_folder,
             f"sound_pc_{transport_projection}_{schur_precond}",
             transport_projection=transport_projection,
+            sound_options=dict(schur_precond=schur_precond),
         )
         sound = model.propagators.variat_lin_sound
-        sound.options = sound.Options(
-            model="linear_p", transport_projection=transport_projection, schur_precond=schur_precond
-        )
-        sound.allocate()
         assert (sound._schur_pc is not None) == (schur_precond == "StiffnessPreconditioner")
+        sound.prepare_time_step(0.5)
+        if sound._schur_pc is not None:
+            assert sound._schur_pc.dt == 0.5
         niter = 0
         for _ in range(3):
             sound(0.5)
@@ -240,15 +246,28 @@ def test_sound_schur_preconditioner_polar(mpi_out_folder, transport_projection):
     assert it_s < it_m, f"{it_s} iterations with the Kronecker preconditioner, {it_m} with the mass matrix"
 
 
-def test_sound_schur_preconditioner_fallback(mpi_out_folder):
-    """``schur_precond="StiffnessPreconditioner"`` with a velocity in H1vec falls back to the mass-matrix
-    preconditioner."""
-    model = VariationalLinearMHD(u_space="H1vec", with_viscosity=False, with_resistivity=False)
-    _variational_p_polar(model, mpi_out_folder, "sound_pc_fallback")
+@pytest.mark.parametrize("case", ["H1vec", "frozen", "total_weight"])
+def test_sound_schur_preconditioner_fallback(mpi_out_folder, caplog, case):
+    """``schur_precond="StiffnessPreconditioner"`` falls back to the mass-matrix preconditioner, with a warning, for a
+    velocity in H1vec, for ``weights="frozen"`` and with ``total_weight=True`` (perturbative model)."""
+    if case == "total_weight":
+        model = VariationalPerturbativeMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
+        degree = (2, 2, 2)
+    else:
+        model = VariationalLinearMHD(
+            u_space="H1vec" if case == "H1vec" else "Hdiv", with_viscosity=False, with_resistivity=False
+        )
+        degree = (2, 2, 1)
+    sound_options = dict(schur_precond="StiffnessPreconditioner")
+    if case == "frozen":
+        sound_options["weights"] = "frozen"
+    with caplog.at_level(logging.WARNING, logger="struphy"):
+        _variational_p_polar(model, mpi_out_folder, f"sound_pc_fallback_{case}", degree, sound_options=sound_options)
     sound = model.propagators.variat_lin_sound
-    sound.options = sound.Options(model="linear_p", schur_precond="StiffnessPreconditioner")
-    sound.allocate()
     assert sound._schur_pc is None
+    # the struphy logger writes on rank 0 only
+    if sound.derham.comm is None or sound.derham.comm.Get_rank() == 0:
+        assert 'schur_precond="StiffnessPreconditioner" needs' in caplog.text
 
 
 def test_normalized_inverse_warning(mpi_out_folder, caplog):
