@@ -204,7 +204,7 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
     @classmethod
     def doc_discretization(cls) -> str:
         """Time integration is performed by the following propagators (in sequence). The pressure is computed with
-        Chorin's projection method: ``pressure_poisson`` solves a Poisson equation for the pressure with the
+        Chorin's projection method :footcite:p:`Chorin1968`: ``pressure_poisson`` solves a Poisson equation for the pressure with the
         divergence of the velocity (divided by the time step) on the right-hand side, and ``chorin_projection``
         pushes the velocities with the pressure force, which makes them divergence free. This needs
         ``Time(split_algo="LieTrotter")``."""
@@ -214,7 +214,7 @@ class IncompressibleNavierStokesSPH(ColdEulerSPH):
     def doc_long_description(cls):
         r"""IncompressibleNavierStokesSPH is the particle-based SPH model of an incompressible, viscous fluid. The
         pressure is not given by an equation of state but is the Lagrange multiplier of the incompressibility
-        constraint, computed on the FEEC grid with Chorin's projection method.
+        constraint, computed on the FEEC grid with Chorin's projection method :footcite:p:`Chorin1968`.
 
         In the SPH family it extends :class:`~struphy.models.ColdEulerSPH` by the viscous force and the
         incompressibility constraint, and inherits its species, propagators and scalars."""
