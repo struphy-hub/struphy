@@ -1289,7 +1289,7 @@ class NormalizedInverse(LinearOperator):
     r"""Inverse of a symmetric positive definite mass matrix :math:`\mathbb M`, applied with a tolerance relative to the
     norm of the right-hand side (:func:`dot_normalized`): preconditioned CG with the Kronecker preconditioner of
     :func:`~struphy.feec.preconditioner.mass_matrix_preconditioner` (its 2D x 1D version with polar splines). It is its
-    own transpose.
+    own transpose. A solve that does not reach the tolerance is logged as a warning.
 
     Parameters
     ----------
@@ -1298,10 +1298,13 @@ class NormalizedInverse(LinearOperator):
     tol : float
         Relative tolerance of the solves.
     maxiter : int
-        Maximum number of iterations.
+        Maximum number of iterations. With the Kronecker preconditioner and the last solution as initial guess, the
+        solves need about 2-3 iterations (polar cylinder and torus, 16x12x12, degree 3); the limit only bounds the
+        cost of a stalled solve.
     """
 
-    def __init__(self, mass, tol: float = 1e-14, maxiter: int = 3000):
+    def __init__(self, mass, tol: float = 1e-14, maxiter: int = 100):
+        self._name = getattr(mass, "name", type(mass).__name__)
         self._inv = inverse(
             mass, "pcg", pc=preconditioner.mass_matrix_preconditioner(mass), tol=tol, maxiter=maxiter, recycle=True
         )
@@ -1334,7 +1337,18 @@ class NormalizedInverse(LinearOperator):
         if out is None:
             out = self._codomain.zeros()
         v.copy(out=self._tmp)  # dot_normalized scales its input in place
-        return dot_normalized(self._inv, self._tmp, out)
+        if not self._tmp.inner(self._tmp) > 0.0:
+            out *= 0.0  # zero right-hand side: no solve (as in dot_normalized)
+            return out
+        dot_normalized(self._inv, self._tmp, out)
+        info = self._inv.get_info()
+        if not info["success"]:
+            logger.warning(
+                f"NormalizedInverse({self._name}): pcg did not converge in {info['niter']} iterations, relative "
+                f"residual {info['res_norm']:.2e} (tol {self._inv.get_options('tol'):.0e}); the adjoint identities "
+                "and the energy conservation of the L2 transport hold only up to this residual."
+            )
+        return out
 
 
 def _local_spline_callables(sf, ncomp: int) -> list:
