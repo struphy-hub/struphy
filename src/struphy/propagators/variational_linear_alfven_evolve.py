@@ -7,6 +7,8 @@ from line_profiler import profile
 from struphy.feec.preconditioner import MassMatrixPreconditioner
 from struphy.feec.variational_utilities import (
     Hdiv0_transport_operator,
+    L2TransportAdjointMatrix,
+    L2TransportOperator,
     TransportAdjointMatrix,
     alfven_schur_preconditioner,
 )
@@ -70,6 +72,17 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
     operators of the perturbative model
     (:class:`~struphy.propagators.variational_pb_evolve.VariationalPBEvolve`, ``model="perturbative"``), which
     reduces to this step at small amplitude.
+
+    With ``transport_projection="L2"`` (velocity in :math:`H(\textnormal{div})` only), the commuting projection is
+    replaced by the :math:`L^2` projection onto :math:`V^1_h`,
+    :math:`\mathbb T[\bar{\mathbf b}] = \mathbb C\, \mathbb B_1^\top (\mathbb M^1)^{-1} \mathbb W[\bar{\mathbf b}]`
+    (:class:`~struphy.feec.variational_utilities.L2TransportOperator`), and :math:`\mathbb F` by
+    :class:`~struphy.feec.variational_utilities.L2TransportAdjointMatrix`. The commuting projector integrates the
+    pointwise product along the edges of the histopolation grid; at a polar axis these edges start at one point, where
+    the product of two discrete 2-forms has no limit, and the scheme has a spurious mode localized at the axis whose
+    growth rate does not decrease under refinement. The :math:`L^2` projection uses volume integrals only and removes
+    it; it also makes the second-order energy the exact integral of the product of the discrete fields against the weak
+    current of the equilibrium. Every application of :math:`\mathbb T_0` needs one solve with :math:`\mathbb M^1`.
 
     **Time discretization.** Implicit midpoint rule for :math:`(\mathbf u, \mathbf b)`,
     :math:`\hat{\mathbf b}` advanced with the same weight:
@@ -188,6 +201,12 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         exb_correction : bool, default=True
             For ``schur_precond="StiffnessPreconditioner"``: add the auxiliary space correction of the
             :math:`\mathbf E \times \mathbf B` flows :math:`\mathbf B_0 \times \nabla \phi`.
+        transport_projection : {"commuting", "L2"}, default="commuting"
+            Projection of the interior product :math:`\mathbf B \times \mathbf u` onto :math:`V^1_h` in the transport:
+            the commuting projector :math:`\hat\Pi^1`, or the :math:`L^2` projection (velocity in
+            :math:`H(\textnormal{div})` only; needed with polar splines, see above). Meant for the linear model
+            :class:`~struphy.models.VariationalLinearMHD`: the nonlinear steps of the perturbative model still use the
+            commuting projectors.
         """
 
         # specific literals
@@ -195,6 +214,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         OptsSchurPrecond = Literal["MassMatrixPreconditioner", "StiffnessPreconditioner"]
         OptsWeights = Literal["frozen", "midpoint"]
         OptsSolver = Literal["pcg", "pcg_sr", "cg", "pbicgstab", "rpbicgstab"]
+        OptsTransportProjection = Literal["commuting", "L2"]
         # propagator options
         weights: OptsWeights = "midpoint"
         solver: OptsSolver = None
@@ -204,6 +224,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         relative_tol: bool = True
         schur_precond: OptsSchurPrecond = "MassMatrixPreconditioner"
         exb_correction: bool = True
+        transport_projection: OptsTransportProjection = "commuting"
 
         def __post_init__(self):
             # checks
@@ -216,6 +237,7 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
             )
             check_option(self.precond, self.OptsPrecond)
             check_option(self.schur_precond, self.OptsSchurPrecond)
+            check_option(self.transport_projection, self.OptsTransportProjection)
 
             # defaults
             if self.solver_params is None:
@@ -241,11 +263,19 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         # assembly of WMMnew happens in VariationalDensityEvolve
         self._allocate_mass(self.options.precond)
 
-        # transport operator with the equilibrium, T0 = C Pi^1[b0 x .] (the same as in the perturbative model)
-        self._T0 = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
-        self._T0T = self._T0.T
-        self._T0.update_coeffs(self.projected_equil.b2)
-        self._T0T.update_coeffs(self.projected_equil.b2)
+        self._l2 = self.options.transport_projection == "L2"
+        if self._l2:
+            assert self._u_space == "Hdiv", 'transport_projection="L2" needs a velocity in "Hdiv".'
+            # transport operator with the equilibrium, T0 = C B1^T M1^-1 W[b0] (L2 projection, W assembled once)
+            self._T0 = L2TransportOperator(self.derham, self.domain, self.mass_ops, assemble=True)
+            self._T0.update_coeffs(self.projected_equil.b2)
+            self._T0T = self._T0.T
+        else:
+            # transport operator with the equilibrium, T0 = C Pi^1[b0 x .] (the same as in the perturbative model)
+            self._T0 = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
+            self._T0T = self._T0.T
+            self._T0.update_coeffs(self.projected_equil.b2)
+            self._T0T.update_coeffs(self.projected_equil.b2)
 
         self._midpoint = self.options.weights == "midpoint"
         self._init_second_order_term()
@@ -281,11 +311,16 @@ class VariationalLinearAlfvenEvolve(VariationalLinearEvolve):
         :math:`\mathbb T[\mathbf b^w]` of :math:`\hat{\mathbf b}`, and the matrix :math:`\mathbb F` of its adjoint applied
         to the linear form :math:`-\mathbb M^2 \mathbf b_0`, the force
         (:class:`~struphy.feec.variational_utilities.TransportAdjointMatrix`)."""
-        self._Tw = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         # linear form of the second-order energy b0^T M2 b-hat (with the sign of the force term)
         self._lf0 = self.mass_ops.M2.dot(self.projected_equil.b2)
         self._lf0 *= -1.0
-        self._F = TransportAdjointMatrix(self.derham, self.domain, self.mass_ops, self._u_space, self._lf0)
+        if self._l2:
+            # transport of b-hat with the weight b^w (matrix-free), the force matrix of the same L2 projection
+            self._Tw = L2TransportOperator(self.derham, self.domain, self.mass_ops, assemble=False)
+            self._F = L2TransportAdjointMatrix(self._T0, self.mass_ops, self._lf0)
+        else:
+            self._Tw = Hdiv0_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
+            self._F = TransportAdjointMatrix(self.derham, self.domain, self.mass_ops, self._u_space, self._lf0)
 
     def prepare_time_step(self, dt: float):
         """Kronecker preconditioner of the Schur operator for the time step ``dt`` (with
