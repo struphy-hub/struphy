@@ -21,8 +21,8 @@ from struphy.models import EulerSPH
 from struphy.propagators.push_v_in_sph_pressure import PushVinSPHpressure
 
 
-def _spurious_acceleration(domain, etas, kappa):
-    """Largest acceleration kappa |DF^{-T} grad ln sqrt(g)| that a uniform gas at rest feels without the metric
+def _spurious_acceleration(domain, etas, u_prime_rho):
+    """Largest acceleration U'(rho) rho |DF^{-T} grad ln sqrt(g)| that a uniform gas at rest feels without the metric
     term of the pressure force (finite differences of the Jacobian determinant)."""
     delta = 1e-5
     grad = xp.zeros_like(etas)
@@ -35,7 +35,7 @@ def _spurious_acceleration(domain, etas, kappa):
         log_m = xp.log(xp.abs(domain.jacobian_det(em, remove_outside=False)))
         grad[k] = (log_p - log_m) / (ep[k] - em[k])
     dfinv = domain.jacobian_inv(etas, remove_outside=False)  # (3, 3, N)
-    accel = kappa * xp.einsum("kjn,kn->jn", dfinv, grad)  # DF^{-T} grad
+    accel = u_prime_rho * xp.einsum("kjn,kn->jn", dfinv, grad)  # DF^{-T} grad
     return float(xp.max(xp.linalg.norm(accel, axis=0)))
 
 
@@ -43,19 +43,21 @@ def _spurious_acceleration(domain, etas, kappa):
     "thermodynamics,gamma",
     [("isothermal", 5.0 / 3.0), ("polytropic", 5.0 / 3.0), ("polytropic", 1.4)],
 )
-def test_uniform_gas_at_rest_on_curved_mapping(mpi_out_folder: str, thermodynamics: str, gamma: float):
+@pytest.mark.parametrize("rho0", [1.0, 2.0])
+def test_uniform_gas_at_rest_on_curved_mapping(mpi_out_folder: str, thermodynamics: str, gamma: float, rho0: float):
     """A gas with uniform physical density and pressure at rest stays at rest on a curved mapping (Colella).
 
     For SPH, the density n of the background and perturbation is the 3-form in logical coordinates,
     n = rho sqrt(g). On the Colella mapping with Lx = Ly = 1, sqrt(g) = 1 + 2 pi alpha sin(2 pi (eta1 + eta2)),
-    so n = 1 + ModesSin(ls=1, ms=1, amp=2 pi alpha) is the uniform physical density rho = 1.
+    so n = rho0 (1 + ModesSin(ls=1, ms=1, amp=2 pi alpha)) is the uniform physical density rho0.
+    The case rho0 = 2 checks the density dependence U'(rho) rho of the metric term.
     Without the metric term -U'(rho_p) rho_p grad ln sqrt(g) of the pressure force, the markers would be
     accelerated by kappa DF^{-T} grad ln sqrt(g); with it, the remaining acceleration is the (small) SPH
     discretization error.
     """
     env = EnvironmentOptions(
         out_folders=os.path.join(mpi_out_folder, "EulerSPH"),
-        sim_folder=f"uniform_gas_{thermodynamics}_{gamma:.3f}",
+        sim_folder=f"uniform_gas_{thermodynamics}_{gamma:.3f}_{rho0}",
     )
     time_opts = Time(dt=1e-3, Tend=1e-3)
     alpha = 0.1
@@ -76,10 +78,10 @@ def test_uniform_gas_at_rest_on_curved_mapping(mpi_out_folder: str, thermodynami
         thermodynamics=thermodynamics,
         gamma=gamma,
     )
-    model.fluid.var.add_background(equils.ConstantVelocity(ux=0.0, uy=0.0, uz=0.0, n=1.0))
+    model.fluid.var.add_background(equils.ConstantVelocity(ux=0.0, uy=0.0, uz=0.0, n=rho0))
     # n = sqrt(g): uniform physical density
     model.fluid.var.add_perturbation(
-        del_n=perturbations.ModesSin(ls=(1,), ms=(1,), amps=(2.0 * xp.pi * alpha,), given_in_basis="0")
+        del_n=perturbations.ModesSin(ls=(1,), ms=(1,), amps=(rho0 * 2.0 * xp.pi * alpha,), given_in_basis="0")
     )
 
     sim = Simulation(model=model, env=env, time_opts=time_opts, domain=domain)
@@ -93,9 +95,10 @@ def test_uniform_gas_at_rest_on_curved_mapping(mpi_out_folder: str, thermodynami
 
     markers = particles.markers_wo_holes_and_ghost
     accel = xp.max(xp.linalg.norm(markers[3:6] / dt, axis=0))
-    spurious = _spurious_acceleration(domain, markers[:3].copy(), kappa)
+    # U'(rho) rho: kappa (isothermal), kappa rho^(gamma - 1) (polytropic)
+    u_prime_rho = kappa if thermodynamics == "isothermal" else kappa * rho0 ** (gamma - 1.0)
+    spurious = _spurious_acceleration(domain, markers[:3].copy(), u_prime_rho)
 
-    # rho = 1, so U'(rho) rho = kappa for both closures
     assert spurious > 0.3, f"the mapping should give a noticeable metric force, got {spurious}"
     assert accel < 0.1 * spurious, f"uniform gas accelerated: max |a| = {accel:.3e}, metric scale {spurious:.3e}"
 

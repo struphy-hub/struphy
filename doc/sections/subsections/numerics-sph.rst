@@ -438,7 +438,10 @@ it is needed so that a fluid with uniform physical density and pressure is at re
 :math:`\sum_j w_j A_j \nabla W_h(\boldsymbol\eta_p - \boldsymbol\eta_j) \approx \nabla_{\boldsymbol\eta} (A \rho^\eta)`, the
 bracket tends to :math:`\nabla_{\boldsymbol\eta} p / \rho`, as it should. Struphy computes
 :math:`\nabla_{\boldsymbol\eta} \ln \sqrt g` by finite differences of :math:`\det DF`
-(:mod:`struphy.pic.sph_metric_kernels`).
+(:mod:`struphy.pic.sph_metric_kernels`), only in the directions resolved by the kernel (e.g. only
+:math:`\eta_1` for ``"*_1d"`` kernels): in the other directions the fields are assumed to be constant, which is
+consistent only if :math:`\sqrt g` does not depend on these coordinates. Mappings with a singular axis are not
+supported.
 
 
 .. _sph_conservation:
@@ -607,8 +610,9 @@ The models are verified against analytic solutions in ``src/struphy/models/tests
 * ``ColdEulerSPH``: oscillation in a harmonic potential (second-order convergence in :math:`\Delta t` with Strang
   splitting, mass conserved to machine precision);
 * ``EulerSPH``: isothermal standing sound wave in 1D over one period;
-* ``ViscousEulerSPH``: damped sound wave (decay rate :math:`\frac 23 \mu k^2`), velocity diffusion (decay rate
-  :math:`\frac 43 \mu k^2`) and Hagen-Poiseuille flow (parabolic profile between no-slip walls);
+* ``ViscousEulerSPH``: damped sound wave (decay rate :math:`\frac 23 \mu k^2 / \rho_0`), velocity diffusion (decay
+  rate :math:`\frac 43 \mu k^2 / \rho_0`, for :math:`\rho_0 = 1` and :math:`2`) and Hagen-Poiseuille flow (parabolic
+  profile between no-slip walls);
 * ``IncompressibleNavierStokesSPH``: Chorin projection and decay of a shear flow between no-slip walls.
 
 The dam break test (``ViscousEulerSPH``) is a robustness check only: it verifies that the markers stay in the domain.

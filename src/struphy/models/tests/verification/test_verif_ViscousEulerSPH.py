@@ -157,7 +157,6 @@ def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot:
         energy_fit = np.polyfit(times, log_energy, 1)
         gamma_numerical = energy_fit[0] / 2.0
 
-
         logger.info(f"Analytical decay rate: gamma = -(2/3) mu k^2 = {gamma_analytical:.4f}")
         logger.info(f"Numerical  decay rate: gamma             = {gamma_numerical:.4f}")
 
@@ -423,12 +422,12 @@ def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, n0: flo
             plt.tight_layout()
             plt.show()
 
-        error = xp.max(xp.abs(j1_binned[-1] - ux_mean))
-        logger.info(f"SPH sound wave {error =}.")
-        if n0 == 1.0:
-            # absolute bound calibrated for n0 = 1; the decay rate is checked for all n0 below
-            assert error < 0.0022
-            logger.info("Assertion passed.")
+        # final current n0 u against the analytic solution n0 * 0.5 * exp(-gamma T) * sin(k x)
+        j1_exact = n0 * 0.5 * np.exp(-gamma_analytical * time_opts.Tend) * np.sin(k * e1_np * r1)
+        error = np.max(np.abs(np.asarray(j1_binned[-1]).flatten() - ux_mean - j1_exact)) / n0
+        logger.info(f"Velocity diffusion: max error of the final velocity {error = :.2e}.")
+        assert error < 0.005  # 1% of the initial amplitude 0.5
+        logger.info("Assertion passed.")
 
         rel_error = abs(gamma_numerical - gamma_analytical) / gamma_analytical
         logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")

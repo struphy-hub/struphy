@@ -58,6 +58,10 @@ class PushVinViscousPotential(Propagator):
     .. math::
 
         \mathbf v_p^{n+1} = \mathbf v_p^n + \Delta t\, \frac{\textnormal d \mathbf v_p}{\textnormal d t}\Big|^n\,.
+
+    The explicit step is stable for :math:`\Delta t \lesssim h^2 / \nu` with the kinematic viscosity
+    :math:`\nu = \mu / \rho`, so low densities need small time steps. Near a vacuum (e.g. at walls with
+    ``bc_sph="fixed"``, where the density tends to zero) the viscous acceleration becomes large.
     """
 
     class Variables:

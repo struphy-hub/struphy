@@ -104,8 +104,15 @@ def push_v_sph_pressure_ideal_gas(
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[0]
 
+    # number of logical directions resolved by the kernel
+    n_dirs = 1
+    if kernel_type >= 340:
+        n_dirs = 2
+    if kernel_type >= 670:
+        n_dirs = 3
+
     # fmt: off
-    #$ omp parallel firstprivate(grad_u) private(dfinv, dfinvT, eta1, eta2, eta3, glsg, grad_u_cart, ip, loc_box, n_at_eta, rho_p, sg_p, corr, sum2, sum4, sum6, tmp1)
+    #$ omp parallel firstprivate(grad_u) private(dfinv, dfinvT, eta1, eta2, eta3, glsg, k, grad_u_cart, ip, loc_box, n_at_eta, rho_p, sg_p, corr, sum2, sum4, sum6, tmp1)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -251,13 +258,10 @@ def push_v_sph_pressure_ideal_gas(
 
         # metric correction of the variational force, -U'(rho_p) rho_p grad ln sqrt(g) (U' rho = kappa rho^(gamma-1)),
         # in the directions resolved by the kernel
-        sph_metric_kernels.grad_log_sqrt_g(eta1, eta2, eta3, args_domain, glsg)
+        sph_metric_kernels.grad_log_sqrt_g(eta1, eta2, eta3, args_domain, n_dirs, glsg)
         corr = kappa * rho_p ** (gamma - 1)
-        grad_u[0] -= corr * glsg[0]
-        if kernel_type >= 340:
-            grad_u[1] -= corr * glsg[1]
-        if kernel_type >= 670:
-            grad_u[2] -= corr * glsg[2]
+        for k in range(n_dirs):
+            grad_u[k] -= corr * glsg[k]
 
         # push to Cartesian coordinates
         evaluation_kernels.df_inv(
