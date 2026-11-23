@@ -271,9 +271,9 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             leading part of the Schur complement
             (:class:`~struphy.propagators.utils.SoundWaveSchurPreconditioner`, as in
             :class:`~struphy.propagators.sound_wave_linear.SoundWaveLinear`; with polar splines its 2D x 1D version),
-            built in :meth:`prepare_time_step` and rebuilt when the time step changes. Velocity in
-            :math:`H(\textnormal{div})` and without ``total_weight`` only; otherwise ``precond`` is used (with a
-            warning).
+            built in :meth:`prepare_time_step` and rebuilt when the time step changes; with ``total_weight=True`` the
+            same preconditioner (of :math:`p_0`) in all Picard iterations. Velocity in :math:`H(\textnormal{div})`
+            only; otherwise ``precond`` is used (with a warning).
         transport_projection : {"commuting", "L2"}, default="commuting"
             Projections in the transport of the pressure: the commuting projectors :math:`\hat\Pi^2, \hat\Pi^3`, or
             the :math:`L^2` projections (only ``"linear_p"`` with a velocity in :math:`H(\textnormal{div})`, see
@@ -440,7 +440,8 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             self._allocate_mass_solver(self.options.solver, self.options.solver_params)
 
         # Kronecker preconditioner of the Schur complement (linear_p, midpoint), built for the time step in
-        # prepare_time_step (and in __call__ if dt changes)
+        # prepare_time_step (and in __call__ if dt changes); with total_weight, the one of the equilibrium weight p0 is
+        # used in all Picard iterations
         self._schur_pc = None
         if self.options.schur_precond == "StiffnessPreconditioner":
             unmet = []
@@ -448,9 +449,6 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
                 unmet += ['model="linear_p" with weights="midpoint"']
             if self._u_space != "Hdiv":
                 unmet += ['a velocity in "Hdiv"']
-            if self.total_weight:
-                # the Picard iteration of _solve_total_weight changes the Schur operator in every iteration
-                unmet += ["total_weight=False"]
             if unmet:
                 logger.warning(
                     f'{self.__class__.__name__}: schur_precond="StiffnessPreconditioner" needs {", ".join(unmet)}; '
@@ -594,7 +592,13 @@ class VariationalLinearSoundEvolve(VariationalLinearEvolve):
             f_u *= dt
             f_s = self._S_total.dot(un, out=self._tmp_fs)
             f_s *= dt
+            # the Kronecker preconditioner (of p0) in all iterations; the trial of its kernel correction (tensor-product
+            # splines) compares the first solves of the steps, since the later ones start close to the solution
+            if self._schur_pc is not None and it == 0:
+                self._schur_pc.update(self._inv_J, dt)
             incr = self._solve_increment(dt, f_u, f_s)
+            if self._schur_pc is not None and it == 0:
+                self._schur_pc.record(self._inv_J, self._inv_J._solver._info)
             un1 = un.copy(out=self._tmp_un1)
             un1 -= incr[0]
             sn1 = sn.copy(out=self._tmp_sn1)
