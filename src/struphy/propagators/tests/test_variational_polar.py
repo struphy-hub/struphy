@@ -2,11 +2,17 @@
 Derham) and the evaluation of polar spline functions on the quadrature grid (SplineFunction.eval_tp_fixed_loc with the
 polar coefficients, issue #921)."""
 
+import logging
+
 import numpy as np
 import pytest
+from feectools.linalg.block import BlockVector
 
-from struphy import DerhamOptions, EnvironmentOptions, Simulation, Time, domains, equils, grids
+from struphy import DerhamOptions, EnvironmentOptions, Simulation, Time, domains, equils, grids, models
+from struphy.feec.variational_utilities import L2PressureTransportOperator, L2TransportOperator, NormalizedInverse
 from struphy.initial import perturbations
+from struphy.models import VariationalLinearMHD, VariationalMHD_with_q
+from struphy.propagators.variational_linear_sound_evolve import VariationalLinearSoundEvolve
 
 # relative change of the energy over the steps below: about 1e-8 with the polar coefficients in the evaluation of the
 # spline functions, about 2e-7 without (issue #921); measured with the default solver and Newton tolerances of the
@@ -17,8 +23,6 @@ ENERGY_TOL = 5e-8
 def test_variational_mhd_with_q_polar(mpi_out_folder):
     """The nonlinear variational MHD model (with q = sqrt(p)) on a polar cylinder (C1 polar splines, no hole) with a
     screw pinch: the velocity changes and the energy is conserved."""
-    from struphy.models import VariationalMHD_with_q
-
     model = VariationalMHD_with_q()
     sim = Simulation(
         model=model,
@@ -90,8 +94,6 @@ def _variational_p_polar(
 def _random_vector(derham, form: str, rng):
     """A random vector of the (polar, boundary-reduced) space of ``form``: extraction and boundary operators applied to
     random tensor-product coefficients."""
-    from feectools.linalg.block import BlockVector
-
     v = derham.extraction_ops[form].domain.zeros()
     for blk in v.blocks if isinstance(v, BlockVector) else [v]:
         blk._data[:] = rng.standard_normal(blk._data.shape)
@@ -108,8 +110,6 @@ def test_projection_adjoint_matrices_polar(mpi_out_folder, u_space, transport_pr
     (Alfven step) and :math:`(\\mathbb A \\mathbf p) \\cdot \\mathbf u = \\mathbf l_0 \\cdot \\mathbb S[\\mathbf p]
     \\mathbf u` (sound step), and :math:`\\mathbb T_0^\\top` is the transpose of :math:`\\mathbb T_0`, with the
     commuting and the :math:`L^2` projections in the transport."""
-    from struphy.models import VariationalLinearMHD
-
     model = VariationalLinearMHD(u_space=u_space, with_viscosity=False, with_resistivity=False)
     _variational_p_polar(
         model, mpi_out_folder, f"adjoint_{u_space}_{transport_projection}", transport_projection=transport_projection
@@ -151,8 +151,6 @@ ENERGY_TOL_P = 5e-8
 def test_variational_p_models_polar(mpi_out_folder, model_class, u_space):
     """The ideal linear and perturbative variational MHD models (pressure p) with polar splines: the velocity changes
     and the energy ``en_tot`` is conserved."""
-    from struphy import models
-
     model = getattr(models, model_class)(u_space=u_space, with_viscosity=False, with_resistivity=False)
     # the bracket of the nonlinear model with a velocity in H(div) needs degree >= 2 in all directions
     degree = (2, 2, 2) if (model_class, u_space) == ("VariationalPerturbativeMHD", "Hdiv") else (2, 2, 1)
@@ -177,11 +175,7 @@ def test_l2_transport_polar(mpi_out_folder):
     """The linear variational MHD model with a velocity in H(div) and the :math:`L^2` projections in the transport
     (``transport_projection="L2"`` in the Alfven and sound steps) on a polar cylinder: the velocity changes and the
     energy ``en_tot`` (with the second-order fields) is conserved (measured: 3e-10)."""
-    from struphy.models import VariationalLinearMHD
-
     model = VariationalLinearMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
-    from struphy.feec.variational_utilities import L2PressureTransportOperator, L2TransportOperator
-
     _variational_p_polar(model, mpi_out_folder, "l2_transport", transport_projection="L2")
     assert isinstance(model.propagators.variat_lin_alfven._T0, L2TransportOperator)
     assert isinstance(model.propagators.variat_lin_sound._S0, L2PressureTransportOperator)
@@ -204,8 +198,6 @@ def test_l2_transport_polar(mpi_out_folder):
 @pytest.mark.mpi_skip
 def test_l2_transport_options():
     """The :math:`L^2` transport of the sound step is only available for the pressure model."""
-    from struphy.propagators.variational_linear_sound_evolve import VariationalLinearSoundEvolve
-
     with pytest.raises(AssertionError):
         VariationalLinearSoundEvolve.Options(model="linear_q", transport_projection="L2")
     VariationalLinearSoundEvolve.Options(model="linear_p", transport_projection="L2")
@@ -266,11 +258,6 @@ def test_sound_schur_preconditioner_fallback(mpi_out_folder):
 def test_normalized_inverse_warning(mpi_out_folder, caplog):
     """The inner mass solves of the :math:`L^2` transport (NormalizedInverse, polar splines) converge with the default
     tolerance and iteration limit, and a solve that does not converge is logged as a warning."""
-    import logging
-
-    from struphy.feec.variational_utilities import NormalizedInverse
-    from struphy.models import VariationalLinearMHD
-
     model = VariationalLinearMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
     _variational_p_polar(model, mpi_out_folder, "normalized_inverse", transport_projection="L2")
     alfven = model.propagators.variat_lin_alfven
