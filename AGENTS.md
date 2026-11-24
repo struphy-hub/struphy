@@ -113,6 +113,8 @@ repository struphy-hub/struphy-studies, see the skill `.claude/skills/create-stu
 ## Performance pitfalls
 
 - When timing under MPI, limit BLAS threads (`OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1`, exported with `mpirun -x`).
+  `Simulation.run` does this for BLAS itself (`struphy.utils.threads.limit_blas_threads`, PR #749); scripts and
+  tests without a `Simulation` must call that function or set the variables.
   Oversubscribed threaded BLAS makes timings meaningless (issue #743).
 
 ## Usage guidelines (shipped with the package)
