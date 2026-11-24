@@ -71,7 +71,7 @@ def push_v_viscosity(
     n_cols = shape(markers)[0]
 
     # fmt: off
-    #$ omp parallel firstprivate(rho_val, rho_grad, s_val, s_grad) private(ip, loc_box, j, m, div_s)
+    #$ omp parallel firstprivate(rho_val, rho_grad, s_val, s_grad) private(ip, loc_box, j, div_s)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
