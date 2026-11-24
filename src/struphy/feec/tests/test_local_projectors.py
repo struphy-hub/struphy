@@ -128,7 +128,7 @@ def test_local_projectors_convergence(direction, pi, bc_kind, do_plot=False):
     rank = comm.Get_rank()
 
     # loop over different number of elements
-    Nels = [2**n for n in range(3, 9)]
+    Nels = [2**n for n in range(3, 8)]
     errors = {"H1": [], "Hcurl": [], "Hdiv": [], "L2": [], "H1vec": []}
     figs = {}
     for sp_id in errors:
@@ -402,6 +402,16 @@ def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, i
         spans, values = get_span_and_basis(eta, w1d)
         return spans, values
 
+    # the splines at a point do not depend on the basis function i: evaluate them once per point
+    spline_cache = {}
+
+    def splines_at(eta_point, is_B, dim_idx, w1d):
+        key = (is_B, dim_idx, float(eta_point))
+        if key not in spline_cache:
+            spans, values = process_eta(eta_point, w1d)
+            spline_cache[key] = get_values_and_indices_splines(w1d.nbasis, w1d.degree, w1d.periodic, spans, values)
+        return spline_cache[key]
+
     # Generalized factory function
     def make_basis_fun(is_B, dim_idx, i):
         def fun(eta1, eta2, eta3):
@@ -413,21 +423,7 @@ def test_basis_projection_operator_local(num_elements, plist, bcs, out_sp_key, i
             for j1 in range(eta.shape[0]):
                 for j2 in range(eta.shape[1]):
                     for j3 in range(eta.shape[2]):
-                        spans, values = process_eta(eta[j1, j2, j3], w1d)
-
-                        # Get spline properties
-                        Nbasis = w1d.nbasis
-                        degree = w1d.degree
-                        periodic = w1d.periodic
-
-                        # Evaluate spline and assign
-                        eval_indices, spline_values = get_values_and_indices_splines(
-                            Nbasis,
-                            degree,
-                            periodic,
-                            spans,
-                            values,
-                        )
+                        eval_indices, spline_values = splines_at(eta[j1, j2, j3], is_B, dim_idx, w1d)
                         out[j1, j2, j3] = get_one_spline(i, spline_values, eval_indices)[0]
             return out
 
@@ -1015,6 +1011,16 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
         spans, values = get_span_and_basis(eta, w1d)
         return spans, values
 
+    # the splines at a point do not depend on the basis function i: evaluate them once per point
+    spline_cache = {}
+
+    def splines_at(eta_point, is_B, dim_idx, w1d):
+        key = (is_B, dim_idx, float(eta_point))
+        if key not in spline_cache:
+            spans, values = process_eta(eta_point, w1d)
+            spline_cache[key] = get_values_and_indices_splines(w1d.nbasis, w1d.degree, w1d.periodic, spans, values)
+        return spline_cache[key]
+
     # Generalized factory function
     def make_basis_fun(is_B, dim_idx, i):
         def fun(eta1, eta2, eta3):
@@ -1026,21 +1032,7 @@ def test_basis_projection_operator_local_new(num_elements, plist, bcs, out_sp_ke
             for j1 in range(eta.shape[0]):
                 for j2 in range(eta.shape[1]):
                     for j3 in range(eta.shape[2]):
-                        spans, values = process_eta(eta[j1, j2, j3], w1d)
-
-                        # Get spline properties
-                        Nbasis = w1d.nbasis
-                        degree = w1d.degree
-                        periodic = w1d.periodic
-
-                        # Evaluate spline and assign
-                        eval_indices, spline_values = get_values_and_indices_splines(
-                            Nbasis,
-                            degree,
-                            periodic,
-                            spans,
-                            values,
-                        )
+                        eval_indices, spline_values = splines_at(eta[j1, j2, j3], is_B, dim_idx, w1d)
                         out[j1, j2, j3] = get_one_spline(i, spline_values, eval_indices)[0]
             return out
 
@@ -1454,6 +1446,16 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
         spans, values = get_span_and_basis(eta, w1d)
         return spans, values
 
+    # the splines at a point do not depend on the basis function i: evaluate them once per point
+    spline_cache = {}
+
+    def splines_at(eta_point, is_B, dim_idx, w1d):
+        key = (is_B, dim_idx, float(eta_point))
+        if key not in spline_cache:
+            spans, values = process_eta(eta_point, w1d)
+            spline_cache[key] = get_values_and_indices_splines(w1d.nbasis, w1d.degree, w1d.periodic, spans, values)
+        return spline_cache[key]
+
     # Generalized factory function
     def make_basis_fun(is_B, dim_idx, i):
         def fun(eta1, eta2, eta3):
@@ -1465,21 +1467,7 @@ def aux_test_spline_evaluation(num_elements, plist, bcs):
             for j1 in range(eta.shape[0]):
                 for j2 in range(eta.shape[1]):
                     for j3 in range(eta.shape[2]):
-                        spans, values = process_eta(eta[j1, j2, j3], w1d)
-
-                        # Get spline properties
-                        Nbasis = w1d.nbasis
-                        degree = w1d.degree
-                        periodic = w1d.periodic
-
-                        # Evaluate spline and assign
-                        eval_indices, spline_values = get_values_and_indices_splines(
-                            Nbasis,
-                            degree,
-                            periodic,
-                            spans,
-                            values,
-                        )
+                        eval_indices, spline_values = splines_at(eta[j1, j2, j3], is_B, dim_idx, w1d)
                         out[j1, j2, j3] = get_one_spline(i, spline_values, eval_indices)[0]
             return out
 

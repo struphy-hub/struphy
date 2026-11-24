@@ -12,6 +12,42 @@ from struphy.pic.pushing.kernels.push_vxb_analytic import push_vxb_analytic
 logger = logging.getLogger("struphy")
 
 
+def _check_rotation_push(particles, pusher, dt):
+    """Exact rotation of v about B: positions unchanged, |v| conserved for every marker, v changed."""
+    import cunumpy as xp
+
+    pos0 = particles.positions.copy()
+    vel0 = particles.velocities.copy()
+    pusher(dt)
+    assert xp.array_equal(particles.positions, pos0)
+    speed0 = xp.sqrt(xp.sum(vel0**2, axis=0))
+    speed = xp.sqrt(xp.sum(particles.velocities**2, axis=0))
+    assert xp.allclose(speed, speed0, rtol=1e-12, atol=0.0)
+    if vel0.size > 0:
+        assert not xp.allclose(particles.velocities, vel0)
+
+
+def _check_explicit_euler_velocity_push(particles, pusher, dt):
+    """Explicit Euler step v^{n+1} = v^n + dt F(eta^n): positions unchanged, the change of v is non-zero and linear
+    in dt (a step of 2 dt from the same state changes v by twice as much)."""
+    import cunumpy as xp
+
+    pos0 = particles.positions.copy()
+    vel0 = particles.velocities.copy()
+    pusher(dt)
+    assert xp.array_equal(particles.positions, pos0)
+    dv1 = particles.velocities - vel0
+
+    particles.velocities = vel0.copy()
+    pusher(2 * dt)
+    assert xp.array_equal(particles.positions, pos0)
+    dv2 = particles.velocities - vel0
+
+    if vel0.size > 0:
+        assert xp.max(xp.abs(dv1)) > 0.0
+    assert xp.allclose(dv2, 2 * dv1, rtol=1e-10, atol=1e-14)
+
+
 @pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("degree", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -118,7 +154,7 @@ def test_push_vxb_analytic(num_elements, degree, bcs, mapping, show_plots=False)
     # push markers
     dt = 0.1
 
-    pusher_psy(dt)
+    _check_rotation_push(particles, pusher_psy, dt)
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
@@ -237,7 +273,7 @@ def test_push_bxu_Hdiv(num_elements, degree, bcs, mapping, show_plots=False):
     # push markers
     dt = 0.1
 
-    pusher_psy(dt)
+    _check_explicit_euler_velocity_push(particles, pusher_psy, dt)
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
@@ -356,7 +392,7 @@ def test_push_bxu_Hcurl(num_elements, degree, bcs, mapping, show_plots=False):
     # push markers
     dt = 0.1
 
-    pusher_psy(dt)
+    _check_explicit_euler_velocity_push(particles, pusher_psy, dt)
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
@@ -475,7 +511,7 @@ def test_push_bxu_H1vec(num_elements, degree, bcs, mapping, show_plots=False):
     # push markers
     dt = 0.1
 
-    pusher_psy(dt)
+    _check_explicit_euler_velocity_push(particles, pusher_psy, dt)
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
@@ -578,7 +614,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
         flattened=True,
     )
 
-    mu0 = xp.zeros(particles.markers.copy().T.shape[1], dtype=float)
+    mu0 = xp.zeros(particles.n_markers_max, dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -603,7 +639,7 @@ def test_push_bxu_Hdiv_pauli(num_elements, degree, bcs, mapping, show_plots=Fals
     # push markers
     dt = 0.1
 
-    pusher_psy(dt)
+    _check_explicit_euler_velocity_push(particles, pusher_psy, dt)
 
 
 @pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
@@ -704,26 +740,33 @@ def test_push_eta_rk4(num_elements, degree, bcs, mapping, show_plots=False):
     # push markers
     dt = 0.1
 
+    # dx/dt = DF deta/dt = v: the markers move on straight lines in physical space, x^{n+1} - x^n = dt v up to the RK4
+    # error. The start positions eta^n are kept in the pusher scratch columns, which travel with the markers when they
+    # are sorted across ranks.
+    fp = particles.first_pusher_idx
+    lengths = xp.array([mapping[1]["Lx"], mapping[1]["Ly"], mapping[1]["Lz"]])[:, None]  # Colella is periodic
+
+    def max_displacement_error(h):
+        valid = ~xp.logical_or(particles.holes, particles.ghost_particles)
+        dx = domain(particles.markers[0:3, valid], remove_outside=False)
+        dx -= domain(particles.markers[fp : fp + 3, valid], remove_outside=False)
+        dx -= lengths * xp.round(dx / lengths)
+        err = float(xp.max(xp.abs(dx - h * particles.markers[3:6, valid]))) if xp.any(valid) else 0.0
+        return comm.allreduce(err, op=MPI.MAX) if size > 1 else err
+
     pusher_psy(dt)
+    err_dt = max_displacement_error(dt)
 
-    n_mks_load = xp.zeros(size, dtype=int)
+    # the same step with dt/2 from the same start positions
+    valid = ~xp.logical_or(particles.holes, particles.ghost_particles)
+    particles.markers[0:3, valid] = particles.markers[fp : fp + 3, valid]
+    pusher_psy(dt / 2)
+    err_dt2 = max_displacement_error(dt / 2)
 
-    comm.Allgather(xp.array(xp.shape(particles.markers)[0]), n_mks_load)
-
-    sendcounts = xp.zeros(size, dtype=int)
-    displacements = xp.zeros(size, dtype=int)
-    accum_sendcounts = 0.0
-
-    for i in range(size):
-        sendcounts[i] = n_mks_load[i] * 3
-        displacements[i] = accum_sendcounts
-        accum_sendcounts += sendcounts[i]
-
-    all_particles_psy = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
-
-    comm.Barrier()
-    comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
-    comm.Barrier()
+    # local error O(dt^5): about 32 asymptotically (25 and 15 measured for dt = 0.1, 0.05), a 2nd-order scheme gives 8
+    logger.info(f"max |x^(n+1) - x^n - h v|: {err_dt = }, {err_dt2 = }")
+    assert err_dt2 < 5e-3
+    assert err_dt2 == 0.0 or err_dt / err_dt2 > 12.0
 
 
 @pytest.mark.parametrize("bc", ["periodic", "reflect", "remove"])
@@ -758,8 +801,8 @@ def test_kinetic_bc_in_kernel(bc, mapping):
     bc_type_kernel = bc_type.copy()
 
     # large time step such that many markers leave the unit cube
-    markers[:, first_pusher_idx:first_shift_idx] = markers[:, :6]
-    markers[:, first_shift_idx:-2] = 0.0
+    markers[first_pusher_idx:first_shift_idx] = markers[:6]
+    markers[first_shift_idx:-2] = 0.0
     markers_init = markers.copy()
     n_holes_init = xp.count_nonzero(particles.holes)
 
@@ -769,7 +812,7 @@ def test_kinetic_bc_in_kernel(bc, mapping):
         0.2, 0, particles.args_markers, domain.args_domain, butcher.a_stage, butcher.b, butcher.c, butcher.n_stages
     )
     n_outside = xp.count_nonzero(
-        xp.logical_or(markers[~particles.holes, :3] > 1.0, markers[~particles.holes, :3] < 0.0)
+        xp.logical_or(markers[:3, ~particles.holes] > 1.0, markers[:3, ~particles.holes] < 0.0)
     )
     assert n_outside > 0
     particles.apply_kinetic_bc()
@@ -785,12 +828,12 @@ def test_kinetic_bc_in_kernel(bc, mapping):
     )
     particles.finish_kernel_bc()
 
-    assert xp.array_equal(markers[:, :first_shift_idx], markers_ref[:, :first_shift_idx])
-    assert xp.all(markers[~particles.holes, :3] >= 0.0)
-    assert xp.all(markers[~particles.holes, :3] <= 1.0)
+    assert xp.array_equal(markers[:first_shift_idx], markers_ref[:first_shift_idx])
+    assert xp.all(markers[:3, ~particles.holes] >= 0.0)
+    assert xp.all(markers[:3, ~particles.holes] <= 1.0)
     if bc == "periodic":
         shift_slice = slice(first_shift_idx, first_shift_idx + 3)
-        assert xp.array_equal(markers[:, shift_slice], markers_ref[:, shift_slice])
+        assert xp.array_equal(markers[shift_slice], markers_ref[shift_slice])
     if bc == "remove":
         n_new_holes = xp.count_nonzero(particles.holes) - n_holes_init
         assert n_new_holes > 0
@@ -816,9 +859,9 @@ def test_kinetic_bc_remove_counts_each_marker_once():
 
     valid = xp.nonzero(particles.valid_mks)[0]
     n_valid = valid.size
-    particles.markers[valid[0], :3] = [1.5, -0.5, 0.5]  # outside on two axes
-    particles.markers[valid[1], :3] = [1.5, 1.5, 1.5]  # outside on all three axes
-    particles.markers[valid[2], :3] = [0.5, 0.5, -0.1]  # outside on one axis
+    particles.markers[:3, valid[0]] = [1.5, -0.5, 0.5]  # outside on two axes
+    particles.markers[:3, valid[1]] = [1.5, 1.5, 1.5]  # outside on all three axes
+    particles.markers[:3, valid[2]] = [0.5, 0.5, -0.1]  # outside on one axis
 
     n_lost_before = particles.n_lost_markers
     particles.apply_kinetic_bc()

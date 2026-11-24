@@ -18,7 +18,7 @@ PARAMS_PATH = (
 
 
 @pytest.mark.mpi(min_size=2)
-def test_pproc_mpi(show_plot=False):
+def test_pproc_mpi(mpi_out_folder: str, show_plot=False):
 
     def do_plotting(run: Output, from_parallel=False):
         e_field = run.fields.em_fields.e_field.isel(t=0, component=0, eta2=0, eta3=0)
@@ -44,7 +44,7 @@ def test_pproc_mpi(show_plot=False):
 
     test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
 
-    sim: Simulation = test_mod.test_weak_Landau(do_plot=False, exit_before_run=True)
+    sim: Simulation = test_mod.test_weak_Landau(mpi_out_folder, do_plot=False, exit_before_run=True)
 
     sim.run(one_time_step=True)
     run = Output(sim.env.path_out)
@@ -66,17 +66,16 @@ def test_pproc_mpi(show_plot=False):
         for expected, actual in zip(serial, parallel):
             assert np.allclose(expected, actual)
         print("All checks passed for parallel pproc vs serial pproc.")
-    MPI.COMM_WORLD.Barrier()
 
 
 @pytest.mark.mpi(min_size=2)
-def test_products_are_processed_in_parallel_on_first_use():
+def test_products_are_processed_in_parallel_on_first_use(mpi_out_folder: str):
     """Without pproc(), evaluate() processes on every rank and gives the serial products."""
     import shutil
 
     comm = MPI.COMM_WORLD
     test_mod = import_parameters_py(str(PARAMS_PATH), name="weak_Landau_damping")
-    sim: Simulation = test_mod.test_weak_Landau(do_plot=False, exit_before_run=True)
+    sim: Simulation = test_mod.test_weak_Landau(mpi_out_folder, do_plot=False, exit_before_run=True)
     out = sim.run(one_time_step=True)
     if comm.Get_rank() == 0:
         shutil.rmtree(Path(sim.env.path_out) / "post_processing", ignore_errors=True)
@@ -95,8 +94,66 @@ def test_products_are_processed_in_parallel_on_first_use():
     serial = Output(sim.env.path_out).pproc(parallel=False, force=True)
     assert np.allclose(np.asarray(serial.evaluate("kinetic_ions/f")), f)
     assert np.allclose(np.asarray(serial.fields.em_fields.e_field), e)
-    comm.Barrier()
+
+
+def test_pproc_polar(tmp_path):
+    """Fields on polar splines are loaded from the saved (extracted) coefficients: the Poisson
+    solution on a disc evaluates to the exact solution."""
+    import sympy as sym
+
+    from struphy import BaseUnits, DerhamOptions, EnvironmentOptions, Time, domains, grids
+    from struphy.initial.base import GenericPerturbation
+    from struphy.models import Poisson
+
+    model = Poisson(base_units=BaseUnits())
+    model.em_fields.phi.save_data = True
+    model.em_fields.source.save_data = True
+
+    num_elements, degree = (12, 18, 4), (3, 3, 2)
+    domain = domains.IGAPolarCylinder(num_elements=num_elements[:2], degree=degree[:2], a=1.0, Lz=4.0)
+    sim = Simulation(
+        model=model,
+        params_path=__file__,
+        # the same output folder on all processes
+        env=EnvironmentOptions(out_folders=MPI.COMM_WORLD.bcast(str(tmp_path), root=0), sim_folder="sim_polar"),
+        time_opts=Time(),
+        domain=domain,
+        grid=grids.TensorProductGrid(num_elements=num_elements),
+        derham_opts=DerhamOptions(degree=degree, bcs=(("free", "dirichlet"), None, None), polar_splines=True),
+    )
+    model.propagators.poisson.options = model.propagators.poisson.Options(
+        solver="pcg", precond="StiffnessPreconditioner"
+    )
+
+    # exact solution with non-zero gradient on the axis, vanishing at r = 1
+    x, y, z = sym.symbols("x y z", real=True)
+    phi_sym = (1 - x**2 - y**2) * (1 + x + y / 2)
+    rhs_sym = -(sym.diff(phi_sym, x, 2) + sym.diff(phi_sym, y, 2) + sym.diff(phi_sym, z, 2))
+    phi_fun = sym.lambdify((x, y, z), phi_sym, "numpy")
+    rhs_fun = sym.lambdify((x, y, z), rhs_sym, "numpy")
+    model.em_fields.source.add_perturbation(
+        GenericPerturbation(lambda x, y, z: rhs_fun(x, y, z) + 0.0 * x, given_in_basis="physical")
+    )
+
+    sim.run(one_time_step=True)
+    run = Output(sim.env.path_out)
+
+    # serial pproc
+    run.pproc(parallel=False)
+    if sim.rank == 0:
+        phi = run.evaluate("em_fields/phi", t=-1)
+        X, Y, Z = (phi.coords[c].values for c in ("X", "Y", "Z"))
+        exact = phi_fun(X, Y, Z)
+        # (the spline mapping only approximates the disc; before loading the polar coefficients, the error was 1)
+        assert np.max(np.abs(phi.values - exact)) < 1e-2 * np.max(np.abs(exact))
+        serial = np.asarray(run.fields.em_fields.phi)
+
+    # parallel pproc (one data file per process) gives the same fields
+    run.pproc(parallel=True, force=True)
+    if sim.rank == 0:
+        assert np.allclose(np.asarray(run.fields.em_fields.phi), serial, atol=1e-7)
+    MPI.COMM_WORLD.Barrier()
 
 
 if __name__ == "__main__":
-    test_pproc_mpi(show_plot=True)
+    test_pproc_mpi(str(Path.cwd() / "struphy_verification_tests"), show_plot=True)

@@ -1,0 +1,47 @@
+{
+ "case": "ColdEulerSPH",
+ "ranks": {
+  "1": {
+   "commit": "9d2174f5",
+   "date": "2026-10-31",
+   "values": {
+    "time": [
+     0.0,
+     0.01,
+     0.02,
+     0.03
+    ],
+    "scalar/en_kin": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "markers/fluid/var/n": 5000,
+    "markers/fluid/var/sum_w": 1.000780672619598,
+    "markers/fluid/var/sum_w_v2": 0.0
+   }
+  },
+  "2": {
+   "commit": "9d2174f5",
+   "date": "2026-10-31",
+   "values": {
+    "time": [
+     0.0,
+     0.01,
+     0.02,
+     0.03
+    ],
+    "scalar/en_kin": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "markers/fluid/var/n": 5000,
+    "markers/fluid/var/sum_w": 1.000780672619598,
+    "markers/fluid/var/sum_w_v2": 0.0
+   }
+  }
+ }
+}

@@ -66,8 +66,7 @@ def push_gc_bxEstar_explicit_multistage(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
-    first_free_idx = args_markers.first_free_idx
+    first_pusher_idx = args_markers.first_pusher_idx
 
     # get number of stages
     n_stages = shape(b)[0]
@@ -79,14 +78,14 @@ def push_gc_bxEstar_explicit_multistage(
 
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[first_pusher_idx, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
-        mu = markers[ip, mu_idx]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v = markers[3, ip]
+        mu = markers[mu_idx, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -166,15 +165,8 @@ def push_gc_bxEstar_explicit_multistage(
 
         k[:] = Exb / b_star_parallel
 
-        # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
-
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * a[stage] * k
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
-        )
+        # accumulation for last stage and update of positions (regular at a pole)
+        pusher_utilities_kernels.update_position_stage(ip, k, dt, a[stage], b[stage], last, args_markers)
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)

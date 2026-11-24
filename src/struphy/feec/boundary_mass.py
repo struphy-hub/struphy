@@ -2,13 +2,12 @@ import logging
 from typing import Callable
 
 import cunumpy as xp
-from cunumpy.kernels import PyccelKernel
 from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
 from feectools.linalg.basic import LinearOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVector
 from feectools.linalg.stencil import StencilMatrix, StencilVector
 
-from struphy.feec import mass_kernels
+from struphy.feec.kernels.surface_kernel_3d_mat import surface_kernel_3d_mat
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.geometry.base import Domain
@@ -174,7 +173,7 @@ class BoundaryMassOperator(LinearOperator):
         self._setup_surface_data()
 
         # load assembly kernel
-        self._assembly_kernel = PyccelKernel(mass_kernels.surface_kernel_3d_mat)
+        self._assembly_kernel = surface_kernel_3d_mat
 
         self.assemble()
 

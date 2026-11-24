@@ -14,6 +14,8 @@ import numpy as np
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_cuda import CudaDerhamArguments, CudaMarkerArguments
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
+from struphy.kernel_arguments.spline_args_cuda import CudaSplineArguments
+from struphy.kernel_arguments.spline_args_kernels import SplineArguments
 from struphy.ode.utils import ButcherTableau
 
 N_MARKERS = 129  # not a multiple of the block size
@@ -22,15 +24,18 @@ MARKER_INDICES = (3, 6, 7, 8, 14, 17, 18, 4)  # vdim, weight_idx, ..., mu_idx
 BOUNDARY_CONDITIONS = ((0, 0, 0), (1, 1, 1), (2, 0, 1))  # periodic, reflect, mixed with remove
 
 
-def marker_arguments(bc):
-    """Markers with a hole (row 0) and a boundary particle (row 1), in a Cuboid."""
+def marker_arguments(bc, pole=False):
+    """Markers with a hole (marker 0) and a boundary particle (marker 1), in a Cuboid; `pole` sets
+    ``args_markers.pole`` (a pole at eta1 = 0, for the regular position update of the guiding-centre pushers)."""
     rng = np.random.default_rng(7)
-    markers = rng.random((N_MARKERS, N_COLS))
-    markers[:, 3:6] = rng.uniform(-2, 2, (N_MARKERS, 3))
-    markers[:, 8:14] = markers[:, :6]
-    markers[:, 18:21] = 0.0
-    markers[0, 8] = -1.0
-    markers[1, -1] = -2.0
+    markers = rng.random((N_COLS, N_MARKERS))
+    markers[3:6] = rng.uniform(-2, 2, (3, N_MARKERS))
+    markers[8:14] = markers[:6]
+    markers[18:21] = 0.0
+    # Marker 0 is a hole. Struphy marks every entry of a hole with -1: pushers test row first_pusher_idx (8),
+    # accumulation kernels test row 0.
+    markers[:, 0] = -1.0
+    markers[-1, 1] = -2.0
     valid = np.ones(N_MARKERS, dtype=bool)
     valid[:2] = False
     args_class = CudaMarkerArguments if xp.get_backend() == "cupy" else MarkerArguments
@@ -40,6 +45,7 @@ def marker_arguments(bc):
         N_MARKERS,
         *MARKER_INDICES,
         xp.asarray(bc, dtype=np.int64),
+        pole,  # Cuboid has no pole; callers that set it pass their own domain
     )
     return args_markers, Cuboid().args_domain
 
@@ -49,12 +55,35 @@ def butcher_arguments(method):
     return xp.asarray(butcher.a_stage), xp.asarray(butcher.b), xp.asarray(butcher.c), butcher.n_stages
 
 
+DERHAM_DEGREE = (2, 3, 1)
+DERHAM_CELLS = 8
+
+
 def derham_arguments():
     """Splines of degrees 2, 3, 1 on 8 cells, starting at index 0."""
-    degree = np.array([2, 3, 1], dtype=np.int64)
-    knots = [np.r_[np.zeros(p), np.linspace(0, 1, 9), np.ones(p)] for p in degree]
+    degree = np.array(DERHAM_DEGREE, dtype=np.int64)
+    knots = [np.r_[np.zeros(p), np.linspace(0, 1, DERHAM_CELLS + 1), np.ones(p)] for p in degree]
     args_class = CudaDerhamArguments if xp.get_backend() == "cupy" else DerhamArguments
     return args_class(xp.asarray(degree), *(xp.asarray(t) for t in knots), xp.zeros(3, dtype=np.int64))
+
+
+def v1_symm_accumulation_data():
+    """Zeroed data of a symmetric V1 -> V1 accumulation matrix and a V1 vector, for :func:`derham_arguments`.
+
+    Returns the six independent blocks ``mat11, mat12, mat13, mat22, mat23, mat33`` and the three vector components
+    ``vec1, vec2, vec3`` on the active backend, shaped like the ``_data`` of the ``StencilMatrix`` blocks and
+    ``StencilVector`` components that ``Accumulator(..., "Hcurl", ..., symmetry="symm", add_vector=True)`` passes on
+    one process for clamped splines of degrees 2, 3, 1 on 8 cells: component ``mu`` has D-splines (``n - 1``
+    functions) along axis ``mu`` and N-splines (``n = 8 + p``) along the others, every axis is padded by ``p`` on both
+    sides, and the matrix blocks have ``2 p + 1`` diagonals per axis (the paddings are the degrees of V0).
+    """
+    degree = np.array(DERHAM_DEGREE)
+    n_spline = DERHAM_CELLS + degree
+    rows = [tuple(n_spline - (np.arange(3) == mu) + 2 * degree) for mu in range(3)]
+    diagonals = tuple(2 * degree + 1)
+    mats = tuple(xp.zeros(rows[mu] + diagonals) for mu, nu in ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)))
+    vecs = tuple(xp.zeros(rows[mu]) for mu in range(3))
+    return mats + vecs
 
 
 def spline_coefficients(n=3, seed=11):
@@ -64,20 +93,21 @@ def spline_coefficients(n=3, seed=11):
 
 
 def spline_evaluation_arguments(kind):
-    """``_data, kind, pn, tn1, tn2, tn3, starts`` of the spline evaluation kernels, for degrees 2, 3, 1 on 8 cells.
+    """``_data, args_spline`` of the spline evaluation kernels, for degrees 2, 3, 1 on 8 cells.
 
     The coefficients cover every span of the knots with start indices 1 on all axes.
     """
     rng = np.random.default_rng(34)
     degree = np.array([2, 3, 1], dtype=np.int64)
     knots = [np.r_[np.zeros(p), np.linspace(0, 1, 9), np.ones(p)] for p in degree]
-    return (
-        xp.asarray(rng.normal(size=(16, 18, 20))),
+    args_class = CudaSplineArguments if xp.get_backend() == "cupy" else SplineArguments
+    args_spline = args_class(
         xp.asarray(kind, dtype=np.int64),
         xp.asarray(degree),
         *(xp.asarray(t) for t in knots),
         xp.ones(3, dtype=np.int64),
     )
+    return xp.asarray(rng.normal(size=(16, 18, 20))), args_spline
 
 
 def evaluation_grid(sparse):
@@ -184,14 +214,15 @@ def geometry_domain(index):
 
 
 def logical_markers(n=N_MARKERS, seed=5):
-    """Logical points in marker format, shape (n, 7), away from the poles (eta1 >= 0.1).
+    """Logical points in marker format, shape (7, n), one column per point like the marker buffer, away from the
+    poles (eta1 >= 0.1).
 
-    Row 0 is a hole (-1), row 1 is outside in eta1 and row 2 in eta3, so ``remove_outside`` changes the result.
+    Point 0 is a hole (-1), point 1 is outside in eta1 and point 2 in eta3, so ``remove_outside`` changes the result.
     """
     rng = np.random.default_rng(seed)
-    markers = rng.random((n, 7))
-    markers[:, 0] = rng.uniform(0.1, 0.95, n)
-    markers[0, :] = -1.0
-    markers[1, 0] = 1.2
+    markers = rng.random((7, n))
+    markers[0] = rng.uniform(0.1, 0.95, n)
+    markers[:, 0] = -1.0
+    markers[0, 1] = 1.2
     markers[2, 2] = -0.3
     return markers

@@ -1,6 +1,6 @@
 #pragma once
 #include "struphy/geometry/domains/constants_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::powered_elliptic_cylinder_kernels {
 /**
  * Evaluate the powered elliptic cylinder mapping, as in powered_elliptic_cylinder_kernels.powered_ellipse.
  *
@@ -47,4 +47,4 @@ __device__ inline void powered_ellipse_df(double eta1, double eta2, double eta3,
     df_out[7] = 0.0;
     df_out[8] = lz;
 }
-}
+}  // namespace struphy_cuda::powered_elliptic_cylinder_kernels

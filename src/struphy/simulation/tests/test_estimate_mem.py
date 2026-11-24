@@ -102,7 +102,7 @@ def test_estimate_mem_hybrid_feec_and_pic(out_folders):
     """estimate_mem() on a model with both FEEC and PIC variables: FEEC estimates match
     exactly, and the PIC estimate matches the real marker-array footprint plus the
     (separately estimated) marker-saving buffer."""
-    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0, with_B0=False)
+    model = VlasovAmpereOneSpecies(alpha=1.0, epsilon=-1.0)
 
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="weak_Landau")
     time_opts = Time(dt=0.05, Tend=15)

@@ -39,12 +39,15 @@ class CudaMarkerArguments(CudaStructArguments):
         ("vdim", "int"),
         ("weight_idx", "int"),
         ("first_diagnostics_idx", "int"),
-        ("first_init_idx", "int"),
+        ("first_pusher_idx", "int"),
         ("first_shift_idx", "int"),
         ("residual_idx", "int"),
         ("first_free_idx", "int"),
         ("mu_idx", "int"),
         ("bc_type", "long long*"),
+        ("pole", "bool"),
+        # CUDA-only: 1 while a pusher has its kernel prepare each marker at stage 0 (Pusher._push), else 0
+        ("prepare_rows", "int"),
     )
 
     def __init__(
@@ -61,22 +64,26 @@ class CudaMarkerArguments(CudaStructArguments):
         first_free_idx: int,
         mu_idx: int,
         bc_type,
+        pole: bool,
     ):
-        self.markers = _device_array("markers", markers, np.float64)
-        if markers.ndim != 2:
-            raise TypeError("markers must be a two-dimensional array.")
+        # shape (n_cols, n_markers_max), one column per marker (struphy.pic.marker_layout)
+        self.markers = _device_array("markers", markers, np.float64, ndim=2)
         self.valid_mks = _device_array("valid_mks", valid_mks, np.bool_)
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx
-        self.n_markers = markers.shape[0]
+        # markers (columns) the kernels loop over; Particles lowers it to the columns that can hold markers
+        # (Particles.n_markers_used)
+        self.n_markers = markers.shape[1]
         self.first_diagnostics_idx = first_diagnostics_idx
-        self.first_init_idx = first_pusher_idx
+        self.first_pusher_idx = first_pusher_idx
         self.first_shift_idx = first_shift_idx
         self.residual_idx = residual_idx
         self.first_free_idx = first_free_idx
         self.mu_idx = mu_idx
         self.bc_type = _device_array("bc_type", bc_type, np.int64)
+        self.pole = pole
+        self.prepare_rows = 0
         self.pack()
 
 

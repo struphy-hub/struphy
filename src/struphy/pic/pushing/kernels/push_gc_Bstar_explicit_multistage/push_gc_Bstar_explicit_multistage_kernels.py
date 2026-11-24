@@ -80,7 +80,7 @@ def push_gc_Bstar_explicit_multistage(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -93,18 +93,18 @@ def push_gc_Bstar_explicit_multistage(
 
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[first_pusher_idx, ip] == -1.0:
             continue
 
         # if stage == 0.:
         #     # save initial parallel velocity
-        #     markers[ip, 14] = markers[ip, 3]
+        #     markers[14, ip] = markers[3, ip]
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
-        mu = markers[ip, mu_idx]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v = markers[3, ip]
+        mu = markers[mu_idx, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -201,17 +201,14 @@ def push_gc_Bstar_explicit_multistage(
         k_v = linalg_kernels.scalar_dot(b_star, e_star)
         k_v /= b_star_parallel * epsilon
 
-        # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
-        markers[ip, first_free_idx + 3] += dt * b[stage] * k_v
+        # accumulation for last stage and update of positions (regular at a pole)
+        pusher_utilities_kernels.update_position_stage(ip, k, dt, a[stage], b[stage], last, args_markers)
 
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * a[stage] * k
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
+        # same for v_parallel
+        markers[first_free_idx + 3, ip] += dt * b[stage] * k_v
+        markers[3, ip] = (
+            markers[first_pusher_idx + 3, ip] + dt * a[stage] * k_v + last * markers[first_free_idx + 3, ip]
         )
-        markers[ip, 3] = markers[ip, first_init_idx + 3] + dt * a[stage] * k_v + last * markers[ip, first_free_idx + 3]
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)

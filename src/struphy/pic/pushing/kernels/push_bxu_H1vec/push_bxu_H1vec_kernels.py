@@ -59,22 +59,28 @@ def push_bxu_H1vec(
     n_markers = args_markers.n_markers
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(b_cart, b_form, det_df, dfm, e_cart, eta1, eta2, eta3, ip, span1, span2, span3, thread_derham, u_cart, u_form)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # boundary cut
-        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1.0 - boundary_cut:
+        if markers[0, ip] < boundary_cut or markers[0, ip] > 1.0 - boundary_cut:
             continue
 
         # marker data
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -89,14 +95,14 @@ def push_bxu_H1vec(
         det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
 
         # magnetic field: 2-form components
         eval_2form_spline_mpi(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             b2_1,
             b2_2,
             b2_3,
@@ -112,7 +118,7 @@ def push_bxu_H1vec(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             uv_1,
             uv_2,
             uv_3,
@@ -126,4 +132,8 @@ def push_bxu_H1vec(
         linalg_kernels.cross(b_cart, u_cart, e_cart)
 
         # update velocities
-        markers[ip, 3:6] += dt * e_cart
+        markers[3:6, ip] += dt * e_cart
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

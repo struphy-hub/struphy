@@ -1,0 +1,20 @@
+{
+ "case": "TwoFluidQuasiNeutralToy",
+ "ranks": {
+  "1": {
+   "commit": "e6f39429",
+   "date": "2026-10-30",
+   "values": {
+    "time": [
+     0.0,
+     0.01,
+     0.02,
+     0.03
+    ],
+    "feec/em_fields/phi": 0.0,
+    "feec/ions/u": 0.0,
+    "feec/electrons/u": 0.0
+   }
+  }
+ }
+}

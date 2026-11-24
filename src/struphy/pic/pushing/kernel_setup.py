@@ -61,6 +61,10 @@ class KernelSetup:
         if not isinstance(self.kernel, Kernel):
             self.kernel = Kernel(self.kernel)
 
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The kernel of this setup, as a one-element tuple."""
+        return (self.kernel,)
+
     @property
     def name(self) -> str:
         """Kernel name used in profiling and validation messages."""

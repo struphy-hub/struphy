@@ -5,7 +5,7 @@
 #include "struphy/bsplines/evaluation_kernels_2d.cuh"
 #include "struphy/bsplines/evaluation_kernels_3d.cuh"
 #include "struphy/geometry/domains/constants_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::spline_mappings_kernels {
 /**
  * Row i of a 2d array view, as the Pyccel slice ind[i, :] (no copy).
  *
@@ -53,25 +53,29 @@ __device__ inline void spline_3d(double eta1, double eta2, double eta3, const lo
                                  const Array2D<long long>& ind1, const Array2D<long long>& ind2,
                                  const Array2D<long long>& ind3, const DomainArgs& args, double* f_out) {
     // mapping spans
-    int span1 = find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
-    int span2 = find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
-    int span3 = find_span(args.t3.data, args.t3.shape[0], degree[2], eta3);
+    int span1 = bsplines_kernels::find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
+    int span2 = bsplines_kernels::find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
+    int span3 = bsplines_kernels::find_span(args.t3.data, args.t3.shape[0], degree[2], eta3);
 
     // degree + 1 non-zero mapping splines
-    double b1[MAX_SPLINE_DEGREE + 1], b2[MAX_SPLINE_DEGREE + 1], b3[MAX_SPLINE_DEGREE + 1];
+    double b1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], b2[bsplines_kernels::MAX_SPLINE_DEGREE + 1],
+        b3[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
 
-    b_splines_slim(args.t1.data, degree[0], eta1, span1, b1);
-    b_splines_slim(args.t2.data, degree[1], eta2, span2, b2);
-    b_splines_slim(args.t3.data, degree[2], eta3, span3, b3);
+    bsplines_kernels::b_splines_slim(args.t1.data, degree[0], eta1, span1, b1);
+    bsplines_kernels::b_splines_slim(args.t2.data, degree[1], eta2, span2, b2);
+    bsplines_kernels::b_splines_slim(args.t3.data, degree[2], eta3, span3, b3);
 
     // Evaluate spline mapping
     Array1D<long long> tmp1 = spline_index_row(ind1, span1 - degree[0]);
     Array1D<long long> tmp2 = spline_index_row(ind2, span2 - degree[1]);
     Array1D<long long> tmp3 = spline_index_row(ind3, span3 - degree[2]);
 
-    f_out[0] = evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, b2, b3, tmp1, tmp2, tmp3, args.cx);
-    f_out[1] = evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, b2, b3, tmp1, tmp2, tmp3, args.cy);
-    f_out[2] = evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, b2, b3, tmp1, tmp2, tmp3, args.cz);
+    f_out[0] = evaluation_kernels_3d::evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, b2, b3, tmp1, tmp2,
+                                                           tmp3, args.cx);
+    f_out[1] = evaluation_kernels_3d::evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, b2, b3, tmp1, tmp2,
+                                                           tmp3, args.cy);
+    f_out[2] = evaluation_kernels_3d::evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, b2, b3, tmp1, tmp2,
+                                                           tmp3, args.cz);
 }
 
 /**
@@ -93,17 +97,19 @@ __device__ inline void spline_3d_df(double eta1, double eta2, double eta3, const
                                     const Array2D<long long>& ind1, const Array2D<long long>& ind2,
                                     const Array2D<long long>& ind3, const DomainArgs& args, double* df_out) {
     // mapping spans
-    int span1 = find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
-    int span2 = find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
-    int span3 = find_span(args.t3.data, args.t3.shape[0], degree[2], eta3);
+    int span1 = bsplines_kernels::find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
+    int span2 = bsplines_kernels::find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
+    int span3 = bsplines_kernels::find_span(args.t3.data, args.t3.shape[0], degree[2], eta3);
 
     // non-zero splines of mapping, and derivatives
-    double b1[MAX_SPLINE_DEGREE + 1], b2[MAX_SPLINE_DEGREE + 1], b3[MAX_SPLINE_DEGREE + 1];
-    double der1[MAX_SPLINE_DEGREE + 1], der2[MAX_SPLINE_DEGREE + 1], der3[MAX_SPLINE_DEGREE + 1];
+    double b1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], b2[bsplines_kernels::MAX_SPLINE_DEGREE + 1],
+        b3[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
+    double der1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], der2[bsplines_kernels::MAX_SPLINE_DEGREE + 1],
+        der3[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
 
-    b_der_splines_slim(args.t1.data, degree[0], eta1, span1, b1, der1);
-    b_der_splines_slim(args.t2.data, degree[1], eta2, span2, b2, der2);
-    b_der_splines_slim(args.t3.data, degree[2], eta3, span3, b3, der3);
+    bsplines_kernels::b_der_splines_slim(args.t1.data, degree[0], eta1, span1, b1, der1);
+    bsplines_kernels::b_der_splines_slim(args.t2.data, degree[1], eta2, span2, b2, der2);
+    bsplines_kernels::b_der_splines_slim(args.t3.data, degree[2], eta3, span3, b3, der3);
 
     // Evaluation of Jacobian
     Array1D<long long> tmp1 = spline_index_row(ind1, span1 - degree[0]);
@@ -112,9 +118,12 @@ __device__ inline void spline_3d_df(double eta1, double eta2, double eta3, const
 
     const Array3D<double>* c[3] = {&args.cx, &args.cy, &args.cz};
     for (int n = 0; n < 3; ++n) {
-        df_out[3 * n + 0] = evaluation_kernel_3d(degree[0], degree[1], degree[2], der1, b2, b3, tmp1, tmp2, tmp3, *c[n]);
-        df_out[3 * n + 1] = evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, der2, b3, tmp1, tmp2, tmp3, *c[n]);
-        df_out[3 * n + 2] = evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, b2, der3, tmp1, tmp2, tmp3, *c[n]);
+        df_out[3 * n + 0] = evaluation_kernels_3d::evaluation_kernel_3d(degree[0], degree[1], degree[2], der1, b2, b3,
+                                                                        tmp1, tmp2, tmp3, *c[n]);
+        df_out[3 * n + 1] = evaluation_kernels_3d::evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, der2, b3,
+                                                                        tmp1, tmp2, tmp3, *c[n]);
+        df_out[3 * n + 2] = evaluation_kernels_3d::evaluation_kernel_3d(degree[0], degree[1], degree[2], b1, b2, der3,
+                                                                        tmp1, tmp2, tmp3, *c[n]);
     }
 }
 
@@ -144,21 +153,21 @@ __device__ inline void spline_2d_straight(double eta1, double eta2, double eta3,
     Array2D<double> cy = first_plane(args.cy);
 
     // mapping spans
-    int span1 = find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
-    int span2 = find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
+    int span1 = bsplines_kernels::find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
+    int span2 = bsplines_kernels::find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
 
     // degree + 1 non-zero mapping splines
-    double b1[MAX_SPLINE_DEGREE + 1], b2[MAX_SPLINE_DEGREE + 1];
+    double b1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], b2[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
 
-    b_splines_slim(args.t1.data, degree[0], eta1, span1, b1);
-    b_splines_slim(args.t2.data, degree[1], eta2, span2, b2);
+    bsplines_kernels::b_splines_slim(args.t1.data, degree[0], eta1, span1, b1);
+    bsplines_kernels::b_splines_slim(args.t2.data, degree[1], eta2, span2, b2);
 
     // Evaluate mapping
     Array1D<long long> tmp1 = spline_index_row(ind1, span1 - degree[0]);
     Array1D<long long> tmp2 = spline_index_row(ind2, span2 - degree[1]);
 
-    f_out[0] = evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx);
-    f_out[1] = evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cy);
+    f_out[0] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx);
+    f_out[1] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cy);
     f_out[2] = lz * eta3;
 
     if (eta1 == 0. && cx(0, 0) == cx(0, 1)) f_out[0] = cx(0, 0);
@@ -187,25 +196,25 @@ __device__ inline void spline_2d_straight_df(double eta1, double eta2, const lon
     Array2D<double> cy = first_plane(args.cy);
 
     // mapping spans
-    int span1 = find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
-    int span2 = find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
+    int span1 = bsplines_kernels::find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
+    int span2 = bsplines_kernels::find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
 
     // non-zero splines of mapping, and derivatives
-    double b1[MAX_SPLINE_DEGREE + 1], b2[MAX_SPLINE_DEGREE + 1];
-    double der1[MAX_SPLINE_DEGREE + 1], der2[MAX_SPLINE_DEGREE + 1];
+    double b1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], b2[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
+    double der1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], der2[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
 
-    b_der_splines_slim(args.t1.data, degree[0], eta1, span1, b1, der1);
-    b_der_splines_slim(args.t2.data, degree[1], eta2, span2, b2, der2);
+    bsplines_kernels::b_der_splines_slim(args.t1.data, degree[0], eta1, span1, b1, der1);
+    bsplines_kernels::b_der_splines_slim(args.t2.data, degree[1], eta2, span2, b2, der2);
 
     // Evaluation of Jacobian
     Array1D<long long> tmp1 = spline_index_row(ind1, span1 - degree[0]);
     Array1D<long long> tmp2 = spline_index_row(ind2, span2 - degree[1]);
 
-    df_out[0] = evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cx);
-    df_out[1] = evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cx);
+    df_out[0] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cx);
+    df_out[1] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cx);
     df_out[2] = 0.;
-    df_out[3] = evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cy);
-    df_out[4] = evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cy);
+    df_out[3] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cy);
+    df_out[4] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cy);
     df_out[5] = 0.;
     df_out[6] = 0.;
     df_out[7] = 0.;
@@ -239,23 +248,24 @@ __device__ inline void spline_2d_torus(double eta1, double eta2, double eta3, co
     Array2D<double> cy = first_plane(args.cy);
 
     // mapping spans
-    int span1 = find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
-    int span2 = find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
+    int span1 = bsplines_kernels::find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
+    int span2 = bsplines_kernels::find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
 
     // degree + 1 non-zero mapping splines
-    double b1[MAX_SPLINE_DEGREE + 1], b2[MAX_SPLINE_DEGREE + 1];
+    double b1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], b2[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
 
-    b_splines_slim(args.t1.data, degree[0], eta1, span1, b1);
-    b_splines_slim(args.t2.data, degree[1], eta2, span2, b2);
+    bsplines_kernels::b_splines_slim(args.t1.data, degree[0], eta1, span1, b1);
+    bsplines_kernels::b_splines_slim(args.t2.data, degree[1], eta2, span2, b2);
 
     // Evaluate mapping
     Array1D<long long> tmp1 = spline_index_row(ind1, span1 - degree[0]);
     Array1D<long long> tmp2 = spline_index_row(ind2, span2 - degree[1]);
 
-    f_out[0] = evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx) * cos(2 * pi * eta3 / tor_period);
-    f_out[1] = evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx) * (-1) *
+    f_out[0] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx) *
+               cos(2 * pi * eta3 / tor_period);
+    f_out[1] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx) * (-1) *
                sin(2 * pi * eta3 / tor_period);
-    f_out[2] = evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cy);
+    f_out[2] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cy);
 
     if (eta1 == 0. && cx(0, 0) == cx(0, 1)) {
         f_out[0] = cx(0, 0) * cos(2 * pi * eta3 / tor_period);
@@ -285,31 +295,33 @@ __device__ inline void spline_2d_torus_df(double eta1, double eta2, double eta3,
     Array2D<double> cy = first_plane(args.cy);
 
     // mapping spans
-    int span1 = find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
-    int span2 = find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
+    int span1 = bsplines_kernels::find_span(args.t1.data, args.t1.shape[0], degree[0], eta1);
+    int span2 = bsplines_kernels::find_span(args.t2.data, args.t2.shape[0], degree[1], eta2);
 
     // non-zero splines of mapping, and derivatives
-    double b1[MAX_SPLINE_DEGREE + 1], b2[MAX_SPLINE_DEGREE + 1];
-    double der1[MAX_SPLINE_DEGREE + 1], der2[MAX_SPLINE_DEGREE + 1];
+    double b1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], b2[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
+    double der1[bsplines_kernels::MAX_SPLINE_DEGREE + 1], der2[bsplines_kernels::MAX_SPLINE_DEGREE + 1];
 
-    b_der_splines_slim(args.t1.data, degree[0], eta1, span1, b1, der1);
-    b_der_splines_slim(args.t2.data, degree[1], eta2, span2, b2, der2);
+    bsplines_kernels::b_der_splines_slim(args.t1.data, degree[0], eta1, span1, b1, der1);
+    bsplines_kernels::b_der_splines_slim(args.t2.data, degree[1], eta2, span2, b2, der2);
 
     Array1D<long long> tmp1 = spline_index_row(ind1, span1 - degree[0]);
     Array1D<long long> tmp2 = spline_index_row(ind2, span2 - degree[1]);
 
-    df_out[0] = evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cx) * cos(2 * pi * eta3 / tor_period);
-    df_out[1] = evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cx) * cos(2 * pi * eta3 / tor_period);
-    df_out[2] = evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx) * sin(2 * pi * eta3 / tor_period) *
-                (-2 * pi / tor_period);
-    df_out[3] = evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cx) * (-1) *
+    df_out[0] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cx) *
+                cos(2 * pi * eta3 / tor_period);
+    df_out[1] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cx) *
+                cos(2 * pi * eta3 / tor_period);
+    df_out[2] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx) *
+                sin(2 * pi * eta3 / tor_period) * (-2 * pi / tor_period);
+    df_out[3] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cx) * (-1) *
                 sin(2 * pi * eta3 / tor_period);
-    df_out[4] = evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cx) * (-1) *
+    df_out[4] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cx) * (-1) *
                 sin(2 * pi * eta3 / tor_period);
-    df_out[5] = evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx) * (-1) *
+    df_out[5] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, b2, tmp1, tmp2, cx) * (-1) *
                 cos(2 * pi * eta3 / tor_period) * 2 * pi / tor_period;
-    df_out[6] = evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cy);
-    df_out[7] = evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cy);
+    df_out[6] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], der1, b2, tmp1, tmp2, cy);
+    df_out[7] = evaluation_kernels_2d::evaluation_kernel_2d(degree[0], degree[1], b1, der2, tmp1, tmp2, cy);
     df_out[8] = 0.;
 
     if (eta1 == 0. && cx(0, 0) == cx(0, 1)) {
@@ -319,4 +331,4 @@ __device__ inline void spline_2d_torus_df(double eta1, double eta2, double eta3,
 
     if (eta1 == 0. && cy(0, 0) == cy(0, 1)) df_out[7] = 0.;
 }
-}
+}  // namespace struphy_cuda::spline_mappings_kernels

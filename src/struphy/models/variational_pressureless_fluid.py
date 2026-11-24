@@ -87,6 +87,17 @@ class VariationalPressurelessFluid(StruphyModel):
                     new_file += [
                         "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='pressureless')\n",
                     ]
+                elif "variat_mom.Options" in line:
+                    # the Picard iteration of VariationalMomentumAdvection diverges for the default dt=0.01 with the
+                    # default background flow (CFL-like convergence limit); Newton converges
+                    new_file += [
+                        "model.propagators.variat_mom.options = model.propagators.variat_mom.Options(\n",
+                        "    nonlin_solver=NonlinearSolverParameters(type='Newton')\n",
+                        ")\n",
+                    ]
+                elif line.startswith("from struphy.models import"):
+                    new_file += [line]
+                    new_file += ["from struphy.linear_algebra.solver import NonlinearSolverParameters\n"]
                 elif "velocity.add_background" in line:
                     new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
                     new_file += [line]
@@ -96,6 +107,7 @@ class VariationalPressurelessFluid(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+        return params_path
 
     @classmethod
     def doc_pde(cls):

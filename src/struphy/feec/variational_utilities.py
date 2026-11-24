@@ -2,17 +2,23 @@ import logging
 from copy import deepcopy
 
 import cunumpy as xp
+import numpy as np
 from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
-from feectools.linalg.block import BlockVector
+from feectools.linalg.block import BlockVector, BlockVectorSpace
 from feectools.linalg.solvers import inverse
+from feectools.linalg.stencil import StencilMatrix
+from maybempi import MPI
 
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
     BasisProjectionOperatorLocal,
     CoordinateProjector,
+    prepare_projection_of_basis,
 )
+from struphy.feec.kernels.kernel_3d_mat import kernel_3d_mat
 from struphy.feec.psydac_derham import Derham
+from struphy.feec.quadrature import QuadratureIntegrator
 
 logger = logging.getLogger("struphy")
 
@@ -295,13 +301,393 @@ class BracketOperator(LinearOperator):
         return out
 
 
+class HdivBracketOperator(LinearOperator):
+    r"""Bracket of the variational momentum advection for a velocity 2-form :math:`\mathbf u \in H(\textnormal{div})`:
+    the skew-symmetric linear map
+    :math:`\mathbb B[\hat{\mathbf y}] : \mathbb R^{N_2} \to \mathbb R^{N_2}`,
+
+    .. math::
+
+        \mathbf v^\top \mathbb B[\hat{\mathbf y}]\, \mathbf u = \langle \mathbf m, \widehat{[A_{\mathbf u}, A_{\mathbf v}]} \rangle
+        = \int_\Omega \hat{\mathbf y} \cdot [\mathbf u, \mathbf v] \,\textnormal d\mathbf x\,,
+        \qquad [\mathbf u, \mathbf v] = \mathbf u \cdot \nabla \mathbf v - \mathbf v \cdot \nabla \mathbf u\,,
+
+    for velocities :math:`\mathbf u, \mathbf v` with flux (2-form) coefficients
+    :math:`\hat{\boldsymbol\omega}_{\mathbf u}, \hat{\boldsymbol\omega}_{\mathbf v} \in Z^0` and a fixed momentum
+    :math:`\mathbf m`, represented by :math:`\hat{\mathbf y} = (\mathbb M^Z)^{-1} \mathbf m \in Z^0` (the unweighted
+    logical mass matrix of the 2-forms, :math:`\hat y_k` are covariant components).
+
+    The discrete vector fields act as derivations, by Galerkin projection on the auxiliary space
+    :math:`W' = V^0_h + \sum_k Z_k + \sum_k Z_k/\sqrt g`, which contains the contravariant components
+    :math:`\hat u^k = \hat\omega_k / \sqrt g` of the velocities and the components of :math:`\hat{\mathbf y}`. Hence
+    :math:`A_{\mathbf u}\eta_k = \hat u^k` (no projection), the hat map is the identity on the velocities, and the
+    projection of the commutator drops out in the pairing with :math:`\hat{\mathbf y}`. :math:`W'` is never built.
+
+    The representer :math:`\hat{\mathbf y}` defines the discrete Lagrangian off the velocities, which the pairing
+    with the commutator needs, since :math:`[A_{\mathbf u}, A_{\mathbf v}]` is not the image of a velocity.
+    With the logical :math:`L^2` projection :math:`\Pi_{Z^0}` on :math:`Z^0` and the linear map
+    :math:`\Phi(C) = \Pi_{Z^0}(\sqrt g\, C\eta)` on the Lie algebra (with :math:`\Phi(A_{\mathbf u}) = \hat{\boldsymbol\omega}_{\mathbf u}`),
+    :math:`\ell_h(A) = \frac12 \Phi(A)^\top \mathbb M^2_\rho\, \Phi(A)` equals the kinetic energy on the velocities and
+
+    .. math::
+
+        \Big\langle \frac{\delta \ell_h}{\delta A}(A_{\mathbf u}), C \Big\rangle = \mathbf m^\top \Phi(C)
+        = \int \hat{\mathbf y} \cdot \sqrt g\, C\eta \,\textnormal d\boldsymbol\eta\,,
+        \qquad \mathbf m = \mathbb M^2_\rho \hat{\boldsymbol\omega}_{\mathbf u}\,,
+
+    so :math:`\mathbb B` is the Euler-Poincaré bracket of :math:`\ell_h`. The regularity of :math:`\hat{\mathbf y}` comes
+    from this choice: for :math:`p \geq 2` the components of :math:`Z` are continuous, so
+    :math:`\hat{\mathbf y} \in H(\textnormal{curl})` and :math:`\textnormal{curl}\, \hat{\mathbf y} \in L^2`. Since the
+    product is logical (:math:`\textnormal d\boldsymbol\eta`), :math:`\ell_h` depends on the parametrization of the
+    mapping off the velocities. This does not affect the skew-symmetry or the conservation of energy.
+
+    With :math:`\nabla \times (\mathbf u \times \mathbf v) = \mathbf u\, \nabla\cdot\mathbf v
+    - \mathbf v\, \nabla\cdot\mathbf u + \mathbf v \cdot \nabla\mathbf u - \mathbf u \cdot \nabla\mathbf v` and an
+    integration by parts (the boundary term vanishes since :math:`\mathbf u \cdot \mathbf n = \mathbf v \cdot \mathbf n = 0`),
+    in logical coordinates (component-wise products, logical :math:`\textnormal{div}` and :math:`\textnormal{curl}`),
+
+    .. math::
+
+        \mathbf v^\top \mathbb B[\hat{\mathbf y}]\, \mathbf u = \int \frac{1}{\sqrt g} \Big[
+        (\hat{\mathbf y} \cdot \hat{\boldsymbol\omega}_{\mathbf u})\, \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf v}
+        - (\hat{\mathbf y} \cdot \hat{\boldsymbol\omega}_{\mathbf v})\, \textnormal{div}\, \hat{\boldsymbol\omega}_{\mathbf u}
+        - \textnormal{curl}\, \hat{\mathbf y} \cdot (\hat{\boldsymbol\omega}_{\mathbf u} \times \hat{\boldsymbol\omega}_{\mathbf v})
+        \Big] \textnormal d\boldsymbol\eta\,,
+
+    which needs no derivatives of the mapping. The integrand is pointwise antisymmetric in
+    :math:`(\mathbf u, \mathbf v)`, so :math:`\mathbf u^\top \mathbb B \mathbf u = 0` (conservation of the kinetic
+    energy) also with inexact quadrature. In matrix form,
+
+    .. math::
+
+        \mathbb B[\hat{\mathbf y}] = \mathbb D^\top \mathbb N - \mathbb N^\top \mathbb D - \mathbb R\,,\qquad
+        \mathbb N_{b,(k,a)} = \int \Lambda^3_b\, \frac{\hat y_k}{\sqrt g}\, \Lambda^2_{k,a} \,\textnormal d\boldsymbol\eta\,,\qquad
+        \mathbb R_{(k,a),(j,b)} = \int \Lambda^2_{k,a}\, \frac{[\textnormal{curl}\,\hat{\mathbf y}]_{\times,kj}}{\sqrt g}\,
+        \Lambda^2_{j,b} \,\textnormal d\boldsymbol\eta\,,
+
+    with the divergence matrix :math:`\mathbb D` and the cross-product matrix :math:`[\mathbf c]_\times \mathbf x = \mathbf c \times \mathbf x`.
+    :math:`\mathbb N` and :math:`\mathbb R` are weighted mass matrices, assembled in :meth:`update_momentum`.
+
+    Boundary conditions: only the normal flux of the velocity vanishes (:math:`\hat{\mathbf u} \in Z^0`); the input,
+    the output and :math:`\hat{\mathbf y}` are restricted with ``derham.boundary_ops["2"]``.
+    Needs degree :math:`p \geq 2` (2-forms continuous, :math:`\hat{\mathbf y} \in H(\textnormal{curl})`). With polar
+    splines, the matrix-free application (:meth:`apply_values`) integrates against the tensor-product basis functions
+    and applies the polar extraction operators; the weight :math:`1/\sqrt g` is evaluated at the Gauss points, never on
+    the pole.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence of the velocity.
+
+    domain : Domain
+        The mapping (for :math:`1/\sqrt g`).
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators of ``derham`` (for :math:`\mathbb M^Z`, :math:`\mathbb N` and :math:`\mathbb R`).
+
+    tol : float
+        Tolerance of the solves with :math:`\mathbb M^Z`.
+
+    maxiter : int
+        Maximum number of iterations of these solves.
+    """
+
+    def __init__(self, derham: Derham, domain, mass_ops, tol: float = 1e-14, maxiter: int = 1000):
+        from struphy.feec.preconditioner import mass_matrix_preconditioner
+
+        reduced = tuple(n == 1 and periodic for n, periodic in zip(derham.num_elements, derham.spl_kind))
+        assert all(r or p >= 2 for r, p in zip(reduced, derham.degree)), (
+            f"The bracket of a velocity in H(div) needs degree >= 2 (except in periodic directions with one "
+            f"element), got {derham.degree}."
+        )
+
+        self._derham = derham
+        self._domain = derham.V2pol
+        self._codomain = derham.V2pol
+        self._dtype = derham.V2.dtype
+        self._bc = derham.boundary_ops["2"]
+        self._tol = tol
+        self._maxiter = maxiter
+        self._comm = derham.comm
+
+        # unweighted logical mass matrix of the 2-forms (with boundary conditions), for the momentum representer
+        self._MZ = mass_ops.create_weighted_mass(
+            "Hdiv", "Hdiv", weights=("Identity",), name="M2_logical", assemble=True
+        )
+        self._pc_MZ = mass_matrix_preconditioner(self._MZ, dim_reduce=0)
+        self._inv_MZ = self.new_momentum_solver()
+
+        # local quadrature points of the mass matrices (the same for all spaces)
+        pts = [pt.flatten() for pt in derham.V0splines.quad_grid_pts[0]]
+        for space_id in ("Hdiv", "L2"):
+            for comp_pts in derham.spline_attributes[space_id].quad_grid_pts:
+                for d in range(3):
+                    assert xp.allclose(comp_pts[d].flatten(), pts[d]), "Quadrature grids differ."
+        self._shape = tuple(pt.size for pt in pts)
+        self._s = 1.0 / domain.jacobian_det(*pts)
+        assert self._s.shape == self._shape
+
+        # values (and first derivatives) of the basis functions of the 2-forms and 3-forms at the quadrature points
+        spans, bn, bd, dbn, dbd = derham.prepare_eval_tp_fixed(pts, derivatives=True)
+        self._spans = spans
+        # component k of the 2-forms: N-splines in direction k, D-splines in the others
+        self._bases_2 = [[bn[d] if d == k else bd[d] for d in range(3)] for k in range(3)]
+        # derivative in direction j
+        self._bases_2_der = [
+            [
+                [(dbn[d] if d == k else dbd[d]) if d == j else (bn[d] if d == k else bd[d]) for d in range(3)]
+                for k in range(3)
+            ]
+            for j in range(3)
+        ]
+        self._bases_3 = list(bd)
+        self._u2f = derham.create_spline_function("u2_bracket", "Hdiv")
+        self._y2f = derham.create_spline_function("y2_bracket", "Hdiv")
+        self._div3f = derham.create_spline_function("divu3_bracket", "L2")
+
+        # integration against the basis functions of the 2-forms and 3-forms (matrix-free applications)
+        self._int_2 = QuadratureIntegrator(derham, "Hdiv")
+        self._int_3 = QuadratureIntegrator(derham, "L2")
+
+        # the weighted mass matrices N (Hdiv -> L2), N^T (L2 -> Hdiv) and R (Hdiv -> Hdiv), assembled in update_momentum
+        self._div = derham.div
+        self._divT = derham.div.T
+        self._N = mass_ops.create_weighted_mass("Hdiv", "L2", name="N_bracket")
+        self._NT = mass_ops.create_weighted_mass("Hdiv", "L2", name="N_bracket_T", transposed=True)
+        self._R = mass_ops.create_weighted_mass("Hdiv", "Hdiv", name="R_bracket")
+        # scaling of the assembled weights (normalized to one, such that small momenta are not cut off as zero blocks)
+        self._scale_N = 0.0
+        self._scale_R = 0.0
+
+        # temporaries
+        self._y_q = [xp.zeros(self._shape, dtype=float) for _ in range(3)]
+        self._c_q = [xp.zeros(self._shape, dtype=float) for _ in range(3)]
+        self._dy_q = [[xp.zeros(self._shape, dtype=float) for _ in range(3)] for _ in range(3)]
+        self._f_q = [xp.zeros(self._shape, dtype=float) for _ in range(3)]
+        self._g_q = xp.zeros(self._shape, dtype=float)
+        self._tmp_y = derham.V2pol.zeros()
+        self._tmp_2 = derham.V2pol.zeros()
+        self._tmp_3 = derham.V3pol.zeros()
+        self._tmp_3b = derham.V3pol.zeros()
+        self._tmp_int_2 = derham.V2.zeros()
+        self._tmp_int_3 = derham.V3.zeros()
+        # polar splines: integrals against the polar basis functions (extraction of the tensor-product integrals)
+        self._polar = derham.polar_splines
+        if self._polar:
+            self._E2 = derham.extraction_ops["2"]
+            self._E3 = derham.extraction_ops["3"]
+            self._tmp_pol_2 = derham.V2pol.zeros()
+            self._tmp_pol_3 = derham.V3pol.zeros()
+
+        self._has_momentum = False
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def shape_q(self) -> tuple:
+        """Shape of the arrays of values at the local quadrature points."""
+        return self._shape
+
+    @property
+    def y_hat(self):
+        r"""The coefficients of the momentum representer :math:`\hat{\mathbf y} \in Z^0`."""
+        return self._tmp_y
+
+    def transpose(self, conjugate=False):
+        return -self
+
+    def new_momentum_solver(self):
+        r"""A new solver with the logical mass matrix :math:`\mathbb M^Z` (own initial guesses)."""
+        return inverse(self._MZ, "pcg", pc=self._pc_MZ, tol=self._tol, maxiter=self._maxiter, recycle=True)
+
+    def momentum_values(self, m: BlockVector, inv_MZ, y: BlockVector, y_q: list, c_q: list) -> tuple:
+        r"""Values at the quadrature points of the representer :math:`\hat{\mathbf y} = (\mathbb M^{Z})^{-1} \mathbf m`
+        (written to ``y``, solved with ``inv_MZ``, e.g. :meth:`new_momentum_solver`) and of its logical curl
+        (written to ``y_q`` and ``c_q``)."""
+        assert m.space == self.domain
+        inv_MZ.dot(m, out=y)
+        self._y2f.vector = y
+        self._y2f.eval_tp_fixed_loc(self._spans, self._bases_2, out=y_q)
+        dy = self._dy_q
+        for j in range(3):
+            self._y2f.eval_tp_fixed_loc(self._spans, self._bases_2_der[j], out=dy[j])
+        # dy[j][k] = d_j y_k
+        xp.subtract(dy[1][2], dy[2][1], out=c_q[0])
+        xp.subtract(dy[2][0], dy[0][2], out=c_q[1])
+        xp.subtract(dy[0][1], dy[1][0], out=c_q[2])
+        return y_q, c_q
+
+    def velocity_values(self, u: BlockVector, u_q: list, divu_q) -> tuple:
+        r"""Values at the quadrature points of the flux coefficients of the velocity ``u`` and of their logical
+        divergence (written to ``u_q`` and ``divu_q``)."""
+        self._u2f.vector = u
+        self._u2f.eval_tp_fixed_loc(self._spans, self._bases_2, out=u_q)
+        self._div3f.vector = self._div.dot(u, out=self._tmp_3)
+        self._div3f.eval_tp_fixed_loc(self._spans, self._bases_3, out=divu_q)
+        return u_q, divu_q
+
+    def _global_max(self, arrays) -> float:
+        loc = max(float(xp.max(xp.abs(a))) if a.size > 0 else 0.0 for a in arrays)
+        if self._comm is not None and self._comm.Get_size() > 1:
+            loc = self._comm.allreduce(loc, op=MPI.MAX)
+        return loc
+
+    def update_momentum(self, m: BlockVector):
+        r"""Set the momentum, given as the linear form :math:`\mathbf m = \mathbb M^2_\rho \hat{\boldsymbol\omega}` on the
+        velocities (a dual vector of the 2-forms): compute its representer :math:`\hat{\mathbf y}` and assemble
+        :math:`\mathbb N` and :math:`\mathbb R` (collective)."""
+        y_q, c_q = self.momentum_values(m, self._inv_MZ, self._tmp_y, self._y_q, self._c_q)
+        s = self._s
+
+        # N with the weights y_k / sqrt g
+        for k in range(3):
+            xp.multiply(s, y_q[k], out=self._f_q[k])
+        self._scale_N = self._global_max(self._f_q)
+        if self._scale_N > 0.0:
+            w = [f / self._scale_N for f in self._f_q]
+            self._N.assemble(weights=[[w[0], w[1], w[2]]])
+            self._NT.assemble(weights=[[w[0]], [w[1]], [w[2]]])
+
+        # R with the antisymmetric weights [curl y]_x / sqrt g
+        c = [s * c_q[k] for k in range(3)]
+        self._scale_R = self._global_max(c)
+        if self._scale_R > 0.0:
+            c = [ck / self._scale_R for ck in c]
+            self._R.assemble(
+                weights=[[None, -c[2], c[1]], [c[2], None, -c[0]], [-c[1], c[0], None]],
+            )
+
+        self._has_momentum = True
+
+    def dot(self, v, out=None):
+        assert self._has_momentum, "Set the momentum with update_momentum before applying the bracket."
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+        if out is None:
+            out = self.codomain.zeros()
+        else:
+            assert out.space == self.codomain
+
+        out *= 0.0
+        if self._scale_N > 0.0:
+            # D^T N v - N^T D v
+            self._divT.dot(self._N.dot(v, out=self._tmp_3), out=out)
+            out -= self._NT.dot(self._div.dot(v, out=self._tmp_3b), out=self._tmp_2)
+            out *= self._scale_N
+        if self._scale_R > 0.0:
+            out.mul_iadd(-self._scale_R, self._R.dot(v, out=self._tmp_2))
+        return out
+
+    def apply_values(self, u_q: list, divu_q, y_q: list, c_q: list, out=None):
+        r"""The bracket :math:`\mathbb B[\hat{\mathbf y}]\,\mathbf u` applied matrix-free, from the values at the quadrature
+        points of the velocity (:meth:`velocity_values`) and of the momentum representer and its curl
+        (:meth:`momentum_values`): the vector of the integrals against :math:`\textnormal{div}\,\Lambda^2` and
+        :math:`\Lambda^2` of the integrand of the class docstring."""
+        if out is None:
+            out = self.codomain.zeros()
+        s = self._s
+        f = self._f_q
+        g = self._g_q
+
+        # int div(Lambda^2) (y . u) / sqrt g
+        g[:] = 0.0
+        for k in range(3):
+            g += y_q[k] * u_q[k]
+        g *= s
+        I3 = self._int_3.integrate([g], out=self._tmp_int_3)
+        if self._polar:
+            I3 = self._E3.dot(I3, out=self._tmp_pol_3)
+        self._divT.dot(I3, out=out)
+
+        # - int Lambda^2 . (y div u + curl y x u) / sqrt g
+        xp.multiply(y_q[0], divu_q, out=f[0])
+        f[0] += c_q[1] * u_q[2] - c_q[2] * u_q[1]
+        xp.multiply(y_q[1], divu_q, out=f[1])
+        f[1] += c_q[2] * u_q[0] - c_q[0] * u_q[2]
+        xp.multiply(y_q[2], divu_q, out=f[2])
+        f[2] += c_q[0] * u_q[1] - c_q[1] * u_q[0]
+        for k in range(3):
+            f[k] *= -s
+        I2 = self._int_2.integrate(f, out=self._tmp_int_2)
+        if self._polar:
+            I2 = self._E2.dot(I2, out=self._tmp_pol_2)
+        out += self._bc.dot(I2, out=self._tmp_2)
+        return out
+
+
+class HdivBracketMomentumDerivative(LinearOperator):
+    r"""Derivative of the bracket :math:`\mathbb B[\hat{\mathbf y}(\mathbf m)]\,\mathbf x` of a
+    :class:`HdivBracketOperator` with respect to the momentum :math:`\mathbf m`, for a fixed velocity
+    :math:`\mathbf x` (:meth:`set_velocity`): the linear map
+    :math:`\delta\mathbf m \mapsto \mathbb B[(\mathbb M^Z)^{-1}\delta\mathbf m]\,\mathbf x` (the bracket is bilinear
+    in the momentum and the velocity), applied matrix-free. Used in the Newton iteration with the momentum at
+    :math:`t^{n+1/2}`.
+
+    Parameters
+    ----------
+    bracket : HdivBracketOperator
+        The bracket.
+    """
+
+    def __init__(self, bracket: HdivBracketOperator):
+        self._B = bracket
+        self._inv_MZ = bracket.new_momentum_solver()
+        shape = bracket.shape_q
+        self._y = bracket.domain.zeros()
+        self._y_q = [xp.zeros(shape, dtype=float) for _ in range(3)]
+        self._c_q = [xp.zeros(shape, dtype=float) for _ in range(3)]
+        self._x_q = [xp.zeros(shape, dtype=float) for _ in range(3)]
+        self._divx_q = xp.zeros(shape, dtype=float)
+        self._has_velocity = False
+
+    @property
+    def domain(self):
+        return self._B.domain
+
+    @property
+    def codomain(self):
+        return self._B.codomain
+
+    @property
+    def dtype(self):
+        return self._B.dtype
+
+    def set_velocity(self, x):
+        r"""Set the velocity :math:`\mathbf x` (its values at the quadrature points are stored)."""
+        self._B.velocity_values(x, self._x_q, self._divx_q)
+        self._has_velocity = True
+
+    def transpose(self, conjugate=False):
+        raise NotImplementedError("HdivBracketMomentumDerivative has no transpose.")
+
+    def dot(self, dm, out=None):
+        assert self._has_velocity, "Set the velocity with set_velocity before applying the derivative."
+        y_q, c_q = self._B.momentum_values(dm, self._inv_MZ, self._y, self._y_q, self._c_q)
+        return self._B.apply_values(self._x_q, self._divx_q, y_q, c_q, out=out)
+
+
 class L2_transport_operator(LinearOperator):
     r"""
     Operator
 
     .. math::
         \mathbf u \mapsto \nabla \cdot(\Pi^2(\rho \mathbf u)) \,
-    from H1vec to L2, where :math:`\rho` is a discrete 3-form which can be updated.
+    from H1vec (or H(div)) to L2, where :math:`\rho` is a discrete 3-form which can be updated.
+
+    For a velocity 2-form (``u_space="Hdiv"``) the projected 2-form is
+    :math:`\hat\Pi^2[\hat\rho^3 \vec{\boldsymbol\Lambda}^2/\sqrt g]`, as in
+    :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Q2`.
 
     Parameters
     ----------
@@ -310,23 +696,35 @@ class L2_transport_operator(LinearOperator):
 
     transposed : Bool
         Assemble the transposed operator
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+
+    phys_domain : Domain
+        The mapping (needed for the metric term with ``u_space="Hdiv"``).
     """
 
-    def __init__(self, derham, transposed=False, weights=None):
+    def __init__(self, derham, transposed=False, weights=None, u_space="H1vec", phys_domain=None):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        assert u_space == "H1vec" or phys_domain is not None, 'u_space="Hdiv" needs phys_domain.'
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
+        self._u_space = u_space
+        self._phys_domain = phys_domain
         if weights is None:
             weights = [[None] * 3] * 3
         self._weights = weights
+        u_form = self._derham.space_to_form[u_space]
+        Vu = getattr(self._derham, f"V{u_form}pol")
         if self._transposed:
-            self._codomain = self._derham.Vvpol
+            self._codomain = Vu
             self._domain = self._derham.V3pol
         else:
-            self._domain = self._derham.Vvpol
+            self._domain = Vu
             self._codomain = self._derham.V3pol
         P2 = self._derham.P2
-        Xh = self._derham.Vvfem
+        Xh = getattr(self._derham, f"V{u_form}fem")
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("rhof", "L2")
 
@@ -337,8 +735,8 @@ class L2_transport_operator(LinearOperator):
                 Xh,
                 self._weights,
                 transposed=transposed,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[u_form],
+                V_boundary_op=self._derham.boundary_ops[u_form],
                 P_boundary_op=IdentityOperator(self._derham.V2pol),
             )
 
@@ -349,8 +747,8 @@ class L2_transport_operator(LinearOperator):
                 self._weights,
                 transposed=transposed,
                 use_cache=True,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[u_form],
+                V_boundary_op=self._derham.boundary_ops[u_form],
                 P_boundary_op=IdentityOperator(self._derham.V2pol),
             )
 
@@ -388,6 +786,12 @@ class L2_transport_operator(LinearOperator):
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
         self._f_2_values = xp.zeros(grid_shape, dtype=float)
 
+        # 1/sqrt(g) on the histopolation grids of the three components, for a velocity 2-form
+        if u_space == "Hdiv":
+            self._inv_sqrt_g = [
+                1.0 / phys_domain.jacobian_det(*grid) for grid in (hist_grid_0, hist_grid_1, hist_grid_2)
+            ]
+
     @property
     def domain(self):
         return self._domain
@@ -401,7 +805,13 @@ class L2_transport_operator(LinearOperator):
         return self._dtype
 
     def transpose(self, conjugate=False):
-        return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
+        return L2_transport_operator(
+            self._derham,
+            not self._transposed,
+            weights=self._weights,
+            u_space=self._u_space,
+            phys_domain=self._phys_domain,
+        )
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -433,6 +843,10 @@ class L2_transport_operator(LinearOperator):
             out=self._f_2_values,
         )
 
+        if self._u_space == "Hdiv":
+            for values, inv_sqrt_g in zip((f0_values, f1_values, f2_values), self._inv_sqrt_g):
+                values *= inv_sqrt_g
+
         self._weights = [
             [f0_values, None, None],
             [None, f1_values, None],
@@ -448,7 +862,12 @@ class Hdiv0_transport_operator(LinearOperator):
 
     .. math::
         u \mapsto \nabla \times (\Pi^1(\mathbf B \times \mathbf u)) \,
-    from H1vec to H(div), where :math:`\mathbf B` is a discrete 2-form which can be updated.
+    from H1vec (or H(div)) to H(div), where :math:`\mathbf B` is a discrete 2-form which can be updated.
+
+    For a velocity 2-form :math:`\hat{\mathbf u}^2` (``u_space="Hdiv"``) the vector field is
+    :math:`\hat{\mathbf u}^2/\sqrt g`, i.e. the projected 1-form is
+    :math:`\hat\Pi^1[(\hat{\mathbf B}^2 \times \vec{\boldsymbol\Lambda}^2)/\sqrt g]`, as in
+    :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.T2`.
 
     Parameters
     ----------
@@ -457,23 +876,35 @@ class Hdiv0_transport_operator(LinearOperator):
 
     transposed : Bool
         Assemble the transposed operator
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+
+    phys_domain : Domain
+        The mapping (needed for the metric term with ``u_space="Hdiv"``).
     """
 
-    def __init__(self, derham, transposed=False, weights=None):
+    def __init__(self, derham, transposed=False, weights=None, u_space="H1vec", phys_domain=None):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        assert u_space == "H1vec" or phys_domain is not None, 'u_space="Hdiv" needs phys_domain.'
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
+        self._u_space = u_space
+        self._phys_domain = phys_domain
         if weights is None:
             weights = [[None] * 3] * 3
         self._weights = weights
+        u_form = self._derham.space_to_form[u_space]
+        Vu = getattr(self._derham, f"V{u_form}pol")
         if self._transposed:
-            self._codomain = self._derham.Vvpol
+            self._codomain = Vu
             self._domain = self._derham.V2pol
         else:
-            self._domain = self._derham.Vvpol
+            self._domain = Vu
             self._codomain = self._derham.V2pol
         P1 = self._derham.P1
-        Xh = self._derham.Vvfem
+        Xh = getattr(self._derham, f"V{u_form}fem")
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("Bf", "Hdiv")
 
@@ -484,8 +915,8 @@ class Hdiv0_transport_operator(LinearOperator):
                 Xh,
                 self._weights,
                 transposed=transposed,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[u_form],
+                V_boundary_op=self._derham.boundary_ops[u_form],
                 P_boundary_op=IdentityOperator(self._derham.V1pol),
             )
 
@@ -496,8 +927,8 @@ class Hdiv0_transport_operator(LinearOperator):
                 self._weights,
                 transposed=transposed,
                 use_cache=True,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[u_form],
+                V_boundary_op=self._derham.boundary_ops[u_form],
                 P_boundary_op=IdentityOperator(self._derham.V1pol),
             )
 
@@ -551,6 +982,12 @@ class Hdiv0_transport_operator(LinearOperator):
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
         self._bf2_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+
+        # 1/sqrt(g) on the histopolation grids of the three components, for a velocity 2-form
+        if u_space == "Hdiv":
+            self._inv_sqrt_g = [
+                1.0 / phys_domain.jacobian_det(*grid) for grid in (hist_grid_0, hist_grid_1, hist_grid_2)
+            ]
         self.hist_grid_2_b = [
             [self.hist_grid_2_bn[0], self.hist_grid_2_bd[1], self.hist_grid_2_bd[2]],
             [
@@ -574,7 +1011,13 @@ class Hdiv0_transport_operator(LinearOperator):
         return self._dtype
 
     def transpose(self, conjugate=False):
-        return Hdiv0_transport_operator(self._derham, not self._transposed, weights=self._weights)
+        return Hdiv0_transport_operator(
+            self._derham,
+            not self._transposed,
+            weights=self._weights,
+            u_space=self._u_space,
+            phys_domain=self._phys_domain,
+        )
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -607,6 +1050,11 @@ class Hdiv0_transport_operator(LinearOperator):
             out=self._bf2_values,
         )
 
+        if self._u_space == "Hdiv":
+            for values, inv_sqrt_g in zip((bf0_values, bf1_values, bf2_values), self._inv_sqrt_g):
+                for v in values:
+                    v *= inv_sqrt_g
+
         self._weights = [
             [None, -bf0_values[2], bf0_values[1]],
             [bf1_values[2], None, -bf1_values[0]],
@@ -616,13 +1064,822 @@ class Hdiv0_transport_operator(LinearOperator):
         self.Proj.update_weights(self._weights)
 
 
+class ProjectionAdjointMatrix(LinearOperator):
+    r"""Matrix of the linear map :math:`\mathbf f \mapsto \mathcal P[\mathbf f]^\top \mathbf y` for a basis projection
+    operator :math:`\mathcal P[\mathbf f] = \hat\Pi^\beta[W[\hat f]\, \vec{\boldsymbol\Lambda}^\alpha]` whose weight is linear
+    in a field :math:`\mathbf f`, and a fixed vector :math:`\mathbf y` (dual of the projection space :math:`V^\beta_h`).
+
+    With :math:`\hat\Pi^\beta = (\mathbb I^\beta)^{-1} \sigma^\beta` (geometric degrees of freedom :math:`\sigma^\beta`: point
+    values and integrals over the histopolation cells; inter-/histopolation matrix :math:`\mathbb I^\beta`) and
+    :math:`\mathbf z = (\mathbb I^\beta)^{-\top} \mathbf y`, and the weight
+    :math:`W_{ik}[\hat f] = g(\boldsymbol\eta) \sum_m c_{ikm} \hat f_m`,
+
+    .. math::
+
+        \big(\mathcal P[\mathbf f]^\top \mathbf y\big)_{(k, v)} = \sum_i \sum_e z^{(i)}_e\,
+        \sigma^{(i)}_e\Big(g \sum_m c_{ikm}\, \hat f_m\, \Lambda^\alpha_{k,v}\Big) \,,
+
+    a bilinear form in the basis functions of :math:`V^\alpha_h` (test) and of the field space (trial), integrated with
+    the degrees of freedom of :math:`\hat\Pi^\beta` (point values and the Gauss points of the histopolation cells) and
+    weighted by :math:`z^{(i)}_e g`, :math:`z^{(i)}_e` constant on each cell. It is assembled once with the mass-matrix
+    kernel on these point sets. Each rank takes the cells in its own elements; :math:`\mathbf z` is read with its ghost
+    regions and the ghost contributions are accumulated as in the mass matrices.
+
+    With polar splines, :math:`\hat\Pi^\beta = (\mathbb I^\beta_{\textnormal{pol}})^{-1} \mathbb P \sigma^\beta` with the
+    polar degrees-of-freedom extraction :math:`\mathbb P` of the projector, so the tensor-product degrees of freedom
+    are weighted by :math:`\mathbf z = \mathbb P^\top (\mathbb I^\beta_{\textnormal{pol}})^{-\top} \mathbf y`. The
+    assembled tensor-product matrix is applied with the polar extraction (and boundary) operators of the test and field
+    spaces, as every weighted mass operator. As in :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator`,
+    the interpolation points on the pole are shifted to :math:`\eta_1 = 10^{-5}`; :math:`\mathbf z` vanishes there,
+    which avoids the product of zero and the singular factor :math:`g = 1/\sqrt g` of a velocity 2-form.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence (global commuting projectors, 3d; tensor-product or polar splines).
+    mass_ops : WeightedMassOperators
+        Weighted mass operators; the matrix is stored as one of them (with the extraction and boundary operators of
+        the spaces).
+    proj_form : str
+        Form of the projection space :math:`V^\beta_h` (``"1"``, ``"2"`` or ``"3"``).
+    test_space : str
+        Space id of :math:`V^\alpha_h` (e.g. ``"Hdiv"``, ``"H1vec"``, ``"L2"``).
+    field_space : str
+        Space id of the field :math:`\mathbf f` (``"Hdiv"`` or ``"L2"``).
+    coeffs : dict
+        The non-zero :math:`c_{ikm}`, keyed by ``(i, k, m)`` (component of the projection space, of the test space, of
+        the field).
+    y : Vector
+        The fixed vector :math:`\mathbf y`.
+    g : callable or None
+        The factor :math:`g(\eta_1, \eta_2, \eta_3)` (flattened 1d point arrays, tensor-product evaluation, e.g.
+        ``domain.jacobian_det``-based); None for 1.
+    """
+
+    def __init__(
+        self, derham: Derham, mass_ops, proj_form: str, test_space: str, field_space: str, coeffs: dict, y, g=None
+    ):
+        assert not derham._with_local_projectors, "ProjectionAdjointMatrix needs the global commuting projectors."
+        assert derham.V0fem.ldim == 3, "ProjectionAdjointMatrix is implemented in 3d."
+        self._F = mass_ops.create_weighted_mass(field_space, test_space, name=f"ProjAdj_{proj_form}_{test_space}")
+        self._domain = self._F.domain
+        self._codomain = self._F.codomain
+        self._dtype = self._F.dtype
+
+        P = getattr(derham, f"P{proj_form}")
+        z = P.solve(y, True, apply_bc=True)
+        # polar splines: the weights of the tensor-product degrees of freedom (identity otherwise)
+        if derham.polar_splines:
+            z = P.dofs_extraction_op.transpose().dot(z)
+        z.update_ghost_regions()
+        # shift the interpolation points on the pole (as in BasisProjectionOperator)
+        polar_shift = derham.polar_splines
+
+        Vt = getattr(derham, f"V{derham.space_to_form[test_space]}fem")
+        Vf = getattr(derham, f"V{derham.space_to_form[field_space]}fem")
+        Wp = getattr(derham, f"V{proj_form}fem")
+        Vt_c, Vf_c, Wp_c = _components(Vt), _components(Vf), _components(Wp)
+        z_c = [z[i] for i in range(len(Wp_c))] if len(Wp_c) > 1 else [z]
+        el_lo, el_hi = derham.V0fem.local_domain
+
+        mat = self._F._mat
+        blocks = {}
+        for k, Vk in enumerate(Vt_c):
+            for m, Vm in enumerate(Vf_c):
+                if not any(key[1] == k and key[2] == m for key in coeffs):
+                    continue
+                if isinstance(mat, StencilMatrix):
+                    blk = mat
+                else:
+                    if mat[k, m] is None:
+                        mat[k, m] = self._F._new_block(Vm, Vk)
+                    blk = mat[k, m]
+                blk._data[:] = 0.0
+                blocks[(k, m)] = blk
+
+        for i, Wspace in enumerate(Wp_c):
+            W1d = Wspace.spaces
+            n_out = [int(sp.nbasis) for sp in W1d]
+            z_starts = [int(st) for st in Wspace.coeff_space.starts]
+            z_ends = [int(en) for en in Wspace.coeff_space.ends]
+            z_pads = [int(pd) for pd in Wspace.coeff_space.pads]
+            nq = [P.projector_tensor.grid_x[i][d].shape[1] for d in range(3)]
+            all_dofs = ([0, 0, 0], [n - 1 for n in n_out])
+            for k, Vk in enumerate(Vt_c):
+                if not any(key[0] == i and key[1] == k for key in coeffs):
+                    continue
+                # projection cells of the whole direction, kept where their element is local to this rank
+                pts, wts, spans_k, bases_k, subs = prepare_projection_of_basis(
+                    Vk.spaces, W1d, *all_dofs, nq, polar_shift
+                )
+                sel = []
+                for d in range(3):
+                    el = spans_k[d][:, 0] - Vk.degree[d]
+                    sel += [np.where((el >= el_lo[d]) & (el <= el_hi[d]))[0]]
+                # global dof of each cell (a histopolation cell may be split at a break point) and its local index in z
+                z_idx, rep = [], []
+                for d in range(3):
+                    dof = (np.cumsum(subs[d] == 0) - 1)[sel[d]]
+                    off = dof - z_starts[d]
+                    off = np.where(off > z_ends[d] - z_starts[d] + z_pads[d], off - n_out[d], off)
+                    off = np.where(off < -z_pads[d], off + n_out[d], off)
+                    z_idx += [off + z_pads[d]]
+                    rep += [np.repeat(np.arange(sel[d].size), pts[d].shape[1])]
+                weight = z_c[i]._data[np.ix_(*z_idx)][np.ix_(*rep)]
+                if g is not None:
+                    weight = weight * g(*[pts[d][sel[d]].flatten() for d in range(3)])
+                wts_k = [np.array(wts[d][sel[d]], dtype=float, order="C") for d in range(3)]
+                spans = [np.array(spans_k[d][sel[d], 0], dtype=int, order="C") for d in range(3)]
+                b_test = [np.transpose(bases_k[d][sel[d]], (0, 2, 1))[:, :, None, :].copy(order="C") for d in range(3)]
+                starts_k = [int(st) for st in Vk.coeff_space.starts]
+                for m, Vm in enumerate(Vf_c):
+                    if (i, k, m) not in coeffs:
+                        continue
+                    _, _, spans_m, bases_m, _ = prepare_projection_of_basis(Vm.spaces, W1d, *all_dofs, nq, polar_shift)
+                    for d in range(3):
+                        # the mass kernel assumes the same first non-zero basis index for both spaces on a cell
+                        assert np.all(spans_k[d][sel[d]] - Vk.degree[d] == spans_m[d][sel[d]] - Vm.degree[d])
+                    b_trial = [
+                        np.transpose(bases_m[d][sel[d]], (0, 2, 1))[:, :, None, :].copy(order="C") for d in range(3)
+                    ]
+                    mat_fun = np.array(coeffs[(i, k, m)] * weight, dtype=float, order="C")
+                    kernel_3d_mat(
+                        *spans,
+                        *Vk.degree,
+                        *Vm.degree,
+                        *starts_k,
+                        *Vk.coeff_space.pads,
+                        *wts_k,
+                        *b_test,
+                        *b_trial,
+                        mat_fun,
+                        blocks[(k, m)]._data,
+                    )
+        mat.exchange_assembly_data()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return self._F.transpose(conjugate=conjugate)
+
+    def dot(self, v, out=None):
+        return self._F.dot(v, out=out)
+
+
+def _components(fem) -> list:
+    """The scalar component spaces (TensorFemSpace) of a FEM space."""
+    return list(fem.spaces) if isinstance(fem.coeff_space, BlockVectorSpace) else [fem]
+
+
+class TransportAdjointMatrix(ProjectionAdjointMatrix):
+    r"""Matrix of the linear map :math:`\mathbf b \mapsto \mathbb T[\mathbf b]^\top \mathbf l` for a fixed linear form
+    :math:`\mathbf l` on 2-forms, with the transport operator :math:`\mathbb T[\mathbf b] = \mathbb C\, \hat\Pi^1[
+    \hat{\mathbf b} \times \vec{\boldsymbol\Lambda}^u]` of :class:`Hdiv0_transport_operator` (for a velocity 2-form the
+    product is divided by :math:`\sqrt g`), from 2-forms to the dual of the velocity space. It is the
+    :class:`ProjectionAdjointMatrix` of :math:`\hat\Pi^1` with :math:`\mathbf y = \mathbb C^\top \mathbf l` and the weight
+    of the cross product,
+
+    .. math::
+
+        \big(\mathbb T[\mathbf b]^\top \mathbf l\big)_{(k, v)} = \sum_{i=1}^3 \sum_e z^{(i)}_e\,
+        \sigma^{(i)}_e\big(X_{ik}[\hat{\mathbf b}]\, \Lambda^u_{k,v}\big) \,,
+        \qquad X[\hat{\mathbf b}] = \begin{pmatrix} 0 & -\hat b_3 & \hat b_2 \\ \hat b_3 & 0 & -\hat b_1 \\ -\hat b_2 &
+        \hat b_1 & 0 \end{pmatrix} / \sqrt g \,.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping (for :math:`\sqrt g` with a velocity 2-form).
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+    lf : BlockVector
+        The linear form :math:`\mathbf l` (dual of the 2-forms), e.g. :math:`-\mathbb M^2 \mathbf b_0`.
+    """
+
+    # coefficients c_ikm of X_ik = sum_m c_ikm b_m
+    _CROSS = {(0, 1, 2): -1.0, (0, 2, 1): 1.0, (1, 0, 2): 1.0, (1, 2, 0): -1.0, (2, 0, 1): -1.0, (2, 1, 0): 1.0}
+
+    def __init__(self, derham: Derham, domain, mass_ops, u_space: str, lf: BlockVector):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        g = (lambda e1, e2, e3: 1.0 / domain.jacobian_det(e1, e2, e3)) if u_space == "Hdiv" else None
+        super().__init__(derham, mass_ops, "1", u_space, "Hdiv", self._CROSS, derham.curl_bcfree.T.dot(lf), g=g)
+
+
+class NormalizedInverse(LinearOperator):
+    r"""Inverse of a symmetric positive definite mass matrix :math:`\mathbb M`, applied with a tolerance relative to the
+    norm of the right-hand side (:func:`dot_normalized`): preconditioned CG with the Kronecker preconditioner of
+    :func:`~struphy.feec.preconditioner.mass_matrix_preconditioner` (its 2D x 1D version with polar splines). It is its
+    own transpose. A solve that does not reach the tolerance is logged as a warning.
+
+    Parameters
+    ----------
+    mass : WeightedMassOperator
+        The mass matrix.
+    tol : float
+        Relative tolerance of the solves.
+    maxiter : int
+        Maximum number of iterations. With the Kronecker preconditioner and the last solution as initial guess, the
+        solves need about 2-3 iterations (polar cylinder and torus, 16x12x12, degree 3); the limit only bounds the
+        cost of a stalled solve.
+    """
+
+    def __init__(self, mass, tol: float = 1e-14, maxiter: int = 100):
+        self._name = getattr(mass, "name", type(mass).__name__)
+        self._inv = inverse(
+            mass, "pcg", pc=preconditioner.mass_matrix_preconditioner(mass), tol=tol, maxiter=maxiter, recycle=True
+        )
+        self._domain = mass.codomain
+        self._codomain = mass.domain
+        self._tmp = mass.codomain.zeros()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._inv.dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return self
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._codomain.zeros()
+        v.copy(out=self._tmp)  # dot_normalized scales its input in place
+        if not self._tmp.inner(self._tmp) > 0.0:
+            out *= 0.0  # zero right-hand side: no solve (as in dot_normalized)
+            return out
+        dot_normalized(self._inv, self._tmp, out)
+        info = self._inv.get_info()
+        if not info["success"]:
+            logger.warning(
+                f"NormalizedInverse({self._name}): pcg did not converge in {info['niter']} iterations, relative "
+                f"residual {info['res_norm']:.2e} (tol {self._inv.get_options('tol'):.0e}); the adjoint identities "
+                "and the energy conservation of the L2 transport hold only up to this residual."
+            )
+        return out
+
+
+def _local_spline_callables(sf, ncomp: int) -> list:
+    """Callables of the components of the spline function ``sf`` for the weights of
+    :meth:`~struphy.feec.mass.WeightedMassOperators.create_weighted_mass`: evaluation on the sparse meshgrid of the local
+    quadrature points, with the local coefficients only (no collective communication)."""
+
+    def comp(c):
+        def f(e1, e2, e3):
+            vals = sf(e1[:, 0, 0], e2[0, :, 0], e3[0, 0, :], local=True)
+            vals = vals[c] if isinstance(vals, (list, tuple)) else vals
+            return xp.asarray(vals).reshape(e1.shape[0], e2.shape[1], e3.shape[2])
+
+        return f
+
+    return [comp(c) for c in range(ncomp)]
+
+
+class _QuadratureValues:
+    """Values of 2-form and 3-form spline functions at the local quadrature points of the mass matrices (the same grid
+    for all spaces), with the local coefficients only, and :math:`1/\\sqrt g` there."""
+
+    def __init__(self, derham: Derham, domain):
+        grids = derham.spline_attributes["Hcurl"].quad_grid_pts
+        pts = [pt.flatten() for pt in grids[0]]
+        for space_id in ("Hcurl", "Hdiv", "L2"):
+            for comp_pts in derham.spline_attributes[space_id].quad_grid_pts:
+                for d in range(3):
+                    assert xp.allclose(comp_pts[d].flatten(), pts[d]), "Quadrature grids differ."
+        self._pts = pts
+        self.inv_sqrt_g = 1.0 / domain.jacobian_det(*pts)
+
+    def __call__(self, sf) -> list:
+        vals = sf(*self._pts, local=True)
+        return list(vals) if isinstance(vals, (list, tuple)) else [vals]
+
+
+class L2TransportOperator(LinearOperator):
+    r"""Transport of a magnetic 2-form by a velocity 2-form with the :math:`L^2` projection of the interior product,
+
+    .. math::
+
+        \mathbb T[\bar{\mathbf b}]\,\mathbf u = \mathbb C\, \mathbb B_1^\top (\mathbb M^1)^{-1}\, \mathbb W[\bar{\mathbf b}]
+        \,\mathbf u \,,\qquad
+        \mathbb W[\bar{\mathbf b}]_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^1_i \cdot G^{-1}
+        \big(\hat{\bar{\mathbf b}} \times \vec{\boldsymbol\Lambda}^2_j\big) \,\textrm d \boldsymbol\eta \,,
+
+    i.e. :math:`-\nabla \times P_{L^2}(\bar{\mathbf B} \times \mathbf u)`, with the :math:`L^2` projection
+    :math:`P_{L^2}` onto :math:`V^1_h` with the tangential boundary condition (``boundary_ops["1"]``, :math:`\mathbb B_1`;
+    :math:`\bar{\mathbf B} \times \mathbf u` is normal on a wall where both are tangential) and :math:`\mathbb C` the
+    curl matrix without boundary conditions. It replaces the commuting projection :math:`\hat\Pi^1` of
+    :class:`Hdiv0_transport_operator`. :math:`P_{L^2}` only uses volume integrals and is stable in :math:`L^2`: it does
+    not evaluate the product on the edges of the histopolation grid, which at a polar axis all start at the same point
+    (the product of two discrete 2-forms has no limit there).
+
+    The matrix :math:`\mathbb W` is assembled once by :meth:`update_coeffs` (``assemble=True``, for a fixed field,
+    e.g. the equilibrium), or :math:`\mathbb W \mathbf u` is integrated matrix-free in every application
+    (``assemble=False``, for a field that changes in every step). The transpose is available with ``assemble=True``.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping.
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    assemble : bool
+        Whether to assemble :math:`\mathbb W` (see above).
+    tol : float
+        Relative tolerance of the solves with :math:`\mathbb M^1`.
+    """
+
+    def __init__(self, derham: Derham, domain, mass_ops, assemble: bool = True, tol: float = 1e-14):
+        self._derham = derham
+        self._mass_ops = mass_ops
+        self._assemble = assemble
+        self._domain = derham.V2pol
+        self._codomain = derham.V2pol
+        self._dtype = derham.V2.dtype
+        self._C = derham.curl_bcfree
+        self._B1 = derham.boundary_ops["1"]
+        self._M1inv = NormalizedInverse(mass_ops.M1, tol=tol)
+        self._bf = derham.create_spline_function("b_L2transport", "Hdiv")
+        self._W = None
+        if not assemble:
+            from struphy.feec.mass import L2Projector
+
+            self._uf = derham.create_spline_function("u_L2transport", "Hdiv")
+            self._quad = _QuadratureValues(derham, domain)
+            self._get_dofs = L2Projector("Hcurl", mass_ops).get_dofs
+        self._tmp_r = derham.V1pol.zeros()
+        self._tmp_x = derham.V1pol.zeros()
+        self._tmp_x2 = derham.V1pol.zeros()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def M1inv(self) -> NormalizedInverse:
+        r"""The inverse of :math:`\mathbb M^1` used by the projection."""
+        return self._M1inv
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def update_coeffs(self, b):
+        r"""Set the field :math:`\bar{\mathbf b}` (polar 2-form coefficients); assembles :math:`\mathbb W` if
+        ``assemble=True`` (collective)."""
+        from struphy.feec.utilities import LocalRotationMatrix
+
+        self._bf.vector = b
+        if self._assemble:
+            rot = LocalRotationMatrix(*_local_spline_callables(self._bf, 3))
+            self._W = self._mass_ops.create_weighted_mass(
+                "Hdiv", "Hcurl", weights=("Ginv", rot), name="W_L2transport", assemble=True
+            )
+
+    def linear_form(self, u, out=None):
+        r""":math:`\mathbb B_1 \mathbb W[\bar{\mathbf b}]\,\mathbf u`, the dual of :math:`\bar{\mathbf B} \times
+        \mathbf u` on :math:`V^1_h` (collective)."""
+        if out is None:
+            out = self._derham.V1pol.zeros()
+        if self._assemble:
+            assert self._W is not None, "update_coeffs must be called first."
+            # B1 is part of W: the operators of create_weighted_mass apply B_W E_W M E_V^T B_V^T (boundary and polar
+            # extraction operators of both spaces, WeightedMassOperator.dot with apply_bc=True), so W.dot is B1 W u
+            return self._W.dot(u, out=out)
+        # matrix-free: the 1-form (b x u)/sqrt(g) at the quadrature points, integrated against the 1-form basis with the
+        # metric weight G^-1 sqrt(g) of M1
+        self._uf.vector = u
+        b_q, u_q = self._quad(self._bf), self._quad(self._uf)
+        s = self._quad.inv_sqrt_g
+        f = [
+            (b_q[1] * u_q[2] - b_q[2] * u_q[1]) * s,
+            (b_q[2] * u_q[0] - b_q[0] * u_q[2]) * s,
+            (b_q[0] * u_q[1] - b_q[1] * u_q[0]) * s,
+        ]
+        # apply_bc=True: the boundary operator B1 on the dofs
+        return self._get_dofs(f, dofs=out, apply_bc=True)
+
+    def dot(self, v, out=None):
+        r = self.linear_form(v, out=self._tmp_r)
+        x = self._M1inv.dot(r, out=self._tmp_x)
+        x = self._B1.T.dot(x, out=self._tmp_x2)
+        return self._C.dot(x, out=out)
+
+    def transpose(self, conjugate=False):
+        assert self._assemble and self._W is not None, "The transpose needs assemble=True and update_coeffs."
+        return self._W.T @ self._M1inv @ self._B1 @ self._C.T
+
+
+class L2TransportAdjointMatrix(LinearOperator):
+    r"""Matrix of the linear map :math:`\mathbf b \mapsto \mathbb T[\mathbf b]^\top \mathbf l` for a fixed linear form
+    :math:`\mathbf l` on 2-forms, with the :math:`L^2` transport of :class:`L2TransportOperator`: with
+    :math:`\mathbf z = (\mathbb M^1)^{-1} \mathbb B_1 \mathbb C^\top \mathbf l \in V^1_h`,
+
+    .. math::
+
+        \big(\mathbb T[\mathbf b]^\top \mathbf l\big)_k = \int_{\hat\Omega} \hat{\mathbf z} \cdot G^{-1}
+        \big(\hat{\mathbf b} \times \vec{\boldsymbol\Lambda}^2_k\big) \,\textrm d \boldsymbol\eta \,,\qquad
+        \mathbb F_{kj} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^2_k \cdot \frac{G\,[\hat{\mathbf z}]_\times\, G}{g}\,
+        \vec{\boldsymbol\Lambda}^2_j \,\textrm d \boldsymbol\eta \,,
+
+    using :math:`[G^{-1}\hat{\mathbf z}]_\times = G\,[\hat{\mathbf z}]_\times\, G / g`. For
+    :math:`\mathbf l = -\mathbb M^2 \mathbf b_0`, :math:`\mathbf z` is minus the weak current of the equilibrium, and the
+    second-order energy :math:`\mathbf b_0^\top \mathbb M^2 \hat{\mathbf b}` is the exact integral of the product
+    of the discrete fields against it (the projection error is orthogonal to :math:`V^1_h`).
+
+    Parameters
+    ----------
+    transport : L2TransportOperator
+        The transport (for :math:`\mathbb M^1` and the operators of the projection).
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    lf : BlockVector
+        The linear form :math:`\mathbf l`.
+    """
+
+    def __init__(self, transport: L2TransportOperator, mass_ops, lf):
+        from struphy.feec.utilities import LocalRotationMatrix
+
+        derham = transport._derham
+        self.z = transport.M1inv.dot(transport._B1.dot(transport._C.T.dot(lf)))
+        self._zf = derham.create_spline_function("z_L2transport", "Hcurl")
+        self._zf.vector = self.z
+        rot = LocalRotationMatrix(*_local_spline_callables(self._zf, 3))
+        self._F = mass_ops.create_weighted_mass(
+            "Hdiv", "Hdiv", weights=("G", rot, "G", "1/sqrt_g", "1/sqrt_g"), name="F_L2transport", assemble=True
+        )
+        self._domain = self._F.domain
+        self._codomain = self._F.codomain
+        self._dtype = self._F.dtype
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return self._F.transpose(conjugate=conjugate)
+
+    def dot(self, v, out=None):
+        return self._F.dot(v, out=out)
+
+
+class L2PressureTransportOperator(LinearOperator):
+    r"""Transport of a 3-form :math:`\bar p` by a velocity 2-form with :math:`L^2` projections,
+
+    .. math::
+
+        \mathbb S[\bar p]\,\mathbf u = \mathbb D\,(\mathbb M^2)^{-1}\, \mathbb W^2[\bar p]\,\mathbf u
+        + (\kappa - 1)\,(\mathbb M^3)^{-1}\, \mathbb W^3[\bar p]\, \mathbb D\,\mathbf u \,,\qquad
+        \mathbb W^2[\bar p]_{ij} = \int_{\hat\Omega} \vec{\boldsymbol\Lambda}^2_i \cdot G\,\vec{\boldsymbol\Lambda}^2_j
+        \,\frac{\hat{\bar p}}{g}\,\textrm d \boldsymbol\eta \,,\quad
+        \mathbb W^3[\bar p]_{ij} = \int_{\hat\Omega} \Lambda^3_i\,\Lambda^3_j\,\frac{\hat{\bar p}}{g}
+        \,\textrm d \boldsymbol\eta \,,
+
+    i.e. :math:`\nabla\cdot P_{L^2}(\bar p\,\mathbf u) + (\kappa - 1) P_{L^2}(\bar p\,\nabla\cdot\mathbf u)`, with the
+    :math:`L^2` projections onto :math:`V^2_h` (normal boundary condition) and :math:`V^3_h`. It replaces the commuting
+    projections of :class:`Pressure_transport_operator` (velocity in :math:`H(\textnormal{div})`). As for
+    :class:`L2TransportOperator`, :math:`\mathbb W^2, \mathbb W^3` are assembled (``assemble=True``) or applied
+    matrix-free (``assemble=False``).
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping.
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    kappa : float
+        The factor :math:`\kappa` (:math:`\gamma` for the pressure).
+    assemble : bool
+        Whether to assemble the weighted mass matrices.
+    tol : float
+        Relative tolerance of the solves with :math:`\mathbb M^2` and :math:`\mathbb M^3`.
+    """
+
+    def __init__(self, derham: Derham, domain, mass_ops, kappa: float, assemble: bool = True, tol: float = 1e-14):
+        self._derham = derham
+        self._mass_ops = mass_ops
+        self._kappa = kappa
+        self._assemble = assemble
+        self._domain = derham.V2pol
+        self._codomain = derham.V3pol
+        self._dtype = derham.V3.dtype
+        self.div = derham.div
+        self._M2inv = NormalizedInverse(mass_ops.M2, tol=tol)
+        self._M3inv = NormalizedInverse(mass_ops.M3, tol=tol)
+        self._pf = derham.create_spline_function("p_L2transport", "L2")
+        self._W2 = self._W3 = None
+        if not assemble:
+            from struphy.feec.mass import L2Projector
+
+            self._uf = derham.create_spline_function("u_L2ptransport", "Hdiv")
+            self._df = derham.create_spline_function("divu_L2ptransport", "L2")
+            self._quad = _QuadratureValues(derham, domain)
+            self._get_dofs2 = L2Projector("Hdiv", mass_ops).get_dofs
+            self._get_dofs3 = L2Projector("L2", mass_ops).get_dofs
+        self._tmp2 = derham.V2pol.zeros()
+        self._tmp2b = derham.V2pol.zeros()
+        self._tmp3 = derham.V3pol.zeros()
+        self._tmp3b = derham.V3pol.zeros()
+        self._tmp3c = derham.V3pol.zeros()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def M2inv(self) -> NormalizedInverse:
+        return self._M2inv
+
+    @property
+    def M3inv(self) -> NormalizedInverse:
+        return self._M3inv
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def update_coeffs(self, p):
+        r"""Set the weight :math:`\bar p` (polar 3-form coefficients); assembles the weighted mass matrices if
+        ``assemble=True`` (collective)."""
+        self._pf.vector = p
+        if self._assemble:
+            (pw,) = _local_spline_callables(self._pf, 1)
+            self._W2 = self._mass_ops.create_weighted_mass(
+                "Hdiv", "Hdiv", weights=("G", pw, "1/sqrt_g", "1/sqrt_g"), name="W2_L2transport", assemble=True
+            )
+            self._W3 = self._mass_ops.create_weighted_mass(
+                "L2", "L2", weights=(pw, "1/sqrt_g", "1/sqrt_g"), name="W3_L2transport", assemble=True
+            )
+
+    def dot(self, v, out=None):
+        if out is None:
+            out = self._codomain.zeros()
+        d = self.div.dot(v, out=self._tmp3)
+        if self._assemble:
+            assert self._W2 is not None, "update_coeffs must be called first."
+            # the boundary operators B2, B3 are part of W2, W3 (create_weighted_mass, see L2TransportOperator)
+            r2 = self._W2.dot(v, out=self._tmp2)
+            r3 = self._W3.dot(d, out=self._tmp3b)
+        else:
+            # matrix-free: the 2-form p u and the 3-form p div u (proxies divided by sqrt g) at the quadrature points
+            self._uf.vector = v
+            self._df.vector = d
+            (p_q,) = self._quad(self._pf)
+            u_q = self._quad(self._uf)
+            (d_q,) = self._quad(self._df)
+            ps = p_q * self._quad.inv_sqrt_g
+            r2 = self._get_dofs2([ps * u_q[0], ps * u_q[1], ps * u_q[2]], dofs=self._tmp2, apply_bc=True)
+            r3 = self._get_dofs3(ps * d_q, dofs=self._tmp3b, apply_bc=True)
+        x2 = self._M2inv.dot(r2, out=self._tmp2b)
+        self.div.dot(x2, out=out)
+        x3 = self._M3inv.dot(r3, out=self._tmp3c)
+        x3 *= self._kappa - 1.0
+        out += x3
+        return out
+
+    def transpose(self, conjugate=False):
+        assert self._assemble and self._W2 is not None, "The transpose needs assemble=True and update_coeffs."
+        return self._W2.T @ self._M2inv @ self.div.T + (self._kappa - 1.0) * (self.div.T @ self._W3.T @ self._M3inv)
+
+
+class L2PressureTransportAdjointMatrix(LinearOperator):
+    r"""Matrix of the linear map :math:`\mathbf p \mapsto \mathbb S[\mathbf p]^\top \mathbf l` for a fixed linear form
+    :math:`\mathbf l` on 3-forms, with the :math:`L^2` transport of :class:`L2PressureTransportOperator`:
+
+    .. math::
+
+        \mathbb S[\mathbf p]^\top \mathbf l = \mathbb W^2[\mathbf p]^\top\, \mathbf y_2
+        + (\kappa - 1)\, \mathbb D^\top \mathbb W^3[\mathbf y_3]\, \mathbf p \,,\qquad
+        \mathbf y_2 = (\mathbb M^2)^{-1}\mathbb D^\top \mathbf l\,,\quad \mathbf y_3 = (\mathbb M^3)^{-1}\mathbf l \,,
+
+    (:math:`\mathbb W^3` is symmetric in its two arguments). Only the case :math:`\mathbb D^\top \mathbf l = 0` is
+    implemented, where the first term vanishes: this holds for the dual of the constant,
+    :math:`\mathbf l \propto (\int \Lambda^3_i \,\textrm d\boldsymbol\eta)_i`, the linear form of the energy
+    :math:`\int \hat p` of the linear :math:`p` models (the flux through the boundary vanishes); it is checked.
+
+    Parameters
+    ----------
+    transport : L2PressureTransportOperator
+        The transport (for the mass matrices and the divergence).
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    lf : StencilVector
+        The linear form :math:`\mathbf l`.
+    """
+
+    def __init__(self, transport: L2PressureTransportOperator, mass_ops, lf):
+        derham = transport._derham
+        y2 = transport.M2inv.dot(transport.div.T.dot(lf))
+        self.y3 = transport.M3inv.dot(lf)
+        n2, n3 = float(xp.sqrt(y2.inner(y2))), float(xp.sqrt(self.y3.inner(self.y3)))
+        assert n2 <= 1e-8 * n3, f"D^T l is not zero (|M2^-1 D^T l| = {n2:.2e}, |M3^-1 l| = {n3:.2e}): not implemented."
+        self._yf = derham.create_spline_function("y3_L2transport", "L2")
+        self._yf.vector = self.y3
+        (yw,) = _local_spline_callables(self._yf, 1)
+        W3y = mass_ops.create_weighted_mass(
+            "L2", "L2", weights=(yw, "1/sqrt_g", "1/sqrt_g"), name="W3y_L2transport", assemble=True
+        )
+        self._A = (transport._kappa - 1.0) * (transport.div.T @ W3y)
+        self._domain = self._A.domain
+        self._codomain = self._A.codomain
+        self._dtype = self._A.dtype
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return self._A.transpose(conjugate=conjugate)
+
+    def dot(self, v, out=None):
+        return self._A.dot(v, out=out)
+
+
+class PressureTransportAdjointMatrix(LinearOperator):
+    r"""Matrix of the linear map :math:`\mathbf p \mapsto \mathbb S[\mathbf p]^\top \mathbf l` for a fixed linear form
+    :math:`\mathbf l` on 3-forms, with the pressure transport operator of :class:`Pressure_transport_operator`,
+    :math:`\mathbb S[\mathbf p] = \mathbb D\, \hat\Pi^2[w\, \hat p\, \vec{\boldsymbol\Lambda}^u] + \hat\Pi^3[(\kappa - 1)
+    \hat p / \sqrt g\, \vec{\boldsymbol\Lambda}^3]\, \mathbb D \mathcal U^v` (:math:`w = 1/\sqrt g` for a velocity 2-form,
+    1 otherwise), from 3-forms to the dual of the velocity space:
+
+    .. math::
+
+        \mathbb S[\mathbf p]^\top \mathbf l = \mathcal P_2[\mathbf p]^\top \mathbb D^\top \mathbf l
+        + (\mathbb D \mathcal U^v)^\top \mathcal P_3[\mathbf p]^\top \mathbf l \,,
+
+    the sum of two :class:`ProjectionAdjointMatrix` (of :math:`\hat\Pi^2` and of :math:`\hat\Pi^3`). Its use makes the
+    variation of the second-order pressure term an assembled matrix, without the weak form.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+    domain : Domain
+        Mapping.
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+    basis_ops : BasisProjectionOperators
+        Basis projection operators (for :math:`\mathcal U^v` of a velocity in ``"H1vec"``).
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+    kappa : float
+        The factor :math:`\kappa` of the transport (:math:`\gamma` for the pressure).
+    lf : StencilVector
+        The linear form :math:`\mathbf l` (dual of the 3-forms).
+    """
+
+    def __init__(self, derham: Derham, domain, mass_ops, basis_ops, u_space: str, kappa: float, lf):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        inv_sqrt_g = lambda e1, e2, e3: 1.0 / domain.jacobian_det(e1, e2, e3)  # noqa: E731
+        self._A2 = ProjectionAdjointMatrix(
+            derham,
+            mass_ops,
+            "2",
+            u_space,
+            "L2",
+            {(0, 0, 0): 1.0, (1, 1, 0): 1.0, (2, 2, 0): 1.0},
+            derham.div.T.dot(lf),
+            g=inv_sqrt_g if u_space == "Hdiv" else None,
+        )
+        self._A3 = ProjectionAdjointMatrix(
+            derham,
+            mass_ops,
+            "3",
+            "L2",
+            "L2",
+            {(0, 0, 0): kappa - 1.0},
+            lf,
+            g=inv_sqrt_g,
+        )
+        self._div_u = derham.div if u_space == "Hdiv" else derham.div @ basis_ops.Uv
+        self._op = self._A2 + self._div_u.T @ self._A3
+        self._domain = self._op.domain
+        self._codomain = self._op.codomain
+        self._dtype = self._op.dtype
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        return self._op.transpose(conjugate=conjugate)
+
+    def dot(self, v, out=None):
+        """:math:`\\mathbb S[\\mathbf p]^\\top \\mathbf l` for :math:`\\mathbf p` = ``v``."""
+        return self._op.dot(v, out=out)
+
+
 class Pressure_transport_operator(LinearOperator):
     r"""
     Operator
 
     .. math::
         \mathbf u \mapsto \nabla \cdot (\Pi^2(p \mathbf u)) + (\gamma -1) \Pi^3(p \nabla \cdot \Pi^2(\mathbf u))  \,
-    from H1vec to L2, where :math:`p` is a discrete 3-form which can be updated.
+    from H1vec (or H(div)) to L2, where :math:`p` is a discrete 3-form which can be updated.
+
+    For a velocity 2-form (``u_space="Hdiv"``) the operator is
+    :math:`\mathbb D \hat\Pi^2[\hat p^3 \vec{\boldsymbol\Lambda}^2/\sqrt g]
+    + (\gamma - 1) \hat\Pi^3[\hat p^3 \Lambda^3/\sqrt g] \mathbb D`, without :math:`\mathbb U^v`, as built from
+    :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.S2` and
+    :attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.K3` in
+    :class:`~struphy.propagators.magnetosonic.Magnetosonic`.
 
     Parameters
     ----------
@@ -633,20 +1890,28 @@ class Pressure_transport_operator(LinearOperator):
         The domain in which the problem is discretized (needed for metric terms)
 
     Uv : BasisProjectionOperator
-        The projection from H1vec to H(div)
+        The projection from H1vec to H(div) (not used with ``u_space="Hdiv"``, where it is the identity)
 
     gamma : Float
         Thermodynamical constant
 
     transposed : Bool
         Assemble the transposed operator
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
     """
 
-    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False, weights1=None, weights2=None):
+    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False, weights1=None, weights2=None, u_space="H1vec"):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
         # Get the projector and the spaces
         self._derham = derham
         self._phys_domain = phys_domain
-        self._Uv = Uv
+        self._u_space = u_space
+        u_form = self._derham.space_to_form[u_space]
+        Vu = getattr(self._derham, f"V{u_form}pol")
+        # the velocity as a 2-form
+        self._Uv = Uv if u_space == "H1vec" else IdentityOperator(Vu)
         self._transposed = transposed
         self._gamma = gamma
         if weights1 is None:
@@ -656,14 +1921,14 @@ class Pressure_transport_operator(LinearOperator):
             weights2 = [[lambda eta1, eta2, eta3: 0 * eta1]]
         self._weights2 = weights2
         if self._transposed:
-            self._codomain = self._derham.Vvpol
+            self._codomain = Vu
             self._domain = self._derham.V3pol
         else:
-            self._domain = self._derham.Vvpol
+            self._domain = Vu
             self._codomain = self._derham.V3pol
         P2 = self._derham.P2
         P3 = self._derham.P3
-        Xh = self._derham.Vvfem
+        Xh = getattr(self._derham, f"V{u_form}fem")
         V3h = self._derham.V3fem
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("pf", "L2")
@@ -674,8 +1939,8 @@ class Pressure_transport_operator(LinearOperator):
             self._weights1,
             transposed=transposed,
             use_cache=True,
-            V_extraction_op=self._derham.extraction_ops["v"],
-            V_boundary_op=self._derham.boundary_ops["v"],
+            V_extraction_op=self._derham.extraction_ops[u_form],
+            V_boundary_op=self._derham.boundary_ops[u_form],
             P_boundary_op=IdentityOperator(self._derham.V2pol),
         )
 
@@ -694,7 +1959,7 @@ class Pressure_transport_operator(LinearOperator):
 
         div = self._derham.div
 
-        self.div = div @ Uv
+        self.div = div @ Uv if u_space == "H1vec" else div
 
         # Initialize the transport operator and transposed
         if self._transposed:
@@ -743,6 +2008,12 @@ class Pressure_transport_operator(LinearOperator):
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_22])
         self._pf_2_values = xp.zeros(grid_shape, dtype=float)
 
+        # 1/sqrt(g) on the histopolation grids of the three components, for a velocity 2-form
+        if u_space == "Hdiv":
+            self._inv_sqrt_g = [
+                1.0 / phys_domain.jacobian_det(*grid) for grid in (hist_grid_20, hist_grid_21, hist_grid_22)
+            ]
+
     @property
     def domain(self):
         return self._domain
@@ -764,6 +2035,7 @@ class Pressure_transport_operator(LinearOperator):
             not self._transposed,
             weights1=self._weights1,
             weights2=self._weights2,
+            u_space=self._u_space,
         )
 
     def dot(self, v, out=None):
@@ -812,6 +2084,10 @@ class Pressure_transport_operator(LinearOperator):
             self.hist_grid_22_bd,
             out=self._pf_2_values,
         )
+
+        if self._u_space == "Hdiv":
+            for values, inv_sqrt_g in zip((pf0_values, pf1_values, pf2_values), self._inv_sqrt_g):
+                values *= inv_sqrt_g
 
         self._weights1 = [
             [pf0_values, None, None],
@@ -1403,6 +2679,55 @@ class H1vecMassMatrix_density:
         )
 
 
+def kinetic_metric(derham: Derham, mass_ops, basis_ops, divdiv_alpha: float = 0.0) -> LinearOperator:
+    r"""Metric :math:`\mathbb A[\hat\rho]` of the (regularized) kinetic energy :math:`\frac 12 \mathbf u^\top \mathbb A \mathbf u`
+    of the variational fluid models,
+
+    .. math::
+
+        \frac 12 \mathbf u^\top \mathbb A[\hat\rho] \mathbf u = \int \rho \frac{|\mathbf u|^2}{2} \,\textnormal d \mathbf x
+        + \alpha \int \rho\, (\nabla \cdot \mathbf u)^2 \,\textnormal d \mathbf x \,, \qquad
+        \mathbb A[\hat\rho] = \mathbb M^v[\hat\rho] + 2 \alpha\, (\mathbb D \mathbb U^v)^\top \mathbb M^{3,\rho} \,\mathbb D \mathbb U^v \,,
+
+    with :math:`\mathbb M^v[\hat\rho]` = ``mass_ops.WMMnew``, :math:`\mathbb M^{3,\rho}` = ``mass_ops.WMM3new`` and
+    :math:`\mathbb U^v` = ``basis_ops.Uv``. The divergence of :math:`\mathbf u = DF \hat{\mathbf u}` is discretized as
+    :math:`\sqrt g \, \nabla \cdot \mathbf u \approx \mathbb D \hat\Pi^2[\sqrt g \, \hat{\mathbf u}]`, the discrete divergence that
+    is also used for the transport of pressure. The div-div term penalizes compressions (Hamiltonian regularization);
+    both mass matrices depend linearly on the density and are re-assembled in
+    :class:`~struphy.propagators.variational_density_evolve.VariationalDensityEvolve`.
+
+    With :math:`\alpha > 0` the momentum :math:`\mathbb A \mathbf u` contains second derivatives of :math:`\mathbf u`,
+    which makes the Picard iteration of
+    :class:`~struphy.propagators.variational_momentum_advection.VariationalMomentumAdvection` converge only for
+    small time steps (it diverges for larger :math:`\alpha \Delta t`); use a smaller time step or its Newton iteration.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators (provides ``WMMnew`` and ``WMM3new``).
+
+    basis_ops : BasisProjectionOperators
+        Basis projection operators (provides ``Uv``).
+
+    divdiv_alpha : float
+        Coefficient :math:`\alpha \geq 0` of the div-div term; for 0, the metric is ``mass_ops.WMMnew``.
+
+    Returns
+    -------
+    LinearOperator
+        The metric :math:`\mathbb A[\hat\rho]` (symmetric, positive definite).
+    """
+    assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
+    if divdiv_alpha == 0.0:
+        return mass_ops.WMMnew
+
+    divUv = derham.div @ basis_ops.Uv
+    return mass_ops.WMMnew + (2.0 * divdiv_alpha) * (divUv.T @ mass_ops.WMM3new @ divUv)
+
+
 class KineticEnergyEvaluator:
     r"""Helper class to evaluate the different Kinetic energy terms appearing in VariationalDensityEvolve.
 
@@ -1419,36 +2744,134 @@ class KineticEnergyEvaluator:
 
     mass_ops : WeightedMassOperators
         The weighted mass operators needed to create new mass matrices
+
+    basis_ops : BasisProjectionOperators, optional
+        Basis projection operators, needed for ``divdiv_alpha > 0`` (discrete divergence, see :func:`kinetic_metric`).
+
+    divdiv_alpha : float
+        Coefficient of the div-div term of the kinetic energy, see :func:`kinetic_metric`.
+
+    u_space : str
+        Space of the velocity, ``"H1vec"`` (contravariant components :math:`\hat{\mathbf u}`) or ``"Hdiv"`` (2-form
+        :math:`\hat{\mathbf u}^2 = \sqrt g\, \hat{\mathbf u}`, no div-div term): the metric weights :math:`G` and
+        :math:`G \sqrt g` below become :math:`G/g` and :math:`G/\sqrt g`.
     """
 
-    def __init__(self, derham, domain, mass_ops):
+    def __init__(self, derham, domain, mass_ops, basis_ops=None, divdiv_alpha: float = 0.0, u_space: str = "H1vec"):
+        assert u_space in ("H1vec", "Hdiv"), f'u_space must be "H1vec" or "Hdiv", got {u_space!r}.'
+        assert u_space == "H1vec" or divdiv_alpha == 0.0, 'u_space="Hdiv" needs divdiv_alpha=0.'
         integration_grid = [grid_1d.flatten() for grid_1d in derham.V0splines.quad_grid_pts[0]]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
             integration_grid,
         )
+        bn, bd = self.integration_grid_bn, self.integration_grid_bd
+        if u_space == "Hdiv":
+            self._u_bases = [[bn[0], bd[1], bd[2]], [bd[0], bn[1], bd[2]], [bd[0], bd[1], bn[2]]]
+        else:
+            self._u_bases = [bn] * 3
 
         # tmps
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        self.uf = derham.create_spline_function("uf", "H1vec")
-        self.uf1 = derham.create_spline_function("uf1", "H1vec")
+        self.uf = derham.create_spline_function("uf", u_space)
+        self.uf1 = derham.create_spline_function("uf1", u_space)
 
         self._uf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._Guf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
         self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
-        metric = domain.metric(
-            *integration_grid,
-        ) * domain.jacobian_det(*integration_grid)
-        self._proj_u2_metric_term = deepcopy(metric)
+        # |u|^2 = u^T G u (H1vec) or u^T G u / g (Hdiv); get_u2_grid values are integrated with the 3-form weight
+        # 1/sqrt(g), hence the factor sqrt(g)
+        sqrt_g = domain.jacobian_det(*integration_grid)
+        if u_space == "Hdiv":
+            self._proj_u2_metric_term = deepcopy(domain.metric(*integration_grid) / sqrt_g)
+            self._mass_u_metric_term = deepcopy(domain.metric(*integration_grid) / sqrt_g**2)
+        else:
+            self._proj_u2_metric_term = deepcopy(domain.metric(*integration_grid) * sqrt_g)
+            self._mass_u_metric_term = deepcopy(domain.metric(*integration_grid))
 
-        metric = domain.metric(*integration_grid)
-        self._mass_u_metric_term = deepcopy(metric)
+        self._M_un = mass_ops.create_weighted_mass(u_space, "L2")
+        self._M_un1 = mass_ops.create_weighted_mass("L2", u_space)
 
-        self._M_un = mass_ops.create_weighted_mass("H1vec", "L2")
-        self._M_un1 = mass_ops.create_weighted_mass("L2", "H1vec")
+        # div-div term alpha int rho (div u)^2 dx of the kinetic energy, with sqrt(g) div u = D Uv u (a 3-form)
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
+        self._divdiv_alpha = divdiv_alpha
+        if divdiv_alpha > 0.0:
+            assert basis_ops is not None, "basis_ops are needed for divdiv_alpha > 0."
+            self._divUv = derham.div @ basis_ops.Uv
+            self._divuf = derham.create_spline_function("divuf", "L2")
+            self._divuf1 = derham.create_spline_function("divuf1", "L2")
+            self._divu = self._divUv.codomain.zeros()
+            self._divu_values = xp.zeros(grid_shape, dtype=float)
+            self._divu1_values = xp.zeros(grid_shape, dtype=float)
+            self._divu_weight = xp.zeros(grid_shape, dtype=float)
+            # 1/g, the push-forward of two 3-forms (see mass_ops.WMM3new)
+            self._inv_g = 1.0 / domain.jacobian_det(*integration_grid) ** 2
+            # 1/sqrt(g): get_u2_grid values are integrated with the 3-form geometric weight 1/sqrt(g)
+            self._inv_sqrt_g = deepcopy(self._inv_g * domain.jacobian_det(*integration_grid))
+            # V3 -> V3 parts of the derivatives of the div-div term, composed with D Uv below
+            self._M3_divun = mass_ops.create_weighted_mass("L2", "L2")
+            self._M3_divun1 = mass_ops.create_weighted_mass("L2", "L2")
+            self._M_divun = self._M3_divun @ self._divUv
+            self._M_divun1 = self._divUv.T @ self._M3_divun1
+
+    @property
+    def divdiv_alpha(self) -> float:
+        """Coefficient of the div-div term of the kinetic energy (0: no regularization)."""
+        return self._divdiv_alpha
+
+    @property
+    def M_divun(self) -> LinearOperator:
+        r"""Operator H1vec -> L2, :math:`\mathbf v \mapsto \int \Lambda^3_{ijk} \frac{d^n \, (\mathbb D \mathbb U^v \mathbf v)^\top \vec{\boldsymbol\Lambda}^3}{g} \textnormal d \boldsymbol\eta`
+        with :math:`d^n = (\mathbb D \mathbb U^v \mathbf u^n)^\top \vec{\boldsymbol\Lambda}^3` (see :meth:`assemble_M_divun`)."""
+        return self._M_divun
+
+    @property
+    def M_divun1(self) -> LinearOperator:
+        r"""Operator L2 -> H1vec, :math:`\delta\rho \mapsto (\mathbb D \mathbb U^v)^\top \mathbb M^3[d^{n+1}/g] \, \delta\rho`,
+        such that :math:`2\alpha` times it is the derivative of the div-div part of :math:`\mathbb A[\hat\rho]\mathbf u^{n+1}`
+        in :math:`\hat\rho` (see :meth:`assemble_M_divun1`)."""
+        return self._M_divun1
+
+    def _eval_divu(self, u, spline, out):
+        """Values of the 3-form D Uv u on the integration grid."""
+        self._divUv.dot(u, out=self._divu)
+        spline.vector = self._divu
+        return spline.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd, out=out)
+
+    def add_divdiv_grid(self, un, un1, out):
+        r"""Add :math:`\alpha \frac{d^n d^{n+1}}{\sqrt g}` to ``out`` (values on the integration grid), the div-div part of the
+        :math:`\hat\rho`-derivative of the kinetic energy (to be integrated with the 3-form weight :math:`1/\sqrt g`, as
+        :meth:`get_u2_grid`); :math:`d = (\mathbb D \mathbb U^v \mathbf u)^\top \vec{\boldsymbol\Lambda}^3`."""
+        if self._divdiv_alpha == 0.0:
+            return out
+        d = self._eval_divu(un, self._divuf, self._divu_values)
+        d1 = self._eval_divu(un1, self._divuf1, self._divu1_values)
+        self._tmp_int_grid *= 0.0
+        self._tmp_int_grid += d
+        self._tmp_int_grid *= d1
+        self._tmp_int_grid *= self._inv_sqrt_g
+        self._tmp_int_grid *= self._divdiv_alpha
+        out += self._tmp_int_grid
+        return out
+
+    def assemble_M_divun(self, un):
+        """Assemble the weight :math:`d^n/g` of :attr:`M_divun`."""
+        d = self._eval_divu(un, self._divuf, self._divu_values)
+        self._divu_weight *= 0.0
+        self._divu_weight += d
+        self._divu_weight *= self._inv_g
+        self._M3_divun.assemble([[self._divu_weight]])
+
+    def assemble_M_divun1(self, un1):
+        """Assemble the weight :math:`d^{n+1}/g` of :attr:`M_divun1`."""
+        d1 = self._eval_divu(un1, self._divuf1, self._divu1_values)
+        self._divu_weight *= 0.0
+        self._divu_weight += d1
+        self._divu_weight *= self._inv_g
+        self._M3_divun1.assemble([[self._divu_weight]])
 
     @property
     def M_un(
@@ -1473,18 +2896,12 @@ class KineticEnergyEvaluator:
 
         uf_values = self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf_values,
         )
         uf1_values = self.uf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf1_values,
         )
 
@@ -1506,10 +2923,7 @@ class KineticEnergyEvaluator:
 
         uf_values = self.uf.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf_values,
         )
 
@@ -1531,10 +2945,7 @@ class KineticEnergyEvaluator:
 
         uf1_values = self.uf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
+            self._u_bases,
             out=self._uf1_values,
         )
 
@@ -1549,3 +2960,352 @@ class KineticEnergyEvaluator:
         self._M_un1.assemble(
             [[self._Guf_values[0]], [self._Guf_values[1]], [self._Guf_values[2]]],
         )
+
+
+def project_div_free_velocity(
+    u: Vector,
+    derham: Derham,
+    mass_ops,
+    basis_ops,
+    tol: float = 1e-8,
+    maxiter: int = 1000,
+    inner_tol: float = 1e-12,
+) -> dict:
+    r"""Project an H1vec velocity in place onto the discretely divergence-free fields of the variational schemes.
+
+    The variational propagators compute the divergence of :math:`\mathbf u \in V^v_h` as
+    :math:`\mathbb G \mathbf u` with :math:`\mathbb G = \mathbb D\, \mathcal U^v`, where
+    :math:`\mathcal U^v = \hat\Pi^2[\sqrt g\, \vec\Lambda^v]` maps to H(div) and :math:`\mathbb D` is the discrete
+    divergence (see :class:`Pressure_transport_operator`). The projection of a continuous divergence-free field is
+    divergence-free only up to the interpolation error. This function replaces :math:`\mathbf u` by its
+    :math:`\mathbb M^v`-orthogonal projection onto :math:`\ker \mathbb G`,
+
+    .. math::
+
+        (\mathbb G (\mathbb M^v)^{-1} \mathbb G^\top) \boldsymbol\lambda = \mathbb G \mathbf u\,,\qquad
+        \mathbf u \leftarrow \mathbf u - (\mathbb M^v)^{-1} \mathbb G^\top \boldsymbol\lambda\,,
+
+    so that :math:`\mathbb G \mathbf u = 0` up to the solver tolerance, with the smallest change of
+    :math:`\mathbf u` in the :math:`\mathbb M^v` norm. The Schur system is singular (with :math:`u \cdot n = 0` the
+    total flux vanishes) but consistent, and is solved with CG; the inner :math:`\mathbb M^v` solves use PCG with the
+    mass-matrix preconditioner. The solvers take absolute tolerances (Euclidean norms of the coefficient residuals),
+    so they are scaled with the right-hand side: ``tol`` relative to :math:`\mathbb G \mathbf u` and ``inner_tol``
+    relative to :math:`\mathbb G^\top \mathbb G \mathbf u`. Must be called on all MPI ranks.
+
+    Parameters
+    ----------
+    u : Vector
+        Coefficients of the velocity in :math:`V^v_h` (H1vec), modified in place.
+    derham : Derham
+        The discrete de Rham sequence.
+    mass_ops : WeightedMassOperators
+        Mass matrices (``Mv`` and ``M3`` are used).
+    basis_ops : BasisProjectionOperators
+        Basis projection operators (``Uv`` is used).
+    tol : float
+        Tolerance of the CG solve of the Schur system, relative to the (Euclidean) norm of its right-hand side.
+    maxiter : int
+        Maximum number of CG iterations of the Schur system.
+    inner_tol : float
+        Tolerance of the inner PCG solves with ``Mv``, relative to the (Euclidean) norm of
+        :math:`\mathbb G^\top \mathbb G \mathbf u`.
+
+    Returns
+    -------
+    dict
+        ``div_before`` and ``div_after``: the :math:`L^2` norms of :math:`\mathbb G \mathbf u` before and after;
+        ``delta_rel``: the relative change :math:`\|\delta \mathbf u\|_{\mathbb M^v} / \|\mathbf u\|_{\mathbb M^v}`;
+        ``niter``, ``success`` and ``res_norm`` (relative) of the Schur solve.
+    """
+    Mv, M3 = mass_ops.Mv, mass_ops.M3
+    G = derham.div @ basis_ops.Uv
+    # built once: the transpose of the basis projection operator is assembled anew at each call of .T
+    GT = G.T
+
+    out = {"div_before": 0.0, "div_after": 0.0, "delta_rel": 0.0, "niter": 0, "success": True, "res_norm": 0.0}
+    norm_u = xp.sqrt(Mv.dot_inner(u, u))
+    if norm_u == 0.0:
+        return out
+
+    div_u = G.dot(u)
+    out["div_before"] = float(xp.sqrt(M3.dot_inner(div_u, div_u)))
+    norm_rhs = float(xp.sqrt(div_u.inner(div_u)))
+    if norm_rhs == 0.0:
+        return out
+    norm_inner_rhs = float(xp.sqrt(GT.dot(div_u).inner(GT.dot(div_u))))
+
+    Mv_inv = inverse(
+        Mv,
+        "pcg",
+        pc=preconditioner.MassMatrixPreconditioner(Mv),
+        tol=inner_tol * norm_inner_rhs,
+        maxiter=1000,
+        verbose=False,
+    )
+    schur_inv = inverse(G @ Mv_inv @ GT, "cg", tol=tol * norm_rhs, maxiter=maxiter, verbose=False)
+
+    lam = schur_inv.dot(div_u)
+    delta = Mv_inv.dot(GT.dot(lam))
+    u -= delta
+    u.update_ghost_regions()
+
+    div_u = G.dot(u)
+    info = schur_inv.get_info()
+    out["div_after"] = float(xp.sqrt(M3.dot_inner(div_u, div_u)))
+    out["delta_rel"] = float(xp.sqrt(Mv.dot_inner(delta, delta)) / norm_u)
+    out["niter"] = info["niter"]
+    out["success"] = bool(info["success"])
+    out["res_norm"] = float(info["res_norm"]) / norm_rhs
+    if not out["success"]:
+        logger.warning(
+            f"project_div_free_velocity: CG not converged after {out['niter']} iterations "
+            f"(relative residual {out['res_norm']:.2e}, tolerance {tol:.1e})."
+        )
+    return out
+
+
+class NewtonConvergence:
+    r"""Stopping criterion of the Newton and Picard iterations of the variational propagators.
+
+    The squared residual norm of an iteration is compared with ``tol**2`` times ``min(err_ref, 1)``, where ``err_ref``
+    is the squared norm of the state at :math:`t^n`: relative for small states, such as the perturbations of the
+    linear and perturbative models, and absolute (as for the full models) for states of norm one or larger, or zero.
+    The iteration also stops, with a warning, when the error has not decreased in ``patience`` consecutive iterations
+    (stagnation at the accuracy of the linear solves).
+
+    Parameters
+    ----------
+    name : str
+        Name of the propagator, for the warnings.
+    tol : float
+        Tolerance of the relative residual norm.
+    err_ref : float
+        Squared norm of the state at :math:`t^n`, measured as the residual.
+    patience : int
+        Number of consecutive iterations without decrease of the error after which the iteration stops.
+    """
+
+    def __init__(self, name: str, tol: float, err_ref: float, patience: int = 3):
+        self._name = name
+        self._tol = tol
+        self._err_ref = min(float(err_ref), 1.0) if err_ref > 0.0 else 1.0
+        self._patience = patience
+        self._err_min = xp.inf
+        self._n_no_decrease = 0
+        self.err = xp.inf
+        self.converged = False
+        self.stagnated = False
+
+    def stop(self, err: float, it: int, min_iter: int = 0) -> bool:
+        """Whether to stop at iteration ``it``, given the squared (absolute) residual norm ``err``.
+
+        No stop before iteration ``min_iter``, except for NaN."""
+        self.err = float(err) / self._err_ref
+        if xp.isnan(self.err):
+            return True
+        if it >= min_iter and self.err < self._tol**2:
+            self.converged = True
+            return True
+        if self.err < self._err_min:
+            self._err_min = self.err
+            self._n_no_decrease = 0
+        else:
+            self._n_no_decrease += 1
+        if it >= min_iter and self._n_no_decrease >= self._patience:
+            self.stagnated = True
+            logger.warning(
+                f"{self._name}: Newton iteration stagnated at iteration {it}, relative error {self.err:.3e} "
+                f"(smallest {self._err_min:.3e}, tol**2 = {self._tol**2:.1e}).",
+            )
+            return True
+        return False
+
+    def warn_if_not_converged(self, it: int, maxiter: int):
+        """Warning if the iteration ended at ``maxiter`` or with NaN (stagnation is reported by :meth:`stop`)."""
+        if not self.converged and not self.stagnated and (it == maxiter - 1 or xp.isnan(self.err)):
+            logger.warning(
+                f"Maximum iteration in {self._name} reached - not converged: relative error {self.err:.3e}, "
+                f"tol**2 = {self._tol**2:.1e}",
+            )
+
+
+def dot_normalized(op: LinearOperator, v: Vector, out: Vector) -> Vector:
+    """``op.dot(v, out=out)`` for a linear operator with iterative solves of absolute tolerance (e.g. an inverse).
+
+    The operator is applied to :math:`v / |v|` and the result scaled back, so that the solver tolerances are relative
+    to the Euclidean norm of ``v``. ``v`` is restored (up to round-off); ``out`` must not be ``v``."""
+    norm = xp.sqrt(v.inner(v))
+    if not norm > 0.0:
+        out *= 0.0
+        return out
+    v *= 1.0 / norm
+    op.dot(v, out=out)
+    v *= norm
+    out *= norm
+    return out
+
+
+def inv_norm2(inv: LinearOperator, v: Vector) -> float:
+    """The squared norm ``v . inv(v)`` with an inverse (mass matrix) of absolute tolerance, applied to
+    :math:`v / |v|`, so that the tolerance is relative. ``v`` is restored (up to round-off)."""
+    norm = xp.sqrt(v.inner(v))
+    if not norm > 0.0:
+        return 0.0
+    v *= 1.0 / norm
+    err = inv.dot_inner(v, v)
+    v *= norm
+    return norm**2 * err
+
+
+class LinearPressureHeating:
+    r"""Heating of the auxiliary pressure :math:`\hat p` (3-form) of the linear p model, whose thermal energy
+    :math:`\frac{1}{\gamma - 1} \int \hat p^3 \,\textnormal d \boldsymbol \eta` is linear in :math:`\hat p`, by a
+    dissipated energy density :math:`e` (per unit logical volume, given at the quadrature points of :math:`V^3_h`):
+
+    .. math::
+
+        \hat{\mathbf p} \leftarrow \hat{\mathbf p} + (\gamma - 1)\, \tilde{\mathbb M}^{-1} \mathbf e \,, \qquad
+        \tilde{\mathbb M}_{ij} = \int \Lambda^3_i \Lambda^3_j \,\textnormal d \boldsymbol \eta \,, \qquad
+        \mathbf e_i = \int e\, \Lambda^3_i \,\textnormal d \boldsymbol \eta \,.
+
+    This is the :math:`L^2` projection in the logical inner product. Since the constants are in :math:`V^3_h`, it
+    preserves the integral, so the thermal energy increases by exactly :math:`\int e \,\textnormal d \boldsymbol \eta`
+    (up to the solver tolerance) on any mapping. The projection with the weight :math:`1/\sqrt g` of the mass matrix
+    :math:`\mathbb M^3` would do so only if :math:`\sqrt g \in V^3_h`.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    mass_ops : WeightedMassOperators
+        Weighted mass operators.
+
+    domain : Domain
+        The mapping (for :math:`\sqrt g` at the quadrature points).
+
+    gamma : float
+        Adiabatic index.
+
+    tol : float
+        Relative tolerance of the mass solve.
+    """
+
+    def __init__(self, derham: Derham, mass_ops, domain, gamma: float, tol: float = 1e-12):
+        from struphy.feec.mass import L2Projector
+
+        self._gamma = gamma
+        grid = [pts.flatten() for pts in derham.V3splines.quad_grid_pts[0]]
+        self._sqrt_g = domain.jacobian_det(*grid)
+        self._mass = mass_ops.create_weighted_mass("L2", "L2")
+        self._mass.assemble([[xp.ones_like(self._sqrt_g)]])
+        self._inv = inverse(
+            self._mass,
+            "pcg",
+            pc=preconditioner.MassMatrixPreconditioner(self._mass, dim_reduce=None),
+            tol=tol,
+            maxiter=1000,
+        )
+        self._get_dofs = L2Projector("L2", mass_ops).get_dofs
+        self._e = derham.V3pol.zeros()
+        self._incr = derham.V3pol.zeros()
+        self._tmp = xp.zeros_like(self._sqrt_g)
+
+    @property
+    def grid_shape(self) -> tuple:
+        """Shape of the arrays of values at the quadrature points of :math:`V^3_h`."""
+        return self._sqrt_g.shape
+
+    def __call__(self, e: xp.ndarray, pt3: Vector):
+        """Add the heating by the energy density ``e`` (values at the quadrature points) to ``pt3`` (in place)."""
+        # get_dofs integrates with the weight 1/sqrt(g) of 3-forms
+        tmp = self._tmp
+        tmp[:] = e
+        tmp *= self._sqrt_g
+        self._get_dofs(tmp, dofs=self._e)
+        incr = dot_normalized(self._inv, self._e, self._incr)
+        incr *= self._gamma - 1.0
+        pt3 += incr
+
+
+def alfven_schur_preconditioner(propagator, unmet: list[str], u_space: str = "H1vec"):
+    r"""The Kronecker preconditioner of the shear-Alfven Schur operator of a linear variational propagator,
+
+    .. math::
+
+        \mathcal S_A = \mathbb M^v[\rho_0] + \frac{\Delta t^2}{4}\, \mathbb T_0^\top \mathbb M^2\, \mathbb T_0 \,,
+        \qquad \mathbb T_0 = \mathbb C\, \hat\Pi^1[\hat{\mathbf B}_0 \times \vec\Lambda^v] \,,
+
+    as :class:`~struphy.feec.preconditioner.ShearAlfvenSchurPreconditioner` with ``u_space="H1vec"``: the
+    :class:`~struphy.feec.preconditioner.StiffnessPreconditioner` of the Kronecker approximation of
+    :math:`\mathbb C\, \hat\Pi^1[\mathbf B_0 \times \cdot\,]` (``basis_ops.Tv``, analytic equilibrium) with the
+    stabilization :math:`\mathbb M^v[\rho_0]` with the projected density of the Schur operator (``WMMnew``), plus the
+    auxiliary space correction of
+    the :math:`\mathbf E \times \mathbf B` flows if ``options.exb_correction``. Its :meth:`build` gives the
+    preconditioner for a time step. For a velocity in :math:`H(\textnormal{div})` (``u_space="Hdiv"``), the operators
+    are ``basis_ops.T2`` and ``mass_ops.M2n``, as in
+    :class:`~struphy.propagators.shear_alfven_propagator.ShearAlfvenPropagator`. With polar splines, the 2D x 1D
+    version :class:`~struphy.feec.preconditioner.PolarKroneckerBlockPreconditioner` is built (without the
+    :math:`\mathbf E \times \mathbf B` correction).
+
+    Parameters
+    ----------
+    propagator : Propagator
+        The propagator, with the options ``schur_precond``, ``solver`` and ``exb_correction``.
+    unmet : list[str]
+        Requirements of the propagator that do not hold (e.g. ``'model="linear"'``).
+    u_space : str
+        Space of the velocity, ``"H1vec"`` or ``"Hdiv"``.
+
+    Returns
+    -------
+    ShearAlfvenSchurPreconditioner | None
+        None if ``options.schur_precond`` is not ``"StiffnessPreconditioner"`` or if a requirement does not hold
+        (then with a warning: the mass-matrix preconditioner is used).
+    """
+    from struphy.feec.preconditioner import ShearAlfvenSchurPreconditioner
+
+    options = propagator.options
+    if options.schur_precond != "StiffnessPreconditioner":
+        return None
+    unmet = list(unmet)
+    if options.solver not in ("pcg", "pbicgstab", "rpbicgstab"):
+        unmet += ['solver="pcg", "pbicgstab" or "rpbicgstab"']
+    if propagator.derham.with_local_projectors:
+        unmet += ["the global commuting projectors"]
+    if unmet:
+        logger.warning(
+            f'{propagator.__class__.__name__}: schur_precond="StiffnessPreconditioner" needs {", ".join(unmet)}; '
+            "falling back to the mass-matrix preconditioner."
+        )
+        return None
+    if u_space == "Hdiv":
+        return ShearAlfvenSchurPreconditioner(
+            propagator.derham,
+            propagator.mass_ops,
+            propagator.basis_ops,
+            propagator.basis_ops.T2,
+            "M2n",
+            exb_correction=options.exb_correction,
+            u_space="Hdiv",
+        )
+    # the velocity mass matrix of the Schur operator, G weighted with the projected density: WMMnew stores only G as
+    # weight and evaluates its density spline during the assembly, so the density is passed here as a function, which
+    # is evaluated into the weights seen by the separable approximation of the preconditioner
+    rho = propagator.mass_ops.WMMnew.spline_functions["l2_field"]
+    stab = propagator.mass_ops.create_weighted_mass(
+        "H1vec",
+        "H1vec",
+        weights=("G", lambda e1, e2, e3: rho(e1, e2, e3)),
+        name="WMM_alfven_precond",
+        assemble=False,
+    )
+    return ShearAlfvenSchurPreconditioner(
+        propagator.derham,
+        propagator.mass_ops,
+        propagator.basis_ops,
+        propagator.basis_ops.Tv,
+        stab,
+        exb_correction=options.exb_correction,
+        u_space="H1vec",
+    )

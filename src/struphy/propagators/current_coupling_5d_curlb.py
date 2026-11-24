@@ -11,13 +11,16 @@ from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.pic.accumulation.filter import FilterParameters
+from struphy.pic.accumulation.filter import FilteredOperator, FilterParameters
 from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb import cc_lin_mhd_5d_curlb
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.kernels.cc_lin_mhd_5d_curlb_mf import cc_lin_mhd_5d_curlb_mf
+from struphy.pic.accumulation.kernels.marker_operator_rank1_dot import marker_operator_rank1_dot
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector, MarkerOperator
 from struphy.pic.pushing.kernels.push_gc_cc_J1_H1vec import push_gc_cc_J1_H1vec
 from struphy.pic.pushing.kernels.push_gc_cc_J1_Hdiv import push_gc_cc_J1_Hdiv
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import velocity_mass
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -57,6 +60,11 @@ class CurrentCoupling5DCurlb(Propagator):
         \end{bmatrix} \,.
 
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
+
+    **Perturbative models** (constructor argument ``rho_field``, the density perturbation :math:`\tilde \rho`, only
+    with ``Options(u_space="Hdiv")``): the inertia is that of the total density, :math:`\rho_0 \to \rho_0 + \tilde
+    \rho^n` (mass matrix :math:`\mathbb M^2_\rho` of :class:`~struphy.propagators.utils.VelocityMass`, assembled at
+    :math:`t^n`; the density does not change in this step).
     """
 
     class Variables:
@@ -95,26 +103,45 @@ class CurrentCoupling5DCurlb(Propagator):
             assert "Particles5D" in new.space
             self._energetic_ions = new
 
-    def __init__(self, b_tilde: FEECVariable = None):
+    # differential form of the magnetic field ("2": 2-form in H(div), "1": 1-form in H(curl), see
+    # CurrentCoupling5DCurlb1form), the accumulation kernels (assembled and matrix-free) and the pusher kernels (per
+    # u_space)
+    _b_form = "2"
+    _kernels = {
+        "assembled": cc_lin_mhd_5d_curlb,
+        "matrix_free": cc_lin_mhd_5d_curlb_mf,
+        "push_Hdiv": push_gc_cc_J1_Hdiv,
+        "push_H1vec": push_gc_cc_J1_H1vec,
+    }
+
+    def __init__(self, b_tilde: FEECVariable = None, rho_field: FEECVariable = None):
         """
         Parameters
         ----------
         b_tilde : FEECVariable, default=None
-            Magnetic perturbation 1-form (``"Hcurl"`` space) entering the curl-B
+            Magnetic perturbation 2-form (``"Hdiv"`` space) entering the curl-B
             coupling term. If ``None``, only the equilibrium field is used.
+        rho_field : FEECVariable, default=None
+            Density perturbation in ``"L2"`` space (not updated): the inertia is that of the total density
+            :math:`\rho_0 + \tilde \rho` (perturbative models, ``u_space="Hdiv"`` only). If ``None``, that of
+            :math:`\rho_0`.
         """
+        assert rho_field is None or rho_field.space == "L2", "rho_field must be in L2."
+        self.rho_field = rho_field
+        b_space = {"1": "Hcurl", "2": "Hdiv"}[self._b_form]
+        assert b_tilde is None or b_tilde.space == b_space, f"b_tilde must be in {b_space}."
         self.variables = self.Variables()
         self.b_tilde = b_tilde
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`CurrentCoupling5DCurlb`.
+        r"""Configuration options for :class:`CurrentCoupling5DCurlb`.
 
         Parameters
         ----------
-        ep_scale : float, default=1.0
-            Scaling factor applied to energetic-particle contributions in the
-            accumulation kernel.
+        ep_scale : float, default=None
+            Factor of the energetic-particle contributions (accumulation): the mass ratio
+            :math:`A_\textnormal{h}/A_\textnormal{b}` of the energetic ions and the MHD bulk if ``None``.
 
         u_space : LiteralOptions.OptsVecSpace, default="Hdiv"
             FEEC space used for the unknown ``u`` variable. Only ``"Hdiv"`` and
@@ -131,24 +158,35 @@ class CurrentCoupling5DCurlb(Propagator):
             ``SolverParameters()``.
 
         filter_params : FilterParameters, default=None
-            Particle-to-grid filtering parameters used by the accumulator.
-            If ``None``, defaults to ``FilterParameters()``.
+            Filter of the accumulated (particle-to-grid) vectors; defaults to ``FilterParameters()`` (no filter).
+            The three-point (binomial) filter ``FilterParameters(use_filter="three_point")`` reduces the noise,
+            but the propagator then no longer conserves the energy exactly (the filter is applied to the
+            accumulated vectors only, not to the fields seen by the particles).
+
+        matrix_free : bool, default=True
+            Apply the accumulated matrix :math:`\sum_p c_p (\vec \Lambda_p \cdot \mathbf e_p)
+            (\vec \Lambda_p \cdot \mathbf e_p)^\top` (rank one per marker) in each iteration of the solver from data
+            stored per marker (:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), instead of assembling it: one spline evaluation and
+            one deposition per marker and iteration instead of the 6 blocks of size :math:`n_\textnormal{basis}^2`
+            per marker (much cheaper for cubic splines). Same result up to the solver tolerance.
         """
 
         # propagator options
-        ep_scale: float = 1.0
+        ep_scale: float = None
         u_space: LiteralOptions.OptsVecSpace = "Hdiv"
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
+        matrix_free: bool = True
 
         def __post_init__(self):
             # checks
             check_option(self.u_space, LiteralOptions.OptsVecSpace)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
-            assert isinstance(self.ep_scale, float)
+            assert self.ep_scale is None or isinstance(self.ep_scale, float)
+            assert isinstance(self.matrix_free, bool)
 
             # the accumulation kernel cc_lin_mhd_5d_curlb only has H1vec and Hdiv branches
             if self.u_space not in ("Hdiv", "H1vec"):
@@ -177,14 +215,25 @@ class CurrentCoupling5DCurlb(Propagator):
 
     @profile
     def allocate(self):
+        # extraction of b_tilde to the tensor-product space read by the kernels (polar splines)
+        self._EbT_tilde = self.derham.extraction_ops[self._b_form].transpose()
+        self._b_tilde_tp = self._EbT_tilde.codomain.zeros()
+
+        # factor of the energetic-particle contributions (default: mass ratio A_h/A_b)
+        self._ep_scale = self.options.ep_scale
+        if self._ep_scale is None:
+            self._ep_scale = self.variables.energetic_ions.species.mass_number / self.variables.u.species.mass_number
+            logger.info(f"{self.__class__.__name__}: ep_scale = A_h/A_b = {self._ep_scale} (mass ratio, default).")
+
         if self.options.u_space == "H1vec":
             self._u_form_int = 0
         else:
             self._u_form_int = int(self.derham.space_to_form[self.options.u_space])
 
         # call operatros
+        # (with rho_field: the mass matrix of the total density, assembled in __call__)
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
-        _A = getattr(self.mass_ops, id_M)
+        self._velocity_mass, _A = velocity_mass(self, self.options.u_space, self.rho_field)
 
         # Preconditioner
         if self.options.precond is None:
@@ -193,34 +242,24 @@ class CurrentCoupling5DCurlb(Propagator):
             pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(getattr(self.mass_ops, id_M))
 
-        # magnetic equilibrium field
-        unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b2 = self.projected_equil.curl_unit_b2
-        self._b2 = self.projected_equil.b2
+        # magnetic equilibrium field (the field in the space of _b_form)
+        unit_b1 = self.projected_equil.tp.unit_b1
+        curl_unit_b2 = self.projected_equil.tp.curl_unit_b2
+        self._b_eq = getattr(self.projected_equil.tp, "b" + self._b_form)
 
         # scaling factor
         epsilon = self.variables.energetic_ions.species.equation_params.epsilon
 
         # temporary vectors to avoid memory allocation
-        self._b_full = self._b2.space.zeros()
+        self._b_full = self._b_eq.space.zeros()
         self._u_new = self.variables.u.spline.vector.space.zeros()
         self._u_avg = self.variables.u.spline.vector.space.zeros()
 
         # define Accumulator and arguments
-        self._ACC = Accumulator(
-            self.variables.energetic_ions.particles,
-            self.options.u_space,
-            cc_lin_mhd_5d_curlb,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-            filter_params=self.options.filter_params,
-        )
-
+        particles = self.variables.energetic_ions.particles
         self._args_accum_kernel = (
             epsilon,
-            self.options.ep_scale,
+            self._ep_scale,
             self._b_full[0]._data,
             self._b_full[1]._data,
             self._b_full[2]._data,
@@ -232,12 +271,46 @@ class CurrentCoupling5DCurlb(Propagator):
             curl_unit_b2[2]._data,
             self._u_form_int,
         )
+        if self.options.matrix_free:
+            # the vector, and the data of the matrix per marker (in the first free columns of the marker array)
+            column = particles.args_markers.first_free_idx
+            assert particles.n_cols_aux >= 4, "matrix_free needs 4 free (auxiliary) marker columns."
+            self._ACC = AccumulatorVector(
+                particles,
+                self.options.u_space,
+                self._kernels["matrix_free"],
+                self.mass_ops,
+                self.domain.args_domain,
+                filter_params=self.options.filter_params,
+            )
+            self._args_accum_kernel += (column,)
+            self._A_particles = MarkerOperator(
+                particles,
+                self.options.u_space,
+                marker_operator_rank1_dot,
+                self.mass_ops,
+                self.domain.args_domain,
+                (self._u_form_int, column),
+                symmetry="symm",
+            )
+        else:
+            self._ACC = Accumulator(
+                particles,
+                self.options.u_space,
+                self._kernels["assembled"],
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="symm",
+                filter_params=self.options.filter_params,
+            )
+            self._A_particles = self._ACC.operators[0]
 
         # define Pusher
         if self.options.u_space == "Hdiv":
-            pusher_kernel = push_gc_cc_J1_Hdiv
+            pusher_kernel = self._kernels["push_Hdiv"]
         elif self.options.u_space == "H1vec":
-            pusher_kernel = push_gc_cc_J1_H1vec
+            pusher_kernel = self._kernels["push_H1vec"]
         else:
             raise ValueError(
                 f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec".',
@@ -269,7 +342,10 @@ class CurrentCoupling5DCurlb(Propagator):
             pushes_eta=False,
         )
 
-        _BC = -1 / 4 * self._ACC.operators[0]
+        if self._ACC.accfilter.params.use_filter == "fourier_in_tor":
+            self._A_particles = FilteredOperator(self._A_particles, self._ACC.accfilter)
+
+        _BC = -1 / 4 * self._A_particles
 
         self._schur_solver = SchurSolver(
             _A,
@@ -279,15 +355,27 @@ class CurrentCoupling5DCurlb(Propagator):
             solver_params=self.options.solver_params,
         )
 
+    def _b_tilde_coeffs(self, update_ghosts: bool = False):
+        """FE coefficients of ``b_tilde`` extracted to the tensor-product space read by the kernels (in
+        ``self._b_tilde_tp``), with ghost regions if ``update_ghosts`` (for kernels reading them directly)."""
+        b_tilde = self._EbT_tilde.dot(self.b_tilde.spline.vector, out=self._b_tilde_tp)
+        if update_ghosts:
+            b_tilde.update_ghost_regions()
+        return b_tilde
+
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
 
-        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        b_full = self._b2.copy(out=self._b_full)
+        # inertia of the total density at t^n (perturbative models)
+        if self._velocity_mass is not None:
+            self._velocity_mass.update()
+
+        # sum up total magnetic field b_full = b_eq + b_tilde (in-place)
+        b_full = self._b_eq.copy(out=self._b_full)
 
         if self.b_tilde is not None:
-            b_full += self.b_tilde.spline.vector
+            b_full += self._b_tilde_coeffs()
         b_full.update_ghost_regions()
 
         self._ACC(
@@ -308,6 +396,9 @@ class CurrentCoupling5DCurlb(Propagator):
         _u *= 0.5
 
         _u.update_ghost_regions()
+
+        if self._ACC.accfilter.params.use_filter == "fourier_in_tor":
+            self._ACC.accfilter(_u)
 
         self._pusher(dt)
 

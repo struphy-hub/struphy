@@ -5,7 +5,7 @@
 // Vector-valued kinds (kind_fun >= 10) read and write three entries of a and out; scalar kinds only a[0], out[0].
 #include "struphy/geometry/evaluation_kernels.cuh"
 #include "struphy/linear_algebra/linalg_kernels.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::transform_kernels {
 /**
  * Pull-back of a Cartesian scalar/vector field to a differential p-form, as in transform_kernels.pull.
  *
@@ -24,8 +24,8 @@ __device__ inline void pull(const double* a, double eta1, double eta2, double et
 
     // evaluate Jacobian matrix and its determinant
     if (kind_fun > 0) {
-        df(eta1, eta2, eta3, args_domain, dfmat1);
-        detdf = det(dfmat1);
+        evaluation_kernels::df(eta1, eta2, eta3, args_domain, dfmat1);
+        detdf = linalg_kernels::det(dfmat1);
     }
 
     // 0-form
@@ -38,21 +38,21 @@ __device__ inline void pull(const double* a, double eta1, double eta2, double et
     }
     // 1-form
     else if (kind_fun == 10) {
-        transpose(dfmat1, dfmat2);
-        matrix_vector(dfmat2, a, out);
+        linalg_kernels::transpose(dfmat1, dfmat2);
+        linalg_kernels::matrix_vector(dfmat2, a, out);
     }
     // 2-form
     else if (kind_fun == 11) {
-        matrix_inv_with_det(dfmat1, 1.0, dfmat2);
-        matrix_vector(dfmat2, a, out);
+        linalg_kernels::matrix_inv_with_det(dfmat1, 1.0, dfmat2);
+        linalg_kernels::matrix_vector(dfmat2, a, out);
 
         if (detdf < 0.0)
             for (int i = 0; i < 3; ++i) out[i] = -out[i];
     }
     // vector
     else if (kind_fun == 12) {
-        matrix_inv(dfmat1, dfmat2);
-        matrix_vector(dfmat2, a, out);
+        linalg_kernels::matrix_inv(dfmat1, dfmat2);
+        linalg_kernels::matrix_vector(dfmat2, a, out);
     }
 }
 
@@ -74,8 +74,8 @@ __device__ inline void push(const double* a, double eta1, double eta2, double et
 
     // evaluate Jacobian matrix and its determinant
     if (kind_fun > 0) {
-        df(eta1, eta2, eta3, args_domain, dfmat1);
-        detdf = det(dfmat1);
+        evaluation_kernels::df(eta1, eta2, eta3, args_domain, dfmat1);
+        detdf = linalg_kernels::det(dfmat1);
     }
 
     // 0-form
@@ -88,18 +88,18 @@ __device__ inline void push(const double* a, double eta1, double eta2, double et
     }
     // 1-form
     else if (kind_fun == 10) {
-        matrix_inv_with_det(dfmat1, detdf, dfmat2);
-        transpose(dfmat2, dfmat3);
-        matrix_vector(dfmat3, a, out);
+        linalg_kernels::matrix_inv_with_det(dfmat1, detdf, dfmat2);
+        linalg_kernels::transpose(dfmat2, dfmat3);
+        linalg_kernels::matrix_vector(dfmat3, a, out);
     }
     // 2-form
     else if (kind_fun == 11) {
-        matrix_vector(dfmat1, a, out);
+        linalg_kernels::matrix_vector(dfmat1, a, out);
         for (int i = 0; i < 3; ++i) out[i] = out[i] / fabs(detdf);
     }
     // vector
     else if (kind_fun == 12) {
-        matrix_vector(dfmat1, a, out);
+        linalg_kernels::matrix_vector(dfmat1, a, out);
     }
 }
 
@@ -135,8 +135,8 @@ __device__ inline void tran(const double* a, double eta1, double eta2, double et
     double vec1[3], vec2[3];
 
     // evaluate Jacobian matrix and its determinant
-    df(eta1, eta2, eta3, args_domain, dfmat1);
-    double detdf = det(dfmat1);
+    evaluation_kernels::df(eta1, eta2, eta3, args_domain, dfmat1);
+    double detdf = linalg_kernels::det(dfmat1);
 
     // 0-form to 3-form
     if (kind_fun == 0) {
@@ -148,17 +148,17 @@ __device__ inline void tran(const double* a, double eta1, double eta2, double et
     }
     // 1-form to 2-form (a^2 = G^(-1) * a^1 * |det(DF)|)
     else if (kind_fun == 10) {
-        matrix_inv_with_det(dfmat1, detdf, dfmat2);
-        transpose(dfmat2, dfmat3);
-        matrix_vector(dfmat3, a, vec1);
-        matrix_vector(dfmat2, vec1, out);
+        linalg_kernels::matrix_inv_with_det(dfmat1, detdf, dfmat2);
+        linalg_kernels::transpose(dfmat2, dfmat3);
+        linalg_kernels::matrix_vector(dfmat3, a, vec1);
+        linalg_kernels::matrix_vector(dfmat2, vec1, out);
         for (int i = 0; i < 3; ++i) out[i] = out[i] * fabs(detdf);
     }
     // 2-form to 1-form (a^1 = G * a^2 / |det(DF)|)
     else if (kind_fun == 11) {
-        transpose(dfmat1, dfmat2);
-        matrix_vector(dfmat1, a, vec1);
-        matrix_vector(dfmat2, vec1, out);
+        linalg_kernels::transpose(dfmat1, dfmat2);
+        linalg_kernels::matrix_vector(dfmat1, a, vec1);
+        linalg_kernels::matrix_vector(dfmat2, vec1, out);
         for (int i = 0; i < 3; ++i) out[i] = out[i] / fabs(detdf);
     }
     // norm vector to vector
@@ -168,9 +168,9 @@ __device__ inline void tran(const double* a, double eta1, double eta2, double et
     // norm vector to 1-form (a^1 = G * a)
     else if (kind_fun == 13) {
         for (int i = 0; i < 3; ++i) vec1[i] = a[i] / column_norm(dfmat1, i);
-        transpose(dfmat1, dfmat2);
-        matrix_vector(dfmat1, vec1, vec2);
-        matrix_vector(dfmat2, vec2, out);
+        linalg_kernels::transpose(dfmat1, dfmat2);
+        linalg_kernels::matrix_vector(dfmat1, vec1, vec2);
+        linalg_kernels::matrix_vector(dfmat2, vec2, out);
     }
     // norm vector to 2-form (a^2 = |det(DF)| * a)
     else if (kind_fun == 14) {
@@ -179,9 +179,9 @@ __device__ inline void tran(const double* a, double eta1, double eta2, double et
     }
     // vector to 1-form (a^1 = G * a)
     else if (kind_fun == 15) {
-        transpose(dfmat1, dfmat2);
-        matrix_vector(dfmat1, a, vec1);
-        matrix_vector(dfmat2, vec1, out);
+        linalg_kernels::transpose(dfmat1, dfmat2);
+        linalg_kernels::matrix_vector(dfmat1, a, vec1);
+        linalg_kernels::matrix_vector(dfmat2, vec1, out);
     }
     // vector to 2-form (a^2 = |det(DF)| * a)
     else if (kind_fun == 16) {
@@ -189,10 +189,10 @@ __device__ inline void tran(const double* a, double eta1, double eta2, double et
     }
     // 1-form to vector (a = G^(-1) * a^1)
     else if (kind_fun == 17) {
-        matrix_inv_with_det(dfmat1, detdf, dfmat2);
-        transpose(dfmat2, dfmat3);
-        matrix_vector(dfmat3, a, vec1);
-        matrix_vector(dfmat2, vec1, out);
+        linalg_kernels::matrix_inv_with_det(dfmat1, detdf, dfmat2);
+        linalg_kernels::transpose(dfmat2, dfmat3);
+        linalg_kernels::matrix_vector(dfmat3, a, vec1);
+        linalg_kernels::matrix_vector(dfmat2, vec1, out);
     }
     // 2-form to vector (a = a^2 / |det(DF)|)
     else if (kind_fun == 18) {
@@ -200,10 +200,10 @@ __device__ inline void tran(const double* a, double eta1, double eta2, double et
     }
     // 1-form to normalized vector
     else if (kind_fun == 19) {
-        matrix_inv_with_det(dfmat1, detdf, dfmat2);
-        transpose(dfmat2, dfmat3);
-        matrix_vector(dfmat3, a, vec1);
-        matrix_vector(dfmat2, vec1, out);
+        linalg_kernels::matrix_inv_with_det(dfmat1, detdf, dfmat2);
+        linalg_kernels::transpose(dfmat2, dfmat3);
+        linalg_kernels::matrix_vector(dfmat3, a, vec1);
+        linalg_kernels::matrix_vector(dfmat2, vec1, out);
         for (int i = 0; i < 3; ++i) out[i] = out[i] * column_norm(dfmat1, i);
     }
     // 2-form to normalized vector
@@ -216,4 +216,4 @@ __device__ inline void tran(const double* a, double eta1, double eta2, double et
         for (int i = 0; i < 3; ++i) out[i] = a[i] * column_norm(dfmat1, i);
     }
 }
-}
+}  // namespace struphy_cuda::transform_kernels

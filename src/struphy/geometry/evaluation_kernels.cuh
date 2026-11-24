@@ -16,7 +16,7 @@
 #include "struphy/geometry/domains/shafranov_shift_cylinder/shafranov_shift_cylinder_cuda.cuh"
 #include "struphy/geometry/domains/shafranov_sqrt_cylinder/shafranov_sqrt_cylinder_cuda.cuh"
 #include "struphy/geometry/domains/shafranov_dshaped_cylinder/shafranov_dshaped_cylinder_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::evaluation_kernels {
 /**
  * Point-wise evaluation of (x, y, z) = F(eta1, eta2, eta3), as in geometry.evaluation_kernels.f.
  *
@@ -32,43 +32,53 @@ namespace struphy_cuda {
 __device__ inline void f(double eta1, double eta2, double eta3, const DomainArgs& args, double* f_out) {
     switch (args.kind_map) {
         case 0:
-            spline_3d(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args.ind3, args, f_out);
+            spline_mappings_kernels::spline_3d(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args.ind3, args,
+                                               f_out);
             return;
         case 1:
-            spline_2d_straight(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args, args.params[0], f_out);
+            spline_mappings_kernels::spline_2d_straight(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args,
+                                                        args.params[0], f_out);
             return;
         case 2:
-            spline_2d_torus(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args, args.params[0], f_out);
+            spline_mappings_kernels::spline_2d_torus(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args,
+                                                     args.params[0], f_out);
             return;
         case 10:
-            cuboid(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], args.params[4],
-                   args.params[5], f_out);
+            cuboid_kernels::cuboid(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3],
+                                   args.params[4], args.params[5], f_out);
             return;
         case 11:
-            orthogonal(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], f_out);
+            orthogonal_kernels::orthogonal(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2],
+                                           args.params[3], f_out);
             return;
         case 12:
-            colella(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], f_out);
+            colella_kernels::colella(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3],
+                                     f_out);
             return;
         case 20:
-            hollow_cyl(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], f_out);
+            hollow_cylinder_kernels::hollow_cyl(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2],
+                                                args.params[3], f_out);
             return;
         case 21:
-            powered_ellipse(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], f_out);
+            powered_elliptic_cylinder_kernels::powered_ellipse(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                               args.params[2], args.params[3], f_out);
             return;
         case 22:
-            hollow_torus(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3],
-                         args.params[4], args.params[5], f_out);
+            hollow_torus_kernels::hollow_torus(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2],
+                                               args.params[3], args.params[4], args.params[5], f_out);
             return;
         case 30:
-            shafranov_shift(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], f_out);
+            shafranov_shift_cylinder_kernels::shafranov_shift(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                              args.params[2], args.params[3], f_out);
             return;
         case 31:
-            shafranov_sqrt(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], f_out);
+            shafranov_sqrt_cylinder_kernels::shafranov_sqrt(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                            args.params[2], args.params[3], f_out);
             return;
         case 32:
-            shafranov_dshaped(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3],
-                              args.params[4], args.params[5], args.params[6], f_out);
+            shafranov_dshaped_cylinder_kernels::shafranov_dshaped(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                                  args.params[2], args.params[3], args.params[4],
+                                                                  args.params[5], args.params[6], f_out);
             return;
         default:
             asm("trap;");  // unknown kind_map
@@ -90,45 +100,53 @@ __device__ inline void f(double eta1, double eta2, double eta3, const DomainArgs
 __device__ inline void df(double eta1, double eta2, double eta3, const DomainArgs& args, double* df_out) {
     switch (args.kind_map) {
         case 0:
-            spline_3d_df(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args.ind3, args, df_out);
+            spline_mappings_kernels::spline_3d_df(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args.ind3, args,
+                                                  df_out);
             return;
         case 1:
-            spline_2d_straight_df(eta1, eta2, args.degree, args.ind1, args.ind2, args, args.params[0], df_out);
+            spline_mappings_kernels::spline_2d_straight_df(eta1, eta2, args.degree, args.ind1, args.ind2, args,
+                                                           args.params[0], df_out);
             return;
         case 2:
-            spline_2d_torus_df(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args, args.params[0], df_out);
+            spline_mappings_kernels::spline_2d_torus_df(eta1, eta2, eta3, args.degree, args.ind1, args.ind2, args,
+                                                        args.params[0], df_out);
             return;
         case 10:
-            cuboid_df(args.params[0], args.params[1], args.params[2], args.params[3], args.params[4], args.params[5],
-                      df_out);
+            cuboid_kernels::cuboid_df(args.params[0], args.params[1], args.params[2], args.params[3], args.params[4],
+                                      args.params[5], df_out);
             return;
         case 11:
-            orthogonal_df(eta1, eta2, args.params[0], args.params[1], args.params[2], args.params[3], df_out);
+            orthogonal_kernels::orthogonal_df(eta1, eta2, args.params[0], args.params[1], args.params[2],
+                                              args.params[3], df_out);
             return;
         case 12:
-            colella_df(eta1, eta2, args.params[0], args.params[1], args.params[2], args.params[3], df_out);
+            colella_kernels::colella_df(eta1, eta2, args.params[0], args.params[1], args.params[2], args.params[3],
+                                        df_out);
             return;
         case 20:
-            hollow_cyl_df(eta1, eta2, args.params[0], args.params[1], args.params[2], args.params[3], df_out);
+            hollow_cylinder_kernels::hollow_cyl_df(eta1, eta2, args.params[0], args.params[1], args.params[2],
+                                                   args.params[3], df_out);
             return;
         case 21:
-            powered_ellipse_df(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3],
-                               df_out);
+            powered_elliptic_cylinder_kernels::powered_ellipse_df(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                                  args.params[2], args.params[3], df_out);
             return;
         case 22:
-            hollow_torus_df(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3],
-                            args.params[4], args.params[5], df_out);
+            hollow_torus_kernels::hollow_torus_df(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2],
+                                                  args.params[3], args.params[4], args.params[5], df_out);
             return;
         case 30:
-            shafranov_shift_df(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3],
-                               df_out);
+            shafranov_shift_cylinder_kernels::shafranov_shift_df(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                                 args.params[2], args.params[3], df_out);
             return;
         case 31:
-            shafranov_sqrt_df(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3], df_out);
+            shafranov_sqrt_cylinder_kernels::shafranov_sqrt_df(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                               args.params[2], args.params[3], df_out);
             return;
         case 32:
-            shafranov_dshaped_df(eta1, eta2, eta3, args.params[0], args.params[1], args.params[2], args.params[3],
-                                 args.params[4], args.params[5], args.params[6], df_out);
+            shafranov_dshaped_cylinder_kernels::shafranov_dshaped_df(eta1, eta2, eta3, args.params[0], args.params[1],
+                                                                     args.params[2], args.params[3], args.params[4],
+                                                                     args.params[5], args.params[6], df_out);
             return;
         default:
             asm("trap;");  // unknown kind_map
@@ -147,7 +165,7 @@ __device__ inline void df(double eta1, double eta2, double eta3, const DomainArg
  */
 __device__ inline double det_df(double eta1, double eta2, double eta3, const DomainArgs& args, double* tmp1) {
     df(eta1, eta2, eta3, args, tmp1);
-    double detdf = det(tmp1);
+    double detdf = linalg_kernels::det(tmp1);
     return detdf;
 }
 
@@ -165,7 +183,7 @@ __device__ inline double det_df(double eta1, double eta2, double eta3, const Dom
 __device__ inline void df_inv(double eta1, double eta2, double eta3, const DomainArgs& args, double* tmp1,
                               bool avoid_round_off, double* dfinv_out) {
     df(eta1, eta2, eta3, args, tmp1);
-    matrix_inv(tmp1, dfinv_out);
+    linalg_kernels::matrix_inv(tmp1, dfinv_out);
 
     // set known (analytical) zero components manually to zero to avoid round-off error remainders!
     if (avoid_round_off) {
@@ -253,8 +271,8 @@ __device__ inline void df_inv(double eta1, double eta2, double eta3, const Domai
 __device__ inline void g(double eta1, double eta2, double eta3, const DomainArgs& args, double* tmp1, double* tmp2,
                          bool avoid_round_off, double* g_out) {
     df(eta1, eta2, eta3, args, tmp1);
-    transpose(tmp1, tmp2);
-    matrix_matrix(tmp2, tmp1, g_out);
+    linalg_kernels::transpose(tmp1, tmp2);
+    linalg_kernels::matrix_matrix(tmp2, tmp1, g_out);
 
     // set known (analytical) zero components manually to zero to avoid round-off error remainders!
     if (avoid_round_off) {
@@ -363,7 +381,7 @@ __device__ inline void g(double eta1, double eta2, double eta3, const DomainArgs
 __device__ inline void g_inv(double eta1, double eta2, double eta3, const DomainArgs& args, double* tmp1, double* tmp2,
                              double* tmp3, bool avoid_round_off, double* ginv_out) {
     g(eta1, eta2, eta3, args, tmp1, tmp2, avoid_round_off, tmp3);
-    matrix_inv(tmp3, ginv_out);
+    linalg_kernels::matrix_inv(tmp3, ginv_out);
 
     // set known (analytical) zero components manually to zero to avoid round-off error remainders!
     if (avoid_round_off) {
@@ -509,4 +527,4 @@ __device__ inline void select_metric_coeff(double eta1, double eta2, double eta3
         g_inv(eta1, eta2, eta3, args, tmp1, tmp2, tmp3, avoid_round_off, out);
     }
 }
-}  // namespace struphy_cuda
+}  // namespace struphy_cuda::evaluation_kernels

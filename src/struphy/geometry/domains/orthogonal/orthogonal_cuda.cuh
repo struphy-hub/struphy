@@ -1,6 +1,6 @@
 #pragma once
 #include "struphy/geometry/domains/constants_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::orthogonal_kernels {
 /**
  * Evaluate the orthogonal mapping, as in orthogonal_kernels.orthogonal.
  *
@@ -45,4 +45,4 @@ __device__ inline void orthogonal_df(double eta1, double eta2, double lx, double
     df_out[7] = 0.0;
     df_out[8] = lz;
 }
-}
+}  // namespace struphy_cuda::orthogonal_kernels

@@ -7,7 +7,12 @@ the pyccel kernel module in this package can be imported from
 ``struphy.geometry.base``) without creating a circular import.
 """
 
+from typing import TYPE_CHECKING
+
 __all__ = ["ShafranovSqrtCylinder"]
+
+if TYPE_CHECKING:  # IDEs and type checkers see the class; no import at run time (see above)
+    from struphy.geometry.domains.shafranov_sqrt_cylinder.shafranov_sqrt_cylinder import ShafranovSqrtCylinder
 
 
 def __getattr__(name):

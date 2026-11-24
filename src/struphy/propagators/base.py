@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+from cunumpy.kernels import Kernel
 from feectools.linalg.block import BlockVector
 from feectools.linalg.stencil import StencilVector
 from scope_profiler import ProfileManager
@@ -18,6 +19,8 @@ from struphy.geometry.base import Domain
 from struphy.io.options import OptionsBase
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.pic.pushing.kernel_setup import KernelSetup
+from struphy.polar.basic import PolarVector
+from struphy.utils.kernel_compilation import collect_kernels
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -63,7 +66,7 @@ class Propagator(metaclass=ABCMeta):
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
-        opt1: str = ("implicit",)
+        opt1: OptsTemplate = "implicit"
 
         def __post_init__(self):
             # checks
@@ -98,6 +101,17 @@ class Propagator(metaclass=ABCMeta):
             Time step size.
         """
 
+    def prepare_time_step(self, dt: float):
+        """Set up the data that depends on the time step (e.g. preconditioners) for ``dt``, before the first call
+        with ``dt``, so that it is part of the setup rather than of the first time step (see
+        :meth:`~struphy.simulation.sim.Simulation.run`). Optional; does nothing by default.
+
+        Parameters
+        ----------
+        dt : float
+            Time step size of the first call.
+        """
+
     @property
     def _solve_region(self) -> str:
         """Name of the profiling region for the linear solve(s) of this propagator."""
@@ -124,7 +138,7 @@ class Propagator(metaclass=ABCMeta):
         diffs = {}
         for var, new in new_coeffs.items():
             assert "_" + var in self.variables.__dict__, f"{var} not in {self.variables.__dict__}."
-            assert isinstance(new, (StencilVector, BlockVector))
+            assert isinstance(new, (StencilVector, BlockVector, PolarVector))
             old_var = getattr(self.variables, var)
             assert isinstance(old_var, FEECVariable)
             old = old_var.spline.vector
@@ -140,6 +154,19 @@ class Propagator(metaclass=ABCMeta):
             old.update_ghost_regions()
 
         return diffs
+
+    def kernels(self) -> tuple[Kernel, ...]:
+        """The :class:`~cunumpy.kernels.Kernel` objects this propagator calls in a time step.
+
+        Used by :meth:`~struphy.simulation.sim.Simulation.compile_cuda_kernels` to compile the CUDA
+        kernels before the time stepping. The default collects them from the attributes of the
+        propagator (after :meth:`allocate`): kernels kept as attributes, and the kernels of attributes
+        with a ``kernels()`` method (``Pusher``, ``KernelSetup``, ``Accumulator``,
+        ``AccumulatorVector``), also inside lists, tuples and dicts. A propagator that calls a kernel
+        it does not keep (e.g. a module-level kernel called directly in :meth:`__call__`) overrides this
+        method and adds it.
+        """
+        return collect_kernels(*vars(self).values())
 
     @property
     def init_kernels(self) -> tuple[KernelSetup, ...]:

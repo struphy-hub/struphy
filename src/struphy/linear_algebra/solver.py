@@ -26,8 +26,9 @@ class DiscreteGradientSolverParameters:
     """Parameters for discrete gradient solvers."""
 
     relaxation_factor: float = 0.5
-    tol: float = 1e-12
-    maxiter: int = 20
+    tol: float = 1e-7
+    tol_energy: float = 1e-13
+    maxiter: int = 100
     info: bool = False
 
     def __post_init__(self):

@@ -1,0 +1,50 @@
+import logging
+
+import pytest
+from maybempi import MPI, SerialComm
+
+logger = logging.getLogger("struphy")
+
+
+@pytest.mark.parametrize("num_elements", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("Np", [1000, 999])
+@pytest.mark.parametrize("num_clones", [1, 2])
+def test_clone_config(num_elements, Np, num_clones):
+    from struphy.utils.clone_config import CloneConfig
+
+    if isinstance(MPI.COMM_WORLD, SerialComm):
+        comm = None
+        num_clones = 1
+    else:
+        comm = MPI.COMM_WORLD
+        # CloneConfig aborts MPI (whole test session) if the ranks cannot be split into num_clones clones
+        if comm.Get_size() % num_clones != 0:
+            pytest.skip(f"{comm.Get_size()} ranks cannot be split into {num_clones} clones")
+
+    species = "ions"
+    params = {
+        "grid": {
+            "num_elements": num_elements,
+        },
+        "kinetic": {
+            species: {
+                "markers": {
+                    "Np": Np,
+                },
+            },
+        },
+    }
+
+    pconf = CloneConfig(params=params, comm=comm, num_clones=num_clones)
+    assert pconf.get_Np_global(species_name=species) == Np
+    if Np % num_clones == 0:
+        assert pconf.get_Np_clone(Np) == Np / num_clones
+
+    # Print outputs
+    pconf.print_clone_config()
+    pconf.print_particle_config()
+    logger.info(f"{pconf.get_Np_clone(Np) =}")
+
+
+if __name__ == "__main__":
+    test_clone_config([8, 8, 8], 999, 2)

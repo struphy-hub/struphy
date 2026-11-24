@@ -43,8 +43,7 @@ def push_eta_stage(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
-    first_free_idx = args_markers.first_free_idx
+    first_pusher_idx = args_markers.first_pusher_idx
 
     if stage == n_stages - 1:
         last = 1.0
@@ -52,18 +51,18 @@ def push_eta_stage(
         last = 0.0
 
     # fmt: off
-    #$ omp parallel private(ip, e1, e2, e3, v, dfm, dfinv, k)
+    #$ omp parallel private(dfinv, dfm, e1, e2, e3, ip, k, v)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
         # check if marker is a hole or a boundary particle
-        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
+        if markers[first_pusher_idx, ip] == -1.0 or markers[-1, ip] == -2.0:
             continue
 
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+        e1 = markers[0, ip]
+        e2 = markers[1, ip]
+        e3 = markers[2, ip]
+        v[:] = markers[3:6, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -80,15 +79,12 @@ def push_eta_stage(
         # pull-back of velocity
         linalg_kernels.matrix_vector(dfinv, v, k)
 
-        # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
-
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * a[stage] * k
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
-        )
+        # accumulation for last stage and update of positions (regular at a pole)
+        pusher_utilities_kernels.update_position_stage(ip, k, dt, a[stage], b[stage], last, args_markers)
 
         # apply kinetic boundary conditions
         pusher_utilities_kernels.apply_kinetic_bc_marker(ip, args_markers, args_domain, False)
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

@@ -50,8 +50,8 @@ def reflect(
     v_logical = empty(3, dtype=float)
 
     for ip in outside_inds:
-        eta[:] = markers[ip, 0:3]
-        v[:] = markers[ip, 3:6]
+        eta[:] = markers[0:3, ip]
+        v[:] = markers[3:6, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -74,4 +74,4 @@ def reflect(
         linalg_kernels.matrix_vector(dfm, v_logical, v)
 
         # update the particle velocities
-        markers[ip, 3:6] = v[:]
+        markers[3:6, ip] = v[:]

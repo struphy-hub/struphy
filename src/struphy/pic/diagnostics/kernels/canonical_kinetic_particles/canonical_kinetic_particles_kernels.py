@@ -41,21 +41,27 @@ def canonical_kinetic_particles(
     v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers = shape(markers)[0]
+    n_markers = shape(markers)[1]
     # fmt: off
-    #$ omp parallel private (ip, v, w, dfm, dfinv, dfinv_t, span1, span2, span3, a_form, dfta_form)
+    #$ omp parallel private(a_form, dfinv, dfinv_t, dfm, dfta_form, eta1, eta2, eta3, ip, span1, span2, span3, thread_derham, v, w)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
     #$ omp for reduction( + : res)
     # fmt: on
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
-        w = markers[ip, 6]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v[:] = markers[3:6, ip]
+        w = markers[6, ip]
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
             eta1,
@@ -69,14 +75,14 @@ def canonical_kinetic_particles(
         linalg_kernels.transpose(dfinv, dfinv_t)
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
 
         # vector potential: 1-form components
         eval_1form_spline_mpi(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             a1_1,
             a1_2,
             a1_3,
@@ -88,3 +94,7 @@ def canonical_kinetic_particles(
         dfta_form[2] = dfinv_t[2, 0] * a_form[0] + dfinv_t[2, 1] * a_form[1] + dfinv_t[2, 2] * a_form[2]
 
         res[0] += 0.5 * w * ((v[0] - dfta_form[0]) ** 2.0 + (v[1] - dfta_form[1]) ** 2.0 + (v[2] - dfta_form[2]) ** 2.0)
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

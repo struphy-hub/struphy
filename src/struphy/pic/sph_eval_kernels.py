@@ -1,4 +1,6 @@
 # do not remove; needed to identify dependencies
+from numpy import shape
+
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
 import struphy.pic.sorting_kernels as sorting_kernels
 import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
@@ -57,7 +59,7 @@ def naive_evaluation_kernel(
 
         \rho(\boldsymbol \eta_i) = \sum_{j=0}^{N-1} \rho_j\, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
 
-    The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
+    The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[index, j]``.
     In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
 
     .. math::
@@ -80,7 +82,7 @@ def naive_evaluation_kernel(
         Evaluation point in logical space.
 
     holes : bool[:]
-        1D array of length ``markers.shape[0]``.  ``True`` if particle ``i`` is a hole (inactive).
+        1D array of length ``markers.shape[1]``.  ``True`` if particle ``i`` is a hole (inactive).
 
     periodic1, periodic2, periodic3 : bool
         ``True`` if the domain is periodic in that dimension.
@@ -102,15 +104,15 @@ def naive_evaluation_kernel(
 
     markers = args_markers.markers
 
-    n_particles = len(markers)
+    n_particles = shape(markers)[1]
     out = 0.0
     for p in range(n_particles):
         # skip holes and ghost particles (copies of markers already counted, id = -2)
-        if not holes[p] and markers[p, -1] != -2.0:
-            r1 = distance(eta1, markers[p, 0], periodic1)
-            r2 = distance(eta2, markers[p, 1], periodic2)
-            r3 = distance(eta3, markers[p, 2], periodic3)
-            out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
+        if not holes[p] and markers[-1, p] != -2.0:
+            r1 = distance(eta1, markers[0, p], periodic1)
+            r2 = distance(eta2, markers[1, p], periodic2)
+            r3 = distance(eta3, markers[2, p], periodic3)
+            out += markers[index, p] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
     return out
 
 
@@ -138,7 +140,7 @@ def box_based_kernel(
 
         \rho(\boldsymbol \eta_i) = \sum_{j=0}^{N-1} \rho_j\, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
 
-    The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[j, index]``.
+    The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[index, j]``.
     In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
 
     .. math::
@@ -173,7 +175,7 @@ def box_based_kernel(
         Total number of particles.
 
     holes : bool
-        1D array of length markers.shape[0]. True if markers[i] is a hole.
+        1D array of length markers.shape[1]. True if markers[:, i] is a hole.
 
     periodic1, periodic2, periodic3 : bool
         True if periodic in that dimension.
@@ -200,10 +202,10 @@ def box_based_kernel(
             p = boxes[box_to_search, c]
             c += 1
             if not holes[p]:
-                r1 = distance(eta1, markers[p, 0], periodic1)
-                r2 = distance(eta2, markers[p, 1], periodic2)
-                r3 = distance(eta3, markers[p, 2], periodic3)
-                out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
+                r1 = distance(eta1, markers[0, p], periodic1)
+                r2 = distance(eta2, markers[1, p], periodic2)
+                r3 = distance(eta3, markers[2, p], periodic3)
+                out += markers[index, p] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
     return out
 
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "struphy/geometry/domains/constants_cuda.cuh"
-namespace struphy_cuda {
+namespace struphy_cuda::shafranov_dshaped_cylinder_kernels {
 /**
  * Evaluate the D-shaped Shafranov mapping, as in shafranov_dshaped_cylinder_kernels.shafranov_dshaped.
  *
@@ -59,4 +59,4 @@ __device__ inline void shafranov_dshaped_df(double eta1, double eta2, double eta
     df_out[7] = 0.0;
     df_out[8] = lz;
 }
-}  // namespace struphy_cuda
+}  // namespace struphy_cuda::shafranov_dshaped_cylinder_kernels

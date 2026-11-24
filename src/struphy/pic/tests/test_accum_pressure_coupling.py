@@ -54,11 +54,11 @@ def test_pc_accum_uses_time_dependent_weights(kernel_name, Np=200):
     valid = particles.valid_mks
 
     # make the current weights distinct from w0 (as in delta-f)
-    particles.markers[valid, idx_w] *= 1.0 + xp.arange(xp.count_nonzero(valid)) / Np
+    particles.markers[idx_w, valid] *= 1.0 + xp.arange(xp.count_nonzero(valid)) / Np
     mats_ref, vecs_ref = accumulate()
 
     # garbage in w0 must not change the result
-    particles.markers[valid, idx_w0] = -17.0
+    particles.markers[idx_w0, valid] = -17.0
     mats, vecs = accumulate()
 
     assert any(xp.max(xp.abs(v)) > 0.0 for v in vecs_ref)

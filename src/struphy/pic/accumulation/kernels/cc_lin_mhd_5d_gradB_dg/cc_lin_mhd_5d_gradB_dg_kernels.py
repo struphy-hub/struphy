@@ -66,12 +66,26 @@ def cc_lin_mhd_5d_gradB_dg(
     grad_PBeq3: "float[:,:,:]",
     basis_u: "int",
     const: "float",
+    periodic: "bool[:]",
 ):
-    r"""TODO"""
+    r"""Accumulation of :class:`~struphy.propagators.current_coupling_5d_gradb.CurrentCoupling5DGradB`
+    (``algo="discrete_gradient"``): fills ``vec1, vec2, vec3`` with
+
+    .. math::
+
+        \sum_p \frac{1}{\hat B^*_\parallel} \hat{\mathbf B} \times \Big( \hat{\mathbf b}_0 \times \big[
+        \textnormal{ep\_scale}\, w_p \mu_p\, \hat \nabla (|\hat B_0| + \hat b_\parallel) + \textnormal{const}\,
+        (\boldsymbol \eta_p - \boldsymbol \eta^n_p) \big] \Big),
+
+    evaluated at the mid-point :math:`(\boldsymbol \eta_p + \boldsymbol \eta^n_p)/2`, with the total field
+    :math:`\hat{\mathbf B} = \hat{\mathbf B}_0 + \tilde{\mathbf b}` (2-forms ``beq`` and ``b``). ``const`` is the
+    discrete gradient correction. ``basis_u`` is the space of u (0: H1vec, 2: Hdiv). The mid-point is folded into
+    [0, 1] in the directions where ``periodic`` is False.
+    """
 
     markers = args_markers.markers
     mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
+    first_pusher_idx = args_markers.first_pusher_idx
 
     # allocate for magnetic field evaluation
     eta_diff = empty(3, dtype=float)
@@ -100,23 +114,30 @@ def cc_lin_mhd_5d_gradB_dg(
     tmp_v = empty(3, dtype=float)
 
     # get number of markers
-    n_markers_loc = shape(markers)[0]
+    n_markers_loc = args_markers.n_markers
 
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
-        eta_mid[:] = mod(eta_mid[:], 1.0)
+        eta_mid[:] = (markers[0:3, ip] + markers[first_pusher_idx : first_pusher_idx + 3, ip]) / 2.0
 
-        eta_diff[:] = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
+        for i in range(3):
+            if periodic[i]:
+                eta_mid[i] = mod(eta_mid[i], 1.0)
+            else:
+                eta_mid[i] = mod(eta_mid[i], 2.0)
+                if eta_mid[i] > 1.0:
+                    eta_mid[i] = 2.0 - eta_mid[i]
+
+        eta_diff[:] = markers[0:3, ip] - markers[first_pusher_idx : first_pusher_idx + 3, ip]
 
         # marker weight and velocity
-        weight = markers[ip, 5]
-        v = markers[ip, 3]
-        mu = markers[ip, mu_idx]
+        weight = markers[5, ip]
+        v = markers[3, ip]
+        mu = markers[mu_idx, ip]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)

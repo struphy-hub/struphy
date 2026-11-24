@@ -276,6 +276,10 @@ def struphy_compile(
         if openmp:
             flag_omp = " --openmp"
 
+        # Make tracks source timestamps, not compiler flags. Switching OpenMP
+        # must rebuild even when the kernel sources have not changed.
+        rebuild_openmp = (state.get("last_used_omp") or "").strip() != flag_omp.strip()
+
         # pyccel flags
         flags = "--language=" + language
 
@@ -306,12 +310,6 @@ def struphy_compile(
             else:
                 return
 
-        state["last_used_language"] = language
-        state["last_used_compiler"] = compiler
-        state["last_used_omp"] = flag_omp
-
-        utils.save_state(state)
-
         # Compile psydac kernels, note that this is a special function call in psydac-for-struphy.
         # Otherwise, psydac only allows for recompiling the kernels when installed in editable mode.
 
@@ -324,6 +322,8 @@ def struphy_compile(
             cmd += ["--compiler-config=" + compiler_config]
         else:
             cmd += ["--compiler-family=" + compiler]
+        if openmp:
+            cmd += ["--openmp"]
 
         subp_run(cmd)
 
@@ -361,7 +361,13 @@ def struphy_compile(
             "flags=" + flags,
             "flags_openmp=" + flag_omp,
         ]
+        if rebuild_openmp:
+            cmd.insert(1, "-B")
         subp_run(cmd)
+        state["last_used_language"] = language
+        state["last_used_compiler"] = compiler
+        state["last_used_omp"] = flag_omp
+        utils.save_state(state)
         print("Done.")
 
         cmd = [

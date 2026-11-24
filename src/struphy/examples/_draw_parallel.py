@@ -57,7 +57,7 @@ def main():
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process before sorting : ")
-    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_markers_max}")
 
     domain.show(
         grid_info=derham.domain_array,
@@ -70,7 +70,7 @@ def main():
 
     comm.Barrier()
     logger.info("Number of particles w/wo holes on each process after sorting : ")
-    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.markers.shape[0]}")
+    logger.info(f"Rank {rank} : {particles.n_mks_loc} {particles.n_markers_max}")
 
     domain.show(
         grid_info=derham.domain_array,
@@ -79,18 +79,18 @@ def main():
 
     # are all markers in the correct domain?
     conds = xp.logical_and(
-        particles.markers[:, :3] > derham.domain_array[rank, 0::3],
-        particles.markers[:, :3] < derham.domain_array[rank, 1::3],
+        particles.markers[:3] > derham.domain_array[rank, 0::3, None],
+        particles.markers[:3] < derham.domain_array[rank, 1::3, None],
     )
 
-    holes = particles.markers[:, 0] == -1.0
-    stay = xp.all(conds, axis=1)
+    holes = particles.markers[0] == -1.0
+    stay = xp.all(conds, axis=0)
 
-    error_mks = particles.markers[xp.logical_and(~stay, ~holes)]
+    error_mks = particles.markers[:, xp.logical_and(~stay, ~holes)]
 
     logger.info(
         f"rank {rank} | markers not on correct process: {xp.nonzero(xp.logical_and(~stay, ~holes))} \
-            \n corresponding positions:\n {error_mks[:, :3]}",
+            \n corresponding positions:\n {error_mks[:3]}",
     )
 
     assert error_mks.size == 0

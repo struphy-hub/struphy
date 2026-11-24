@@ -1,4 +1,3 @@
-import inspect
 import logging
 import os
 import shutil
@@ -10,6 +9,7 @@ from maybempi import MPI, launched_under_mpi
 from struphy import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
+from struphy.models.tests.regression import utils_regression as ur
 from struphy.simulation.sim import Simulation
 
 logger = logging.getLogger("struphy")
@@ -36,8 +36,43 @@ def _describe_dict_diff(a, b, path: str = "") -> list[str]:
 
 
 # generic function for calling model tests
-def call_test(model: StruphyModel, test_profiling: bool = False):
+def call_test(
+    model: StruphyModel,
+    test_profiling: bool = False,
+    case: str | None = None,
+    update_baselines: bool = False,
+    out_folder: str | None = None,
+):
+    """Run a model with its default parameter file, compare the result against the regression baseline (see
+    :mod:`struphy.models.tests.regression.utils_regression`), then test a restart and the post-processing.
+
+    Parameters
+    ----------
+    model : StruphyModel
+        The model to test.
+
+    test_profiling : bool
+        Whether to run with profiling.
+
+    case : str | None
+        Name of the regression baseline; defaults to the model name. Give a distinct name for every non-default
+        model variant (e.g. ``"LinearMHD-b_space=Hcurl-projected=True"``).
+
+    update_baselines : bool
+        Overwrite the baseline instead of comparing against it.
+
+    out_folder : str | None
+        Folder for the parameter file and the output, the same on all ranks (in tests: the ``mpi_out_folder``
+        fixture). Defaults to the current working directory.
+
+    Raises
+    ------
+    RegressionMismatch
+        If the run differs from the baseline.
+    """
     model_name = model.name()
+    if case is None:
+        case = model_name
 
     # Every communicator access goes through this one check: without an MPI launcher
     # the test still runs, as a single process, and must not touch MPI at all.
@@ -53,7 +88,7 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
     assert isinstance(model, StruphyModel), f"{model} of {type(model) = } is not a StruphyModel"
 
     # generate paramater file for testing
-    test_folder = os.path.join(os.getcwd(), "struphy_model_test")
+    test_folder = os.path.join(out_folder if out_folder is not None else os.getcwd(), "struphy_model_test")
     path = os.path.join(test_folder, f"params_{model_name}.py")
 
     if launched_under_mpi():
@@ -83,6 +118,9 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
     grid = params_in.grid
     derham_opts = params_in.derham_opts
     model = params_in.model
+
+    # reproducible random marker loading and noise
+    ur.set_seeds(model)
 
     # test
     sim = Simulation(
@@ -142,6 +180,15 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
 
     sim.run(profiling_activated=test_profiling)
 
+    # regression: compare (or update) the baseline of this run on rank 0, then tell all ranks;
+    # the restart below is not part of the regression data
+    regression_data = ur.collect(sim)
+    mismatch = None
+    if rank == 0:
+        mismatch = ur.check(case, size, regression_data, update_baselines=update_baselines)
+    if comm is not None:
+        mismatch = comm.bcast(mismatch, root=0)
+
     # test restart
     env.restart = True
     time_opts.Tend += time_opts.dt
@@ -159,3 +206,6 @@ def call_test(model: StruphyModel, test_profiling: bool = False):
         shutil.rmtree(test_folder)
     if comm is not None:
         comm.Barrier()
+
+    if mismatch is not None:
+        raise ur.RegressionMismatch(mismatch)

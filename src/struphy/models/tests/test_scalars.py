@@ -1,8 +1,12 @@
 import cunumpy as xp
+import pytest
 
 from struphy.models.scalars import KineticEnergyPIC, KineticEnergySPH, Scalar, Scalars
 from struphy.models.variables import PICVariable, SPHVariable
 from struphy.pic.particles import Particles5D
+
+# the scalars are computed from mock markers here, without parallel data structures
+pytestmark = pytest.mark.mpi_skip
 
 
 class _Constant(Scalar):
@@ -32,51 +36,62 @@ def test_nested_sum_follows_its_summands():
     assert scalars.dct["total"].value[0] == 60.0
 
 
-class _DriftKineticMarkers:
-    """Particles5D-like markers: weight in column 5, mu * |B_0| in column 8, plus holes and ghosts."""
+class _AllocatedConstant(Scalar):
+    """A scalar that reads its value from an object of `holder` created by the allocation, as BilinearEnergyFEEC
+    reads the spline vector of a variable."""
 
-    def __init__(self, Np):
-        self.Np = Np
-        self.markers = xp.zeros((Np + 4, 10), dtype=float)
-        self.markers[:Np, 5] = 2.0 / Np  # density 2; the weights carry the 1/Np of the Monte-Carlo estimate
-        self.markers[:Np, 8] = 3.0
-        self.markers[Np:, 5:9] = 1.0  # holes and ghosts, which must not be counted
-        self.valid_mks = xp.zeros(Np + 4, dtype=bool)
-        self.valid_mks[:Np] = True
+    def __init__(self, holder):
+        super().__init__()
+        self.holder = holder
 
-    @property
-    def markers_wo_holes_and_ghost(self):
-        return self.markers[self.valid_mks]
+    def allocate(self):
+        self.data = self.holder.data
 
-    def save_magnetic_background_energy(self):
-        pass
+    def _local_update(self):
+        self.local_value[0] = self.data[0]
+
+    def _mpi_sum(self):
+        self.value[0] = self.local_value[0]
 
 
-def test_drift_kinetic_magnetic_energy_is_weighted():
-    """The magnetic energy sum_p w_p mu_p |B_0(eta_p)| must not depend on Np, since the weights include 1/Np."""
+def test_scalars_follow_a_new_allocation():
+    """A second Simulation.run() allocates new objects; the scalars (and the summands of sums) must use those,
+    not the ones of the first run (issue #852)."""
     from types import SimpleNamespace
 
-    from struphy.models.drift_kinetic_electrostatic_adiabatic import DriftKineticElectrostaticAdiabatic
+    holder = SimpleNamespace(data=xp.array([1.0]))
+    a, b = _AllocatedConstant(holder), _AllocatedConstant(holder)
+    scalars = Scalars(a=a, total=a + b + _Constant(0.0))
 
-    for Np in (4, 400):
-        particles = _DriftKineticMarkers(Np)
-        model = SimpleNamespace(kinetic_ions=SimpleNamespace(var=SimpleNamespace(particles=particles)))
-        energy = DriftKineticElectrostaticAdiabatic._compute_en_particle_magnetic(model)
-        assert xp.isclose(energy, 6.0), f"magnetic energy = {energy} for Np = {Np}, expected 6.0"
+    scalars.update()
+    assert scalars.host_value("a")[0] == 1.0
+    assert scalars.host_value("total")[0] == 2.0
+
+    # second run: the allocation replaces the object, the old one keeps its last value
+    holder.data = xp.array([10.0])
+    scalars.reset_allocation()
+    scalars.update()
+    assert scalars.host_value("a")[0] == 10.0
+    assert scalars.host_value("total")[0] == 20.0
+
+    # within a run, the object fetched at the allocation is used
+    holder.data[0] = 20.0
+    scalars.update()
+    assert scalars.host_value("a")[0] == 20.0
 
 
 class _MovingParticles:
     """Markers whose accessors return copies, as `Particles.velocities` does (it is fancy-indexed)."""
 
     def __init__(self):
-        self._markers = xp.ones((4, 3), dtype=float)
+        self._markers = xp.ones((3, 4), dtype=float)
         self._weights = xp.ones(4, dtype=float)
         self._valid = xp.ones(4, dtype=bool)
         self.Np = 4
 
     @property
     def velocities(self):
-        return self._markers[self._valid]  # boolean indexing, as Particles does: a copy, not a view
+        return self._markers[:, self._valid]  # boolean indexing, as Particles does: a copy, not a view
 
     @property
     def weights(self):
@@ -116,10 +131,10 @@ def test_kinetic_energy_follows_the_markers():
 
 
 class _Fake5DParticles(Particles5D):
-    """Particles5D markers with velocity columns (v_par, mu), without the equilibrium needed to set them up."""
+    """Particles5D markers with velocity rows (v_par, mu), without the equilibrium needed to set them up."""
 
     def __init__(self, v_par, mu, weights):
-        self._velocities = xp.stack((v_par, mu), axis=1)
+        self._velocities = xp.stack((v_par, mu))
         self._weights = weights
 
     @property
@@ -132,7 +147,7 @@ class _Fake5DParticles(Particles5D):
 
 
 def test_kinetic_energy_ignores_magnetic_moment_of_5d_markers():
-    """For Particles5D the second velocity column is mu, which must not enter 0.5 * sum(w v^2)."""
+    """For Particles5D the second velocity row is mu, which must not enter 0.5 * sum(w v^2)."""
     v_par = xp.array([1.0, -2.0, 3.0])
     mu = xp.array([5.0, 7.0, 11.0])
     weights = xp.array([0.5, 1.0, 2.0])
@@ -145,19 +160,19 @@ def test_kinetic_energy_ignores_magnetic_moment_of_5d_markers():
 
 
 class _MarkersWithGhosts:
-    """Particles5D-like markers (weight in column 5, mu * |B| in column 8), plus holes and ghost copies of the first markers."""
+    """Particles5D-like markers (weight in row 5, mu * |B| in row 8), plus holes and ghost copies of the first markers."""
 
     def __init__(self, n_valid, n_ghosts):
-        n_rows = n_valid + n_ghosts + 2
+        n_markers_max = n_valid + n_ghosts + 2
         self.Np = n_valid
-        self.markers = xp.zeros((n_rows, 10), dtype=float)
-        self.markers[:n_valid, 5] = xp.linspace(0.5, 1.5, n_valid)
-        self.markers[:n_valid, 8] = 3.0
-        self.markers[n_valid : n_valid + n_ghosts] = self.markers[:n_ghosts]
-        self.markers[n_valid : n_valid + n_ghosts, -1] = -2.0  # ghosts
-        self.markers[n_valid + n_ghosts :, :-1] = -1.0  # holes
-        self.holes = self.markers[:, 0] == -1.0
-        self.valid_mks = ~xp.logical_or(self.holes, self.markers[:, -1] == -2.0)
+        self.markers = xp.zeros((10, n_markers_max), dtype=float)
+        self.markers[5, :n_valid] = xp.linspace(0.5, 1.5, n_valid)
+        self.markers[8, :n_valid] = 3.0
+        self.markers[:, n_valid : n_valid + n_ghosts] = self.markers[:, :n_ghosts]
+        self.markers[-1, n_valid : n_valid + n_ghosts] = -2.0  # ghosts
+        self.markers[:-1, n_valid + n_ghosts :] = -1.0  # holes
+        self.holes = self.markers[0] == -1.0
+        self.valid_mks = ~xp.logical_or(self.holes, self.markers[-1] == -2.0)
 
     def save_magnetic_background_energy(self):
         pass
@@ -167,16 +182,21 @@ class _MarkersWithGhosts:
 
 
 class _GuidingCenterMarkers:
-    """Particles5D-like markers: weight in column 5, mu * |B_0| in column 8 (the first diagnostics column)."""
+    """Particles5D-like markers: weight in row 5, mu * |B_0| in row 8 (the first diagnostics row)."""
 
     def __init__(self, Np):
         self.Np = Np
-        self.markers = xp.zeros((Np + 2, 10), dtype=float)
-        self.markers[:Np, 5] = 1.0 / Np  # the weights carry the 1/Np of the Monte-Carlo estimate
-        self.markers[:Np, 8] = 3.0
-        self.markers[Np:, 5:9] = -1.0  # holes
+        self.markers = xp.zeros((10, Np + 2), dtype=float)
+        self.markers[5, :Np] = 1.0 / Np  # the weights carry the 1/Np of the Monte-Carlo estimate
+        self.markers[8, :Np] = 3.0
+        self.markers[5:9, Np:] = -1.0  # holes
         self.holes = xp.zeros(Np + 2, dtype=bool)
         self.holes[Np:] = True
+        self.valid_mks = ~self.holes
+
+    def save_magnetic_background_energy(self):
+        # mu * |B_0| is already in row 8
+        pass
 
 
 def test_en_fB_ignores_ghost_markers():
@@ -185,6 +205,7 @@ def test_en_fB_ignores_ghost_markers():
 
     from struphy.models.guiding_center import GuidingCenter
     from struphy.models.linear_mhd_driftkinetic_cc import LinearMHDDriftkineticCC
+    from struphy.models.perturbative_mhd_with_q_driftkinetic_cc import PerturbativeMHDWithQDriftkineticCC
 
     def _models(particles):
         var = SimpleNamespace(particles=particles, species=SimpleNamespace(mass_number=1.0))
@@ -194,12 +215,13 @@ def test_en_fB_ignores_ghost_markers():
             energetic_ions=SimpleNamespace(var=var),
             _PB=SimpleNamespace(dot=lambda v: None),
             em_fields=SimpleNamespace(b_field=SimpleNamespace(spline=SimpleNamespace(vector=None))),
+            _b_par_filter=None,
         )
-        return {GuidingCenter: gc, LinearMHDDriftkineticCC: cc}
+        return {GuidingCenter: gc, LinearMHDDriftkineticCC: cc, PerturbativeMHDWithQDriftkineticCC: cc}
 
     with_ghosts = _models(_MarkersWithGhosts(n_valid=5, n_ghosts=3))
     without_ghosts = _models(_MarkersWithGhosts(n_valid=5, n_ghosts=0))
-    for model_class in (GuidingCenter, LinearMHDDriftkineticCC):
+    for model_class in (GuidingCenter, LinearMHDDriftkineticCC, PerturbativeMHDWithQDriftkineticCC):
         energy = model_class._compute_en_fB(with_ghosts[model_class])
         expected = model_class._compute_en_fB(without_ghosts[model_class])
         assert xp.isclose(energy, expected), f"{model_class.__name__}: en_fB = {energy} with ghosts, {expected} without"

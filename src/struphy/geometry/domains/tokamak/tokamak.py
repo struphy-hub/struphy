@@ -67,59 +67,57 @@ class Tokamak(PoloidalSplineTorus):
     ):
         if r_min != 0.0:
             r0 = r_min
-        # The equilibrium and the field-line tracing (SciPy) are host-only setup: they run on the NumPy
-        # backend, and the control points are copied to the active backend once.
+        # The field-line tracing evaluates psi on the active backend (batched Newton over all rays per flux surface);
+        # its small spline interpolation runs on the host, and the control points are copied to the active backend once.
         if equilibrium is None:
-            with xp.use_backend("numpy"):
-                equilibrium = EQDSKequilibrium()
+            equilibrium = EQDSKequilibrium()
         else:
             assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
         # use the params setter
         self.params = copy.deepcopy(locals())
 
-        with xp.use_backend("numpy"):
-            # get control points via field tracing between fluxes [psi_s, psi_e]
-            psi0, psi1 = equilibrium.psi_range[0], equilibrium.psi_range[1]
+        # get control points via field tracing between fluxes [psi_s, psi_e]
+        psi0, psi1 = equilibrium.psi_range[0], equilibrium.psi_range[1]
 
-            assert r_min >= 0.0, f"Inner radius must be non-negative, got {r_min = }."
+        assert r_min >= 0.0, f"Inner radius must be non-negative, got {r_min = }."
 
-            if r_min == 0.0:
-                # Default behaviour: keep exactly the historical psi_shifts logic.
-                psi_s = psi0 + psi_shifts[0] * 0.01 * (psi1 - psi0)
-            else:
-                # Annular domain: eta1=0 is the flux surface crossing the outboard
-                # midplane at distance r_min from the magnetic axis.
-                psi_s = equilibrium.psi(
-                    equilibrium.psi_axis_RZ[0] + r_min,
-                    equilibrium.psi_axis_RZ[1],
-                )
-
-            psi_e = psi1 - psi_shifts[1] * 0.01 * (psi1 - psi0)
-
-            assert (psi_s - psi0) * (psi_s - psi1) <= 0.0, (
-                f"Inner radius gives a flux outside equilibrium.psi_range: "
-                f"{r_min = }, {psi_s = }, {equilibrium.psi_range = }."
-            )
-
-            assert (psi_e - psi_s) * (psi1 - psi0) > 0.0, (
-                f"Invalid radial interval: {psi_s = }, {psi_e = }, {equilibrium.psi_range = }."
-            )
-
-            cx, cy = field_line_tracing(
-                equilibrium.psi,
-                equilibrium.psi_axis_RZ[0],
+        if r_min == 0.0:
+            # Default behaviour: keep exactly the historical psi_shifts logic.
+            psi_s = psi0 + psi_shifts[0] * 0.01 * (psi1 - psi0)
+        else:
+            # Annular domain: eta1=0 is the flux surface crossing the outboard
+            # midplane at distance r_min from the magnetic axis.
+            psi_s = equilibrium.psi(
+                equilibrium.psi_axis_RZ[0] + r_min,
                 equilibrium.psi_axis_RZ[1],
-                psi_s,
-                psi_e,
-                num_elements,
-                degree,
-                psi_power=psi_power,
-                xi_param=xi_param,
-                num_elements_pre=num_elements_pre,
-                p_pre=p_pre,
-                r0=r0,
             )
+
+        psi_e = psi1 - psi_shifts[1] * 0.01 * (psi1 - psi0)
+
+        assert (psi_s - psi0) * (psi_s - psi1) <= 0.0, (
+            f"Inner radius gives a flux outside equilibrium.psi_range: "
+            f"{r_min = }, {psi_s = }, {equilibrium.psi_range = }."
+        )
+
+        assert (psi_e - psi_s) * (psi1 - psi0) > 0.0, (
+            f"Invalid radial interval: {psi_s = }, {psi_e = }, {equilibrium.psi_range = }."
+        )
+
+        cx, cy = field_line_tracing(
+            equilibrium.psi,
+            equilibrium.psi_axis_RZ[0],
+            equilibrium.psi_axis_RZ[1],
+            psi_s,
+            psi_e,
+            num_elements,
+            degree,
+            psi_power=psi_power,
+            xi_param=xi_param,
+            num_elements_pre=num_elements_pre,
+            p_pre=p_pre,
+            r0=r0,
+        )
 
         cx, cy = xp.to_cunumpy(cx), xp.to_cunumpy(cy)
 

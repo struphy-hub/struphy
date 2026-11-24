@@ -1854,7 +1854,7 @@ def test_sph_no_slip_boundary_1d(
         ghost_inds = xp.where(particles.ghost_particles)[0]
         logger.info(f"After do_sort: {len(ghost_inds)} ghosts")
         if len(ghost_inds) > 0:
-            logger.info(f"First 10 ghost eta1: {particles.markers[ghost_inds[:10], 0]}")
+            logger.info(f"First 10 ghost eta1: {particles.markers[0, ghost_inds[:10]]}")
     particles.initialize_weights()
 
     if direction == "x":
@@ -1888,8 +1888,8 @@ def test_sph_no_slip_boundary_1d(
     )
 
     # if rank == 0 and len(ghost_inds) > 0:
-    #     logger.info("Ghost coefficients after eval:", particles.markers[ghost_inds[:10], particles.first_free_idx])
-    #     logger.info("Ghost positions after eval:", particles.markers[ghost_inds[:10], 0])
+    #     logger.info("Ghost coefficients after eval:", particles.markers[particles.first_free_idx, ghost_inds[:10]])
+    #     logger.info("Ghost positions after eval:", particles.markers[0, ghost_inds[:10]])
 
     if comm is not None:
         all_v1 = xp.zeros_like(v1)
@@ -2158,7 +2158,7 @@ def test_sph_full_box_row_detected():
 
     particles = _make_sph_particles_1d("periodic", None)
     particles.put_particles_in_boxes()
-    max_in_box = int(xp.max(xp.bincount(xp.int64(particles.markers_wo_holes[:, -2]))))
+    max_in_box = int(xp.max(xp.bincount(xp.int64(particles.markers_wo_holes[-2]))))
 
     # one spare column: fits, the -1 terminator is kept
     n_boxes = particles.sorting_boxes.boxes.shape[0]

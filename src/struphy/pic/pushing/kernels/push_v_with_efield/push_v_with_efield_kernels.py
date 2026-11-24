@@ -55,7 +55,13 @@ def push_v_with_efield(
     valid_mks = args_markers.valid_mks
 
     # fmt: off
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, e_form, e_cart)
+    #$ omp parallel private(dfinv, dfinvt, dfm, e_cart, e_form, eta1, eta2, eta3, ip, span1, span2, span3, thread_derham)
+    # fmt: on
+    # Each thread owns the mutable spline-evaluation buffers.
+    thread_derham = DerhamArguments(
+        args_derham.pn, args_derham.tn1, args_derham.tn2, args_derham.tn3, args_derham.starts
+    )
+    # fmt: off
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
@@ -63,9 +69,9 @@ def push_v_with_efield(
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -81,14 +87,14 @@ def push_v_with_efield(
         linalg_kernels.transpose(dfinv, dfinvt)
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, thread_derham)
 
         # electric field: 1-form components
         eval_1form_spline_mpi(
             span1,
             span2,
             span3,
-            args_derham,
+            thread_derham,
             e1_1,
             e1_2,
             e1_3,
@@ -99,4 +105,8 @@ def push_v_with_efield(
         linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
 
         # update velocities
-        markers[ip, 3:6] += dt * const_factor * e_cart
+        markers[3:6, ip] += dt * const_factor * e_cart
+
+    # fmt: off
+    #$ omp end parallel
+    # fmt: on

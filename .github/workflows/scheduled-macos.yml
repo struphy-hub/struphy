@@ -16,3 +16,11 @@ jobs:
     uses: ./.github/workflows/reusable-scheduled.yml
     with:
       os: macos-latest
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [macos-install-test]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml

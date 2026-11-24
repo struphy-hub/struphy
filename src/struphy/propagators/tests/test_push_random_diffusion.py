@@ -34,13 +34,13 @@ def test_random_diffusion_msd(algo):
     prop.allocate()
 
     np.random.seed(0)
-    valid = particles.markers[:, 0] != -1.0
-    x0 = particles.markers[valid, :3].copy()
+    valid = particles.markers[0] != -1.0
+    x0 = particles.markers[:3, valid].copy()
     prop(dt)
-    dx = particles.markers[valid, :3] - x0
+    dx = particles.markers[:3, valid] - x0
     dx -= np.round(dx)  # minimal image in the periodic unit cube
 
-    msd = np.mean(dx**2, axis=0) / (2 * diff_coeff * dt)
+    msd = np.mean(dx**2, axis=1) / (2 * diff_coeff * dt)
     # statistical error of the MSD estimate is sqrt(2 / 4000) ~ 0.022
     assert np.all(np.abs(msd - 1.0) < 0.1), msd
 

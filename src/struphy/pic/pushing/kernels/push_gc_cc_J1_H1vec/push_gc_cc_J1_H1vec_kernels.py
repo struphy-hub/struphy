@@ -64,13 +64,13 @@ def push_gc_cc_J1_H1vec(
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[0, ip] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
+        eta1 = markers[0, ip]
+        eta2 = markers[1, ip]
+        eta3 = markers[2, ip]
+        v = markers[3, ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -147,4 +147,4 @@ def push_gc_cc_J1_H1vec(
         # curl_norm_b dot electric field
         temp = linalg_kernels.scalar_dot(e, curl_norm_b)
 
-        markers[ip, 3] += temp / abs_b_star_para * v * dt
+        markers[3, ip] += temp / abs_b_star_para * v * dt

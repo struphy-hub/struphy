@@ -82,5 +82,10 @@ jobs:
           struphy params Maxwell -y
           struphy params VlasovAmpereOneSpecies -y
 
-
-      
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [test-in-container-with-reqs]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml

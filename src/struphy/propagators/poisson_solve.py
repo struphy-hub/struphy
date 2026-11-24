@@ -36,7 +36,7 @@ class PoissonSolve(ImplicitDiffusion):
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`Poisson`.
+        r"""Configuration options for :class:`Poisson`.
 
         Parameters
         ----------
@@ -93,6 +93,23 @@ class PoissonSolve(ImplicitDiffusion):
             ``verbose``, ``info``, ``recycle``).
             If ``None``, defaults to ``SolverParameters()``.
 
+        enforce_compatibility : bool, default=True
+            If ``True`` and the Poisson operator is singular (no Dirichlet boundary conditions
+            and no polar splines, e.g. fully periodic), the constant ("net charge") component of the
+            right-hand side is removed before the solve,
+
+            .. math::
+
+                \mathbf b \leftarrow \mathbf b - \frac{\mathbf 1^\top \mathbf b}{\mathbf 1^\top \mathbb M^0 \mathbf 1}\, \mathbb M^0 \mathbf 1\,,
+
+            such that the discrete compatibility condition :math:`\mathbf 1^\top \mathbf b = 0` holds
+            (:math:`\mathbf 1` is the coefficient vector of the constant function). This is equivalent to
+            a uniform neutralizing background; for particle sources, the net charge is Monte-Carlo noise.
+            Without it, the constant mode of ``phi`` becomes ``(net charge) / stab_eps``, and
+            ``grad phi`` loses digits to cancellation. ``stab_eps`` then only fixes the constant of ``phi``.
+            Set to ``False`` if ``stab_eps * stab_mat`` is a physical term (e.g. adiabatic electrons with
+            ``stab_mat="M0ad"``) and not just a stabilization.
+
         filter_params : dict[PICVariable | SPHVariable, FilterParameters], default=None
             If not None, specifies a filter to the accumulation of a specific variable.
 
@@ -118,6 +135,7 @@ class PoissonSolve(ImplicitDiffusion):
         precond_params: dict = None
         multigrid: MultiGridOptions = None
         solver_params: SolverParameters = None
+        enforce_compatibility: bool = True
         filter_params: dict[PICVariable | SPHVariable, FilterParameters] = None
 
         def __post_init__(self):
@@ -127,7 +145,7 @@ class PoissonSolve(ImplicitDiffusion):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsDiffusionPrecond)
             if self.precond is not None:
-                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
             _parse_directions(self.stab_average)
 
             # defaults
@@ -148,6 +166,7 @@ class PoissonSolve(ImplicitDiffusion):
         self,
         rho: FEECVariable | Callable | ParticlesToGrid | list = None,
         rho_coeffs: float | list = None,
+        delta_f_source: bool = False,
     ):
         """
         Parameters
@@ -166,8 +185,11 @@ class PoissonSolve(ImplicitDiffusion):
         rho_coeffs : float or list, default=None
             Multiplicative coefficient(s) applied to ``rho``.
             If ``None``, coefficients default to ``1.0`` for all sources.
+
+        delta_f_source : bool, default=False
+            Deposit particle sources with delta-f weights also for full-f markers, see :class:`ImplicitDiffusion`.
         """
-        super().__init__(rho=rho, rho_coeffs=rho_coeffs)
+        super().__init__(rho=rho, rho_coeffs=rho_coeffs, delta_f_source=delta_f_source)
 
     @property
     def options(self) -> Options:

@@ -138,11 +138,14 @@ class CurlCurlSolve(Propagator):
             - ``None``: no preconditioner.
             - ``"MassMatrixPreconditioner"``: Kronecker approximation of the inverse of
               the 1-form mass matrix ``M1`` (see :mod:`struphy.feec.preconditioner`).
+            - ``"PolarMassMatrixPreconditioner"``: 2D x 1D Kronecker approximation of the inverse
+              of ``M1`` on polar splines.
             - ``"StiffnessPreconditioner"``: Kronecker approximation of the inverse of
               ``curl.T @ diffusion_mat @ curl + sigma * stab_mat``
               (:class:`~struphy.feec.preconditioner.StiffnessPreconditioner` with ``derivative="curl"``,
               ``mid=diffusion_mat`` and ``stab=stab_mat``): block Jacobi with fast diagonalization,
-              plus a correction on the gradients (``kernel_correction``, default True).
+              plus a correction on the gradients (``kernel_correction``, default True). With polar
+              splines, this is a :class:`~struphy.feec.preconditioner.PolarStiffnessPreconditioner`.
             - ``"HiptmairXu"``: auxiliary space preconditioner of Hiptmair and Xu
               (:class:`~struphy.feec.preconditioner.HiptmairXuPreconditioner` with ``mid=diffusion_mat`` and
               ``stab=stab_mat``): smoother plus corrections on the gradients and on vector-valued
@@ -188,7 +191,7 @@ class CurlCurlSolve(Propagator):
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsCurlCurlPrecond)
             if self.precond is not None:
-                assert self.solver == "pcg", f"precond={self.precond!r} requires solver='pcg'."
+                assert self.solver in ("pcg", "pcg_sr"), f"precond={self.precond!r} requires solver='pcg' or 'pcg_sr'."
 
             # defaults
             if self.precond_params is None:
@@ -320,8 +323,8 @@ class CurlCurlSolve(Propagator):
             pc_class = getattr(preconditioner, precond)
             pc = pc_class(self.mass_ops.M1, **self.options.precond_params)
 
-        # (only "pcg" takes a preconditioner)
-        pc_kwargs = {"pc": pc} if self.options.solver == "pcg" else {}
+        # (only "pcg" and "pcg_sr" take a preconditioner)
+        pc_kwargs = {"pc": pc} if self.options.solver in ("pcg", "pcg_sr") else {}
         self._solver = inverse(
             lhs,
             self.options.solver,

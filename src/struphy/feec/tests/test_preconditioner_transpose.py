@@ -123,3 +123,29 @@ def test_mass_preconditioner_unweighted_small_periodic_direction():
     inv = inverse(mass_ops.Mv, "pcg", pc=pc, tol=1e-12, maxiter=100)
     inv.dot(x)
     assert inv._info["success"]
+
+
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("n", [5, 8])
+@pytest.mark.parametrize("transposed", [False, True])
+def test_fft_solver(n, transposed):
+    # FFTSolver against a dense solve, for one and several right-hand sides, with the transposed matrix
+    import numpy as np
+    from scipy.linalg import circulant
+
+    from struphy.feec.preconditioner import FFTSolver
+
+    rng = np.random.default_rng(0)
+    column = rng.random(n)
+    column[0] += n  # diagonally dominant: invertible
+    A = circulant(column)
+    A_solve = A.T if transposed else A
+    solver = FFTSolver(A)
+
+    rhs = rng.random(n)
+    np.testing.assert_allclose(solver.solve(rhs, transposed=transposed), np.linalg.solve(A_solve, rhs), rtol=1e-12)
+
+    rhs = rng.random((3, n))
+    out = np.empty_like(rhs)
+    solver.solve(rhs, out=out, transposed=transposed)
+    np.testing.assert_allclose(out, np.linalg.solve(A_solve, rhs.T).T, rtol=1e-12)

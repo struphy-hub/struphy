@@ -73,13 +73,13 @@ def test_eval_field(num_elements, degree, bcs):
 
     # evaluation points for markers
     Np = 33
-    markers = xp.random.rand(Np, 3)
-    markers_1 = xp.zeros((eta1.size, 3))
-    markers_1[:, 0] = eta1
-    markers_2 = xp.zeros((eta2.size, 3))
-    markers_2[:, 1] = eta2
-    markers_3 = xp.zeros((eta3.size, 3))
-    markers_3[:, 2] = eta3
+    markers = xp.random.rand(3, Np)
+    markers_1 = xp.zeros((3, eta1.size))
+    markers_1[0] = eta1
+    markers_2 = xp.zeros((3, eta2.size))
+    markers_2[1] = eta2
+    markers_3 = xp.zeros((3, eta3.size))
+    markers_3[2] = eta3
 
     # arrays for legacy evaluation
     arr1, arr2, arr3, is_sparse_meshgrid = Domain.prepare_eval_pts(eta1, eta2, eta3)
@@ -575,11 +575,11 @@ def test_eval_markers_on_breaks_and_squeeze_out():
         ],
     )
 
-    # markers on all process breaks, with extra (non-position) columns
+    # markers on all process breaks, with extra (non-position) rows
     breaks = [xp.unique(xp.concatenate([dom[:, 3 * d], dom[:, 3 * d + 1]])) for d in range(3)]
     pts = xp.array([[b1, b2, b3] for b1 in breaks[0] for b2 in breaks[1] for b3 in breaks[2]])
-    markers = xp.full((pts.shape[0], 5), 7.0)
-    markers[:, :3] = pts
+    markers = xp.full((5, pts.shape[0]), 7.0)
+    markers[:3] = pts.T
     markers_orig = markers.copy()
 
     vals = p0(markers)

@@ -22,14 +22,14 @@ def test_energy_utilities(mapping):
 
     # kinetic energy with zero vector potential: 0.5 * sum_p w_p |v_p|^2
     rng = xp.random.default_rng(0)
-    markers = xp.zeros((5, 7))
-    markers[:, :3] = rng.uniform(0.0, 1.0, (5, 3))
-    markers[:, 3:6] = rng.normal(size=(5, 3))
-    markers[:, 6] = rng.uniform(0.5, 1.5, 5)
-    markers[-1, 0] = -1.0  # hole
+    markers = xp.zeros((7, 5))
+    markers[:3] = rng.uniform(0.0, 1.0, (3, 5))
+    markers[3:6] = rng.normal(size=(3, 5))
+    markers[6] = rng.uniform(0.5, 1.5, 5)
+    markers[0, -1] = -1.0  # hole
     a = derham.V1.zeros()
     res = get_kinetic_energy_particles(a, derham, domain, SimpleNamespace(markers=markers))
-    ref = 0.5 * xp.sum(markers[:-1, 6] * xp.sum(markers[:-1, 3:6] ** 2, axis=1))
+    ref = 0.5 * xp.sum(markers[6, :-1] * xp.sum(markers[3:6, :-1] ** 2, axis=0))
     assert xp.isclose(res[0], ref)
 
     # thermal energy of a constant density n = e: int n ln(n) sqrt(g) = e * volume

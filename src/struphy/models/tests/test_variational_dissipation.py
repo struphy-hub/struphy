@@ -1,19 +1,43 @@
+import numpy as np
 import pytest
+from maybempi import MPI
 
 from struphy import EnvironmentOptions, FieldsBackground, Simulation, Time, domains, equils, grids, perturbations
-from struphy.models import ViscoResistiveLinearMHD_with_q, ViscoResistiveMHD
+from struphy.models import VariationalMHD, VariationalPerturbativeMHD_with_q
+from struphy.models.variables import FEECVariable
 
 
 def _run(model, tmp_path):
     sim = Simulation(
         model=model,
-        env=EnvironmentOptions(out_folders=str(tmp_path), sim_folder="sim"),
+        # tmp_path differs per rank: all ranks write to the folder of rank 0
+        env=EnvironmentOptions(out_folders=MPI.COMM_WORLD.bcast(str(tmp_path), root=0), sim_folder="sim"),
         time_opts=Time(dt=0.01, Tend=0.01),
         domain=domains.Cuboid(),
         equil=equils.HomogenSlab(),
         grid=grids.TensorProductGrid(num_elements=(8, 4, 1)),
     )
+    sim.allocate()
+    variables = [
+        v
+        for species in (model.mhd, getattr(model, "em_fields", None))
+        if species is not None
+        for v in vars(species).values()
+        if isinstance(v, FEECVariable)
+    ]
+    before = [v.spline.vector.toarray().copy() for v in variables]
     sim.run()
+    after = [v.spline.vector.toarray() for v in variables]
+    finite = all(np.all(np.isfinite(a)) for a in after)
+    # the perturbation is resolved by the grid: the state is not an equilibrium and evolves
+    changed = any(not np.array_equal(a, b) for a, b in zip(after, before))
+    comm = MPI.COMM_WORLD
+    if comm.Get_size() > 1:
+        # the same outcome on all ranks (rank-local coefficients)
+        finite = bool(comm.allreduce(int(finite), op=MPI.MIN))
+        changed = bool(comm.allreduce(int(changed), op=MPI.MAX))
+    assert finite
+    assert changed
 
 
 @pytest.mark.models
@@ -21,15 +45,16 @@ def _run(model, tmp_path):
 @pytest.mark.parametrize("fast", [False, True])
 def test_linear_q_viscosity_resistivity(fast, tmp_path):
     """Non-zero mu/eta enters the Newton iteration of VariationalViscosity/Resistivity (issue #422)."""
-    model = ViscoResistiveLinearMHD_with_q()
+    model = VariationalPerturbativeMHD_with_q(linear=True)
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="linear_q")
-    props.variat_qb.options = props.variat_qb.Options(model="linear_q")
+    props.variat_alfven.options = props.variat_alfven.Options(model="linear")
+    props.variat_sound.options = props.variat_sound.Options(model="linear_q")
     props.variat_viscous.options = props.variat_viscous.Options(model="linear_q", mu=0.1, fast=fast)
     props.variat_resist.options = props.variat_resist.Options(model="linear_q", eta=0.1, fast=fast)
     model.mhd.density.add_background(FieldsBackground())
     model.mhd.sqrt_p.add_background(FieldsBackground())
-    model.mhd.sqrt_p.add_perturbation(perturbations.TorusModesCos())
+    model.mhd.sqrt_p.add_perturbation(perturbations.ModesCos(ls=(1,), amps=(0.1,)))
     _run(model, tmp_path)
 
 
@@ -37,12 +62,12 @@ def test_linear_q_viscosity_resistivity(fast, tmp_path):
 @pytest.mark.fluid
 def test_full_viscosity_resistivity(tmp_path):
     """model="full" evaluates the density 3-form in VariationalViscosity (issue #446)."""
-    model = ViscoResistiveMHD()
+    model = VariationalMHD()
     props = model.propagators
     props.variat_dens.options = props.variat_dens.Options(model="full")
     props.variat_viscous.options = props.variat_viscous.Options(model="full", mu=0.1, mu_a=0.1)
     props.variat_resist.options = props.variat_resist.Options(model="full", eta=0.1, eta_a=0.1)
     model.mhd.density.add_background(FieldsBackground())
     model.mhd.entropy.add_background(FieldsBackground())
-    model.mhd.entropy.add_perturbation(perturbations.TorusModesCos())
+    model.mhd.entropy.add_perturbation(perturbations.ModesCos(ls=(1,), amps=(0.1,)))
     _run(model, tmp_path)

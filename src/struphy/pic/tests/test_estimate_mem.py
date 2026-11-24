@@ -17,7 +17,7 @@ def _make_domain_decomp(mpi_comm, num_elements=(8, 6, 4), degree=(2, 2, 2)):
 
 @pytest.mark.parametrize("Np", [1000, 12345])
 def test_dry_run_does_not_allocate_markers(Np):
-    """dry_run=True must compute the marker array sizing (n_rows, n_cols) without
+    """dry_run=True must compute the marker array sizing (n_markers_max, n_cols) without
     allocating the (potentially large) marker/sorting/buffer arrays."""
     mpi_comm = MPI.COMM_WORLD
     domain, domain_decomp = _make_domain_decomp(mpi_comm)
@@ -37,7 +37,7 @@ def test_dry_run_does_not_allocate_markers(Np):
     )
 
     # sizing info is available ...
-    assert particles.n_rows > 0
+    assert particles.n_markers_max > 0
     assert particles.n_cols > 0
 
     # ... but none of the (large) arrays that allocate() would create exist
@@ -61,7 +61,7 @@ def test_dry_run_does_not_allocate_markers(Np):
 def test_nbytes_local_matches_real_allocation(Np):
     """The dry_run estimate (nbytes_local) must equal the real memory footprint once the
     particles are actually allocated (dry_run=False), since both use the exact same
-    n_rows/n_cols sizing and the same (fixed) list of marker-related arrays."""
+    n_markers_max/n_cols sizing and the same (fixed) list of marker-related arrays."""
     mpi_comm = MPI.COMM_WORLD
     domain, domain_decomp = _make_domain_decomp(mpi_comm)
 
@@ -84,7 +84,7 @@ def test_nbytes_local_matches_real_allocation(Np):
     real = Particles6D(**common_kwargs, dry_run=False)
     real.draw_markers(sort=False)
 
-    assert dry.n_rows == real.n_rows
+    assert dry.n_markers_max == real.n_markers_max
     assert dry.n_cols == real.n_cols
 
     real_nbytes = (

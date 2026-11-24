@@ -22,7 +22,7 @@ def test_load_external(tmp_path):
 
     path = tmp_path / "markers.hdf5"
     with h5py.File(path, "w") as file:
-        file.create_dataset("markers", data=ref.markers[:n_mks])
+        file.create_dataset("markers", data=ref.markers[:, :n_mks])
 
     ext = Particles6D(
         loading_params=LoadingParameters(Np=1000, loading="external", dir_external=str(path)),
@@ -31,8 +31,8 @@ def test_load_external(tmp_path):
     )
     ext.draw_markers(sort=False)
 
-    assert xp.array_equal(ext.markers[:n_mks], ref.markers[:n_mks])
-    assert xp.all(ext.markers[n_mks:] == -1.0)
+    assert xp.array_equal(ext.markers[:, :n_mks], ref.markers[:, :n_mks])
+    assert xp.all(ext.markers[:, n_mks:] == -1.0)
 
 
 if __name__ == "__main__":

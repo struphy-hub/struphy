@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
+import numpy as np
 from feectools.linalg.basic import IdentityOperator
 from feectools.linalg.block import BlockLinearOperator, BlockVectorSpace
 from feectools.linalg.solvers import inverse
@@ -11,15 +12,20 @@ from line_profiler import profile
 from maybempi import MPI
 
 from struphy.feec import preconditioner
-from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.preconditioner import MassMatrixPreconditioner, mass_matrix_preconditioner
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
+    NewtonConvergence,
+    dot_normalized,
+    inv_norm2,
+    kinetic_metric,
 )
 from struphy.io.options import LiteralOptions, OptionsBase
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import HdivDensityOperators
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -37,7 +43,20 @@ class VariationalDensityEvolve(Propagator):
 
     Where :math:`\tilde{\rho}` is either :math:`\rho` for full-f models, :math:`\rho_0` for linear models or :math:`\rho_0+\rho` for :math:`\delta f` models.
 
-    In the case of linear model, the second equation is not updated.
+    In the case of linear model, the second equation is not updated. The linear models also accept a velocity
+    2-form, :math:`\mathbf u \in H(\textnormal{div})`; the density is then advected with
+    :math:`\mathbb D \mathcal Q^2` (:attr:`~struphy.feec.basis_projection_ops.BasisProjectionOperators.Q2`, as in
+    :class:`~struphy.propagators.magnetosonic.Magnetosonic`).
+
+    **Velocity in** :math:`H(\textnormal{div})` **for** ``model="perturbative"``: :math:`\mathbf u` is a 2-form,
+    :math:`\hat{\mathbf u} = \hat{\mathbf u}^2/\sqrt g`, with vanishing normal component at the boundary. The scheme
+    below is the same, with the mass matrix :math:`\mathbb M^v[\hat\rho]` replaced by the 2-form mass matrix of the
+    total density :math:`\mathbb M^2_\rho` (:class:`~struphy.propagators.utils.HdivDensityOperators`), the transport
+    operator :math:`\mathbb D \hat\Pi^2[\hat\rho^3 \vec{\boldsymbol\Lambda}^2/\sqrt g]`
+    (:class:`~struphy.feec.variational_utilities.L2_transport_operator` with ``u_space="Hdiv"``) and the kinetic energy
+    density :math:`\hat{\mathbf u}^{2,n} \cdot G \hat{\mathbf u}^{2,n+1}/(2g)`
+    (:class:`~struphy.feec.variational_utilities.KineticEnergyEvaluator` with ``u_space="Hdiv"``). Not available with
+    ``divdiv_alpha > 0``.
 
     On the logical domain:
 
@@ -64,7 +83,17 @@ class VariationalDensityEvolve(Propagator):
         \\[2mm]
         \end{align}
 
-    where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
+    with the weight :math:`\hat\rho^w = \hat\rho^n` of the transport operator (``weights="frozen"``) or the midpoint
+    :math:`\hat\rho^w = (\hat\rho^n + \hat\rho^{n+1})/2` (``weights="midpoint"``, the default for
+    ``model="perturbative"``), in place of :math:`\hat\rho^n` in :math:`\hat\Pi^2[\hat\rho^n \vec{\boldsymbol \Lambda}^v]`
+    above (for the :math:`\delta f` models, the total density :math:`\hat\rho_0 + \hat\rho^w`). The same operator
+    appears in both equations, so the energy is conserved with either weight; the midpoint weight makes the step
+    symmetric in time (self-adjoint), hence second order in time inside a Strang splitting. With midpoint weights the
+    Newton matrix below does not contain the derivative of the transport operator with respect to its weight, so the
+    iteration converges linearly (with a contraction factor of order :math:`\Delta t\, |\mathbf u|`) to the exact
+    solution of the scheme; the weight is updated in every iteration.
+
+    Here :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
 
     .. math::
         \hat{l}^3(f)_{ijk}=\int_{\hat{\Omega}} f \Lambda^3_{ijk} \textrm d \boldsymbol \eta
@@ -74,6 +103,13 @@ class VariationalDensityEvolve(Propagator):
     .. math::
 
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{\rho}_h^{k} = (\rho^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} .
+
+    With a div-div regularization (``divdiv_alpha`` :math:`=\alpha > 0`), the kinetic energy is
+    :math:`\int \rho |\mathbf u|^2/2 + \alpha \rho (\nabla \cdot \mathbf u)^2 \,\textrm d \mathbf x`: the mass matrix
+    :math:`\mathbb M^v[\hat\rho]` is replaced by the metric :math:`\mathbb A[\hat\rho]` of
+    :func:`~struphy.feec.variational_utilities.kinetic_metric` and :math:`\alpha \, d^{n+1} d^n / g` is added to
+    the argument of :math:`\hat l^3`, with :math:`d^k = (\mathbb D \mathbb U^v \mathbf u^k)^\top \vec{\boldsymbol \Lambda}^3`.
+    Since :math:`\mathbb A` is linear in :math:`\hat\rho`, the scheme conserves the regularized energy.
     """
 
     class Variables:
@@ -84,7 +120,8 @@ class VariationalDensityEvolve(Propagator):
         rho : FEECVariable
             Density variable in ``"L2"`` space.
         u : FEECVariable
-            Velocity variable in ``"H1vec"`` space.
+            Velocity variable in ``"H1vec"`` space, or in ``"Hdiv"`` space for ``model="linear"``, ``"linear_q"``
+            and ``"perturbative"``.
         """
 
         def __init__(self):
@@ -108,39 +145,57 @@ class VariationalDensityEvolve(Propagator):
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
-            assert new.space == "H1vec"
+            assert new.space in ("H1vec", "Hdiv")
             self._u = new
 
-    def __init__(self, s: FEECVariable = None):
+    def __init__(self, s: FEECVariable = None, divdiv_alpha: float = 0.0):
         """
         Parameters
         ----------
         s : FEECVariable, default=None
             Entropy density 3-form (``"L2"`` space) evolved alongside the mass density.
             If ``None``, only the density equation is solved.
+
+        divdiv_alpha : float, default=0.0
+            Coefficient of the div-div regularization of the kinetic energy (a parameter of the model, the same in
+            all its variational propagators), see :func:`~struphy.feec.variational_utilities.kinetic_metric`.
         """
+        assert divdiv_alpha >= 0.0, f"divdiv_alpha must be non-negative, got {divdiv_alpha}."
         self.variables = self.Variables()
         self.s = s
+        self.divdiv_alpha = divdiv_alpha
 
     @dataclass(repr=False)
     class Options(OptionsBase):
-        """Configuration options for :class:`VariationalDensityEvolve`.
+        r"""Configuration options for :class:`VariationalDensityEvolve`.
 
         Parameters
         ----------
-        model : {"pressureless", "barotropic", "full", "full_p", "full_q", "linear", "deltaf", "linear_q", "deltaf_q"}, default="barotropic"
+        model : {"pressureless", "barotropic", "full", "full_p", "full_q", "linear", "perturbative", "linear_q", "perturbative_q"}, default="barotropic"
             Density/thermodynamic model variant.
         gamma : float, default=5/3
             Adiabatic index.
         solver : LiteralOptions.OptsSymmSolver, default="pcg"
-            Linear solver for the mass-matrix solves
-            (the non-symmetric Jacobian is always solved with "pbicgstab").
+            Linear solver for the mass-matrix solves.
+        jacobian_solver : {"pbicgstab", "rpbicgstab", "gmres"}, default="pbicgstab"
+            Solver of the Schur complement of the non-symmetric Newton system (preconditioned with the
+            density-weighted mass matrix, except ``"gmres"``, which has no preconditioner). Its non-symmetric part grows
+            with the flow CFL number :math:`\Delta t\, |\mathbf u|\, k_{\max}`; when it is of order ten, BiCGStab
+            can break down, which raises an error. ``"gmres"`` does not break down this way, but needs many
+            iterations without preconditioner (not tested at large flow CFL numbers in 3D).
         precond : LiteralOptions.OptsMassPrecond, default="MassMatrixPreconditioner"
             Preconditioner used in linear solves.
+        weights : {"frozen", "midpoint"}, default=None
+            Density weight of the transport operator: at :math:`t^n` (``"frozen"``, first order in time) or at
+            :math:`t^{n+1/2}` (``"midpoint"``, symmetric step, second order in a Strang splitting). None gives
+            ``"midpoint"`` for ``model="perturbative"`` and ``"frozen"`` otherwise. Not used by the linear models
+            (``"linear"``, ``"linear_q"``), whose weight is the equilibrium density.
         solver_params : SolverParameters, default=None
-            Linear-solver controls.
+            Linear-solver controls. The solves are done for normalized right-hand sides, so ``tol`` is relative.
         nonlin_solver : NonlinearSolverParameters, default=None
-            Nonlinear iteration controls.
+            Nonlinear iteration controls. The iteration stops when the norm of the residual is below
+            ``tol`` times the norm of the state at :math:`t^n` if that is smaller than one (absolute otherwise), or
+            when it stagnates (with a warning).
         """
 
         # specific literals
@@ -151,21 +206,28 @@ class VariationalDensityEvolve(Propagator):
             "full_p",
             "full_q",
             "linear",
-            "deltaf",
+            "perturbative",
             "linear_q",
-            "deltaf_q",
+            "perturbative_q",
         ]
+        OptsJacobianSolver = Literal["pbicgstab", "rpbicgstab", "gmres"]
         # propagator options
         model: OptsModel = "barotropic"
         gamma: float = 5.0 / 3.0
         solver: LiteralOptions.OptsSymmSolver = "pcg"
         precond: LiteralOptions.OptsMassPrecond = "MassMatrixPreconditioner"
+        weights: LiteralOptions.OptsTimeWeights = None
+        jacobian_solver: OptsJacobianSolver = "pbicgstab"
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
 
         def __post_init__(self):
             # checks
             check_option(self.model, self.OptsModel)
+            if self.weights is None:
+                self.weights = "midpoint" if self.model == "perturbative" else "frozen"
+            check_option(self.weights, LiteralOptions.OptsTimeWeights)
+            check_option(self.jacobian_solver, self.OptsJacobianSolver)
             check_option(self.solver, LiteralOptions.OptsSymmSolver)
             check_option(self.precond, LiteralOptions.OptsMassPrecond)
 
@@ -198,17 +260,40 @@ class VariationalDensityEvolve(Propagator):
         self._lin_solver = self.options.solver_params
         self._nonlin_solver = self.options.nonlin_solver
         self._linearize = self.options.nonlin_solver.linearize
+        self._midpoint = self.options.weights == "midpoint"
 
         self._info = self.options.nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
 
-        self._Mrho = self.mass_ops.WMMnew
-        pc = MassMatrixPreconditioner(self._Mrho, dim_reduce=None)
+        self._u_space = self.variables.u.space
+        if self._u_space == "Hdiv":
+            assert self._model in ("linear", "linear_q", "perturbative"), (
+                f'A velocity in "Hdiv" space needs model="linear", "linear_q" or "perturbative", got model="{self._model}".'
+            )
+            if self._model in ("linear", "linear_q"):
+                # only the explicit advection of the linear models, with the equilibrium density as in Magnetosonic
+                self.divPirho = self.derham.div @ self.basis_ops.Q2
+                rho = self.variables.rho.spline.vector
+                self._tmp_rhon1 = rho.space.zeros()
+                self._tmp_rho_advection = rho.space.zeros()
+                return
+            assert self.divdiv_alpha == 0.0, 'A velocity in "Hdiv" needs divdiv_alpha=0.'
+            # density-weighted 2-form mass matrix M^2_rho (assembled in _update_weighted_MM)
+            self._hdiv_ops = HdivDensityOperators(self.derham, self.domain, self.mass_ops)
+            self._Mrho = self._hdiv_ops.M_rho
+        else:
+            self._Mrho = kinetic_metric(self.derham, self.mass_ops, self.basis_ops, self.divdiv_alpha)
+        self._u_form = self.derham.space_to_form[self._u_space]
+        # "cg" takes no preconditioner; the density-weighted mass matrix also preconditions the regularized metric
+        self._Mrho_pc = (
+            mass_matrix_preconditioner(self._Mrho if self._u_space == "Hdiv" else self.mass_ops.WMMnew)
+            if self.options.solver in ("pcg", "pcg_sr")
+            else None
+        )
         self._Mrho_inv = inverse(
             self._Mrho,
             self.options.solver,
-            # "cg" takes no preconditioner
-            **({"pc": pc} if self.options.solver == "pcg" else {}),
-            tol=1e-16,
+            **({"pc": self._Mrho_pc} if self._Mrho_pc is not None else {}),
+            tol=1e-10,
             maxiter=500,
             recycle=True,
         )
@@ -222,13 +307,20 @@ class VariationalDensityEvolve(Propagator):
 
         # Projector
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
-        self._kinetic_evaluator = KineticEnergyEvaluator(self.derham, self.domain, self.mass_ops)
+        self._kinetic_evaluator = KineticEnergyEvaluator(
+            self.derham,
+            self.domain,
+            self.mass_ops,
+            basis_ops=self.basis_ops,
+            divdiv_alpha=self.divdiv_alpha,
+            u_space=self._u_space,
+        )
         self._initialize_projectors_and_mass()
         if self._model in ["linear", "linear_q"]:
             rhotmp = self.projected_equil.n3
-        elif self._model in ["deltaf", "deltaf_q"]:
-            self._tmp_rho_deltaf = rho.space.zeros()
-            rhotmp = rho.copy(out=self._tmp_rho_deltaf)
+        elif self._model in ["perturbative", "perturbative_q"]:
+            self._tmp_rho_perturbative = rho.space.zeros()
+            rhotmp = rho.copy(out=self._tmp_rho_perturbative)
             rhotmp += self.projected_equil.n3
         else:
             rhotmp = rho
@@ -280,8 +372,8 @@ class VariationalDensityEvolve(Propagator):
             self.update_feec_variables(rho=rhon1, u=un)
             return
 
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon
@@ -294,8 +386,8 @@ class VariationalDensityEvolve(Propagator):
         else:
             s = None
 
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon
@@ -303,8 +395,8 @@ class VariationalDensityEvolve(Propagator):
 
         rhon1 = rhon.copy(out=self._tmp_rhon1)
         rhon1 += self._tmp_rhon_diff
-        if self._model in ["deltaf", "deltaf_q"]:
-            rho = rhon1.copy(out=self._tmp_rho_deltaf)
+        if self._model in ["perturbative", "perturbative_q"]:
+            rho = rhon1.copy(out=self._tmp_rho_perturbative)
             rho += self.projected_equil.n3
         else:
             rho = rhon1
@@ -313,7 +405,8 @@ class VariationalDensityEvolve(Propagator):
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver.tol
-        err = tol + 1
+        # stopping criterion relative to the state at t^n, with a check for stagnation
+        conv = NewtonConvergence("VariationalDensityEvolve", tol, self._get_error_newton(mn, rhon))
 
         for it in range(self._nonlin_solver.maxiter):
             # Newton iteration
@@ -322,13 +415,14 @@ class VariationalDensityEvolve(Propagator):
             un12 += un1
             un12 *= 0.5
 
-            # rhon12 = rhon.copy(out=self._tmp_rhon12)
-            # rhon12 += rhon1
-            # rhon12 *= 0.5
-            # if self._model == "deltaf":
-            #     rhon12 += self.projected_equil.n3
-
-            # self._update_Pirho(rhon12)
+            if self._midpoint:
+                # density weight of the transport operator at t^{n+1/2}, from the current iterate
+                rhon12 = rhon.copy(out=self._tmp_rhon12)
+                rhon12 += rhon1
+                rhon12 *= 0.5
+                if self._model in ["perturbative", "perturbative_q"]:
+                    rhon12 += self.projected_equil.n3
+                self._update_Pirho(rhon12)
 
             # Update the linear form
             self._update_linear_form_dl_drho(rhon, rhon1, un, un1, s)
@@ -356,12 +450,12 @@ class VariationalDensityEvolve(Propagator):
             mn_diff += advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, rhon_diff)
+            stop = conv.stop(self._get_error_newton(mn_diff, rhon_diff), it)
 
             if self._info:
-                logger.info(f"iteration : {it} error : {err}")
+                logger.info(f"iteration : {it} relative error : {conv.err}")
 
-            if err < tol**2 or xp.isnan(err):
+            if stop:
                 break
 
             # Derivative for Newton
@@ -371,16 +465,24 @@ class VariationalDensityEvolve(Propagator):
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = rhon_diff
 
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
+            # normalized right-hand side: the tolerance of the linear solver is relative to the residual
+            incr = dot_normalized(self._inv_Jacobian, self._tmp_f, self._tmp_incr)
             if self._info:
                 logger.info(f"information on the linear solver : {self._inv_Jacobian._solver._info}")
+            if not np.isfinite(incr.inner(incr)):
+                raise RuntimeError(
+                    f"VariationalDensityEvolve: the linear solver of the Newton system ({self.options.jacobian_solver}) "
+                    f"broke down (non-finite Newton increment, solver info {self._inv_Jacobian._solver._info}). This "
+                    "happens for large flow CFL numbers dt |u| k_max (of order ten); reduce the time step. "
+                    'Options(jacobian_solver="gmres") may help, but it has no preconditioner and is slow in 3D.'
+                )
             un1 -= incr[0]
             rhon1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
 
-            if self._model in ["deltaf", "deltaf_q"]:
-                rho = rhon1.copy(out=self._tmp_rho_deltaf)
+            if self._model in ["perturbative", "perturbative_q"]:
+                rho = rhon1.copy(out=self._tmp_rho_perturbative)
                 rho += self.projected_equil.n3
                 self._update_weighted_MM(rho)
             else:
@@ -388,10 +490,7 @@ class VariationalDensityEvolve(Propagator):
 
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
-            logger.info(
-                f"!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err =} \n {tol**2 =}",
-            )
+        conv.warn_if_not_converged(it, self._nonlin_solver.maxiter)
 
         self._tmp_un_diff = un1 - un
         self._tmp_rhon_diff = rhon1 - rhon
@@ -404,20 +503,18 @@ class VariationalDensityEvolve(Propagator):
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
-        self.divPirho = L2_transport_operator(self.derham)
+        self.divPirho = L2_transport_operator(self.derham, u_space=self._u_space, phys_domain=self.domain)
         self.divPirhoT = self.divPirho.T
 
-        # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixPreconditioner(
-            self.mass_ops.Mv,
-            dim_reduce=None,
-        )
+        # Inverse mass matrix of the velocity space (Mv or M2) needed to compute the error
+        M_u = self.mass_ops.M2 if self._u_space == "Hdiv" else self.mass_ops.Mv
+        self.pc_Mv = preconditioner.mass_matrix_preconditioner(M_u)
         self._inv_Mv = inverse(
-            self.mass_ops.Mv,
+            M_u,
             self.options.solver,
             # "cg" takes no preconditioner
-            **({"pc": self.pc_Mv} if self.options.solver == "pcg" else {}),
-            tol=1e-16,
+            **({"pc": self.pc_Mv} if self.options.solver in ("pcg", "pcg_sr") else {}),
+            tol=1e-10,
             maxiter=1000,
             verbose=False,
             recycle=True,
@@ -443,7 +540,7 @@ class VariationalDensityEvolve(Propagator):
             self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
 
         Jacs = BlockVectorSpace(
-            self.derham.Vvpol,
+            getattr(self.derham, f"V{self._u_form}pol"),
             self.derham.V3pol,
         )
 
@@ -459,17 +556,24 @@ class VariationalDensityEvolve(Propagator):
         self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_divPirho = 2 * self.divPirho
 
-        self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
-        self._Jacobian[0, 1] = self._kinetic_evaluator.M_un1 + self._dt_pc_divPirhoT @ self._M_drho
+        M_un = self._kinetic_evaluator.M_un
+        M_un1 = self._kinetic_evaluator.M_un1
+        if self.divdiv_alpha > 0.0:
+            # derivatives of the div-div term of the kinetic energy
+            M_un = M_un + (2.0 * self.divdiv_alpha) * self._kinetic_evaluator.M_divun
+            M_un1 = M_un1 + (2.0 * self.divdiv_alpha) * self._kinetic_evaluator.M_divun1
+        self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ M_un
+        self._Jacobian[0, 1] = M_un1 + self._dt_pc_divPirhoT @ self._M_drho
         self._Jacobian[1, 0] = self._dt2_divPirho
         self._Jacobian[1, 1] = self._I3
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
+        jac_solver = self.options.jacobian_solver
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
-            "pbicgstab",
-            pc=self._Mrho_inv,
+            jac_solver,
+            pc=None if jac_solver == "gmres" else self._Mrho_inv,
             tol=self._lin_solver.tol,
             maxiter=self._lin_solver.maxiter,
             verbose=self._lin_solver.verbose,
@@ -528,18 +632,26 @@ class VariationalDensityEvolve(Propagator):
         self.divPirhoT.update_coeffs(rho)
 
     def _update_weighted_MM(self, rho):
-        """update the weighted mass matrix operator"""
-        self._Mrho.spline_functions["l2_field"].vector = rho
-        self._Mrho.assemble()
+        """update the density-weighted mass matrices of the kinetic energy"""
+        if self._u_space == "Hdiv":
+            self._hdiv_ops.update_M_rho(rho)
+            if getattr(self, "_Mrho_pc", None) is not None:
+                self._Mrho_pc.refresh()
+            return
+        self.mass_ops.WMMnew.spline_functions["l2_field"].vector = rho
+        self.mass_ops.WMMnew.assemble()
+        if self.divdiv_alpha > 0.0:
+            # same density spline function as WMMnew
+            self.mass_ops.WMM3new.assemble()
 
-        logger.debug(f"In VariationalDensityEvolve: {self._Mrho_inv._options.get('pc') = }")
-        if hasattr(self, "_Mrho_inv") and isinstance(self._Mrho_inv._options.get("pc"), MassMatrixPreconditioner):
-            self._Mrho_inv._options["pc"].update_mass_operator(self._Mrho)
+        if getattr(self, "_Mrho_pc", None) is not None:
+            self._Mrho_pc.refresh()
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kinetic energy"""
 
         self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
+        self._kinetic_evaluator.add_divdiv_grid(un, un1, self._eval_dl_drho)
 
         if self._model == "barotropic":
             # discrete gradient of rho*U(rho) = rho**2/2: (rho^n + rho^{n+1})/2
@@ -598,6 +710,9 @@ class VariationalDensityEvolve(Propagator):
     def _get_jacobian(self, dt, rhon, rhon1, un, un1, sn):
         self._kinetic_evaluator.assemble_M_un(un)
         self._kinetic_evaluator.assemble_M_un1(un1)
+        if self.divdiv_alpha > 0.0:
+            self._kinetic_evaluator.assemble_M_divun(un)
+            self._kinetic_evaluator.assemble_M_divun1(un1)
 
         if self._model == "barotropic":
             # self._M_drho is constant (-M3/2), set in allocate
@@ -619,9 +734,7 @@ class VariationalDensityEvolve(Propagator):
 
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""
-        err_u = self._inv_Mv.dot_inner(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            mn_diff,
-        )
+        # the inverse mass matrix is applied to the normalized residual (relative solver tolerance)
+        err_u = inv_norm2(self._inv_Mv, self.derham.boundary_ops[self._u_form].dot(mn_diff))
         err_rho = self.mass_ops.M3.dot_inner(rhon_diff, rhon_diff)
         return max(err_rho, err_u)

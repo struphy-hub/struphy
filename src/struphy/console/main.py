@@ -91,6 +91,9 @@ def struphy():
     # 7. output inspection and post-processing
     add_parser_output(subparsers)
 
+    # 8. usage guide for AI coding agents
+    add_parser_agents(subparsers)
+
     # parse argument
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
@@ -114,10 +117,9 @@ def struphy():
 
     for flag, message in model_flags:
         if flag:
-            logger.info(message)
-            logger.info(
-                "For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html"
-            )
+            # output the user asked for: print (the struphy logger only shows warnings by default)
+            print(message)
+            print("For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html")
             sys.exit(0)
 
     # load sub-command function
@@ -129,6 +131,7 @@ def struphy():
         "profile": ("struphy.console.profile", "struphy_profile"),
         "test": ("struphy.console.test", "struphy_test"),
         "output": ("struphy.console.output", "struphy_output"),
+        "agents": ("struphy.console.agents", "struphy_agents"),
     }
 
     # import struphy.console.MODULE.FUNC_NAME as func
@@ -444,6 +447,28 @@ def add_parser_output(subparsers):
     parser.add_argument("--directory", help="report directory")
 
 
+def add_parser_agents(subparsers):
+    """Add the command that prints or installs the usage guide for AI coding agents."""
+    parser = subparsers.add_parser(
+        "agents",
+        help="print the usage guide for AI coding agents, or install its skills into a project",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--path",
+        dest="show_path",
+        action="store_true",
+        help="print only the folder of the guide and its skills",
+    )
+    group.add_argument(
+        "--install",
+        nargs="?",
+        const=".",
+        metavar="DIR",
+        help="copy the skills to DIR/.claude/skills/ and point DIR/AGENTS.md and DIR/CLAUDE.md to the guide (default DIR: cwd)",
+    )
+
+
 def add_parser_test(subparsers, list_models):
     try:
         import pytest_mpi
@@ -531,10 +556,10 @@ def print_short_help(parser):
     lines = parser.format_help().splitlines()
     bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
     bool_2 = [i for i, x in enumerate(lines) if "available commands:" in x]
-    logger.info(lines[bool_1[0]])
-    logger.info(lines[bool_1[0] + 1])
+    print(lines[bool_1[0]])
+    print(lines[bool_1[0] + 1])
     for li in lines[bool_2[0] :]:
-        logger.info(li)
+        print(li)
 
 
 class NoSubparsersMetavarFormatter(HelpFormatter):

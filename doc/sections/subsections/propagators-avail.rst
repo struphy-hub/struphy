@@ -16,6 +16,11 @@ Field solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.adiabatic_poisson_solve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.curl_curl_solve
     :members:
     :exclude-members: options, allocate
@@ -39,7 +44,57 @@ Linear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.shear_alfven_curl_curl_propagator
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.magnetosonic
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.magnetosonic_cross_b0
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.sound_wave_linear
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_pressure_gradient
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.sound_wave_linear_with_q
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_q_gradient
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.sound_wave_nonlinear_with_q
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.shear_alfven_nonlinear
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.momentum_advection
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.background_current
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -61,6 +116,11 @@ Linear MHD solvers
 
 Nonlinear MHD solvers
 ^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: struphy.propagators.variational_alfven_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
 
 .. automodule:: struphy.propagators.variational_density_evolve
     :members:
@@ -92,7 +152,32 @@ Nonlinear MHD solvers
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.variational_linear_base
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_linear_alfven_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_linear_sound_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_nonlinear_pb_evolve
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.variational_resistivity
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.variational_sound_evolve
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -156,12 +241,27 @@ Particle pushing
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.push_vxb_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.push_guiding_center_bx_estar
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.push_guiding_center_bx_estar_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.push_guiding_center_parallel
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.push_guiding_center_parallel_1form
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -187,10 +287,25 @@ Vlasov-Maxwell coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.vlasov_maxwell_coupling
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.drift_kinetic_maxwell_coupling
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 MHD-kinetic coupling
 ^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.propagators.current_coupling_5d_curlb
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.current_coupling_5d_curlb_1form
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -200,7 +315,17 @@ MHD-kinetic coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.current_coupling_5d_density_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.current_coupling_5d_gradb
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.current_coupling_5d_gradb_1form
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
@@ -210,12 +335,27 @@ MHD-kinetic coupling
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.current_coupling_6d_current_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.current_coupling_6d_density
     :members:
     :exclude-members: options, allocate
     :show-inheritance:
 
+.. automodule:: struphy.propagators.current_coupling_6d_density_1form
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
 .. automodule:: struphy.propagators.shear_alfven_current_coupling_5d
+    :members:
+    :exclude-members: options, allocate
+    :show-inheritance:
+
+.. automodule:: struphy.propagators.shear_alfven_curl_curl_current_coupling_5d
     :members:
     :exclude-members: options, allocate
     :show-inheritance:

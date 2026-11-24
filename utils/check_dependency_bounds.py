@@ -240,19 +240,11 @@ def build_report(pyproject_data, optional_groups, version_scope):
             report["status"] = "error"
             continue
 
-        if upper_bound is None:
-            entry_report["status"] = "outdated"
-            entry_report["message"] = "No upper bound declared"
+        if any(specifier.startswith("==") for specifier in requirement["specifiers"]):
+            # an exact pin is deliberate (e.g. ruff, whose formatting changes between versions)
+            entry_report["status"] = "pinned"
+            entry_report["message"] = "Exact pin, not managed"
             report["checked"].append(entry_report)
-            report["outdated"].append(
-                {
-                    "kind": "missing-upper-bound",
-                    "dependency": package_name,
-                    "group": source_group,
-                    "requirement": entry,
-                }
-            )
-            report["status"] = "outdated"
             continue
 
         latest_version, lookup_error = latest_stable_version(package_name, normalized_name)
@@ -272,7 +264,21 @@ def build_report(pyproject_data, optional_groups, version_scope):
 
         latest_version_tuple, latest_version_text = latest_version
         entry_report["latest_stable"] = latest_version_text
-        if is_outdated(upper_bound, latest_version, version_scope):
+        if upper_bound is None:
+            entry_report["status"] = "outdated"
+            entry_report["message"] = "No upper bound declared"
+            report["outdated"].append(
+                {
+                    "kind": "missing-upper-bound",
+                    "dependency": package_name,
+                    "group": source_group,
+                    "requirement": entry,
+                    "latest_stable": latest_version_text,
+                }
+            )
+            if report["status"] != "error":
+                report["status"] = "outdated"
+        elif is_outdated(upper_bound, latest_version, version_scope):
             entry_report["status"] = "outdated"
             report["outdated"].append(
                 {
@@ -315,7 +321,8 @@ def print_summary(report):
         for item in report["outdated"]:
             if item["kind"] == "missing-upper-bound":
                 print(
-                    f"- {item['dependency']} ({item['group']}): no upper bound declared in {item['requirement']}",
+                    f"- {item['dependency']} ({item['group']}): no upper bound declared in {item['requirement']}"
+                    f" (latest stable {item['latest_stable']})",
                     file=sys.stderr,
                 )
                 continue

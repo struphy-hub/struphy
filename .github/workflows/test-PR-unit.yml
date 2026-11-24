@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - devel
+  # keeps the testmon data of devel (restored by new PRs) up to date
+  push:
+    branches:
+      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0"
@@ -21,3 +25,11 @@ jobs:
       n-procs: 1
     secrets:
       ghcr-token: ${{ secrets.GHCR_TOKEN }}
+
+  # opens/updates a "CI failing" issue when a scheduled run or a run on devel fails
+  report-failure:
+    needs: [unit-test-serial]
+    if: ${{ failure() && contains(fromJSON('["schedule", "push"]'), github.event_name) }}
+    permissions:
+      issues: write
+    uses: ./.github/workflows/reusable-report-failure.yml

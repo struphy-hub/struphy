@@ -58,7 +58,7 @@ class CloneConfig:
                     logger.info(
                         f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
                     )
-                MPI.COMM_WORLD.Abort()  # MPI abort instead of sys.exit(1)
+                MPI.COMM_WORLD.Abort(1)  # MPI abort instead of sys.exit(1)
 
             # Determine the color and rank within each clone
             ranks_per_clone = size // num_clones
@@ -239,7 +239,11 @@ class CloneConfig:
             logger.info(message)
 
     def free(self):
-        """Free the MPI communicators associated with this clone configuration."""
+        """Free the MPI communicators associated with this clone configuration.
+
+        Afterwards the model of the simulation can no longer be used (derham and accumulations use these
+        communicators); :meth:`~struphy.simulation.sim.Simulation.run` therefore does not call this.
+        """
         self.sub_comm.Free()
         self.inter_comm.Free()
 

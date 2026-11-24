@@ -42,7 +42,7 @@ def test_draw(ppb, nx, ny, nz):
     )
     particles.draw_markers(sort=False)
 
-    # logger.info(f'{particles.markers[:, :3] = }')
+    # logger.info(f'{particles.markers[:3] = }')
     # logger.info(f'{rank = }, {particles.positions = }')
 
     # test
@@ -68,9 +68,9 @@ def test_draw(ppb, nx, ny, nz):
 
     # logger.info(f'\n{rank = }, {e1 = }')
 
-    assert xp.allclose(particles.positions[:, 0], e1)
-    assert xp.allclose(particles.positions[:, 1], e2)
-    assert xp.allclose(particles.positions[:, 2], e3)
+    assert xp.allclose(particles.positions[0], e1)
+    assert xp.allclose(particles.positions[1], e2)
+    assert xp.allclose(particles.positions[2], e3)
 
 
 @pytest.mark.parametrize("ppb", [8, 12])
@@ -126,8 +126,8 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
 
         if ny == nz == 1:
             plt.figure(figsize=(15, 10))
-            plt.plot(particles.positions[:, 0], xp.zeros_like(particles.weights), "o", label="markers")
-            plt.plot(particles.positions[:, 0], particles.weights, "-o", label="weights")
+            plt.plot(particles.positions[0], xp.zeros_like(particles.weights), "o", label="markers")
+            plt.plot(particles.positions[0], particles.weights, "-o", label="weights")
             plt.plot(
                 xp.linspace(xl, xr, 100),
                 particles.f_init(xp.linspace(xl, xr, 100), 0.5, 0.5).squeeze(),
@@ -151,7 +151,7 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
             ax.set_xticks(xp.linspace(0, 1, nx + 1))
             ax.set_yticks(xp.linspace(0, 1, ny + 1))
             coloring = particles.weights
-            plt.scatter(particles.positions[:, 0], particles.positions[:, 1], c=coloring, s=40)
+            plt.scatter(particles.positions[0], particles.positions[1], c=coloring, s=40)
             plt.grid(c="k")
             plt.axis("square")
             plt.title("initial markers")
