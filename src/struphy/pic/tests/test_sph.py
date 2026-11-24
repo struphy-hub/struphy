@@ -60,6 +60,7 @@ def _particles(
     bufsize=1.0,
     box_bufsize=2.0,
     dims_mask=(True, True, True),
+    min_width_spacings=4.0,
 ):
     """ParticlesSPH with drawn and MPI-sorted markers and initialized weights."""
     background.domain = domain
@@ -68,7 +69,7 @@ def _particles(
         loading_params=loading_params,
         boundary_params=BoundaryParameters(bc_sph=bc_sph),
         sorting_params=SortingParameters(boxes_per_dim=boxes_per_dim, box_bufsize=box_bufsize, dims_mask=dims_mask),
-        sph_params=SPHParameters(kernel=kernel, kernel_width=kernel_width),
+        sph_params=SPHParameters(kernel=kernel, kernel_width=kernel_width, min_width_spacings=min_width_spacings),
         bufsize=bufsize,
         domain=domain,
         background=background,
@@ -253,8 +254,16 @@ def test_evaluation_SPH_Np_convergence_1d(bc_x, tesselation, show_plot=False):
     err_vec = []
     for loading_params in loadings:
         background = ConstantVelocity(n=1.5, density_profile="constant")
+        # the convergence study includes under-resolved kernels (few markers per h) on purpose
         particles = _particles(
-            domain, (12, 1, 1), (bc_x, "periodic", "periodic"), loading_params, background, comm, pert
+            domain,
+            (12, 1, 1),
+            (bc_x, "periodic", "periodic"),
+            loading_params,
+            background,
+            comm,
+            pert,
+            min_width_spacings=1.0,
         )
         all_eval = _allreduce(particles.eval_density(ee1, ee2, ee3), comm)
         err_vec += [_rel_err(all_eval, exact_eval)]
@@ -299,7 +308,15 @@ def test_evaluation_SPH_h_convergence_1d(bc_x, tesselation, show_plot=False):
     for h in h_vec:
         background = ConstantVelocity(n=1.5, density_profile="constant")
         particles = _particles(
-            domain, (12, 1, 1), (bc_x, "periodic", "periodic"), loading_params, background, comm, pert, kernel_width=h
+            domain,
+            (12, 1, 1),
+            (bc_x, "periodic", "periodic"),
+            loading_params,
+            background,
+            comm,
+            pert,
+            kernel_width=h,
+            min_width_spacings=1.0,  # under-resolved widths on purpose
         )
         assert particles.sph_kernel.h == h
         all_eval = _allreduce(particles.eval_density(ee1, ee2, ee3), comm)
@@ -349,6 +366,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(bc_x, tesselation):
                 comm,
                 pert,
                 kernel_width=h,
+                min_width_spacings=1.0,  # under-resolved widths on purpose
             )
             all_eval = _allreduce(particles.eval_density(ee1, ee2, ee3), comm)
             err_vec += [_rel_err(all_eval, exact_eval)]
@@ -390,7 +408,15 @@ def test_evaluation_SPH_Np_convergence_2d(bc_xy, tesselation):
     for loading_params in loadings:
         background = ConstantVelocity(n=1.5, density_profile="constant")
         particles = _particles(
-            domain, (24, 24, 1), (bc_x, bc_y, "periodic"), loading_params, background, comm, pert, box_bufsize=4.0
+            domain,
+            (24, 24, 1),
+            (bc_x, bc_y, "periodic"),
+            loading_params,
+            background,
+            comm,
+            pert,
+            box_bufsize=4.0,
+            min_width_spacings=1.0,  # under-resolved kernels on purpose
         )
         all_eval = _allreduce(particles.eval_density(ee1, ee2, ee3), comm)
         err_vec += [_rel_err(all_eval, exact_eval)]
@@ -420,7 +446,7 @@ def test_sph_density_colella(kernel, bc_x):
         domain,
         (12, 12, 1),
         (bc_x, "periodic", "periodic"),
-        LoadingParameters(ppb=16, loading="tesselation"),
+        LoadingParameters(ppb=64, loading="tesselation"),
         background,
         comm,
         kernel=kernel,
@@ -612,7 +638,7 @@ def test_sph_no_slip_boundary_1d(tesselation, direction, show_plot=False):
     k = "xyz".index(direction)
 
     if tesselation:
-        loading_params = LoadingParameters(ppb=4, loading="tesselation")
+        loading_params = LoadingParameters(ppb=16, loading="tesselation")
     else:
         loading_params = LoadingParameters(ppb=200, seed=223)
 
@@ -663,7 +689,7 @@ def test_sph_no_slip_boundary_2d():
         domain,
         (8, 8, 1),
         ("periodic", "noslip", "periodic"),
-        LoadingParameters(ppb=16, loading="tesselation"),
+        LoadingParameters(ppb=64, loading="tesselation"),
         background,
         comm,
         bufsize=3.0,

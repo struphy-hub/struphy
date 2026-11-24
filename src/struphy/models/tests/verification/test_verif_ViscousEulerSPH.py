@@ -467,7 +467,7 @@ def test_hagen_poiseuille(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: 
     # model with pressure (to maintain ~uniform density) and viscosity
     model = ViscousEulerSPH()
 
-    loading_params = LoadingParameters(ppb=16, loading="tesselation")
+    loading_params = LoadingParameters(ppb=25, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters(
         bc=("periodic", "reflect", "periodic"),

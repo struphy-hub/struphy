@@ -230,18 +230,18 @@ class SPHParameters:
         Kernel width :math:`h` (support radius) in physical units. If None, :math:`h = h_\\max`. A given width must
         lie between the lower bound and :math:`h_\\max`.
 
-    min_width_spacings : float, default=2.0
+    min_width_spacings : float, default=4.0
         Lower bound of the kernel width in units of the mean marker spacing :math:`(V/N)^{1/d}`, where :math:`V` is
         the physical volume of the :math:`d` resolved directions and :math:`N` the number of markers. The setup
         stops with an error if :math:`h` is smaller (too few markers in the kernel support): then use fewer
         sorting boxes, more markers or a less distorted mapping. Polar mappings need an annulus (inner radius
-        :math:`a_1 > 0`), since :math:`h_\\max = 0` at the axis. The bound is a safeguard: accurate SPH forces need
-        more, e.g. :math:`h \\gtrsim 5` spacings on curved mappings (see :ref:`sph_method`).
+        :math:`a_1 > 0`), since :math:`h_\\max = 0` at the axis. Accurate SPH forces on curved mappings need
+        :math:`h \\gtrsim 5` spacings (see :ref:`sph_method`); lower the bound only for tests or smooth mappings.
     """
 
     kernel: LiteralOptions.OptsKernel = "gaussian"
     kernel_width: float = None
-    min_width_spacings: float = 2.0
+    min_width_spacings: float = 4.0
 
     def __post_init__(self):
         check_option(self.kernel, LiteralOptions.OptsKernel)

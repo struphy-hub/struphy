@@ -599,7 +599,7 @@ changes :math:`\eta_i` by at most :math:`\|(DF^{-1})_{i,:}\|\, |\Delta\mathbf x|
 
 with the maximum over a sampling grid finer than the boxes (:func:`~struphy.pic.sph_setup.setup_sph_kernel`). The
 default width is :math:`h = h_\max`; a smaller width can be set with ``kernel_width``. To ensure enough markers per
-kernel, :math:`h` must be at least :math:`h_\min` = ``min_width_spacings`` (default 2) times the mean marker spacing
+kernel, :math:`h` must be at least :math:`h_\min` = ``min_width_spacings`` (default 4) times the mean marker spacing
 :math:`\Delta x = (V/N)^{1/d}`; otherwise the setup raises an error that names the limiting direction, with the
 remedies: fewer sorting boxes in that direction, more markers, a smaller ``min_width_spacings``, or a less distorted
 mapping. Strongly distorted mappings reduce :math:`h_\max`. Mappings with a **polar axis** (e.g.

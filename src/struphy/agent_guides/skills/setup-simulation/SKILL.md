@@ -109,7 +109,7 @@ model.<kinetic_species>.set_markers(
     saving_params=saving_params,
 )
 # SPH species (and kernel density plots): radial smoothing kernel in physical space, set per species with
-# sph_params=SPHParameters(kernel="gaussian" | "wendland_c2" | "cubic_spline", kernel_width=None, min_width_spacings=2.0).
+# sph_params=SPHParameters(kernel="gaussian" | "wendland_c2" | "cubic_spline", kernel_width=None, min_width_spacings=4.0).
 # kernel_width=None takes the largest width whose support lies in the 27 neighbouring sorting boxes; the setup
 # raises an error if it is below min_width_spacings x mean marker spacing (then use fewer boxes or more markers;
 # polar mappings need an annulus, a1 > 0). KernelDensityPlot output is the physical density.

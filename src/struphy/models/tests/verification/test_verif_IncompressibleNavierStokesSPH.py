@@ -269,7 +269,7 @@ def test_channel_noslip_shear_relaxation(mpi_out_folder: str, nx: int, do_plot: 
 
     model = IncompressibleNavierStokesSPH()
 
-    loading_params = LoadingParameters(ppb=16, loading="tesselation")
+    loading_params = LoadingParameters(ppb=25, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters(
         bc=("periodic", "reflect", "periodic"),

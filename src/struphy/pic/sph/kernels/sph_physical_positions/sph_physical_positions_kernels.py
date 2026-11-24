@@ -1,8 +1,8 @@
 """Physical marker positions for SPH, see :func:`~struphy.pic.sph_eval_kernels.physical_positions`."""
 
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
+import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
-from struphy.pic.sph_eval_kernels import physical_positions
 
 
 def sph_physical_positions(
@@ -28,4 +28,4 @@ def sph_physical_positions(
     x_idx : int
         First of the three marker columns for the physical position.
     """
-    physical_positions(args_markers, args_domain, holes, x_idx)
+    sph_eval_kernels.physical_positions(args_markers, args_domain, holes, x_idx)

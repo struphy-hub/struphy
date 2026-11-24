@@ -4,8 +4,8 @@ from numpy import zeros
 from pyccel.decorators import stack_array
 
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
+import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
-from struphy.pic.sph_eval_kernels import naive_physical
 
 
 @stack_array("res")
@@ -74,7 +74,7 @@ def naive_evaluation_flat(
 
     n_eval = len(eta1)
     for i in range(n_eval):
-        naive_physical(
+        sph_eval_kernels.naive_physical(
             args_markers,
             x1[i],
             x2[i],

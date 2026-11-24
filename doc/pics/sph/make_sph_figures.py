@@ -164,7 +164,7 @@ def density_1d_figure():
 
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.0), sharey=True)
     for ax, name in zip(axes, ["gaussian", "wendland_c2", "cubic_spline"]):
-        particles = _particles(domain, background, pert, ppb=4, boxes_per_dim=(24, 1, 1), kernel=name)
+        particles = _particles(domain, background, pert, ppb=5, boxes_per_dim=(24, 1, 1), kernel=name)
         rho = np.array(particles.eval_density(ee1, ee2, ee3)).squeeze()
         err = np.max(np.abs(rho - rho_exact)) / np.max(np.abs(rho_exact))
         ax.plot(eta1, rho_exact, color=EXACT_COLOR, lw=2.0, label="exact")
@@ -187,7 +187,7 @@ def density_2d_figure():
     background = equils.ConstantVelocity(n=1.5, density_profile="constant")
     background.domain = domain
     pert = {"n": perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(1.0,))}
-    particles = _particles(domain, background, pert, ppb=16, boxes_per_dim=(12, 12, 1))
+    particles = _particles(domain, background, pert, ppb=49, boxes_per_dim=(12, 12, 1))
 
     eta = np.linspace(0, 1.0, 50)
     ee1, ee2, ee3 = np.meshgrid(eta, eta, np.array([0.0]), indexing="ij")

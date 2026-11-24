@@ -5,8 +5,8 @@ from pyccel.decorators import stack_array
 
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 import struphy.pic.sorting_kernels as sorting_kernels
+import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
-from struphy.pic.sph_eval_kernels import box_based_physical
 
 
 @stack_array("res")
@@ -109,7 +109,7 @@ def box_based_evaluation_flat(
         loc_box = sorting_kernels.find_box(eta1[i], eta2[i], eta3[i], n1, n2, n3, domain_array)
         if loc_box == -1:
             continue
-        box_based_physical(
+        sph_eval_kernels.box_based_physical(
             args_markers,
             x1[i],
             x2[i],
