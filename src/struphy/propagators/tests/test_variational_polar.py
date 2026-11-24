@@ -59,17 +59,23 @@ def test_variational_mhd_with_q_polar(mpi_out_folder):
 
 
 def _variational_p_polar(
-    model, out_folder: str, sim_folder: str, degree=(2, 2, 1), transport_projection: str = "commuting"
+    model,
+    out_folder: str,
+    sim_folder: str,
+    degree=(2, 2, 1),
+    transport_projection: str = "commuting",
+    sound_options: dict = None,
 ) -> Simulation:
     """Allocated simulation of ``model`` (VariationalLinearMHD or VariationalPerturbativeMHD, ideal) on a polar cylinder
     with a screw pinch, with the propagator options of the model and a velocity perturbation; ``transport_projection``
-    of the linear Alfven and sound steps."""
+    of the linear Alfven and sound steps, and further options ``sound_options`` of the sound step."""
     for name, variant in model.propagator_variants.items():
         prop = getattr(model.propagators, name, None)
         if prop is not None:
             kw = dict(model=variant)
             if name == "variat_lin_sound":
                 kw["transport_projection"] = transport_projection
+                kw.update(sound_options or {})
             prop.options = prop.Options(**kw)
     alfven = getattr(model.propagators, "variat_lin_alfven", None)
     if alfven is not None:
@@ -201,6 +207,104 @@ def test_l2_transport_options():
     with pytest.raises(AssertionError):
         VariationalLinearSoundEvolve.Options(model="linear_q", transport_projection="L2")
     VariationalLinearSoundEvolve.Options(model="linear_p", transport_projection="L2")
+
+
+@pytest.mark.parametrize("transport_projection", ["commuting", "L2"])
+def test_sound_schur_preconditioner_polar(mpi_out_folder, transport_projection):
+    """The Kronecker preconditioner of the Schur complement of the sound step (``schur_precond="StiffnessPreconditioner"``,
+    linear p model, velocity in H(div), polar splines): built in the setup (``prepare_time_step``), the same velocity
+    and pressure as with the mass-matrix preconditioner, with fewer iterations."""
+    results = {}
+    for schur_precond in ("MassMatrixPreconditioner", "StiffnessPreconditioner"):
+        model = VariationalLinearMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
+        _variational_p_polar(
+            model,
+            mpi_out_folder,
+            f"sound_pc_{transport_projection}_{schur_precond}",
+            transport_projection=transport_projection,
+            sound_options=dict(schur_precond=schur_precond),
+        )
+        sound = model.propagators.variat_lin_sound
+        assert (sound._schur_pc is not None) == (schur_precond == "StiffnessPreconditioner")
+        sound.prepare_time_step(0.5)
+        if sound._schur_pc is not None:
+            assert sound._schur_pc.dt == 0.5
+        niter = 0
+        for _ in range(3):
+            sound(0.5)
+            niter += sound._inv_J._solver._info["niter"]
+        # arrays: the two simulations have different Derham objects (and spaces)
+        results[schur_precond] = (
+            model.mhd.velocity.spline.vector.toarray(allreduce=True),
+            model.mhd.pressure.spline.vector.toarray(allreduce=True),
+            niter,
+        )
+
+    (u_m, p_m, it_m), (u_s, p_s, it_s) = results["MassMatrixPreconditioner"], results["StiffnessPreconditioner"]
+    assert np.linalg.norm(u_s - u_m) < 1e-6 * np.linalg.norm(u_m)
+    assert np.linalg.norm(p_s - p_m) < 1e-6 * np.linalg.norm(p_m)
+    assert it_s < it_m, f"{it_s} iterations with the Kronecker preconditioner, {it_m} with the mass matrix"
+
+
+def test_sound_schur_preconditioner_total_weight(mpi_out_folder):
+    """With ``total_weight=True`` (perturbative model, Picard iteration on the weight), the Kronecker preconditioner of
+    the equilibrium weight is used in all Picard iterations: the same velocity and pressure as with the mass-matrix
+    preconditioner, with fewer linear iterations."""
+    results = {}
+    for schur_precond in ("MassMatrixPreconditioner", "StiffnessPreconditioner"):
+        model = VariationalPerturbativeMHD(u_space="Hdiv", with_viscosity=False, with_resistivity=False)
+        _variational_p_polar(
+            model,
+            mpi_out_folder,
+            f"sound_pc_total_weight_{schur_precond}",
+            degree=(2, 2, 2),
+            sound_options=dict(schur_precond=schur_precond),
+        )
+        sound = model.propagators.variat_lin_sound
+        assert sound.total_weight
+        assert (sound._schur_pc is not None) == (schur_precond == "StiffnessPreconditioner")
+        sound.prepare_time_step(0.5)
+        # linear iterations of all Picard iterations
+        niter = [0]
+        solve = sound._solve_increment
+
+        def counted(dt, f_u, f_s, solve=solve, sound=sound):
+            incr = solve(dt, f_u, f_s)
+            niter[0] += sound._inv_J._solver._info["niter"]
+            return incr
+
+        sound._solve_increment = counted
+        for _ in range(3):
+            sound(0.5)
+        results[schur_precond] = (
+            model.mhd.velocity.spline.vector.toarray(allreduce=True),
+            model.mhd.pressure.spline.vector.toarray(allreduce=True),
+            niter[0],
+        )
+
+    (u_m, p_m, it_m), (u_s, p_s, it_s) = results["MassMatrixPreconditioner"], results["StiffnessPreconditioner"]
+    assert np.linalg.norm(u_s - u_m) < 1e-6 * np.linalg.norm(u_m)
+    assert np.linalg.norm(p_s - p_m) < 1e-6 * np.linalg.norm(p_m)
+    assert it_s < it_m, f"{it_s} iterations with the Kronecker preconditioner, {it_m} with the mass matrix"
+
+
+@pytest.mark.parametrize("case", ["H1vec", "frozen"])
+def test_sound_schur_preconditioner_fallback(mpi_out_folder, caplog, case):
+    """``schur_precond="StiffnessPreconditioner"`` falls back to the mass-matrix preconditioner, with a warning, for a
+    velocity in H1vec and for ``weights="frozen"``."""
+    model = VariationalLinearMHD(
+        u_space="H1vec" if case == "H1vec" else "Hdiv", with_viscosity=False, with_resistivity=False
+    )
+    sound_options = dict(schur_precond="StiffnessPreconditioner")
+    if case == "frozen":
+        sound_options["weights"] = "frozen"
+    with caplog.at_level(logging.WARNING, logger="struphy"):
+        _variational_p_polar(model, mpi_out_folder, f"sound_pc_fallback_{case}", sound_options=sound_options)
+    sound = model.propagators.variat_lin_sound
+    assert sound._schur_pc is None
+    # the struphy logger writes on rank 0 only
+    if sound.derham.comm is None or sound.derham.comm.Get_rank() == 0:
+        assert 'schur_precond="StiffnessPreconditioner" needs' in caplog.text
 
 
 def test_normalized_inverse_warning(mpi_out_folder, caplog):
