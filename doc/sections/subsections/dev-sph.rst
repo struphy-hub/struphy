@@ -40,6 +40,15 @@ Evaluation kernels
     :exclude-members: __init__
 
 
+.. _metric_kernels_sph:
+
+Metric kernels
+^^^^^^^^^^^^^^
+
+.. automodule:: struphy.pic.sph_metric_kernels
+    :members:
+
+
 .. _smoothing_kernels:
 
 Smoothing kernels

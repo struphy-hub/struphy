@@ -5,6 +5,7 @@ from pyccel.decorators import stack_array
 
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
+import struphy.pic.sph_metric_kernels as sph_metric_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
 
 
@@ -24,21 +25,24 @@ def sph_pressure_coeffs(
     h1: "float",
     h2: "float",
     h3: "float",
+    gamma: "float",
 ):
     r"""For each particle, evaluate
 
     * the density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[output_indices[0], :]``)
     * the coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[output_indices[1], :]``)
-    * the coefficient :math:`w_i (\rho^{N,h}(\boldsymbol \eta_i))^{\gamma - 2}` and store it at ``markers[output_indices[2], :]``)
+    * the coefficient :math:`w_i \rho_i^{\gamma - 2} / \sqrt g(\boldsymbol\eta_i)` of the polytropic closure with
+      adiabatic index ``gamma`` and store it at ``markers[output_indices[2], :]``)
 
-    where the smoothed SPH density is given by
+    where the smoothed SPH density (a 3-form in logical space) is given by
 
     .. math::
 
-        \rho^{N,h}(\boldsymbol \eta_i) = \sum_j w_j \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
-    """
+        \rho^{N,h}(\boldsymbol \eta_i) = \sum_j w_j \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,,
 
-    gamma = 5 / 3
+    and :math:`\rho_i = \rho^{N,h}(\boldsymbol \eta_i) / \sqrt g(\boldsymbol\eta_i)` is the physical density,
+    with :math:`\sqrt g = |\det DF|`.
+    """
 
     # get marker arguments
     markers = args_markers.markers
@@ -82,4 +86,6 @@ def sph_pressure_coeffs(
         if output_indices[1] >= 0:
             markers[output_indices[1], ip] = weight / n_at_eta
         if output_indices[2] >= 0:
-            markers[output_indices[2], ip] = weight * n_at_eta ** (gamma - 2)
+            # physical density rho_i = rho^eta_i / sqrt(g)
+            sg_i = sph_metric_kernels.sqrt_g(eta1, eta2, eta3, args_domain)
+            markers[output_indices[2], ip] = weight * (n_at_eta / sg_i) ** (gamma - 2) / sg_i

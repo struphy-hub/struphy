@@ -21,24 +21,46 @@ logger = logging.getLogger("struphy")
 
 
 class PushVinSPHpressure(Propagator):
-    r"""For each marker :math:`p`, solves
+    r"""Pressure force and constant acceleration on SPH markers, see :ref:`sph_pressure`.
+
+    **Continuous problem:** the velocity is accelerated by the pressure gradient and a constant acceleration
+    :math:`\mathbf g`,
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \mathbf g - \sum_{i=1}^N w_i \left( \frac{\partial \mathcal U}{\partial \rho}(\boldsymbol \eta_p) + \frac{\partial \mathcal U}{\partial \rho}(\boldsymbol \eta_i) \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+        \partial_t \mathbf u = - \frac{1}{\rho} \nabla p(\rho) + \mathbf g\,, \qquad
+        p(\rho) = \rho^2\, \frac{\partial \mathcal U}{\partial \rho}(\rho)\,,
 
-    where :math:`\mathbf g` is a constant acceleration and the second term corresponds to the pressure gradient.
-    Here, :math:`\mathcal U(\rho)` denotes the internal energy per unit mass
-    as a function of the mass density :math:`\rho` and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
-    arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
-    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
-    Two choices of the internal energy are implemented:
+    with the internal energy per unit mass :math:`\mathcal U(\rho)` of one of two closures (option ``thermodynamics``):
 
-    * Isothermal closure: :math:`\mathcal U(\rho) = \kappa \, \ln(\rho)`, where :math:`\kappa` is constant.
-    * Polytropic closure: :math:`\mathcal U(\rho) = \kappa \, \rho^{\gamma - 1} / (\gamma - 1)`, where :math:`\kappa` is the polytropic constant and :math:`\gamma = C_p / C_v` is the polytropic index (fixed to :math:`\gamma = 5/3` in the kernels).
+    * ``"isothermal"``: :math:`\mathcal U(\rho) = \kappa\, \ln \rho`, i.e. :math:`p = \kappa \rho`;
+    * ``"polytropic"``: :math:`\mathcal U(\rho) = \kappa\, \rho^{\gamma - 1} / (\gamma - 1)`, i.e. :math:`p = \kappa \rho^\gamma`,
+      with the adiabatic index :math:`\gamma > 1` (option ``gamma``).
 
-    The force is the Euler-Lagrange equation of the SPH Lagrangian, see :ref:`sph_pressure`.
-    Time stepping is forward Euler.
+    **Semi-discrete problem:** the Euler-Lagrange equations of the SPH Lagrangian
+    :math:`L_N = \sum_p w_p \big(\frac 12 |\mathbf v_p|^2 - \mathcal U(\rho_p)\big)`. The kernel
+    :math:`W_h` from :mod:`~struphy.pic.sph_smoothing_kernels` is evaluated in logical coordinates, so the SPH sum
+    gives the density 3-form :math:`\rho^\eta_p = \sum_j w_j W_h(\boldsymbol\eta_p - \boldsymbol\eta_j)`, and the
+    physical density is :math:`\rho_p = \rho^\eta_p / \sqrt g(\boldsymbol\eta_p)` with :math:`\sqrt g = |\det DF|`.
+    For each marker :math:`p`,
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p}{\textnormal d t} = \mathbf g - DF^{-\top}(\boldsymbol\eta_p) \Bigg[
+        \sum_{j=1}^N w_j \left( \frac{\mathcal U'(\rho_p)}{\sqrt g(\boldsymbol\eta_p)} + \frac{\mathcal U'(\rho_j)}{\sqrt g(\boldsymbol\eta_j)} \right)
+        \nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)
+        - \mathcal U'(\rho_p)\, \rho_p\, \nabla \ln \sqrt g(\boldsymbol\eta_p) \Bigg]\,,
+
+    with :math:`\mathcal U' = \partial_\rho \mathcal U`. The last term comes from the dependence of
+    :math:`\rho_p` on the metric; it vanishes for mappings with constant :math:`\sqrt g`. The gradient of
+    :math:`\ln \sqrt g` is computed by finite differences of :math:`\det DF`. The coefficients
+    :math:`w_j \mathcal U'(\rho_j)/\sqrt g(\boldsymbol\eta_j)` are computed once per time step (kernel
+    :func:`~struphy.pic.pushing.kernels.sph_pressure_coeffs.sph_pressure_coeffs_kernels.sph_pressure_coeffs`) and
+    stored in the marker array.
+
+    **Time discretization:** forward Euler (``algo="forward_euler"``),
+    :math:`\mathbf v_p^{n+1} = \mathbf v_p^n + \Delta t\, \frac{\textnormal d \mathbf v_p}{\textnormal d t}\big|^n`.
+    Since the positions are fixed during this step, the update is exact.
     """
 
     class Variables:
@@ -90,6 +112,9 @@ class PushVinSPHpressure(Propagator):
 
         thermodynamics : {"isothermal", "polytropic"}, default="isothermal"
             Thermodynamic closure selecting the SPH pressure kernel.
+
+        gamma : float, default=5/3
+            Adiabatic index (gamma > 1) of the polytropic closure (not used for ``"isothermal"``).
         """
 
         # specific literals
@@ -102,12 +127,14 @@ class PushVinSPHpressure(Propagator):
         gravity: tuple = (0.0, 0.0, 0.0)
         kappa: float = 1.0
         thermodynamics: OptsThermo = "isothermal"
+        gamma: float = 5.0 / 3.0
 
         def __post_init__(self):
             # checks
             check_option(self.kernel_type, LiteralOptions.OptsKernel)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.thermodynamics, self.OptsThermo)
+            assert self.gamma > 1.0, f"The adiabatic index gamma must be > 1, got {self.gamma}."
 
     @property
     def options(self) -> Options:
@@ -149,6 +176,7 @@ class PushVinSPHpressure(Propagator):
             *periodic,
             kernel_nr,
             *self.options.kernel_width,
+            float(self.options.gamma),
         )
 
         self.add_init_kernel(
@@ -158,12 +186,6 @@ class PushVinSPHpressure(Propagator):
                 args=args_init,
             ),
         )
-
-        # pusher kernel
-        if self.options.thermodynamics == "isothermal":
-            kernel = push_v_sph_pressure
-        elif self.options.thermodynamics == "polytropic":
-            kernel = push_v_sph_pressure_ideal_gas
 
         gravity = xp.array(self.options.gravity, dtype=float)
 
@@ -177,6 +199,13 @@ class PushVinSPHpressure(Propagator):
             gravity,
             self.options.kappa,
         )
+
+        # pusher kernel
+        if self.options.thermodynamics == "isothermal":
+            kernel = push_v_sph_pressure
+        elif self.options.thermodynamics == "polytropic":
+            kernel = push_v_sph_pressure_ideal_gas
+            args_kernel += (float(self.options.gamma),)
 
         # the Pusher class wraps around all kernels
         self._pusher = Pusher(
