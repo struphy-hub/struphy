@@ -580,8 +580,8 @@ class Particles5D(Particles):
         leaving a density that is a volume form in :math:`\\boldsymbol \\eta` only.
 
         The velocity Jacobian is :math:`B_0`, not the :math:`B^*_\\parallel` of the phase-space volume
-        conserved by the guiding-center flow; the resulting :math:`O(\\epsilon)` error of the initial
-        condition is discussed in :ref:`pic_phase_space`.
+        conserved by the guiding-center flow; the resulting :math:`O(\\epsilon + |\\delta B_\\parallel|/B_0)`
+        error of the initial condition is discussed in :ref:`pic_phase_space`.
 
         Parameters
         ----------

@@ -206,8 +206,8 @@ class GyroMaxwellian2D(Maxwellian):
         This is the Jacobian of the velocity coordinates at fixed position. The guiding-center flow, however,
         conserves the phase-space volume with :math:`B^*_\parallel = B_\parallel + O(\epsilon)` instead of
         :math:`B_0`. Initial marker weights computed with :math:`B_0` therefore represent the initial
-        distribution function up to the factor :math:`B_0/B^*_\parallel`, an :math:`O(\epsilon)` error of the
-        initial condition that is not amplified in time, see :ref:`pic_phase_space`.
+        distribution function up to the factor :math:`B_0/B^*_\parallel`, an
+        :math:`O(\epsilon + |\delta B_\parallel|/B_0)` error of the initial condition that is not amplified in time, see :ref:`pic_phase_space`.
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords)
 

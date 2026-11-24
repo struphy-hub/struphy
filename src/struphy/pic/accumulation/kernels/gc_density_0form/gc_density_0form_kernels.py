@@ -18,7 +18,9 @@ def gc_density_0form(
 
     .. math::
 
-        B_p^\mu = \frac{w_p}{N} \,.
+        B_p = w_p \,,
+
+    where :math:`w_p` is the marker weight (it already contains the factor :math:`1/N`).
     """
 
     markers = args_markers.markers
@@ -44,7 +46,7 @@ def gc_density_0form(
         eta2 = markers[1, ip]
         eta3 = markers[2, ip]
 
-        # filling = w_p/N
+        # filling = w_p (the weights contain 1/N)
         filling = markers[weight_idx, ip]
 
         particle_to_mat_kernels.vec_fill_b_v0(

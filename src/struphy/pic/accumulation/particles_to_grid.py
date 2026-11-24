@@ -448,8 +448,7 @@ class AccumulatorVector:
 
     Here, :math:`\Lambda^\mu_{ijk}(\boldsymbol \eta_p)` denotes the :math:`ijk`-th basis function
     of the :math:`\mu`-th component of a Derham space. The **filling function** :math:`B^\mu_p` is computed
-    per marker by the accumulation kernel and includes the marker weight :math:`w_p` (e.g. ``B_p = w_p`` in
-    :func:`~struphy.pic.accumulation.kernels.charge_density_0form.charge_density_0form_kernels.charge_density_0form`).
+    per marker by the accumulation kernel and includes the marker weight :math:`w_p` (e.g. ``B_p = w_p`` in the kernel ``charge_density_0form``).
 
     Similar to :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` but only for vectors :math:`V`.
 

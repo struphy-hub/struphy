@@ -247,6 +247,7 @@ marker array, see :class:`~struphy.pic.base.Particles`).
 **Guiding centers.** The guiding-center flow conserves the phase-space volume
 :math:`J^*\, \textrm d \mathbf z` with :math:`J^* = |\det DF|\, B^*_\parallel`, where
 :math:`B^*_\parallel = B_\parallel + O(\epsilon)` is the modified field of guiding-center theory
+(:math:`B_\parallel` includes the parallel field perturbation, if the model has one)
 :footcite:p:`Littlejohn1983`. Struphy's pushers
 use :math:`B^*_\parallel`, so the argument above holds with :math:`J^*`: without source, the weights are exactly
 constant along the orbits. The initial weights, however, are computed with :math:`J_v = B_0`,
@@ -259,7 +260,8 @@ constant along the orbits. The initial weights, however, are computed with :math
 
 They are the exact Monte-Carlo weights for markers distributed according to :math:`s^*`. Since the markers are drawn
 from :math:`s^\textrm{vol}_\textnormal{in}`, the marker ensemble represents the initial 0-form
-:math:`f^0_\textnormal{in}\, B_0/B^*_\parallel` instead of :math:`f^0_\textnormal{in}`. This is an :math:`O(\epsilon)`
+:math:`f^0_\textnormal{in}\, B_0/B^*_\parallel` instead of :math:`f^0_\textnormal{in}`. This is an
+:math:`O(\epsilon + |\delta B_\parallel|/B_0)`
 error of the initial condition only; it is then transported exactly and does not accumulate in time.
 
 
@@ -786,16 +788,17 @@ contributions to vectors and matrices have the form
 
 .. math::
 
-    V_i = \sum_{p=1}^N w_p\, B_p\, \Lambda_i(\boldsymbol\eta_p)\,, \qquad
-    M_{ij} = \sum_{p=1}^N w_p\, B_p\, \Lambda_i(\boldsymbol\eta_p)\, \Lambda_j(\boldsymbol\eta_p)\,,
+    V_i = \sum_{p=1}^N B_p\, \Lambda_i(\boldsymbol\eta_p)\,, \qquad
+    M_{ij} = \sum_{p=1}^N A_p\, \Lambda_i(\boldsymbol\eta_p)\, \Lambda_j(\boldsymbol\eta_p)\,,
+    \qquad B_p = w_p\, B(\mathbf z_p)\,, \quad A_p = w_p\, A(\mathbf z_p)\,,
 
-with a *filling* :math:`B_p` depending on the marker (e.g. its velocity and the metric at its position). Since only
+with *fillings* :math:`A_p` and :math:`B_p`: the weight times a function of the marker (e.g. of its velocity and
+the metric at its position). Since only
 the basis functions that are non-zero at :math:`\boldsymbol\eta_p` contribute, the cost is :math:`O(N)`. These sums
 are computed by the accumulators (:class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
 :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` and the matrix-free
-:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), see the :ref:`dev_reference` for details. In the
-code, the accumulation kernels compute the product :math:`w_p B_p` per marker and call it the filling (in the class
-and kernel docstrings, the filling therefore includes the weight). The weights
+:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), see the :ref:`dev_reference` for details. The
+fillings include the weight, as in the class and kernel docstrings. The weights
 already contain the factor :math:`1/N`; with the control variate or the delta-f method, :math:`w_p` is the delta-f
 weight. The opposite direction, fields evaluated at the marker positions in the pushers, uses the same basis
 functions.

@@ -3132,14 +3132,12 @@ class Particles(metaclass=ABCMeta):
         )
         self._markers[:, :n_common] = saved[:, :n_common]
 
-    def _load_tesselation(self, n_quad: int = 1):
+    def _load_tesselation(self):
         """
         Load markers on a grid defined by the center-of-mass points of a tesselation.
 
-        Parameters
-        ----------
-        n_quad: int
-            Number of quadrature points for the Gauss-Legendre quadrature of the tile integrals.
+        The quadrature order of the tile integrals (the weights) is set by ``loading_params.n_quad``
+        in :meth:`initialize_weights`.
         """
         self._tesselation = Tesselation(
             self.ppb,
