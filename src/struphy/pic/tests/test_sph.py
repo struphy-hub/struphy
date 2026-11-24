@@ -796,21 +796,25 @@ def test_sph_kernel_setup_errors():
 
 
 def test_sph_kernel_width_too_large():
-    """ParticlesSPH raises at construction for a kernel width larger than h_max (on all processes)."""
+    """ParticlesSPH sets up the kernel at its first use (species without SPH sums need none) and raises there for a
+    kernel width larger than h_max (on all processes)."""
     comm, _ = _comm()
     background = ConstantVelocity(n=1.5, density_profile="constant")
     background.domain = domains.Cuboid()
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=LoadingParameters(ppb=8, loading="tesselation"),
+        boundary_params=BoundaryParameters(bc_sph=("periodic",) * 3),
+        sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1)),
+        sph_params=SPHParameters(kernel_width=0.2),
+        domain=domains.Cuboid(),
+        background=background,
+        n_as_volume_form=True,
+    )
     with pytest.raises(ValueError, match="larger than h_max"):
-        ParticlesSPH(
-            comm_world=comm,
-            loading_params=LoadingParameters(ppb=8, loading="tesselation"),
-            boundary_params=BoundaryParameters(bc_sph=("periodic",) * 3),
-            sorting_params=SortingParameters(boxes_per_dim=(8, 1, 1)),
-            sph_params=SPHParameters(kernel_width=0.2),
-            domain=domains.Cuboid(),
-            background=background,
-            n_as_volume_form=True,
-        )
+        particles.sph_kernel
+    with pytest.raises(ValueError, match="larger than h_max"):
+        particles.sph_kernel_args
 
 
 if __name__ == "__main__":

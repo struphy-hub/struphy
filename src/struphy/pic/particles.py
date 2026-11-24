@@ -1256,11 +1256,9 @@ class ParticlesSPH(Particles):
             raise ValueError(
                 f"ParticlesSPH needs at least 3 diagnostics columns for the physical positions, got {self.n_cols_diagnostics}."
             )
-        if self.boxes_per_dim is None:
-            raise ValueError("SPH needs sorting boxes (SortingParameters.boxes_per_dim).")
-
-        # set up the kernel now, so that inconsistent parameters fail at setup
-        self.sph_kernel
+        # The smoothing kernel (sph_kernel) is set up at its first use: when a propagator with SPH sums is allocated
+        # (before the first time step) or at the first density evaluation. Species without SPH sums (e.g. a
+        # pressureless fluid, sorting boxes used only for the MPI decomposition) need no kernel.
 
     def put_particles_in_boxes(self):
         """As :meth:`~struphy.pic.base.Particles.put_particles_in_boxes`, then update the physical positions of
