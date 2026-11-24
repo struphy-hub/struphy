@@ -780,6 +780,11 @@ def test_sph_kernel_setup_errors():
     colella = domains.Colella(Lx=1.0, Ly=1.0, alpha=0.05, Lz=1.0)
     with pytest.raises(ValueError, match="affine"):
         setup_sph_kernel(colella, (12, 1, 1), ("periodic",) * 3, 10_000, "gaussian", None, 2.0, 0)
+    # two boxes in a periodic direction: both neighbour boxes hold the same markers (double counting)
+    with pytest.raises(ValueError, match="at least 3 sorting boxes"):
+        setup_sph_kernel(cuboid, (2, 1, 1), ("periodic",) * 3, 10_000, "gaussian", None, 2.0, 0)
+    # ... but two boxes with walls are fine
+    setup_sph_kernel(cuboid, (2, 1, 1), ("mirror", "periodic", "periodic"), 10_000, "gaussian", None, 2.0, 0)
     # no resolved direction
     with pytest.raises(ValueError, match="more than one sorting box"):
         setup_sph_kernel(cuboid, (1, 1, 1), ("periodic",) * 3, 10_000, "gaussian", None, 2.0, 0)

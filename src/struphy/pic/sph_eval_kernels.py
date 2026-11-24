@@ -119,7 +119,8 @@ def physical_positions(
         \mathbf x_g = F(\boldsymbol\eta_f) + DF(\boldsymbol\eta_w)\, (\boldsymbol\eta_g - \boldsymbol\eta_f)\,,
 
     where :math:`\boldsymbol\eta_f` is the folded position (the marker that was mirrored). This is the exact mirror
-    image for planar walls (e.g. :class:`~struphy.geometry.domains.Cuboid`).
+    image for planar walls whose logical normal column of :math:`DF` is orthogonal to the wall (e.g.
+    :class:`~struphy.geometry.domains.Cuboid`); otherwise it is an oblique reflection.
 
     Parameters
     ----------

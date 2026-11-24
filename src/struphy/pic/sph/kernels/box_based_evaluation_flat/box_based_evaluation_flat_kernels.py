@@ -94,11 +94,17 @@ def box_based_evaluation_flat(
     for i in range(n_eval):
         # only points owned by this process (half-open sub-domain, eta = 1 belongs to the last process); find_box
         # also accepts points in the ghost-box layer, which would be evaluated on two processes
-        if eta1[i] < domain_array[0] or (eta1[i] >= domain_array[1] and eta1[i] != 1.0):
+        if eta1[i] < domain_array[0] or (
+            eta1[i] >= domain_array[1] and not (eta1[i] == 1.0 and domain_array[1] == 1.0)
+        ):
             continue
-        if eta2[i] < domain_array[3] or (eta2[i] >= domain_array[4] and eta2[i] != 1.0):
+        if eta2[i] < domain_array[3] or (
+            eta2[i] >= domain_array[4] and not (eta2[i] == 1.0 and domain_array[4] == 1.0)
+        ):
             continue
-        if eta3[i] < domain_array[6] or (eta3[i] >= domain_array[7] and eta3[i] != 1.0):
+        if eta3[i] < domain_array[6] or (
+            eta3[i] >= domain_array[7] and not (eta3[i] == 1.0 and domain_array[7] == 1.0)
+        ):
             continue
         loc_box = sorting_kernels.find_box(eta1[i], eta2[i], eta3[i], n1, n2, n3, domain_array)
         if loc_box == -1:

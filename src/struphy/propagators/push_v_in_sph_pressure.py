@@ -145,6 +145,7 @@ class PushVinSPHpressure(Propagator):
 
     @profile
     def allocate(self):
+        check_removed_kernel_options(self.options)
         # init kernel for evaluating density etc. before each time step.
         init_kernel = sph_pressure_coeffs
 

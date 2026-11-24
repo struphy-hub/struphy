@@ -139,6 +139,7 @@ class PushVinViscousPotential(Propagator):
 
     @profile
     def allocate(self):
+        check_removed_kernel_options(self.options)
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.

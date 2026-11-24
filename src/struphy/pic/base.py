@@ -2328,7 +2328,8 @@ class Particles(metaclass=ABCMeta):
 
         with the physical smoothing kernel of the species (:attr:`sph_kernel`), see :ref:`pic_kde`. With the masses as
         weights (SPH) this is the mass density; for kinetic species with :math:`w_p \approx f/(N s)` the number density
-        (of :math:`\delta f` for delta-f and control variate markers).
+        (of :math:`\delta f` for delta-f and control variate markers). Only SPH species have ghost particles at the domain
+        and MPI boundaries; for kinetic species the estimate misses the markers beyond them (reliable at a distance h).
 
         Parameters
         ----------
@@ -2834,6 +2835,7 @@ class Particles(metaclass=ABCMeta):
 
             _density = None
             _u1 = None
+            _u1_comp = 0
 
             if self.perturbations is not None:
                 for (
@@ -2859,6 +2861,7 @@ class Particles(metaclass=ABCMeta):
                     elif moment == "u1":
                         if pert.given_in_basis is None:
                             pert.given_in_basis = "v"
+                        _u1_comp = pert.comp
                         _u1 = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
@@ -2901,7 +2904,7 @@ class Particles(metaclass=ABCMeta):
                 if len(etas) == 1:
                     out = xp.array(self.f0.uv(etas[0]), dtype=float)
                     if _u1 is not None:
-                        out[0] += _u1(*etas[0])
+                        out[_u1_comp] += _u1(*etas[0])
                     jac = self.domain.jacobian(etas[0], remove_outside=False)
                     return xp.einsum("ij...,j...->i...", jac, out)
                 else:
@@ -2917,8 +2920,8 @@ class Particles(metaclass=ABCMeta):
 
                     if _u1 is not None:
                         out1 = _u1(E1, E2, E3)
-                        assert out[0].shape == out1.shape
-                        out[0] += out1
+                        assert out[_u1_comp].shape == out1.shape
+                        out[_u1_comp] += out1
 
                     jac = xp.array(self.domain.jacobian(E1, E2, E3, remove_outside=False), dtype=float)
                     out = xp.einsum("ij...,j...->i...", jac, out)

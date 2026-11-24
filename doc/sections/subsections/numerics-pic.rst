@@ -913,7 +913,10 @@ the physical density (a 0-form) at logical points, with a radial kernel :math:`W
 :class:`~struphy.particles.parameters.SortingParameters`); the kernel and its width are set per species with
 :class:`~struphy.particles.parameters.SPHParameters` (default: a Gaussian with the largest width :math:`h_\max` for
 which the neighbours lie in the 27 adjacent boxes, see :ref:`sph_neighbours`). As a diagnostic, it is switched on with
-:class:`~struphy.particles.parameters.KernelDensityPlot` in the saving parameters. With the control
+:class:`~struphy.particles.parameters.KernelDensityPlot` in the saving parameters. Only SPH species fill ghost boxes
+at the domain boundaries and at the interfaces between MPI processes; for kinetic species the estimate therefore
+misses the markers beyond these boundaries (e.g. about half the density at a periodic boundary) and is reliable only
+at a distance :math:`h` from them. With the control
 variate or delta-f markers, the current weights are used, so the estimate is that of :math:`\delta f`. The same technique is the basis of
 :ref:`smoothed particle hydrodynamics <sph_method>`.
 

@@ -855,7 +855,7 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     bin_plot.df[:] = df_slice
 
                 for kd_plot in species.saving_params.kernel_density_plots:
-                    # physical density with the smoothing kernel of the species (SPH only)
+                    # physical density with the smoothing kernel of the species
                     kd_plot.n_sph[:] = obj.eval_density(*kd_plot.plot_pts, fast=True)
 
     def generate_default_parameter_file(

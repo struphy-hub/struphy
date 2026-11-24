@@ -99,7 +99,8 @@ def _grid(boxes_per_dim, resolved, max_points=200_000):
     cap = max(8, int(max_points ** (1.0 / d)))
     axes = []
     for n, res in zip(boxes_per_dim, resolved):
-        m = min(max(4 * n, 9), cap) if res else 5
+        # at least two points per box, up to four if the total number of points allows
+        m = max(2 * n + 1, min(max(4 * n, 9), cap)) if res else 5
         axes.append(np.linspace(0.0, 1.0, m))
     e1, e2, e3 = np.meshgrid(*axes, indexing="ij")
     return np.vstack([e1.ravel(), e2.ravel(), e3.ravel()])
@@ -161,6 +162,13 @@ def setup_sph_kernel(
         raise ValueError(
             "SPH needs more than one sorting box in at least one direction (SortingParameters.boxes_per_dim)."
         )
+    for i in range(3):
+        if bc_sph[i] == "periodic" and boxes_per_dim[i] == 2:
+            # both neighbour boxes would hold the same markers (counted twice)
+            raise ValueError(
+                f"SPH with periodic direction {i} needs 1 or at least 3 sorting boxes in this direction, "
+                f"got boxes_per_dim = {boxes_per_dim}."
+            )
 
     etas = _grid(boxes_per_dim, resolved)
     jac = _jacobian(domain, etas)  # (M, 3, 3), jac[m, :, k] = dF/deta_k

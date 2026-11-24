@@ -346,7 +346,8 @@ computes the distance vector with periodic images,
 direction :math:`i` (it must be constant) and :math:`k_i = \textnormal{round}(\eta_i - \eta_{j,i})`. Ghost particles
 mirrored at a wall get the mirror image :math:`F(\boldsymbol\eta_f) + DF(\boldsymbol\eta_w)(\boldsymbol\eta_g -
 \boldsymbol\eta_f)` of the marker :math:`\boldsymbol\eta_f`, with the foot point :math:`\boldsymbol\eta_w` on the
-wall (exact for planar walls).
+wall (the exact mirror image for planar walls when the logical normal column of :math:`DF` is orthogonal to the
+wall, e.g. on a :class:`~struphy.geometry.domains.Cuboid`).
 
 **1D and 2D kernels.** Logical directions with a single sorting box are not resolved by the kernel (e.g.
 ``boxes_per_dim=(12, 12, 1)`` gives a 2D kernel). The mapping must then be affine in these directions, with constant
