@@ -3,35 +3,27 @@
 Tl;dr
 =====
 
-**Struphy provides easy access to partial differential equations (PDEs) in plasma physics.
-The package combines** *performance* **(for HPC),** *flexibility* **(models and physics features)
-and** *usability* **(Python).**  
+**Struphy is a Python package for solving partial differential equations (PDEs) of plasma physics, from fluid and
+MHD models to kinetic and hybrid fluid-kinetic models, with structure-preserving numerics and on HPC systems.**
 
-**Performance** in Struphy is achieved from three building blocks:
+Main features:
 
-* `numpy <https://numpy.org/>`_ (vectorization)
-* `mpi4py <https://pypi.org/project/mpi4py/>`_ (parallelization)
-* `pyccel <https://github.com/pyccel/pyccel>`_ (compilation)
+* **Model library**: about 50 ready-to-run :ref:`models` (Maxwell, MHD, Vlasov, drift-kinetic, gyrokinetic,
+  MHD-kinetic hybrids, SPH fluids, ...), each defined by its equations, with physical normalization and
+  :ref:`propagators` that can be reused to build new models (see :ref:`model_anatomy`).
+* **Structure-preserving numerics**: geometric finite elements (FEEC), particle-in-cell (PIC) and smoothed particle
+  hydrodynamics (SPH), coupled such that conservation laws, :math:`\nabla \cdot \mathbf B = 0` and the
+  Hamiltonian structure of the models carry over to the discrete level; see :ref:`gempic`.
+* **Geometry and equilibria**: simulations on mapped domains (:ref:`avail_mappings`), from slabs to tori and polar
+  domains with a magnetic axis, with analytic and numerical :ref:`MHD equilibria <fluid_equils>` (EQDSK, GVEC, DESC)
+  and :ref:`kinetic backgrounds <kinetic_equils>`.
+* **Performance**: compute kernels transpiled to Fortran with `Pyccel <https://github.com/pyccel/pyccel>`_,
+  MPI domain decomposition (optional, Struphy also runs without MPI) and particle clones, and an optional GPU backend
+  (CuPy).
+* **Usability**: simulations are set up in plain Python parameter files, which are run with ``python`` (or
+  ``mpirun``) or from a notebook; results are read as xarray objects with the post-processing API (see :ref:`userguide`).
+  Ready-to-run examples are in `struphy-examples <https://github.com/struphy-hub/struphy-examples>`_, and
+  ``struphy agents`` sets up guides for AI coding agents.
 
-Heavy compute kernels are transpiled using the Python accelerator `<https://github.com/pyccel/pyccel>`_.
-You will thus enjoy the speed of Fortran or C while working in the familiar Python environment.
-
-**Flexibility** comes through the possibility of applying different :ref:`models` to a plasma physics problem.
-Each model can be run on different :ref:`avail_mappings` and can load a variety of :ref:`equils`,
-as well as other relevant physial inputs (such as initial conditions).
-
-**Usability** is guaranteed by Python. 
-Struphy code can be handled in the familiar object-oriented way of Python.
-
-Struphy is modular and allows you to add your own model, benefitting from the abstraction
-provided by the Struphy classes. Check out :ref:`add_model` to learn more.
-
-At present, abstractions for the following numerical methods are available:
-
-* **Finite Element Exterior Calculus (FEEC)**, through `<https://github.com/pyccel/psydac>`_
-* **Particle-In-Cell (PIC)**
-* **Smoothed-Particle Hydrodynamics (SPH)**
-
-See :ref:`gempic` for more details on the numerical methods.
-
-If you are passionate about some of the above topics, `get in touch <https://github.com/struphy-hub/struphy/tree/32-publish-struphy-pages-on-github-clean?tab=readme-ov-file#get-in-touch>`_!
+Start with :ref:`install` and the :ref:`quickstart`.
+Questions, bug reports and ideas are welcome on `GitHub <https://github.com/struphy-hub/struphy#get-in-touch>`_.

@@ -163,47 +163,7 @@ $$ (eq:spaces)
 
 All PDE models in Struphy are discretized on the unit cube $(0,1)^3$, called the "logical domain". The mapping to the actual problem domain, a torus for instance, called "physical" or Cartesian domain and denoted by $\Omega$, is described under [Geometry](https://struphy-hub.github.io/struphy/sections/domains.html). Briefly, logical coordinates are curvi-linear and denoted by $\boldsymbol \eta \in (0, 1)^3$, whereas physical Cartesian coordinates are denoted by $\mathbf x \in \Omega$. The mapping $F: (0, 1)^3 \to \Omega, \boldsymbol \eta \mapsto \mathbf x$ is one-to-one and differentiable, with Jacobian matrix $DF: (0, 1)^3 \to \mathbb R^{3\times 3}$, metric tensor $G = DF^\top DF$ and determinant $\sqrt g = |\textrm{det} DF|$. In Struphy, only right-handed mappings with $\textrm{det} DF > 0$ are allowed.
 
-Usually, any text book model equations are described in Cartesian (physical) coordinates $\mathbf x$, and this is also true for our model {eq}`eq:spaces`. Hence, as a next step we have to transform our model to logical, curvi-linear coordinates $\boldsymbol \eta$. This process is also called the "pull-back" to the logical domain. There are different possible "representations" of a pulled-back variable on the logical domain:
-
-* $0$-forms and $3$-forms for scalar-valued functions,
-* $1$-forms, $2$-forms or "vector-fields" for vector-valued functions.
-
-These representations differ in their pullback formulas and have their root in differential geometry, due to coordinate-free notions of line-, surface- and volume integrals (see [Stefan's lecture notes](https://gitlab.mpcdf.mpg.de/spossann/variational-plasma/-/blob/main/lecture_notes.pdf?ref_type=heads), Chapter 5). In particular, these pullback formulas are as follows, given a scalar-valued function $\phi(\mathbf x)$ and a vector-valued function $\mathbf E(\mathbf x)$ on the physical domain:
-
-* $0$-form pullback: $\qquad\hat \phi(\boldsymbol \eta) := \phi(F(\boldsymbol \eta))$,
-* $3$-form pullback: $\qquad\hat \phi^3(\boldsymbol \eta) := \sqrt g(\boldsymbol \eta)\, \phi(F(\boldsymbol \eta))$,
-
-for scalar-valued, and
-
-* $1$-form pullback: $\qquad \hat{\mathbf E}^1(\boldsymbol \eta) := DF^\top(\boldsymbol \eta)\,\mathbf E(F(\boldsymbol \eta))$,
-* $2$-form pullback: $\qquad \hat{\mathbf E}^2(\boldsymbol \eta) := \sqrt g(\boldsymbol \eta)\, DF^{-1}(\boldsymbol \eta)\,\mathbf E(F(\boldsymbol \eta))$,
-* vector-field pullback: $\ \ \ \hat{\mathbf E}(\boldsymbol \eta) := DF^{-1}(\boldsymbol \eta)\,\mathbf E(F(\boldsymbol \eta))$,
-
-for vector-valued functions. We see that pulled-back variables are denoted with a "hat", and with an upper index denoting the respective differential form, except for $0$-forms and vector fields, which are seen as the "standard" logical representations without an upper index. In the literature $\hat{\mathbf E}$ are called the **contra-variant** components of $\mathbf E$, moreover $\hat{\mathbf E}^1$ are called the **co-variant** components of $\mathbf E$ and $\hat{\mathbf E}^2$ is called a **pseudo-vector**.
-
-
-The connection of differential $p$-forms to the {ref}`Struphy de Rham spaces <geomFE>` is as follows:
-
-* Elements of $H^1$ are $0$-forms
-* Elements of $H$(curl) are proxy functions of $1$-forms
-* Elements of $H$(div) are proxy functions of $2$-forms
-* Elements of $L^2$ are proxy functions of $3$-forms.
-
-A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_derham.html#struphy.feec.psydac_derham.Derham.create_spline_function) as elements of $(H^1)^3$ with the correct vector field pullback.  
-
-The grad-, curl- and div-operators transform as follows:
-
-$$
- \nabla \phi = DF^{-\top} \hat \nabla \hat \phi\,,\qquad \nabla \times \mathbf E = \frac{DF}{\sqrt g} \hat \nabla \times \hat{\mathbf E}^1\,,\qquad \nabla \cdot \mathbf E = \frac{1}{\sqrt g} \hat \nabla \cdot \hat{\mathbf E}^2\,,
-$$
-
-where $\hat \nabla = (\partial_{\eta_1}, \partial_{\eta_2}, \partial_{\eta_3})$ denotes the usual nabla-operator on the logical domain. Looking at the above pullback formulas we deduce the following:
-
-* the grad-operator acts on $0$-forms and transforms as a $1$-form
-* the curl-operator acts on $1$-forms and transforms as a $2$-form  
-* the div-operator acts on $2$-forms and transforms as a $3$-form
-
-It is no coincidence that this exactly fits the correspondence between the de Rham diagram and differential forms given above: gradients are $1$-forms, curls are $2$-forms and divergences are $3$-forms.
+Usually, any text book model equations are described in Cartesian (physical) coordinates $\mathbf x$, and this is also true for our model {eq}`eq:spaces`. Hence, as a next step we have to transform our model to logical, curvi-linear coordinates $\boldsymbol \eta$. This process is also called the "pull-back" to the logical domain. Each variable is pulled back according to its space: elements of $H^1$ are $0$-forms, of $H$(curl) $1$-forms, of $H$(div) $2$-forms and of $L^2$ $3$-forms. The pullback formulas and the transformation of grad, curl and div are given in {ref}`feec_forms`; pulled-back variables are denoted with a "hat" and an upper index for the form degree. In particular, the logical derivatives of $0$-, $1$- and $2$-forms do not depend on the mapping.
 
 Given the choice of spaces we made in writing down the model (17)-(21), we can now apply the appropriate pullback formulas to derive the model on the logical domain. For the kinetic distribution function $f$, the mapping $F:\boldsymbol \eta \mapsto \mathbf x$ only acts on the spatial coordinate; the velocity $\mathbf v$ is not tranformed. Hence we write $\hat f(t,\boldsymbol \eta, \mathbf v) := f(t, F(\boldsymbol \eta), \mathbf v)$ to obtain
 
@@ -240,38 +200,13 @@ There are three types of terms that can appear in a Struphy discretization:
 3. particle-to-grid coupling terms (accumulation terms).
 
 All of these three types are present in the above model. Let us start with the **pure FEEC terms**.
-According to {ref}`geomFE` the FEEC variables are expanded with respect to the basis functions of the appropriate space,
-
-$$
-\begin{aligned}
- \hat{\mathbf{E}}^1(t, \boldsymbol\eta) \approx \hat{\mathbf{E}}^1_h(t, \boldsymbol\eta) &= \sum_{\mu=1}^3 \sum_{ijk} e_{\mu, ijk}(t)\,\vec{\Lambda}^1_{\mu, ijk}(\boldsymbol\eta) = \sum_{\mu=1}^3 \mathbf e_\mu^\top \vec{\mathbf \Lambda}^1_\mu \qquad \in V_h^1\,,
- \\[2mm]
- \hat{\mathbf{B}}^2(t, \boldsymbol\eta)  \approx \hat{\mathbf B}_h^2(t, \boldsymbol\eta) &= \sum_{\mu=1}^3 \sum_{ijk} b_{\mu, ijk}(t)\,\vec{\Lambda}^2_{\mu, ijk}(\boldsymbol\eta) = \sum_{\mu=1}^3 \mathbf b_\mu^\top \vec{\mathbf \Lambda}^2_\mu \qquad \in V_h^2\,,
- \\[3mm]
- \hat \phi(t, \boldsymbol\eta) \approx \hat \phi_h(t, \boldsymbol\eta) &= \sum_{ijk} p_{ijk}(t)\, \Lambda^0_{ijk}(\boldsymbol\eta) = \mathbf p^\top \mathbf \Lambda^0 \qquad \in V_h^0 \,,
-\end{aligned}
-$$
-
-where $\mu \in \{1, 2, 3\}$ indicated the three components of a vector, hence $\vec{\Lambda}^1_{\mu, ijk}$ and $\vec{\Lambda}^2_{\mu, ijk}$ are vector-valued, and the discrete FE fields are represented by their time-dependent **FE coefficients** 
-$\mathbf e = (\mathbf e_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$, $\mathbf b = (\mathbf b_\mu)_{\mu=1}^3 \in \mathbb R^{N_2}$ and $\boldsymbol \phi \in \mathbb R^{N_3}$. In Struphy's FEEC framework, it is easy to compute the grad, curl and div of a discrete FE field given in term of its coefficients:
-
-$$
-\begin{aligned}
-    \hat \nabla \hat \phi_h &= \sum_{\mu=1}^3(\mathbb G_\mu \boldsymbol \phi)^\top \vec{\mathbf \Lambda}^1_\mu \quad \in \,V_h^1 \,, 
-    \\
-    \hat \nabla \times \hat{\mathbf E}_h^1 &= \sum_{\mu=1}^{3} \sum_{\alpha=1}^{3}(\mathbb C_{\mu, \alpha} \mathbf e_\alpha)^\top \vec{\mathbf \Lambda}^2_\mu \quad \in \,V_h^2 \,, 
-    \\
-    \hat \nabla \cdot \hat{\mathbf B}_h^2 &= \sum_{\mu=1}^3 (\mathbb D_\mu \mathbf b_\mu)^\top \mathbf \Lambda^3 \quad \in \,V_h^3\,.
-\end{aligned}
-$$
-
-This is written in terms of the matrices $\mathbb G \in \mathbb R^{N_1 \times N_0}$,
-$\mathbb C \in \mathbb R^{N_2 \times N_1}$ and $\mathbb D \in \mathbb R^{N_3 \times N_2}$,
-which satisfy 
-
-$$
-    \mathbb C\, \mathbb G = 0\,,\qquad \mathbb D\, \mathbb C = 0\,.
-$$
+According to {ref}`feec_tensor_spaces`, the FEEC variables are expanded in the basis functions of the appropriate space,
+$\hat{\mathbf E}^1_h = \mathbf e^\top \vec{\mathbf \Lambda}^1 \in V_h^1$, $\hat{\mathbf B}^2_h = \mathbf b^\top \vec{\mathbf \Lambda}^2 \in V_h^2$
+and $\hat \phi_h = \boldsymbol \phi^\top \mathbf \Lambda^0 \in V_h^0$, with time-dependent FE coefficients
+$\mathbf e = (\mathbf e_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$, $\mathbf b = (\mathbf b_\mu)_{\mu=1}^3 \in \mathbb R^{N_2}$ and
+$\boldsymbol \phi \in \mathbb R^{N_0}$. Their derivatives are computed with the matrices $\mathbb G$, $\mathbb C$ and
+$\mathbb D$ of {ref}`feec_derivatives`, e.g. $\hat \nabla \times \hat{\mathbf E}_h^1 = (\mathbb C \mathbf e)^\top \vec{\mathbf \Lambda}^2$,
+written component-wise as $\sum_{\mu, \alpha}(\mathbb C_{\mu, \alpha} \mathbf e_\alpha)^\top \vec{\mathbf \Lambda}^2_\mu$.
 
 Let us substitute these discretizations in the model {eq}`eq:pulledback`:
 
@@ -292,7 +227,8 @@ $$
 \end{aligned}
 $$
 
-There appear a couple of mass matrices that are already [predefined in Struphy](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_weightedmass.html), for any mapping:
+There appear the mass matrices $\mathbb M^1$ and $\mathbb M^2$ of {ref}`feec_mass`, which are predefined in
+Struphy for any mapping (see {class}`~struphy.feec.mass.WeightedMassOperators`):
 
 $$
 \begin{aligned}
@@ -302,7 +238,7 @@ $$
 \end{aligned}
 $$
 
-These are 3x3 block matrices (implemented as [BlockLinearOperators](https://github.com/struphy-hub/psydac-for-struphy/blob/d9d81cb2104cbff990e129c8785cf4a7cb2dc54b/psydac/linalg/block.py#L492)), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation
+These are 3x3 block matrices (``BlockLinearOperator`` of feectools), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation, in which the field equations are the semi-discrete Maxwell equations of {ref}`feec_maxwell` with the particle current on the right-hand side:
 
 $$
 \begin{aligned}
