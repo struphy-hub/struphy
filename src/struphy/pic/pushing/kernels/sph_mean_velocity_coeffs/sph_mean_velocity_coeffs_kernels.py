@@ -1,6 +1,6 @@
 "SPH marker evaluation. Output indices are absolute marker columns; -1 skips a component."
 
-from numpy import shape
+from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
@@ -8,7 +8,7 @@ import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
 
 
-@stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
+@stack_array("values", "grads")
 def sph_mean_velocity_coeffs(
     alpha: "float[:]",
     output_indices: "int[:]",
@@ -20,31 +20,30 @@ def sph_mean_velocity_coeffs(
     periodic1: "bool",
     periodic2: "bool",
     periodic3: "bool",
-    kernel_type: "int",
-    h1: "float",
-    h2: "float",
-    h3: "float",
+    period: "float[:,:]",
+    proj: "float[:,:]",
+    x_idx: "int",
+    kernel: "int",
+    dim: "int",
+    h: "float",
+    scale: "float",
 ):
-    r"""For each particle, evaluate the smoothed SPH density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store the
-    coefficient
+    r"""For each marker :math:`i`, evaluate the SPH density :math:`\rho_i = \sum_j w_j W_h(\mathbf x_i - \mathbf x_j)`
+    and store the coefficient
 
-    * :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[output_indices[k], :]`` for :math:`k = 0, 1, 2`
+    * :math:`w_i v_{k,i} / \rho_i` at ``markers[output_indices[k], :]`` for :math:`k = 0, 1, 2`.
 
-    where the smoothed SPH density is given by
-
-    .. math::
-
-        \rho^{N,h}(\boldsymbol \eta_i) = \sum_j w_j \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
-
-    These coefficients serve as kernel weights so that one can evaluate
-    the SPH mean velocity field
+    These coefficients serve as kernel weights to evaluate the SPH mean velocity
 
     .. math::
 
-        v_k^{N,h}(\boldsymbol \eta_i)
-        = \sum_j \frac{w_j \, v_{k,j}}{\rho^{N,h}(\boldsymbol \eta_j)} \,
-          W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
+        \mathbf v^{N,h}(\mathbf x) = \sum_j \frac{w_j \, \mathbf v_j}{\rho_j} \, W_h(\mathbf x - \mathbf x_j)\,.
+
+    The kernel arguments (``periodic1`` to ``scale``) are those of
+    :func:`~struphy.pic.sph_eval_kernels.box_based_physical`.
     """
+    values = zeros(1, dtype=float)
+    grads = zeros((1, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -58,19 +57,15 @@ def sph_mean_velocity_coeffs(
         if not valid_mks[ip]:
             continue
 
-        # also evaluate and save for ghost particles, only skip holes (!)
-        # if holes[ip]:
-        #     continue
-
-        eta1 = markers[0, ip]
-        eta2 = markers[1, ip]
-        eta3 = markers[2, ip]
         loc_box = int(markers[n_cols - 2, ip])
-        n_at_eta = sph_eval_kernels.box_based_kernel(
+        sph_eval_kernels.box_based_columns(
             args_markers,
-            eta1,
-            eta2,
-            eta3,
+            markers[x_idx, ip],
+            markers[x_idx + 1, ip],
+            markers[x_idx + 2, ip],
+            markers[0, ip],
+            markers[1, ip],
+            markers[2, ip],
             loc_box,
             boxes,
             neighbours,
@@ -78,18 +73,20 @@ def sph_mean_velocity_coeffs(
             periodic1,
             periodic2,
             periodic3,
+            period,
+            proj,
+            x_idx,
             weight_idx,
-            kernel_type,
-            h1,
-            h2,
-            h3,
+            1,
+            kernel,
+            dim,
+            h,
+            scale,
+            values,
+            grads,
         )
-        weight = markers[weight_idx, ip]
-        velocities = markers[3:6, ip]
+        coeff = markers[weight_idx, ip] / values[0]
         # save
-        if output_indices[0] >= 0:
-            markers[output_indices[0], ip] = weight / n_at_eta * velocities[0]
-        if output_indices[1] >= 0:
-            markers[output_indices[1], ip] = weight / n_at_eta * velocities[1]
-        if output_indices[2] >= 0:
-            markers[output_indices[2], ip] = weight / n_at_eta * velocities[2]
+        for k in range(3):
+            if output_indices[k] >= 0:
+                markers[output_indices[k], ip] = coeff * markers[3 + k, ip]

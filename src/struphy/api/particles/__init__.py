@@ -5,6 +5,7 @@ from struphy.particles.parameters import (
     LoadingParameters,
     SavingParameters,
     SortingParameters,
+    SPHParameters,
     WeightsParameters,
 )
 
@@ -12,6 +13,7 @@ __all__ = [
     "LoadingParameters",
     "WeightsParameters",
     "SortingParameters",
+    "SPHParameters",
     "SavingParameters",
     "BoundaryParameters",
     "BinningPlot",

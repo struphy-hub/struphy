@@ -8,7 +8,7 @@ from cunumpy.kernels import PyccelKernel
 
 from struphy.geometry.domains import Cuboid
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, MarkerArguments
-from struphy.pic import sph_smoothing_kernels
+from struphy.pic import sph_radial_kernels
 from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.kernels.bstar_2form import bstar_2form
 from struphy.pic.pushing.kernels.bstar_parallel_3form import bstar_parallel_3form
@@ -85,71 +85,148 @@ def test_guiding_center_destinations(marker_args, derham_args, kernel, values, e
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
+# SPH kernel arguments for a 1D Wendland C2 kernel along x (kernel id 2) of width H on a non-periodic domain,
+# with the physical positions in the marker columns X_IDX:X_IDX + 3 (see Particles.sph_kernel_args).
+X_IDX = 34
+H = 0.5
+PROJ_X = np.diag([1.0, 0.0, 0.0])
+
+
+def wendland_1d(r, h=H):
+    """Wendland C2 kernel in 1D (sigma = 5/4) and its radial derivative, written out independently of the kernels."""
+    q = r / h
+    if q >= 1.0:
+        return 0.0, 0.0
+    return 1.25 / h * (1 - q) ** 3 * (1 + 3 * q), 1.25 / h**2 * (-12.0 * q * (1 - q) ** 2)
+
+
+def sph_args(boxes, neighbours, valid_mks):
+    return (
+        boxes,
+        neighbours,
+        ~valid_mks,
+        False,
+        False,
+        False,
+        np.zeros((3, 3)),
+        PROJ_X,
+        X_IDX,
+        2,
+        1,
+        H,
+        1.0,
+    )
+
+
+def set_positions(markers, domain=None):
+    """Physical positions x = F(eta) in the columns X_IDX:X_IDX + 3 (identity for domain=None)."""
+    for p in range(markers.shape[1]):
+        eta = markers[:3, p]
+        markers[X_IDX : X_IDX + 3, p] = eta if domain is None else np.ravel(domain(eta[:, None]))
+
+
 @pytest.mark.parametrize("kernel", [sph_pressure_coeffs, sph_mean_velocity_coeffs])
 def test_sph_vector_destinations(marker_args, kernel):
     boxes = np.array([[0, -1], [-1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
     neighbours[0, 0] = 0
+    set_positions(marker_args.markers)
     setup = KernelSetup(
         kernel=kernel,
         output_indices=(30, None, 24),
-        args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5)
+        args=sph_args(boxes, neighbours, marker_args.valid_mks)
         + ((5.0 / 3.0,) if kernel.name == "sph_pressure_coeffs" else ()),
     )
     before = marker_args.markers.copy()
     setup.evaluate(marker_args, Cuboid().args_domain)
     reference = before.copy()
-    # One particle: density = weight * W(0) = 2 * (1 / h) = 4.
+    # One particle: density = weight * W(0) = 2 * 5 / (4 h) = 5.
+    rho = 2.0 * wendland_1d(0.0)[0]
+    assert rho == pytest.approx(5.0)
     if kernel.name == "sph_pressure_coeffs":
-        reference[30, 0], reference[24, 0] = 4.0, 2.0 * 4.0 ** (-1.0 / 3.0)
+        reference[30, 0], reference[24, 0] = rho, 2.0 * rho ** (-1.0 / 3.0)
     else:
-        reference[30, 0], reference[24, 0] = 1.0, 3.0
+        # w v / rho with v = (2, 4, 6)
+        reference[30, 0], reference[24, 0] = 2.0 * 2.0 / rho, 2.0 * 6.0 / rho
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
-def test_sph_tensor_destinations(marker_args):
-    # Second particle at eta1 + 0.2 (inside h = 0.5) with the same velocity coefficients.
+def _tensor_reference(gradient, density, mu=3.0, weight=2.0):
+    """Stored stress coefficients w sigma / rho, sigma = -mu (grad v + grad v^T - 2/3 div v I)."""
+    div = np.trace(gradient)
+    return -mu * (weight / density) * (gradient + gradient.T - 2.0 / 3.0 * div * np.eye(3))
+
+
+@pytest.mark.parametrize("domain", [None, Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=3.0, l3=0.0, r3=0.5)])
+def test_sph_tensor_destinations(marker_args, domain):
+    # Second particle at eta1 + 0.2 with the same velocity coefficients (1, 2, 3). The kernel only uses the
+    # physical positions: on the stretched Cuboid the distance is 0.4 instead of 0.2 (Cartesian derivatives,
+    # no Piola transform).
     marker_args.markers[:, 1] = marker_args.markers[:, 0]
     marker_args.markers[0, 1] = 0.6
     marker_args.markers[18:21] = np.array([1.0, 2.0, 3.0])[:, None]
     marker_args.valid_mks[1] = True
+    set_positions(marker_args.markers, domain)
     boxes = np.array([[0, 1, -1], [-1, -1, -1]])
     neighbours = np.ones((1, 27), dtype=int)
     neighbours[0, 0] = 0
-    # Self-gradient of the linear 1D kernel vanishes; the neighbour contributes -+1 / h**2 = -+4.
-    gradient = np.array([[4.0, 0.0, 0.0], [8.0, 0.0, 0.0], [12.0, 0.0, 0.0]])
-    density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
+    r = 0.2 if domain is None else 0.4
+    w_r, dw_r = wendland_1d(r)
+    # Self-gradient vanishes; the neighbour at +r contributes c_j * dW/dr * (x_0 - x_1) / r = -c_j * dW/dr.
+    gradient = np.zeros((3, 3))
+    gradient[:, 0] = -np.array([1.0, 2.0, 3.0]) * dw_r
+    density = 2.0 * (wendland_1d(0.0)[0] + w_r)
     indices = (30, 29, 28, 27, None, 25, 24, 23, 22)
     setup = KernelSetup(
         kernel=sph_viscosity_tensor,
         output_indices=indices,
-        args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
+        args=sph_args(boxes, neighbours, marker_args.valid_mks) + (3.0,),
     )
     before = marker_args.markers.copy()
-    setup.evaluate(marker_args, Cuboid().args_domain)
-    symmetric = (gradient + gradient.T) / 2.0
-    tensor = -2.0 * 3.0 * (2.0 / density) * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
+    setup.evaluate(marker_args, Cuboid().args_domain if domain is None else domain.args_domain)
+    tensor = _tensor_reference(gradient, density)
     reference = before.copy()
     for value, index in zip(tensor.flat, indices):
         if index is not None:
             reference[index, 0] = value
+            # the second particle sees the first one at -r: the gradient changes sign
             reference[index, 1] = -value
     np.testing.assert_allclose(marker_args.markers, reference)
 
 
-# Each gradient component must vanish where its own coordinate is zero (no self-force, issue #437).
-ZERO_GRADIENT_CASES = [
-    (n + k, point)
-    for n in (100, 110, 120, 340, 350, 360, 670, 680, 690, 700)
-    for k in (1, 2, 3)
-    for point in ((0.0, 0.0, 0.0), (0.0, 0.1, 0.05), (0.1, 0.0, 0.05), (0.1, 0.05, 0.0))
-    if point[k - 1] == 0.0 and (n != 690 or not any(point))
-]
+KERNEL_IDS = {"gaussian": 1, "wendland_c2": 2, "cubic_spline": 3}
 
 
-@pytest.mark.parametrize("kernel_type,point", ZERO_GRADIENT_CASES)
-def test_sph_kernel_gradients_vanish_at_zero(kernel_type, point):
-    assert sph_smoothing_kernels.smoothing_kernel(kernel_type, *point, 0.3, 0.25, 0.2) == 0.0
+@pytest.mark.mpi_skip
+@pytest.mark.parametrize("kernel", KERNEL_IDS)
+@pytest.mark.parametrize("dim", [1, 2, 3])
+def test_sph_radial_kernel_normalization(kernel, dim):
+    """The kernel integrates to one over R^d (radial quadrature), vanishes outside the support and has zero slope
+    at the origin (no self-force)."""
+    k = KERNEL_IDS[kernel]
+    h = 0.37
+    # Gauss-Legendre in r on [0, h], with the surface of the unit sphere
+    nodes, weights = np.polynomial.legendre.leggauss(400)
+    r = 0.5 * h * (nodes + 1.0)
+    wq = 0.5 * h * weights
+    surface = {1: 2.0, 2: 2.0 * np.pi, 3: 4.0 * np.pi}[dim]
+    vals = np.array([sph_radial_kernels.kernel_value(k, dim, ri, h) for ri in r])
+    integral = surface * np.sum(wq * vals * r ** (dim - 1))
+    assert integral == pytest.approx(1.0, abs=1e-6)
+
+    # (the truncated Gaussian jumps by e^-9 at r = h; the SPH sums skip r >= h)
+    for ri in (1.0001 * h, 2.0 * h):
+        assert sph_radial_kernels.kernel_value(k, dim, ri, h) == 0.0
+        assert sph_radial_kernels.kernel_dr(k, dim, ri, h) == 0.0
+    assert sph_radial_kernels.kernel_dr(k, dim, 0.0, h) == 0.0
+
+    # the radial derivative is the derivative of the value (central differences)
+    eps = 1e-6
+    for ri in (0.1 * h, 0.45 * h, 0.55 * h, 0.9 * h):
+        fd = (
+            sph_radial_kernels.kernel_value(k, dim, ri + eps, h) - sph_radial_kernels.kernel_value(k, dim, ri - eps, h)
+        ) / (2 * eps)
+        assert sph_radial_kernels.kernel_dr(k, dim, ri, h) == pytest.approx(fd, rel=1e-5, abs=1e-6 / h ** (dim + 1))
 
 
 @pytest.mark.parametrize(
@@ -172,36 +249,6 @@ def test_gc_discrete_gradient_residual_at_zero_velocity(derham_args, kernel, n_f
     kernel(0.1, 0, args_markers, Cuboid().args_domain, derham_args, 1.0, *(coefficients(1.0),) * n_fields, False)
     assert markers[16, 0] == 0.0
     np.testing.assert_array_equal(markers[:4, 0], (0.4, 0.3, 0.2, 0.0))
-
-
-def test_sph_tensor_mapped_domain(marker_args):
-    # On a mapped domain the strain uses Cartesian derivatives (grad_eta @ DF^{-1}) and the
-    # stored columns are in Piola form det(DF) * tensor @ DF^{-T}.
-    # Only the neighbour at eta1 + 0.2 carries velocity coefficients, so the result does not
-    # depend on the kernel gradient at zero; its linear 1D kernel gradient is 1 / h**2 = 4.
-    marker_args.markers[:, 1] = marker_args.markers[:, 0]
-    marker_args.markers[0, 1] = 0.6
-    marker_args.markers[18:21, 1] = (1.0, 2.0, 3.0)
-    marker_args.valid_mks[1] = True
-    boxes = np.array([[0, 1, -1], [-1, -1, -1]])
-    neighbours = np.ones((1, 27), dtype=int)
-    neighbours[0, 0] = 0
-    domain = Cuboid(l1=0.0, r1=2.0, l2=0.0, r2=3.0, l3=0.0, r3=0.5)
-    jac = np.diag([2.0, 3.0, 0.5])
-    jac_inv = np.linalg.inv(jac)
-    gradient = np.array([[4.0, 0.0, 0.0], [8.0, 0.0, 0.0], [12.0, 0.0, 0.0]]) @ jac_inv
-    density = 2.0 * (2.0 + 1.2)  # weight * (W(0) + W(0.2))
-    indices = tuple(range(22, 31))
-    setup = KernelSetup(
-        kernel=sph_viscosity_tensor,
-        output_indices=indices,
-        args=(boxes, neighbours, ~marker_args.valid_mks, False, False, False, 120, 0.5, 0.5, 0.5, 3.0),
-    )
-    setup.evaluate(marker_args, domain.args_domain)
-    symmetric = (gradient + gradient.T) / 2.0
-    tensor = -2.0 * 3.0 * (2.0 / density) * (symmetric - np.eye(3) * np.trace(symmetric) / 3.0)
-    piola = np.linalg.det(jac) * tensor @ jac_inv.T
-    np.testing.assert_allclose(marker_args.markers[22:31, 0], piola.flat)
 
 
 @pytest.mark.parametrize("indices", [(), (1, 2), (-1,), (True,), (1.5,), (None,), (1, 1, 2)])

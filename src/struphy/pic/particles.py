@@ -20,6 +20,8 @@ from struphy.pic.diagnostics.kernels.eval_guiding_center_from_6d import eval_gui
 from struphy.pic.diagnostics.kernels.eval_magnetic_background_energy import eval_magnetic_background_energy
 from struphy.pic.diagnostics.kernels.eval_magnetic_energy_PBb import eval_magnetic_energy_PBb
 from struphy.pic.diagnostics.kernels.eval_magnetic_moment_5d import eval_magnetic_moment_5d
+from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
+from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
 
 logger = logging.getLogger("struphy")
 
@@ -1228,18 +1230,136 @@ class ParticlesSPH(Particles):
     """Marker columns saved as orbits, see :attr:`~struphy.pic.base.Particles.orbit_quantities`."""
     default_background = equils.ConstantVelocity()
     """Default fluid background is a spatially constant velocity field."""
-    default_n_cols = {"diagnostics": 0, "aux": 24}
-    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
+    default_n_cols = {"diagnostics": 3, "aux": 24}
+    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use. The last three
+    diagnostics columns hold the physical marker positions (:attr:`x_idx`); they are not cleared by the
+    :class:`~struphy.pic.pushing.pusher.Pusher`, unlike the auxiliary columns."""
 
     @property
     def mu_idx(self):
         return self.first_free_idx
 
+    @property
+    def x_idx(self):
+        r"""First of the three marker columns holding the physical positions :math:`\mathbf x_p = F(\boldsymbol\eta_p)`
+        (also of the ghost particles), updated by :meth:`put_particles_in_boxes`."""
+        return self.first_diagnostics_idx + self.n_cols_diagnostics - 3
+
     def __post_init__(self):
-        """Attach the domain to the background (needed to evaluate it at marker positions).
+        """Attach the domain to the background (needed to evaluate it at marker positions) and set up the physical
+        smoothing kernel (:func:`~struphy.pic.sph_setup.setup_sph_kernel`).
         SPH does not support clone-based (tile-copied) MPI parallelization."""
         assert self.clone_config is None, "SPH can only be launched with --nclones 1"
         self.background.domain = self.domain
+
+        if self.n_cols_diagnostics < 3:
+            raise ValueError(
+                f"ParticlesSPH needs at least 3 diagnostics columns for the physical positions, got {self.n_cols_diagnostics}."
+            )
+        # The smoothing kernel (sph_kernel) is set up at its first use: when a propagator with SPH sums is allocated
+        # (before the first time step) or at the first density evaluation. Species without SPH sums (e.g. a
+        # pressureless fluid, sorting boxes used only for the MPI decomposition) need no kernel.
+
+    def put_particles_in_boxes(self):
+        """As :meth:`~struphy.pic.base.Particles.put_particles_in_boxes`, then update the physical positions of
+        all markers, including the ghost particles (:attr:`x_idx`)."""
+        super().put_particles_in_boxes()
+        self.update_physical_positions()
+
+    def eval_velocity(self, eta1, eta2, eta3, derivative: int = 0, fast: bool = True) -> tuple:
+        r"""Evaluate the SPH mean velocity (Cartesian components) at logical points,
+
+        .. math::
+
+            \mathbf v_h(F(\boldsymbol\eta)) = \sum_j \frac{w_j\, \mathbf v_j}{\rho_j}\, W_h(F(\boldsymbol\eta) - \mathbf x_j)\,,
+
+        with the SPH density :math:`\rho_j` at the markers (kernel
+        :func:`~struphy.pic.pushing.kernels.sph_mean_velocity_coeffs.sph_mean_velocity_coeffs_kernels.sph_mean_velocity_coeffs`).
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points, of the same shape.
+
+        derivative : int
+            0 for the velocity, 1, 2, 3 for its physical derivative :math:`\partial_{x_k} \mathbf v_h`.
+
+        fast : bool
+            If True, use the box-based neighbour search; if False, the naive sum over all markers.
+
+        Returns
+        -------
+        (v1, v2, v3) : tuple of xp.ndarray
+            The three Cartesian components, each of the shape of ``eta1``.
+        """
+        first_free_idx = self.args_markers.first_free_idx
+
+        self.put_particles_in_boxes()
+        sph_mean_velocity_coeffs(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            *self.sph_kernel_args,
+        )
+
+        # _eval_sph refreshes the ghost particles with the new coefficients
+        return tuple(
+            self._eval_sph(eta1, eta2, eta3, first_free_idx + k, derivative=derivative, fast=fast) for k in range(3)
+        )
+
+    def eval_div_viscosity(self, eta1, eta2, eta3, mu: float = 1.0, fast: bool = True) -> tuple:
+        r"""Evaluate the divergence of the viscous stress :math:`\nabla \cdot \sigma` (Cartesian components) at logical
+        points, with :math:`\sigma = -\mu\,(\nabla \mathbf v_h + \nabla \mathbf v_h^\top - \tfrac 23 (\nabla \cdot
+        \mathbf v_h) I)`, see
+        :func:`~struphy.pic.pushing.kernels.sph_viscosity_tensor.sph_viscosity_tensor_kernels.sph_viscosity_tensor`.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points, of the same shape.
+
+        mu : float
+            Dynamic viscosity.
+
+        fast : bool
+            If True, use the box-based neighbour search; if False, the naive sum over all markers.
+
+        Returns
+        -------
+        (div_x, div_y, div_z) : tuple of xp.ndarray
+            The three Cartesian components, each of the shape of ``eta1``.
+        """
+        first_free_idx = self.args_markers.first_free_idx
+
+        self.put_particles_in_boxes()
+        sph_mean_velocity_coeffs(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            *self.sph_kernel_args,
+        )
+        # ghost particles with the new coefficients
+        self.put_particles_in_boxes()
+        sph_viscosity_tensor(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            *self.sph_kernel_args,
+            float(mu),
+        )
+
+        out = []
+        for j in range(3):
+            div = 0.0
+            for m in range(3):
+                div = div + self._eval_sph(
+                    eta1, eta2, eta3, first_free_idx + 3 * (j + 1) + m, derivative=m + 1, fast=fast
+                )
+            out += [div]
+        return tuple(out)
 
     @property
     def sampling_density(self):

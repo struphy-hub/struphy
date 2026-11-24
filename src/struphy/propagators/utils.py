@@ -240,6 +240,26 @@ class VelocityMass:
         self._ops.update_M_rho(self._rho)
 
 
+def check_removed_kernel_options(options):
+    """Raise a clear error if the removed SPH options ``kernel_type`` or ``kernel_width`` are set in the options of
+    an SPH propagator. The smoothing kernel is set per species with
+    :class:`~struphy.particles.parameters.SPHParameters`.
+
+    Parameters
+    ----------
+    options : OptionsBase
+        Options of an SPH propagator with the (removed) fields ``kernel_type`` and ``kernel_width``.
+    """
+    for name in ("kernel_type", "kernel_width"):
+        if getattr(options, name) is not None:
+            raise ValueError(
+                f"The option '{name}' of {type(options).__qualname__} was removed: the SPH smoothing kernel is now "
+                "radial in physical space and set per species, e.g. "
+                "species.set_markers(..., sph_params=SPHParameters(kernel='gaussian', kernel_width=None)), "
+                "see struphy.SPHParameters."
+            )
+
+
 def velocity_mass(propagator, u_space: str, rho_field=None):
     r"""Mass matrix of the inertia of a velocity :math:`\tilde{\mathbf U}` in ``u_space``, for the propagators of the
     linear and perturbative models: :math:`\mathbb M^{\alpha}_{\rho_0}` (``mass_ops.M{alpha}n``), or the mass matrix

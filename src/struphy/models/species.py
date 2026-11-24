@@ -14,6 +14,7 @@ from struphy.particles.parameters import (
     LoadingParameters,
     SavingParameters,
     SortingParameters,
+    SPHParameters,
     WeightsParameters,
 )
 from struphy.physics.physics import ConstantsOfNature, Units
@@ -321,7 +322,7 @@ class ParticleSpecies(Species):
 
     Methods
     -------
-    set_markers(loading_params, weights_params, boundary_params, sorting_params, saving_params, bufsize)
+    set_markers(loading_params, weights_params, boundary_params, sorting_params, saving_params, bufsize, sph_params)
         Configure marker initialization and parameters.
 
     Examples
@@ -340,6 +341,7 @@ class ParticleSpecies(Species):
             "sorting_params",
             "saving_params",
             "bufsize",
+            "sph_params",
         ):
             if hasattr(self, name):
                 data[name] = _serialize_parameter(getattr(self, name))
@@ -353,6 +355,7 @@ class ParticleSpecies(Species):
         sorting_params: SortingParameters = None,
         saving_params: SavingParameters = None,
         bufsize: float = 1.0,
+        sph_params: SPHParameters = None,
     ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
         and boundary conditions in parameter/launch files.
@@ -371,6 +374,9 @@ class ParticleSpecies(Species):
 
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array.
+
+        sph_params : SPHParameters
+            Smoothing kernel of SPH species (ignored for PIC species).
         """
 
         # defaults
@@ -389,12 +395,16 @@ class ParticleSpecies(Species):
         if saving_params is None:
             saving_params = SavingParameters()
 
+        if sph_params is None:
+            sph_params = SPHParameters()
+
         self.loading_params = loading_params
         self.weights_params = weights_params
         self.boundary_params = boundary_params
         self.sorting_params = sorting_params
         self.saving_params = saving_params
         self.bufsize = bufsize
+        self.sph_params = sph_params
 
         logger.info(f"\nMarker parameters for species '{self.__class__.__name__}':")
         logger.info(self.loading_params.__repr_no_defaults__())

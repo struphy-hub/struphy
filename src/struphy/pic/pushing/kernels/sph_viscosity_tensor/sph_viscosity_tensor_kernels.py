@@ -3,14 +3,12 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
 
 
-@stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
+@stack_array("rho_val", "rho_grad", "v_val", "grad_v", "sigma")
 def sph_viscosity_tensor(
     alpha: "float[:]",
     output_indices: "int[:]",
@@ -22,50 +20,43 @@ def sph_viscosity_tensor(
     periodic1: "bool",
     periodic2: "bool",
     periodic3: "bool",
-    kernel_type: "int",
-    h1: "float",
-    h2: "float",
-    h3: "float",
+    period: "float[:,:]",
+    proj: "float[:,:]",
+    x_idx: "int",
+    kernel: "int",
+    dim: "int",
+    h: "float",
+    scale: "float",
     mu: "float",
 ):
-    r"""For each particle, evaluate the smoothed SPH density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and the
-    deviatoric strain rate, and store the 9 coefficients
-
-    * :math:`w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
-      / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[output_indices[3*j + k], :]`` for :math:`j, k = 0, 1, 2`
-
-    where :math:`\sqrt g = \det DF`, the smoothed SPH density is given by
+    r"""For each marker :math:`i`, evaluate the SPH density :math:`\rho_i = \sum_l w_l W_h(\mathbf x_i - \mathbf x_l)`
+    and the viscous stress (momentum flux)
 
     .. math::
 
-        \rho^{N,h}(\boldsymbol \eta_i) = \sum_l w_l \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_l)\,,
-
-    and the viscous stress (momentum flux) is minus :math:`\mu` times twice the traceless symmetric part of the
-    Cartesian mean velocity gradient,
-
-    .. math::
-
-        \sigma_{jm}(\boldsymbol \eta_i)
-        = -\mu\bigl[ \partial_{x_m} v_j^{N,h}(\boldsymbol \eta_i) + \partial_{x_j} v_m^{N,h}(\boldsymbol \eta_i)
-        - \tfrac{2}{3}\delta_{jm} \, \partial_{x_l} v_l^{N,h}(\boldsymbol \eta_i)\bigr]\,,
+        \sigma_{jm,i} = -\mu\bigl[ \partial_m v_j^{N,h}(\mathbf x_i) + \partial_j v_m^{N,h}(\mathbf x_i)
+        - \tfrac{2}{3}\delta_{jm} \, \nabla \cdot \mathbf v^{N,h}(\mathbf x_i)\bigr]\,,
         \qquad
-        \partial_{x_m} v_j^{N,h} = \sum_k \partial_{\eta_k} v_j^{N,h} \, (DF^{-1})_{km}\,.
+        \partial_m v_j^{N,h}(\mathbf x_i) = \sum_l \frac{w_l v_{j,l}}{\rho_l}\, \partial_m W_h(\mathbf x_i - \mathbf x_l)\,,
 
-    The factor :math:`\sqrt g \, DF^{-1}` puts the tensor in divergence (Piola) form,
-    :math:`(\nabla_x \cdot \sigma)_j = \frac{1}{\sqrt g} \partial_{\eta_k} \bigl(\sqrt g \, (DF^{-1})_{km} \sigma_{jm}\bigr)`,
-    such that these coefficients serve as kernel weights to evaluate the viscous force
+    and store the 9 coefficients
 
-    .. math::
+    * :math:`w_i \, \sigma_{jm,i} / \rho_i` at ``markers[output_indices[3*j + m], :]`` for :math:`j, m = 0, 1, 2`.
 
-        (\nabla \cdot \sigma)^{N,h}_j(\boldsymbol \eta_i)
-        = \frac{1}{\sqrt g(\boldsymbol \eta_i)} \sum_l \frac{ w_l \, \sqrt g(\boldsymbol \eta_l) \,
-          \sigma_{jm}(\boldsymbol \eta_l) \, (DF^{-1})_{km}(\boldsymbol \eta_l)}{\rho^{N,h}(\boldsymbol \eta_l)} \,
-          (\nabla W_h)_k(\boldsymbol \eta_i - \boldsymbol \eta_l)\,.
+    These serve as kernel weights to evaluate the viscous force
+    :math:`(\nabla \cdot \sigma)^{N,h}_j(\mathbf x) = \sum_l (w_l \sigma_{jm,l}/\rho_l)\, \partial_m W_h(\mathbf x - \mathbf x_l)`.
 
-    This kernel requires the coefficients of the mean velocity :math:`v_k^{N,h}`
-    for each particle to be pre-evaluated and stored at ``markers[first_free_idx:first_free_idx + 3, :]``,
-    which can be achieved by the kernel :func:`~struphy.pic.pushing.eval_kernels_sph.sph_mean_velocity_coeffs`.
+    This kernel requires the mean-velocity coefficients :math:`w_l \mathbf v_l / \rho_l` at
+    ``markers[first_free_idx:first_free_idx + 3, :]``, computed by
+    :func:`~struphy.pic.pushing.kernels.sph_mean_velocity_coeffs.sph_mean_velocity_coeffs_kernels.sph_mean_velocity_coeffs`.
+    The kernel arguments (``periodic1`` to ``scale``) are those of
+    :func:`~struphy.pic.sph_eval_kernels.box_based_physical`.
     """
+    rho_val = zeros(1, dtype=float)
+    rho_grad = zeros((1, 3), dtype=float)
+    v_val = zeros(3, dtype=float)
+    grad_v = zeros((3, 3), dtype=float)
+    sigma = zeros((3, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -75,25 +66,25 @@ def sph_viscosity_tensor(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
 
-    grad_v_at_eta = zeros((3, 3), dtype=float)
-    grad_v_cart = zeros((3, 3), dtype=float)
-    # d_tensor = zeros((3, 3), dtype=float)
-    d_dev = zeros((3, 3), dtype=float)
-    d_piola = zeros((3, 3), dtype=float)
-    df_mat = zeros((3, 3), dtype=float)
-    dfinv = zeros((3, 3), dtype=float)
-    dfinvT = zeros((3, 3), dtype=float)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle
         if not valid_mks[ip]:
             continue
 
+        x1 = markers[x_idx, ip]
+        x2 = markers[x_idx + 1, ip]
+        x3 = markers[x_idx + 2, ip]
         eta1 = markers[0, ip]
         eta2 = markers[1, ip]
         eta3 = markers[2, ip]
         loc_box = int(markers[n_cols - 2, ip])
-        n_at_eta = sph_eval_kernels.box_based_kernel(
+
+        # density
+        sph_eval_kernels.box_based_columns(
             args_markers,
+            x1,
+            x2,
+            x3,
             eta1,
             eta2,
             eta3,
@@ -104,63 +95,56 @@ def sph_viscosity_tensor(
             periodic1,
             periodic2,
             periodic3,
+            period,
+            proj,
+            x_idx,
             weight_idx,
-            kernel_type,
-            h1,
-            h2,
-            h3,
+            1,
+            kernel,
+            dim,
+            h,
+            scale,
+            rho_val,
+            rho_grad,
         )
-        weight = markers[weight_idx, ip]
-        for j in range(3):
-            for k in range(3):
-                grad_v_at_eta[j, k] = sph_eval_kernels.box_based_kernel(
-                    args_markers,
-                    eta1,
-                    eta2,
-                    eta3,
-                    loc_box,
-                    boxes,
-                    neighbours,
-                    holes,
-                    periodic1,
-                    periodic2,
-                    periodic3,
-                    first_free_idx + j,
-                    kernel_type + 1 + k,
-                    h1,
-                    h2,
-                    h3,
-                )
 
-        # Cartesian velocity gradient: d v_j / d x_m = sum_k d v_j / d eta_k * (DF^{-1})_km
-        evaluation_kernels.df_inv(
+        # Cartesian velocity gradient grad_v[j, m] = d v_j / d x_m
+        sph_eval_kernels.box_based_columns(
+            args_markers,
+            x1,
+            x2,
+            x3,
             eta1,
             eta2,
             eta3,
-            args_domain,
-            df_mat,
-            False,
-            dfinv,
+            loc_box,
+            boxes,
+            neighbours,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            period,
+            proj,
+            x_idx,
+            first_free_idx,
+            3,
+            kernel,
+            dim,
+            h,
+            scale,
+            v_val,
+            grad_v,
         )
-        detdf = linalg_kernels.det(df_mat)
-        linalg_kernels.matrix_matrix(grad_v_at_eta, dfinv, grad_v_cart)
 
-        d_dev[:] = 0.5 * (grad_v_cart + grad_v_cart.T)
-
-        mean_trace = (d_dev[0, 0] + d_dev[1, 1] + d_dev[2, 2]) / 3.0
-
-        d_dev[0, 0] -= mean_trace
-        d_dev[1, 1] -= mean_trace
-        d_dev[2, 2] -= mean_trace
-
-        d_dev *= -2 * mu * (weight / n_at_eta)
-
-        # Piola form for the divergence in logical coordinates: sqrt(g) * sigma_jm * (DF^{-1})_km
-        linalg_kernels.transpose(dfinv, dfinvT)
-        linalg_kernels.matrix_matrix(d_dev, dfinvT, d_piola)
-        d_piola *= detdf
+        div_v = grad_v[0, 0] + grad_v[1, 1] + grad_v[2, 2]
+        factor = -mu * markers[weight_idx, ip] / rho_val[0]
+        for j in range(3):
+            for m in range(3):
+                sigma[j, m] = grad_v[j, m] + grad_v[m, j]
+            sigma[j, j] -= 2.0 / 3.0 * div_v
 
         for j in range(3):
-            for k in range(3):
-                if output_indices[3 * j + k] >= 0:
-                    markers[output_indices[3 * j + k], ip] = d_piola[j, k]
+            for m in range(3):
+                if output_indices[3 * j + m] >= 0:
+                    markers[output_indices[3 * j + m], ip] = factor * sigma[j, m]

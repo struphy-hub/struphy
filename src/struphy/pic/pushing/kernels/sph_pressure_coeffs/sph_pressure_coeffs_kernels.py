@@ -1,15 +1,14 @@
 "SPH marker evaluation. Output indices are absolute marker columns; -1 skips a component."
 
-from numpy import shape
+from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
-import struphy.pic.sph_metric_kernels as sph_metric_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
 
 
-@stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
+@stack_array("values", "grads")
 def sph_pressure_coeffs(
     alpha: "float[:]",
     output_indices: "int[:]",
@@ -21,34 +20,39 @@ def sph_pressure_coeffs(
     periodic1: "bool",
     periodic2: "bool",
     periodic3: "bool",
-    kernel_type: "int",
-    h1: "float",
-    h2: "float",
-    h3: "float",
+    period: "float[:,:]",
+    proj: "float[:,:]",
+    x_idx: "int",
+    kernel: "int",
+    dim: "int",
+    h: "float",
+    scale: "float",
     gamma: "float",
 ):
-    r"""For each particle, evaluate
-
-    * the density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[output_indices[0], :]``)
-    * the coefficient :math:`w_i/\rho^{N,h}(\boldsymbol \eta_i)` and store it at ``markers[output_indices[1], :]``)
-    * the coefficient :math:`w_i \rho_i^{\gamma - 2} / \sqrt g(\boldsymbol\eta_i)` of the polytropic closure with
-      adiabatic index ``gamma`` and store it at ``markers[output_indices[2], :]``)
-
-    where the smoothed SPH density (a 3-form in logical space) is given by
+    r"""For each marker :math:`i`, evaluate the SPH density (in physical space)
 
     .. math::
 
-        \rho^{N,h}(\boldsymbol \eta_i) = \sum_j w_j \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,,
+        \rho_i = \sum_j w_j \, W_h(\mathbf x_i - \mathbf x_j)\,,
 
-    and :math:`\rho_i = \rho^{N,h}(\boldsymbol \eta_i) / \sqrt g(\boldsymbol\eta_i)` is the physical density,
-    with :math:`\sqrt g = |\det DF|`.
+    and store
+
+    * :math:`\rho_i` at ``markers[output_indices[0], :]``,
+    * :math:`w_i/\rho_i` at ``markers[output_indices[1], :]`` (isothermal closure),
+    * :math:`w_i \rho_i^{\gamma - 2}` at ``markers[output_indices[2], :]`` (polytropic closure with adiabatic
+      index ``gamma``).
+
+    The kernel arguments (``periodic1`` to ``scale``) are those of
+    :func:`~struphy.pic.sph_eval_kernels.box_based_physical`, set up by
+    :func:`~struphy.pic.sph_setup.setup_sph_kernel`.
     """
+    values = zeros(1, dtype=float)
+    grads = zeros((1, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     n_cols = shape(markers)[0]
-    Np = args_markers.Np
     weight_idx = args_markers.weight_idx
     valid_mks = args_markers.valid_mks
 
@@ -57,15 +61,15 @@ def sph_pressure_coeffs(
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[0, ip]
-        eta2 = markers[1, ip]
-        eta3 = markers[2, ip]
         loc_box = int(markers[n_cols - 2, ip])
-        n_at_eta = sph_eval_kernels.box_based_kernel(
+        sph_eval_kernels.box_based_columns(
             args_markers,
-            eta1,
-            eta2,
-            eta3,
+            markers[x_idx, ip],
+            markers[x_idx + 1, ip],
+            markers[x_idx + 2, ip],
+            markers[0, ip],
+            markers[1, ip],
+            markers[2, ip],
             loc_box,
             boxes,
             neighbours,
@@ -73,19 +77,24 @@ def sph_pressure_coeffs(
             periodic1,
             periodic2,
             periodic3,
+            period,
+            proj,
+            x_idx,
             weight_idx,
-            kernel_type,
-            h1,
-            h2,
-            h3,
+            1,
+            kernel,
+            dim,
+            h,
+            scale,
+            values,
+            grads,
         )
+        rho = values[0]
         weight = markers[weight_idx, ip]
         # save
         if output_indices[0] >= 0:
-            markers[output_indices[0], ip] = n_at_eta
+            markers[output_indices[0], ip] = rho
         if output_indices[1] >= 0:
-            markers[output_indices[1], ip] = weight / n_at_eta
+            markers[output_indices[1], ip] = weight / rho
         if output_indices[2] >= 0:
-            # physical density rho_i = rho^eta_i / sqrt(g)
-            sg_i = sph_metric_kernels.sqrt_g(eta1, eta2, eta3, args_domain)
-            markers[output_indices[2], ip] = weight * (n_at_eta / sg_i) ** (gamma - 2) / sg_i
+            markers[output_indices[2], ip] = weight * rho ** (gamma - 2.0)
