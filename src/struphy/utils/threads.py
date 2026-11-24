@@ -65,7 +65,10 @@ def limit_blas_threads(comm, num_threads: int = 1) -> bool:
     omp_threads = [(lib, lib.num_threads) for lib in libs if lib.user_api == "openmp"]
 
     if not blas_libs:
-        logger.info("No BLAS library with a controllable thread pool found, BLAS threads not limited.")
+        logger.warning(
+            "No BLAS library with a controllable thread pool found, BLAS threads not limited. "
+            "Set OPENBLAS_NUM_THREADS (or MKL_NUM_THREADS) per rank to avoid oversubscribing the cores.",
+        )
         return False
 
     limited = []
