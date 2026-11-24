@@ -43,8 +43,9 @@ In Struphy, the FEEC spaces guarantee that
 * the discrete derivatives satisfy :math:`\textnormal{curl}\,\textnormal{grad} = 0` and
   :math:`\textnormal{div}\,\textnormal{curl} = 0` exactly, so that e.g. :math:`\nabla \cdot \mathbf B_h = 0`
   holds pointwise for all times if it holds initially;
-* the discrete derivatives are matrices with entries :math:`0` and :math:`\pm 1` that do not depend on the mapping
-  of the domain: the geometry enters only through mass matrices;
+* the discrete derivatives of tensor-product splines are matrices with entries :math:`0` and :math:`\pm 1` that do not
+  depend on the mapping of the domain: the geometry enters only through mass matrices (with
+  :ref:`polar splines <polar_splines>`, the extraction operators at the pole also depend on the mapping);
 * projections of continuous functions into the discrete spaces commute with the derivatives;
 * the discrete curl-curl and grad-div operators have no spurious eigenmodes (spectral correctness)
   :footcite:p:`Hiptmair2002,Boffi2013`;
@@ -240,7 +241,8 @@ D-splines are B-splines of degree :math:`p-1` rescaled to unit integral,
 :math:`\int_0^1 D^{p-1}_i \,\textnormal d \eta = 1`, which makes them the natural basis for histopolation. In the clamped case the dimension :math:`d` of the D-spline space is one less
 than that of the N-splines, :math:`d = n - 1`, and :math:`D^{p-1}_{-1} = D^{p-1}_{n-1} = 0`; in the periodic case
 :math:`d = n`. The pair (N-splines, D-splines) is the uni-variate de Rham complex: the derivative maps the space of
-N-splines onto the space of D-splines.
+N-splines onto the space of D-splines in the clamped case, and onto the D-spline functions with zero mean in the
+periodic case.
 
 Fig. 3 shows the uni-variate spline spaces for degree :math:`p=1`.
 Here the D-splines are piecewise constants and a D-spline function is in general not continuous.
@@ -275,21 +277,21 @@ pattern of Fig. 1:
     :nowrap:
 
     \begin{align}
-    \Lambda^0_{ijk}(\eta_1,\eta_2,\eta_3) &= N_i^{p_1}(\eta_1) N_j^{p_2}(\eta_2) N_k^{p_3}(\eta_3)\,,\qquad &&\mathbf \Lambda^0 = (\Lambda^0_{ijk})_{i=1, j=1, k=1}^{n_1, n_2, n_3} \qquad \\\\
+    \Lambda^0_{ijk}(\eta_1,\eta_2,\eta_3) &= N_i^{p_1}(\eta_1) N_j^{p_2}(\eta_2) N_k^{p_3}(\eta_3)\,,\qquad &&\mathbf \Lambda^0 = (\Lambda^0_{ijk})_{i=0, j=0, k=0}^{n_1-1, n_2-1, n_3-1} \qquad \\\\
 
-    \vec{\Lambda}^1_{1,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} D_i^{p_1 - 1}(\eta_1) N_j^{p_2}(\eta_2) N_k^{p_3}(\eta_3) \\ 0 \\ 0 \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^1_1 = (\vec \Lambda^1_{1,ijk})_{i=1, j=1, k=1}^{d_1, n_2, n_3} \\\\
+    \vec{\Lambda}^1_{1,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} D_i^{p_1 - 1}(\eta_1) N_j^{p_2}(\eta_2) N_k^{p_3}(\eta_3) \\ 0 \\ 0 \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^1_1 = (\vec \Lambda^1_{1,ijk})_{i=0, j=0, k=0}^{d_1-1, n_2-1, n_3-1} \\\\
 
-    \vec{\Lambda}^1_{2,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} 0 \\ N_i^{p_1}(\eta_1) D_j^{p_2 - 1}(\eta_2) N_k^{p_3}(\eta_3) \\ 0 \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^1_2 = (\vec \Lambda^1_{2,ijk})_{i=1, j=1, k=1}^{n_1, d_2, n_3} \\\\
+    \vec{\Lambda}^1_{2,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} 0 \\ N_i^{p_1}(\eta_1) D_j^{p_2 - 1}(\eta_2) N_k^{p_3}(\eta_3) \\ 0 \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^1_2 = (\vec \Lambda^1_{2,ijk})_{i=0, j=0, k=0}^{n_1-1, d_2-1, n_3-1} \\\\
 
-    \vec{\Lambda}^1_{3,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} 0 \\ 0 \\ N_i^{p_1}(\eta_1) N_j^{p_2}(\eta_2) D_k^{p_3 - 1}(\eta_3) \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^1_3 = (\vec \Lambda^1_{3,ijk})_{i=1, j=1, k=1}^{n_1, n_2, d_3} \\\\
+    \vec{\Lambda}^1_{3,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} 0 \\ 0 \\ N_i^{p_1}(\eta_1) N_j^{p_2}(\eta_2) D_k^{p_3 - 1}(\eta_3) \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^1_3 = (\vec \Lambda^1_{3,ijk})_{i=0, j=0, k=0}^{n_1-1, n_2-1, d_3-1} \\\\
 
-    \vec{\Lambda}^2_{1,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} N_i^{p_1}(\eta_1) D_j^{p_2 - 1}(\eta_2) D_k^{p_3 - 1}(\eta_3) \\ 0 \\ 0 \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^2_1 = (\vec \Lambda^2_{1,ijk})_{i=1, j=1, k=1}^{n_1, d_2, d_3} \\\\
+    \vec{\Lambda}^2_{1,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} N_i^{p_1}(\eta_1) D_j^{p_2 - 1}(\eta_2) D_k^{p_3 - 1}(\eta_3) \\ 0 \\ 0 \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^2_1 = (\vec \Lambda^2_{1,ijk})_{i=0, j=0, k=0}^{n_1-1, d_2-1, d_3-1} \\\\
 
-    \vec{\Lambda}^2_{2,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} 0 \\ D_i^{p_1 - 1}(\eta_1) N_j^{p_2}(\eta_2) D_k^{p_3 - 1}(\eta_3) \\ 0 \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^2_2 = (\vec \Lambda^2_{2,ijk})_{i=1, j=1, k=1}^{d_1, n_2, d_3} \\\\
+    \vec{\Lambda}^2_{2,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} 0 \\ D_i^{p_1 - 1}(\eta_1) N_j^{p_2}(\eta_2) D_k^{p_3 - 1}(\eta_3) \\ 0 \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^2_2 = (\vec \Lambda^2_{2,ijk})_{i=0, j=0, k=0}^{d_1-1, n_2-1, d_3-1} \\\\
 
-    \vec{\Lambda}^2_{3,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} 0 \\ 0 \\ D_i^{p_1 - 1}(\eta_1) D_j^{p_2 - 1}(\eta_2) N_k^{p_3}(\eta_3) \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^2_3 = (\vec \Lambda^2_{3,ijk})_{i=1, j=1, k=1}^{d_1, d_2, n_3} \\\\
+    \vec{\Lambda}^2_{3,ijk}(\eta_1,\eta_2,\eta_3) &= \begin{pmatrix} 0 \\ 0 \\ D_i^{p_1 - 1}(\eta_1) D_j^{p_2 - 1}(\eta_2) N_k^{p_3}(\eta_3) \end{pmatrix}\,,\qquad &&\vec{\mathbf \Lambda}^2_3 = (\vec \Lambda^2_{3,ijk})_{i=0, j=0, k=0}^{d_1-1, d_2-1, n_3-1} \\\\
 
-    \Lambda^3_{ijk}(\eta_1,\eta_2,\eta_3) &= D_i^{p_1 - 1}(\eta_1) D_j^{p_2 - 1}(\eta_2) D_k^{p_3 - 1}(\eta_3)\,,\qquad &&\mathbf \Lambda^3 = (\Lambda^3_{ijk})_{i=1, j=1, k=1}^{d_1, d_2, d_3} \qquad
+    \Lambda^3_{ijk}(\eta_1,\eta_2,\eta_3) &= D_i^{p_1 - 1}(\eta_1) D_j^{p_2 - 1}(\eta_2) D_k^{p_3 - 1}(\eta_3)\,,\qquad &&\mathbf \Lambda^3 = (\Lambda^3_{ijk})_{i=0, j=0, k=0}^{d_1-1, d_2-1, d_3-1} \qquad
     \end{align}
 
 Elements of the discrete spaces are linear combinations of the respective basis functions:
@@ -373,7 +375,7 @@ are built from Kronecker products of the uni-variate difference matrix
 
 Their entries are :math:`0` and :math:`\pm 1`: they are the incidence matrices of the grid (which point bounds which
 edge, which edge bounds which face, ...), as in the discrete exterior calculus. They do not depend on the mapping
-:math:`F` and they satisfy the complex property exactly, also in floating-point arithmetic:
+:math:`F` (except for the extraction operators of :ref:`polar_splines`) and they satisfy the complex property exactly, also in floating-point arithmetic:
 
 .. math::
 
@@ -394,7 +396,7 @@ A projector is defined by **degrees of freedom (DOFs)**
 :math:`\sigma^n,\, 0\leq n \leq 3`, which are linear functionals that map continuous functions to real numbers.
 The number of DOFs of a space equals its dimension. A common DOF is the evaluation of a function at a point
 of :math:`\Omega`; choosing :math:`N_0` distinct points (the tensor-product Greville points) defines DOFs
-:math:`(\sigma^0_{ijk})_{i=1,j=1, k=1}^{n_1,n_2,n_3}` and a projector :math:`\Pi_0:H^1 \to V_h^0` by
+:math:`(\sigma^0_{ijk})_{i=0, j=0, k=0}^{n_1-1, n_2-1, n_3-1}` and a projector :math:`\Pi_0:H^1 \to V_h^0` by
 
 .. math::
     :label: dofs
@@ -547,8 +549,9 @@ equations hold exactly for :math:numref:`maxwell_semidisc`, for any mapping and 
 
 For :math:`\mathbf J = 0`, the system :math:numref:`maxwell_semidisc` is a Hamiltonian system with the energy
 :math:`\mathcal E` as Hamiltonian. The Crank-Nicolson (implicit mid-point) rule keeps all three properties in time, because they are linear and quadratic
-invariants. This is the scheme of the propagator
-:class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere`. The coupling to a kinetic species, including
+invariants. This is the default (implicit) scheme of the propagator
+:class:`~struphy.propagators.maxwell_weak_ampere.MaxwellWeakAmpere` for :math:`\mathbf J = 0`, which also offers
+explicit Runge-Kutta schemes. The coupling to a kinetic species, including
 the current deposition :math:`\mathbf j` with particles, is worked out in the :ref:`Vlasov-Maxwell example <disc_example>`.
 
 
@@ -564,7 +567,7 @@ Boundary conditions are set per direction with ``DerhamOptions(bcs=...)``:
   conditions on the respective boundary if ``"dirichlet"``.
 
 Essential (Dirichlet) boundary conditions are imposed on the space: the coefficients of the basis functions that do
-not vanish on the boundary are removed. Since the first and the last N-spline of a clamped space are the only ones
+not vanish on the boundary are set to zero (the coefficient vectors keep their full size). Since the first and the last N-spline of a clamped space are the only ones
 non-zero at the boundary, this concerns all basis functions with an N-spline in the direction normal to the boundary.
 For a boundary at :math:`\eta_1 = 0` or :math:`\eta_1 = 1` this means:
 
@@ -573,8 +576,8 @@ For a boundary at :math:`\eta_1 = 0` or :math:`\eta_1 = 1` this means:
 * 2-forms: the normal component :math:`B_{h,1}` vanishes (:math:`\mathbf n \cdot \mathbf B_h = 0`);
 * 3-forms: no condition.
 
-The Dirichlet conditions are applied by the boundary operators ``Derham.boundary_ops``, which also restrict the
-derivatives to the subspaces, so the complex property is preserved. With ``"free"``, no condition is imposed on the
+The Dirichlet conditions are applied by the boundary operators ``Derham.boundary_ops`` (projections onto the
+subspaces), which are also applied to the derivatives, so the complex property is preserved. With ``"free"``, no condition is imposed on the
 space; in weak equations the boundary terms from integration by parts are then dropped, which imposes the
 complementary *natural* boundary conditions (e.g. :math:`\mathbf n \times \mathbf B = 0` in the weak Ampère law
 above). Which condition is appropriate depends on the model and the variable; the model and propagator docstrings
@@ -593,9 +596,10 @@ the same physical point. ``DerhamOptions(polar_splines=True)`` builds the C1 pol
 complex. The first two rings of tensor-product splines around the pole are replaced by a few polar basis functions,
 via extraction operators :math:`\mathbb E` (basis) and :math:`\mathbb P` (degrees of freedom) that act in the
 poloidal plane :math:`(\eta_1, \eta_2)` only. The polar spaces form a complex with commuting projectors, like the
-tensor-product spaces.
+tensor-product spaces. The extraction operators are computed from the control points of the mapping at the pole,
+so the polar derivative matrices :math:`\mathbb E\, \mathbb G\, \mathbb E^T`, ... depend on the mapping.
 
-Hence, the inter-/histopolation matrices of the commuting projectors, :math:`\mathbb P \mathcal I \mathbb E^T`,
+Since the extraction acts in the poloidal plane only, the inter-/histopolation matrices of the commuting projectors, :math:`\mathbb P \mathcal I \mathbb E^T`,
 and the mass matrices with weights independent of :math:`\eta_3` have a 2D x 1D Kronecker structure
 :math:`\mathbb A_\textnormal{pol} \otimes \mathbb A_3` (:mod:`struphy.polar.kron_2dx1d`).
 They are solved with a 1D direct solver in :math:`\eta_3` and one of the following solvers for the

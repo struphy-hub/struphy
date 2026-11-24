@@ -23,7 +23,7 @@ Main features:
 * **Usability**: simulations are set up in plain Python parameter files, which are run with ``python`` (or
   ``mpirun``) or from a notebook; results are read as xarray objects with the post-processing API (see :ref:`userguide`).
   Ready-to-run examples are in `struphy-examples <https://github.com/struphy-hub/struphy-examples>`_, and
-  ``struphy agents`` sets up guides for AI coding agents.
+  ``struphy agents`` prints a usage guide for AI coding agents (``--install`` installs their skills).
 
 Start with :ref:`install` and the :ref:`quickstart`.
 Questions, bug reports and ideas are welcome on `GitHub <https://github.com/struphy-hub/struphy#get-in-touch>`_.
