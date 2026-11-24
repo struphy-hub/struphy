@@ -211,6 +211,46 @@ class SortingParameters:
 
 
 @dataclass
+class SPHParameters:
+    """Smoothing kernel of an SPH species, shared by all SPH propagators and diagnostics of the species.
+
+    The kernel :math:`W_h` is radial and normalized in physical space, with compact support of radius :math:`h`
+    (see :ref:`sph_smoothing`). The neighbour search uses the sorting boxes
+    (:class:`~struphy.particles.parameters.SortingParameters`): at setup, the largest width :math:`h_\\max` is
+    computed for which the support of every marker lies in the 27 boxes around it,
+    :math:`h_\\max = \\min_i 1 / (n_i \\max_{\\boldsymbol\\eta} \\|(DF^{-1})_{i,:}\\|)` over the resolved directions
+    :math:`i` (those with more than one box).
+
+    Parameters
+    ----------
+    kernel : {"gaussian", "wendland_c2", "cubic_spline"}, default="gaussian"
+        Shape of the radial kernel, see :mod:`~struphy.pic.sph_radial_kernels`.
+
+    kernel_width : float, optional
+        Kernel width :math:`h` (support radius) in physical units. If None, :math:`h = h_\\max`. A given width must
+        lie between the lower bound and :math:`h_\\max`.
+
+    min_width_spacings : float, default=2.0
+        Lower bound of the kernel width in units of the mean marker spacing :math:`(V/N)^{1/d}`, where :math:`V` is
+        the physical volume of the :math:`d` resolved directions and :math:`N` the number of markers. The setup
+        stops with an error if :math:`h` is smaller (too few markers in the kernel support): then use fewer
+        sorting boxes, more markers or a less distorted mapping.
+    """
+
+    kernel: LiteralOptions.OptsKernel = "gaussian"
+    kernel_width: float = None
+    min_width_spacings: float = 2.0
+
+    def __post_init__(self):
+        check_option(self.kernel, LiteralOptions.OptsKernel)
+        assert self.min_width_spacings > 0.0, "min_width_spacings must be positive."
+        assert self.kernel_width is None or self.kernel_width > 0.0, "kernel_width must be positive."
+
+    def __repr_no_defaults__(self):
+        return __dataclass_repr_all_stacked__(self)
+
+
+@dataclass
 class BinningPlot:
     """Configuration for particle phase-space binning and histogram generation.
 

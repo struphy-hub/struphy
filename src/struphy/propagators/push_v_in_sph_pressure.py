@@ -7,7 +7,7 @@ from typing import Literal
 import cunumpy as xp
 from line_profiler import profile
 
-from struphy.io.options import LiteralOptions, OptionsBase
+from struphy.io.options import OptionsBase
 from struphy.models.variables import SPHVariable
 from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.kernels.push_v_sph_pressure import push_v_sph_pressure
@@ -15,6 +15,7 @@ from struphy.pic.pushing.kernels.push_v_sph_pressure_ideal_gas import push_v_sph
 from struphy.pic.pushing.kernels.sph_pressure_coeffs import sph_pressure_coeffs
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import check_removed_kernel_options
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -38,23 +39,20 @@ class PushVinSPHpressure(Propagator):
       with the adiabatic index :math:`\gamma > 1` (option ``gamma``).
 
     **Semi-discrete problem:** the Euler-Lagrange equations of the SPH Lagrangian
-    :math:`L_N = \sum_p w_p \big(\frac 12 |\mathbf v_p|^2 - \mathcal U(\rho_p)\big)`. The kernel
-    :math:`W_h` from :mod:`~struphy.pic.sph_smoothing_kernels` is evaluated in logical coordinates, so the SPH sum
-    gives the density 3-form :math:`\rho^\eta_p = \sum_j w_j W_h(\boldsymbol\eta_p - \boldsymbol\eta_j)`, and the
-    physical density is :math:`\rho_p = \rho^\eta_p / \sqrt g(\boldsymbol\eta_p)` with :math:`\sqrt g = |\det DF|`.
-    For each marker :math:`p`,
+    :math:`L_N = \sum_p w_p \big(\frac 12 |\mathbf v_p|^2 - \mathcal U(\rho_p)\big)`. The radial kernel :math:`W_h`
+    is defined and normalized in physical space (:class:`~struphy.particles.parameters.SPHParameters`) and evaluated
+    at the physical marker positions :math:`\mathbf x_j = F(\boldsymbol\eta_j)`, so the SPH sum gives the physical
+    density :math:`\rho_p = \sum_j w_j W_h(\mathbf x_p - \mathbf x_j)` directly, on any mapping. For each marker
+    :math:`p`,
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p}{\textnormal d t} = \mathbf g - DF^{-\top}(\boldsymbol\eta_p) \Bigg[
-        \sum_{j=1}^N w_j \left( \frac{\mathcal U'(\rho_p)}{\sqrt g(\boldsymbol\eta_p)} + \frac{\mathcal U'(\rho_j)}{\sqrt g(\boldsymbol\eta_j)} \right)
-        \nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)
-        - \mathcal U'(\rho_p)\, \rho_p\, \nabla \ln \sqrt g(\boldsymbol\eta_p) \Bigg]\,,
+        \frac{\textnormal d \mathbf v_p}{\textnormal d t} = \mathbf g -
+        \sum_{j=1}^N w_j \big( \mathcal U'(\rho_p) + \mathcal U'(\rho_j) \big)\, \nabla W_h(\mathbf x_p - \mathbf x_j)\,,
 
-    with :math:`\mathcal U' = \partial_\rho \mathcal U`. The last term comes from the dependence of
-    :math:`\rho_p` on the metric; it vanishes for mappings with constant :math:`\sqrt g`. The gradient of
-    :math:`\ln \sqrt g` is computed by finite differences of :math:`\det DF`. The coefficients
-    :math:`w_j \mathcal U'(\rho_j)/\sqrt g(\boldsymbol\eta_j)` are computed once per time step (kernel
+    with :math:`\mathcal U' = \partial_\rho \mathcal U`, i.e. :math:`\kappa/\rho` (isothermal) and
+    :math:`\kappa \rho^{\gamma - 2}` (polytropic). The force is antisymmetric in :math:`p, j`, so momentum is
+    conserved, and the coefficients :math:`w_j \mathcal U'(\rho_j)` are computed once per time step (kernel
     :func:`~struphy.pic.pushing.kernels.sph_pressure_coeffs.sph_pressure_coeffs_kernels.sph_pressure_coeffs`) and
     stored in the marker array.
 
@@ -94,13 +92,6 @@ class PushVinSPHpressure(Propagator):
 
         Parameters
         ----------
-        kernel_type : LiteralOptions.OptsKernel, default="gaussian_2d"
-            Smoothing kernel used for density and pressure-force evaluation.
-
-        kernel_width : tuple, default=None
-            Kernel widths per logical direction. If ``None``, defaults to
-            ``(1 / n_i)`` based on sorting boxes.
-
         algo : {"forward_euler"}, default="forward_euler"
             Time stepping algorithm for velocity pushing.
 
@@ -115,23 +106,27 @@ class PushVinSPHpressure(Propagator):
 
         gamma : float, default=5/3
             Adiabatic index (gamma > 1) of the polytropic closure (not used for ``"isothermal"``).
+
+        kernel_type, kernel_width : None
+            Removed: the smoothing kernel is set per species with
+            :class:`~struphy.particles.parameters.SPHParameters` (``set_markers(sph_params=...)``).
         """
 
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         OptsThermo = Literal["isothermal", "polytropic"]
         # propagator options
-        kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
-        kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
         gravity: tuple = (0.0, 0.0, 0.0)
         kappa: float = 1.0
         thermodynamics: OptsThermo = "isothermal"
         gamma: float = 5.0 / 3.0
+        kernel_type: None = None
+        kernel_width: None = None
 
         def __post_init__(self):
             # checks
-            check_option(self.kernel_type, LiteralOptions.OptsKernel)
+            check_removed_kernel_options(self)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.thermodynamics, self.OptsThermo)
             assert self.gamma > 1.0, f"The adiabatic index gamma must be > 1, got {self.gamma}."
@@ -154,51 +149,20 @@ class PushVinSPHpressure(Propagator):
         init_kernel = sph_pressure_coeffs
 
         particles = self.variables.fluid.particles
-
         first_free_idx = particles.args_markers.first_free_idx
-
-        boxes = particles.sorting_boxes.boxes
-        neighbours = particles.sorting_boxes.neighbours
-        holes = particles.holes
-        periodic = [bci == "periodic" for bci in particles.bc]
-        kernel_nr = particles.ker_dct()[self.options.kernel_type]
-
-        if self.options.kernel_width is None:
-            self.options.kernel_width = tuple([1 / ni for ni in particles.boxes_per_dim])
-        else:
-            assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
+        kernel_args = particles.sph_kernel_args
 
         # init kernel
-        args_init = (
-            boxes,
-            neighbours,
-            holes,
-            *periodic,
-            kernel_nr,
-            *self.options.kernel_width,
-            float(self.options.gamma),
-        )
-
         self.add_init_kernel(
             KernelSetup(
                 kernel=init_kernel,
                 output_indices=(first_free_idx, first_free_idx + 1, first_free_idx + 2),
-                args=args_init,
+                args=kernel_args + (float(self.options.gamma),),
             ),
         )
 
         gravity = xp.array(self.options.gravity, dtype=float)
-
-        args_kernel = (
-            boxes,
-            neighbours,
-            holes,
-            *periodic,
-            kernel_nr,
-            *self.options.kernel_width,
-            gravity,
-            self.options.kappa,
-        )
+        args_kernel = kernel_args + (gravity, self.options.kappa)
 
         # pusher kernel
         if self.options.thermodynamics == "isothermal":

@@ -20,6 +20,12 @@ from struphy.pic.diagnostics.kernels.eval_guiding_center_from_6d import eval_gui
 from struphy.pic.diagnostics.kernels.eval_magnetic_background_energy import eval_magnetic_background_energy
 from struphy.pic.diagnostics.kernels.eval_magnetic_energy_PBb import eval_magnetic_energy_PBb
 from struphy.pic.diagnostics.kernels.eval_magnetic_moment_5d import eval_magnetic_moment_5d
+from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
+from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
+from struphy.pic.sph.kernels.box_based_evaluation_flat import box_based_evaluation_flat
+from struphy.pic.sph.kernels.naive_evaluation_flat import naive_evaluation_flat
+from struphy.pic.sph.kernels.sph_physical_positions import sph_physical_positions
+from struphy.pic.sph_setup import SPHKernelSetup, setup_sph_kernel
 
 logger = logging.getLogger("struphy")
 
@@ -1228,18 +1234,288 @@ class ParticlesSPH(Particles):
     """Marker columns saved as orbits, see :attr:`~struphy.pic.base.Particles.orbit_quantities`."""
     default_background = equils.ConstantVelocity()
     """Default fluid background is a spatially constant velocity field."""
-    default_n_cols = {"diagnostics": 0, "aux": 24}
-    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use."""
+    default_n_cols = {"diagnostics": 3, "aux": 24}
+    """Default number of buffer columns reserved for diagnostics and auxiliary (pusher/free) use. The last three
+    diagnostics columns hold the physical marker positions (:attr:`x_idx`); they are not cleared by the
+    :class:`~struphy.pic.pushing.pusher.Pusher`, unlike the auxiliary columns."""
 
     @property
     def mu_idx(self):
         return self.first_free_idx
 
+    @property
+    def x_idx(self):
+        r"""First of the three marker columns holding the physical positions :math:`\mathbf x_p = F(\boldsymbol\eta_p)`
+        (also of the ghost particles), updated by :meth:`put_particles_in_boxes`."""
+        return self.first_diagnostics_idx + self.n_cols_diagnostics - 3
+
+    @property
+    def sph_kernel(self) -> SPHKernelSetup:
+        """The physical smoothing kernel of this species and the data of the neighbour search, see
+        :func:`~struphy.pic.sph_setup.setup_sph_kernel`."""
+        return self._sph_kernel
+
+    @property
+    def sph_kernel_args(self) -> tuple:
+        """Kernel arguments ``(boxes, neighbours, holes, periodic1, periodic2, periodic3, period, proj, x_idx,
+        kernel, dim, h, scale)`` of the SPH Pyccel kernels, see
+        :func:`~struphy.pic.sph_eval_kernels.box_based_physical`."""
+        k = self.sph_kernel
+        return (
+            self.sorting_boxes.boxes,
+            self.sorting_boxes.neighbours,
+            self.holes,
+            *k.periodic,
+            k.period,
+            k.proj,
+            k.x_idx,
+            k.kernel_id,
+            k.dim,
+            k.h,
+            k.scale,
+        )
+
     def __post_init__(self):
-        """Attach the domain to the background (needed to evaluate it at marker positions).
+        """Attach the domain to the background (needed to evaluate it at marker positions) and set up the physical
+        smoothing kernel (:func:`~struphy.pic.sph_setup.setup_sph_kernel`).
         SPH does not support clone-based (tile-copied) MPI parallelization."""
         assert self.clone_config is None, "SPH can only be launched with --nclones 1"
         self.background.domain = self.domain
+
+        if self.n_cols_diagnostics < 3:
+            raise ValueError(
+                f"ParticlesSPH needs at least 3 diagnostics columns for the physical positions, got {self.n_cols_diagnostics}."
+            )
+        if self.boxes_per_dim is None:
+            raise ValueError("SPH needs sorting boxes (SortingParameters.boxes_per_dim).")
+
+        sph = self._sph_params
+        self._sph_kernel = setup_sph_kernel(
+            self.domain,
+            self.boxes_per_dim,
+            self.bc_sph,
+            self.Np,
+            sph.kernel,
+            sph.kernel_width,
+            sph.min_width_spacings,
+            self.x_idx,
+        )
+        logger.info(f"SPH kernel: {self._sph_kernel}")
+
+    def put_particles_in_boxes(self):
+        """As :meth:`~struphy.pic.base.Particles.put_particles_in_boxes`, then update the physical positions of
+        all markers, including the ghost particles (:attr:`x_idx`)."""
+        super().put_particles_in_boxes()
+        self.update_physical_positions()
+
+    def update_physical_positions(self):
+        r"""Store :math:`\mathbf x_p = F(\boldsymbol\eta_p)` in the columns :attr:`x_idx` for all markers, including
+        the ghost particles, see :func:`~struphy.pic.sph_eval_kernels.physical_positions`."""
+        sph_physical_positions(self.args_markers, self.domain.args_domain, self.holes, self.x_idx)
+
+    def eval_density(self, eta1, eta2, eta3, derivative: int = 0, fast: bool = True):
+        r"""Evaluate the SPH density in physical space at logical points (a 0-form),
+
+        .. math::
+
+            \hat\rho_h(\boldsymbol\eta) = \rho_h(F(\boldsymbol\eta)) = \sum_j w_j\, W_h(F(\boldsymbol\eta) - \mathbf x_j)\,,
+
+        with the physical smoothing kernel of the species (:attr:`sph_kernel`), see :ref:`pic_kde`.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points, of the same shape (flat arrays or meshgrids); the output has this shape.
+
+        derivative : int
+            0 for the density, 1, 2, 3 for the components of its physical gradient :math:`\partial_{x_k} \rho_h`.
+
+        fast : bool
+            If True, use the box-based neighbour search; if False, the naive sum over all markers (for testing).
+
+        Returns
+        -------
+        out : xp.ndarray
+            The density (or the gradient component) at the evaluation points. With the box-based search, points
+            outside the MPI sub-domain of this process are zero.
+        """
+        return self._eval_sph(eta1, eta2, eta3, self.index["weights"], derivative=derivative, fast=fast)
+
+    def eval_velocity(self, eta1, eta2, eta3, derivative: int = 0, fast: bool = True) -> tuple:
+        r"""Evaluate the SPH mean velocity (Cartesian components) at logical points,
+
+        .. math::
+
+            \mathbf v_h(F(\boldsymbol\eta)) = \sum_j \frac{w_j\, \mathbf v_j}{\rho_j}\, W_h(F(\boldsymbol\eta) - \mathbf x_j)\,,
+
+        with the SPH density :math:`\rho_j` at the markers (kernel
+        :func:`~struphy.pic.pushing.kernels.sph_mean_velocity_coeffs.sph_mean_velocity_coeffs_kernels.sph_mean_velocity_coeffs`).
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points, of the same shape.
+
+        derivative : int
+            0 for the velocity, 1, 2, 3 for its physical derivative :math:`\partial_{x_k} \mathbf v_h`.
+
+        fast : bool
+            If True, use the box-based neighbour search; if False, the naive sum over all markers.
+
+        Returns
+        -------
+        (v1, v2, v3) : tuple of xp.ndarray
+            The three Cartesian components, each of the shape of ``eta1``.
+        """
+        first_free_idx = self.args_markers.first_free_idx
+
+        self.put_particles_in_boxes()
+        sph_mean_velocity_coeffs(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            *self.sph_kernel_args,
+        )
+
+        # _eval_sph refreshes the ghost particles with the new coefficients
+        return tuple(
+            self._eval_sph(eta1, eta2, eta3, first_free_idx + k, derivative=derivative, fast=fast) for k in range(3)
+        )
+
+    def eval_div_viscosity(self, eta1, eta2, eta3, mu: float = 1.0, fast: bool = True) -> tuple:
+        r"""Evaluate the divergence of the viscous stress :math:`\nabla \cdot \sigma` (Cartesian components) at logical
+        points, with :math:`\sigma = -\mu\,(\nabla \mathbf v_h + \nabla \mathbf v_h^\top - \tfrac 23 (\nabla \cdot
+        \mathbf v_h) I)`, see
+        :func:`~struphy.pic.pushing.kernels.sph_viscosity_tensor.sph_viscosity_tensor_kernels.sph_viscosity_tensor`.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points, of the same shape.
+
+        mu : float
+            Dynamic viscosity.
+
+        fast : bool
+            If True, use the box-based neighbour search; if False, the naive sum over all markers.
+
+        Returns
+        -------
+        (div_x, div_y, div_z) : tuple of xp.ndarray
+            The three Cartesian components, each of the shape of ``eta1``.
+        """
+        first_free_idx = self.args_markers.first_free_idx
+
+        self.put_particles_in_boxes()
+        sph_mean_velocity_coeffs(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            *self.sph_kernel_args,
+        )
+        # ghost particles with the new coefficients
+        self.put_particles_in_boxes()
+        sph_viscosity_tensor(
+            xp.array((0.0, 0.0, 0.0)),
+            xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
+            self.args_markers,
+            self.domain.args_domain,
+            *self.sph_kernel_args,
+            float(mu),
+        )
+
+        out = []
+        for j in range(3):
+            div = 0.0
+            for m in range(3):
+                div = div + self._eval_sph(
+                    eta1, eta2, eta3, first_free_idx + 3 * (j + 1) + m, derivative=m + 1, fast=fast
+                )
+            out += [div]
+        return tuple(out)
+
+    def _eval_sph(self, eta1, eta2, eta3, index: int, derivative: int = 0, fast: bool = True):
+        r"""SPH evaluation of the coefficients :math:`c_j` = ``markers[index, j]`` at logical points,
+
+        .. math::
+
+            \sum_j c_j\, W_h(F(\boldsymbol\eta) - \mathbf x_j) \quad (\textnormal{derivative} = 0)\,,
+            \qquad
+            \sum_j c_j\, \partial_{x_k} W_h(F(\boldsymbol\eta) - \mathbf x_j) \quad (\textnormal{derivative} = k)\,,
+
+        with the physical kernel of the species (:attr:`sph_kernel`). The boxes and ghost particles are updated first.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points, of the same shape.
+
+        index : int
+            Marker column of the coefficients.
+
+        derivative : int
+            0 for the value, 1, 2, 3 for the components of the physical gradient.
+
+        fast : bool
+            If True, use the box-based neighbour search; if False, the naive sum over all markers.
+
+        Returns
+        -------
+        out : xp.ndarray
+            The result, of the shape of ``eta1``.
+        """
+        shp = xp.shape(eta1)
+        assert shp == xp.shape(eta2) == xp.shape(eta3)
+        assert derivative in {0, 1, 2, 3}, f"derivative must be 0, 1, 2 or 3, but is {derivative}."
+
+        e1 = xp.ascontiguousarray(xp.ravel(eta1), dtype=float)
+        e2 = xp.ascontiguousarray(xp.ravel(eta2), dtype=float)
+        e3 = xp.ascontiguousarray(xp.ravel(eta3), dtype=float)
+        x = xp.asarray(self.domain(xp.stack((e1, e2, e3)), remove_outside=False), dtype=float).reshape(3, -1)
+        x1 = xp.ascontiguousarray(x[0])
+        x2 = xp.ascontiguousarray(x[1])
+        x3 = xp.ascontiguousarray(x[2])
+        out = xp.zeros(e1.size, dtype=float)
+
+        self.put_particles_in_boxes()
+
+        k = self.sph_kernel
+        args = (
+            self.holes,
+            *k.periodic,
+            k.period,
+            k.proj,
+            k.x_idx,
+            index,
+            k.kernel_id,
+            k.dim,
+            k.h,
+            k.scale,
+            derivative,
+            out,
+        )
+        if fast:
+            box_based_evaluation_flat(
+                self.args_markers,
+                e1,
+                e2,
+                e3,
+                x1,
+                x2,
+                x3,
+                self.sorting_boxes.nx,
+                self.sorting_boxes.ny,
+                self.sorting_boxes.nz,
+                self.domain_array[self.mpi_rank],
+                self.sorting_boxes.boxes,
+                self.sorting_boxes.neighbours,
+                *args,
+            )
+        else:
+            naive_evaluation_flat(self.args_markers, e1, e2, e3, x1, x2, x3, *args)
+        return out.reshape(shp)
 
     @property
     def sampling_density(self):

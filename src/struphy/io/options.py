@@ -138,19 +138,8 @@ class LiteralOptions:
     # filters
     OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
 
-    # sph
-    OptsKernel = Literal[
-        "trigonometric_1d",
-        "gaussian_1d",
-        "linear_1d",
-        "trigonometric_2d",
-        "gaussian_2d",
-        "linear_2d",
-        "trigonometric_3d",
-        "gaussian_3d",
-        "linear_isotropic_3d",
-        "linear_3d",
-    ]
+    # sph: radial smoothing kernels in physical space (see struphy.pic.sph_radial_kernels)
+    OptsKernel = Literal["gaussian", "wendland_c2", "cubic_spline"]
 
     # Create new Literal to determine type of binning output
     BinningQuantity = Literal[

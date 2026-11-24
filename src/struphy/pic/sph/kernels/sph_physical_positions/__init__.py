@@ -4,7 +4,7 @@ from cunumpy.kernels import Kernel
 
 from struphy.utils.cuda_arguments import CUDA_STRUCTS
 
-# the arguments the kernel writes to, by position: out
-OUTPUTS = (13,)
+# the arguments the kernel writes to, by position: args_markers
+OUTPUTS = (0,)
 
-naive_evaluation_meshgrid = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, host_options={"outputs": OUTPUTS})
+sph_physical_positions = Kernel.from_folder(__name__, structs=CUDA_STRUCTS, host_options={"outputs": OUTPUTS})

@@ -6,7 +6,7 @@ from typing import Literal
 
 from line_profiler import profile
 
-from struphy.io.options import LiteralOptions, OptionsBase
+from struphy.io.options import OptionsBase
 from struphy.models.variables import SPHVariable
 from struphy.pic.pushing.kernel_setup import KernelSetup
 from struphy.pic.pushing.kernels.push_v_viscosity import push_v_viscosity
@@ -14,6 +14,7 @@ from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_veloci
 from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
 from struphy.pic.pushing.pusher import Pusher
 from struphy.propagators.base import Propagator
+from struphy.propagators.utils import check_removed_kernel_options
 from struphy.utils.utils import check_option
 
 logger = logging.getLogger("struphy")
@@ -31,27 +32,26 @@ class PushVinViscousPotential(Propagator):
 
     with mass density :math:`\rho` and dynamic viscosity :math:`\mu \geq 0`.
 
-    **Semi-discrete problem:** the kernel :math:`W_h` from :mod:`~struphy.pic.sph_smoothing_kernels` is evaluated in
-    logical coordinates. With the density 3-form and the velocity interpolant
+    **Semi-discrete problem:** the radial kernel :math:`W_h` is defined in physical space
+    (:class:`~struphy.particles.parameters.SPHParameters`), evaluated at the physical marker positions
+    :math:`\mathbf x_j = F(\boldsymbol\eta_j)`. With the SPH density and the velocity interpolant
 
     .. math::
 
-        \rho^\eta_i = \sum_{j=1}^N w_j\, W_h(\boldsymbol\eta_i - \boldsymbol\eta_j)\,, \qquad
-        \mathbf u_h(\boldsymbol\eta) = \sum_{j=1}^N \frac{w_j}{\rho^\eta_j}\, \mathbf v_j\, W_h(\boldsymbol\eta - \boldsymbol\eta_j)\,,
+        \rho_i = \sum_{j=1}^N w_j\, W_h(\mathbf x_i - \mathbf x_j)\,, \qquad
+        \mathbf u_h(\mathbf x) = \sum_{j=1}^N \frac{w_j}{\rho_j}\, \mathbf v_j\, W_h(\mathbf x - \mathbf x_j)\,,
 
-    the stress :math:`\boldsymbol\sigma_i` is computed at each marker from the gradient of :math:`\mathbf u_h`
-    (transformed to Cartesian derivatives with :math:`DF^{-1}`), and for each marker :math:`p`
+    the stress :math:`\boldsymbol\sigma_i` is computed at each marker from the (Cartesian) gradient of
+    :math:`\mathbf u_h`, and for each marker :math:`p`
 
     .. math::
 
         \frac{\textnormal d \mathbf v_p}{\textnormal d t}
-        = - \frac{1}{\rho_p\, \sqrt g(\boldsymbol\eta_p)} \sum_{i=1}^N \frac{w_i}{\rho^\eta_i}\, \sqrt g(\boldsymbol\eta_i)\,
-        \boldsymbol\sigma_i\, DF^{-\top}(\boldsymbol\eta_i)\, \nabla W_h(\boldsymbol\eta_p - \boldsymbol\eta_i)\,,
+        = - \frac{1}{\rho_p} \sum_{i=1}^N \frac{w_i}{\rho_i}\, \boldsymbol\sigma_i\, \nabla W_h(\mathbf x_p - \mathbf x_i)\,,
 
-    which is the SPH estimate of :math:`-\frac 1\rho \nabla \cdot \boldsymbol\sigma` in Piola form, with the physical
-    density :math:`\rho_p = \rho^\eta_p / \sqrt g(\boldsymbol\eta_p)` and :math:`\sqrt g = |\det DF|`. The
-    coefficients :math:`w_i \mathbf v_i/\rho^\eta_i` and :math:`\sqrt g\, (w_i/\rho^\eta_i) \boldsymbol\sigma_i DF^{-\top}`
-    are computed once per time step and stored in the marker array.
+    the SPH estimate of :math:`-\frac 1\rho \nabla \cdot \boldsymbol\sigma`. The coefficients
+    :math:`w_i \mathbf v_i/\rho_i` and :math:`(w_i/\rho_i) \boldsymbol\sigma_i` are computed once per time step and
+    stored in the marker array.
 
     **Time discretization:** forward Euler (``algo="forward_euler"``),
 
@@ -95,32 +95,29 @@ class PushVinViscousPotential(Propagator):
 
         Parameters
         ----------
-        kernel_type : LiteralOptions.OptsKernel, default="gaussian_2d"
-            Smoothing kernel used for SPH evaluations.
-
-        kernel_width : tuple, default=None
-            Kernel widths per logical direction. If ``None``, defaults to
-            ``(1 / n_i)`` based on sorting boxes.
-
         algo : {"forward_euler"}, default="forward_euler"
             Time stepping algorithm for the viscous potential push.
 
         mu : float, default=1.0
             Dynamic viscosity coefficient used by the viscosity tensor kernel.
             Must be non-negative.
+
+        kernel_type, kernel_width : None
+            Removed: the smoothing kernel is set per species with
+            :class:`~struphy.particles.parameters.SPHParameters` (``set_markers(sph_params=...)``).
         """
 
         # specific literals
         OptsAlgo = Literal["forward_euler"]
         # propagator options
-        kernel_type: LiteralOptions.OptsKernel = "gaussian_2d"
-        kernel_width: tuple = None
         algo: OptsAlgo = "forward_euler"
         mu: float = 1.0
+        kernel_type: None = None
+        kernel_width: None = None
 
         def __post_init__(self):
             # checks
-            check_option(self.kernel_type, LiteralOptions.OptsKernel)
+            check_removed_kernel_options(self)
             check_option(self.algo, self.OptsAlgo)
             # validate mu
             if not isinstance(self.mu, (int, float)):
@@ -141,7 +138,7 @@ class PushVinViscousPotential(Propagator):
         logger.info(f"\nNew options for propagator '{self.__class__.__name__}':\n{self._options}")
 
     @profile
-    def allocate(self):  # ersetzt init
+    def allocate(self):
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.
@@ -150,37 +147,9 @@ class PushVinViscousPotential(Propagator):
 
         init_kernel_2 = sph_viscosity_tensor
 
-        boxes = particles.sorting_boxes.boxes
-        neighbours = particles.sorting_boxes.neighbours
-        holes = particles.holes
-        periodic = [bci == "periodic" for bci in particles.bc]
-        kernel_nr = particles.ker_dct()[self.options.kernel_type]
-
-        if self.options.kernel_width is None:
-            self.options.kernel_width = tuple([1 / ni for ni in particles.boxes_per_dim])
-        else:
-            assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
-
-        # for sph_mean_velocity_coeffs
-        args_init_mean = (
-            boxes,
-            neighbours,
-            holes,
-            *periodic,
-            kernel_nr,
-            *self.options.kernel_width,
-        )
-
-        # for sph_viscosity_tensor
-        args_init_visc = (
-            boxes,
-            neighbours,
-            holes,
-            *periodic,
-            kernel_nr,
-            *self.options.kernel_width,
-            self.options.mu,
-        )
+        kernel_args = particles.sph_kernel_args
+        args_init_mean = kernel_args
+        args_init_visc = kernel_args + (self.options.mu,)
 
         self.add_init_kernel(
             KernelSetup(
@@ -210,14 +179,7 @@ class PushVinViscousPotential(Propagator):
 
         kernel = push_v_viscosity
 
-        args_kernel = (
-            boxes,
-            neighbours,
-            holes,
-            *periodic,
-            kernel_nr,
-            *self.options.kernel_width,
-        )
+        args_kernel = kernel_args
 
         # the Pusher class wraps around all kernels
         self._pusher = Pusher(

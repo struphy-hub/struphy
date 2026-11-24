@@ -855,26 +855,8 @@ class StruphyModel(metaclass=StruphyModelMeta):
                     bin_plot.df[:] = df_slice
 
                 for kd_plot in species.saving_params.kernel_density_plots:
-                    h1 = 1 / obj.boxes_per_dim[0]
-                    h2 = 1 / obj.boxes_per_dim[1]
-                    h3 = 1 / obj.boxes_per_dim[2]
-
-                    ndim = sum(int(d) > 1 for d in obj.boxes_per_dim)
-                    if ndim == 0:
-                        kernel_type = "gaussian_3d"
-                    else:
-                        kernel_type = "gaussian_" + str(ndim) + "d"
-
-                    pts = kd_plot.plot_pts
-                    n_sph = obj.eval_density(
-                        *pts,
-                        h1=h1,
-                        h2=h2,
-                        h3=h3,
-                        kernel_type=kernel_type,
-                        fast=True,
-                    )
-                    kd_plot.n_sph[:] = n_sph
+                    # physical density with the smoothing kernel of the species (SPH only)
+                    kd_plot.n_sph[:] = obj.eval_density(*kd_plot.plot_pts, fast=True)
 
     def generate_default_parameter_file(
         self,
@@ -947,6 +929,9 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 particle_params += "boundary_params = BoundaryParameters()\n"
                 particle_params += "sorting_params = SortingParameters()\n"
                 particle_params += "saving_params = SavingParameters()\n"
+                is_sph = any(isinstance(v, SPHVariable) for v in species.variables.values())
+                if is_sph:
+                    particle_params += "sph_params = SPHParameters()\n"
                 particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
                 txt = "weights_params=weights_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
@@ -956,6 +941,9 @@ class StruphyModel(metaclass=StruphyModelMeta):
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = "saving_params=saving_params,\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                if is_sph:
+                    txt = "sph_params=sph_params,\n"
+                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                 txt = ")\n"
                 particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
 
@@ -1063,6 +1051,7 @@ set_logging_level(logging.WARNING)\n""")
     WeightsParameters,
     SortingParameters,
     SavingParameters,
+    SPHParameters,
     maxwellians,
 )\n""")
 
@@ -1250,6 +1239,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             LoadingParameters,
             SavingParameters,
             SortingParameters,
+            SPHParameters,
             WeightsParameters,
         )
 
@@ -1268,6 +1258,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
             "boundary_params": BoundaryParameters,
             "sorting_params": SortingParameters,
             "saving_params": SavingParameters,
+            "sph_params": SPHParameters,
         }
         for species_name, species_data in dct.get("species", {}).items():
             species = model.species.get(model._renamed_species.get(species_name, species_name))
