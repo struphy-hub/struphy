@@ -4,7 +4,7 @@ Adapted from the lecture "Meshless Structure-Preserving Algorithms" (SPEGEO scho
 https://github.com/spossann/2026_SPEGEO_Strasbourg_school), with the notation of the Struphy documentation.
 The figure ``sph_convergence.png`` is taken from the lecture as is (it needs a long parameter scan).
 
-The density figures evaluate Struphy's SPH kernels, so Struphy must be installed and compiled
+The kernel and density figures evaluate Struphy's SPH kernels, so Struphy must be installed and compiled
 (``struphy compile``). Run from anywhere::
 
     python doc/pics/sph/make_sph_figures.py
@@ -20,7 +20,7 @@ import numpy as np
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 DPI = 150
 
-KERNEL_COLORS = {"gaussian": "#d95f02", "trigonometric": "#1b9e77", "linear": "#7570b3"}
+KERNEL_COLORS = {"gaussian": "#d95f02", "wendland_c2": "#1b9e77", "cubic_spline": "#7570b3"}
 EXACT_COLOR = "#0f4c81"
 
 
@@ -105,24 +105,30 @@ def lagrange_euler_figure():
 
 
 def kernels_figure():
-    """The 1D smoothing kernels of Struphy with h = 1."""
-    from struphy.pic.sph_smoothing_kernels import gaussian_uni, linear_uni, trigonometric_uni
+    """The radial smoothing kernels of Struphy and their radial derivatives (1D, h = 1)."""
+    from struphy.pic import sph_radial_kernels
+    from struphy.pic.sph_setup import KERNEL_IDS
 
-    x = np.linspace(-1, 1, 400)
-    fig, ax = plt.subplots(figsize=(10, 3.2))
-    for name, fun in [("trigonometric", trigonometric_uni), ("gaussian", gaussian_uni), ("linear", linear_uni)]:
-        ax.plot(x, [fun(xi, 1.0) for xi in x], color=KERNEL_COLORS[name], lw=2.5, label=name)
-    ax.set_xlabel(r"$x/h$", fontsize=13)
-    ax.set_ylabel(r"$h\, W_h(x)$", fontsize=13)
-    ax.legend(fontsize=12)
-    ax.grid(True, alpha=0.25)
+    x = np.linspace(-1, 1, 401)
+    fig, (ax_w, ax_dw) = plt.subplots(1, 2, figsize=(11, 3.2))
+    for name, kernel_id in KERNEL_IDS.items():
+        w = [sph_radial_kernels.kernel_value(kernel_id, 1, abs(xi), 1.0) for xi in x]
+        dw = [np.sign(xi) * sph_radial_kernels.kernel_dr(kernel_id, 1, abs(xi), 1.0) for xi in x]
+        ax_w.plot(x, w, color=KERNEL_COLORS[name], lw=2.5, label=name)
+        ax_dw.plot(x, dw, color=KERNEL_COLORS[name], lw=2.5, label=name)
+    ax_w.set_ylabel(r"$h\, W_h(x)$", fontsize=13)
+    ax_dw.set_ylabel(r"$h^2\, W_h'(x)$", fontsize=13)
+    for ax in (ax_w, ax_dw):
+        ax.set_xlabel(r"$x/h$", fontsize=13)
+        ax.legend(fontsize=11)
+        ax.grid(True, alpha=0.25)
     plt.tight_layout()
     _save(fig, "sph_kernels.png")
 
 
-def _particles(domain, background, pert, ppb, boxes_per_dim):
+def _particles(domain, background, pert, ppb, boxes_per_dim, kernel="gaussian"):
     """ParticlesSPH on a periodic domain, loaded by tesselation, with weights from the density."""
-    from struphy import BoundaryParameters, LoadingParameters, SortingParameters
+    from struphy import BoundaryParameters, LoadingParameters, SortingParameters, SPHParameters
     from struphy.pic.particles import ParticlesSPH
 
     particles = ParticlesSPH(
@@ -130,6 +136,7 @@ def _particles(domain, background, pert, ppb, boxes_per_dim):
         loading_params=LoadingParameters(ppb=ppb, loading="tesselation"),
         boundary_params=BoundaryParameters(bc_sph=("periodic", "periodic", "periodic")),
         sorting_params=SortingParameters(boxes_per_dim=boxes_per_dim),
+        sph_params=SPHParameters(kernel=kernel),
         bufsize=1.0,
         domain=domain,
         background=background,
@@ -142,30 +149,28 @@ def _particles(domain, background, pert, ppb, boxes_per_dim):
 
 
 def density_1d_figure():
-    """SPH density estimate in 1D with the three kernel types (tesselation, 4 markers per box, h = 1/24)."""
+    """SPH density estimate in 1D with the three kernels (tesselation, 4 markers per box, 24 boxes, h = h_max)."""
     from struphy import domains, equils, perturbations
 
-    domain = domains.Cuboid(l1=1.0, r1=2.0, l2=10.0, r2=20.0, l3=100.0, r3=200.0)
+    # x in [0, 1], cross-section 1 x 1: the physical density equals the logical volume form
+    domain = domains.Cuboid()
     background = equils.ConstantVelocity(n=1.5, density_profile="constant")
     background.domain = domain
     pert = {"n": perturbations.ModesCos(ls=(1,), amps=(1.0,))}
-    particles = _particles(domain, background, pert, ppb=4, boxes_per_dim=(24, 1, 1))
 
     eta1 = np.linspace(0, 1.0, 100)
-    ee1, ee2, ee3 = np.meshgrid(eta1, np.array([0.0]), np.array([0.0]), indexing="ij")
+    ee1, ee2, ee3 = np.meshgrid(eta1, np.array([0.5]), np.array([0.5]), indexing="ij")
     rho_exact = 1.5 + np.cos(2 * np.pi * eta1)
 
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.0), sharey=True)
-    for ax, name in zip(axes, ["gaussian", "trigonometric", "linear"]):
-        kernel = name + "_1d"
-        rho = np.array(
-            particles.eval_density(ee1, ee2, ee3, h1=1 / 24, h2=1.0, h3=1.0, kernel_type=kernel, derivative=0)
-        ).squeeze()
+    for ax, name in zip(axes, ["gaussian", "wendland_c2", "cubic_spline"]):
+        particles = _particles(domain, background, pert, ppb=4, boxes_per_dim=(24, 1, 1), kernel=name)
+        rho = np.array(particles.eval_density(ee1, ee2, ee3)).squeeze()
         err = np.max(np.abs(rho - rho_exact)) / np.max(np.abs(rho_exact))
         ax.plot(eta1, rho_exact, color=EXACT_COLOR, lw=2.0, label="exact")
-        ax.plot(eta1, rho, "--", color=KERNEL_COLORS[name], lw=2.0, label=kernel)
-        ax.set_xlabel(r"$\eta_1$", fontsize=11)
-        ax.set_title(f"{kernel}, rel. error = {err:.4f}", fontsize=11)
+        ax.plot(eta1, rho, "--", color=KERNEL_COLORS[name], lw=2.0, label=name)
+        ax.set_xlabel(r"$x$", fontsize=11)
+        ax.set_title(f"{name}, rel. error = {err:.4f}", fontsize=11)
         ax.legend(fontsize=9)
         ax.grid(True, alpha=0.25)
     axes[0].set_ylabel(r"$\rho$", fontsize=13)
@@ -174,10 +179,11 @@ def density_1d_figure():
 
 
 def density_2d_figure():
-    """SPH density estimate in 2D (tesselation on 12 x 12 boxes with 16 markers each, gaussian_2d, h = 1/12)."""
+    """SPH density estimate in 2D on the Colella mapping (tesselation on 12 x 12 boxes with 16 markers each,
+    gaussian kernel, h = h_max); the exact physical density is n^3 / sqrt(g)."""
     from struphy import domains, equils, perturbations
 
-    domain = domains.Cuboid(l1=1.0, r1=2.0, l2=0.0, r2=2.0, l3=100.0, r3=200.0)
+    domain = domains.Colella(Lx=1.0, Ly=1.0, alpha=0.05, Lz=1.0)
     background = equils.ConstantVelocity(n=1.5, density_profile="constant")
     background.domain = domain
     pert = {"n": perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(1.0,))}
@@ -185,23 +191,25 @@ def density_2d_figure():
 
     eta = np.linspace(0, 1.0, 50)
     ee1, ee2, ee3 = np.meshgrid(eta, eta, np.array([0.0]), indexing="ij")
-    rho = np.array(
-        particles.eval_density(ee1, ee2, ee3, h1=1 / 12, h2=1 / 12, h3=1.0, kernel_type="gaussian_2d", derivative=0)
-    ).squeeze()
-    rho_exact = (1.5 + np.cos(2 * np.pi * ee1) * np.cos(2 * np.pi * ee2)).squeeze()
+    rho = np.array(particles.eval_density(ee1, ee2, ee3)).squeeze()
+    n3 = 1.5 + np.cos(2 * np.pi * ee1) * np.cos(2 * np.pi * ee2)
+    rho_exact = (n3 / domain.jacobian_det(ee1, ee2, ee3)).squeeze()
     err = np.max(np.abs(rho - rho_exact)) / np.max(np.abs(rho_exact))
+    X, Y, _ = domain(ee1, ee2, ee3)
+    X, Y = X.squeeze(), Y.squeeze()
 
+    vmin, vmax = rho_exact.min(), rho_exact.max()
     fig, axes = plt.subplots(1, 2, figsize=(9, 3.2))
     for ax, data, title in [
-        (axes[0], rho_exact, "exact"),
-        (axes[1], rho, f"SPH (gaussian_2d), rel. error = {err:.4f}"),
+        (axes[0], rho_exact, r"exact $n^3/\sqrt{g}$ (Colella)"),
+        (axes[1], rho, f"SPH (gaussian), rel. error = {err:.4f}"),
     ]:
-        im = ax.pcolormesh(eta, eta, data.T, cmap="RdBu_r", vmin=0.5, vmax=2.5, shading="auto")
+        im = ax.pcolormesh(X, Y, data, cmap="RdBu_r", vmin=vmin, vmax=vmax, shading="gouraud")
         fig.colorbar(im, ax=ax)
         ax.set_title(title, fontsize=11)
-        ax.set_xlabel(r"$\eta_1$", fontsize=11)
+        ax.set_xlabel(r"$x$", fontsize=11)
         ax.set_aspect("equal")
-    axes[0].set_ylabel(r"$\eta_2$", fontsize=11)
+    axes[0].set_ylabel(r"$y$", fontsize=11)
     plt.tight_layout()
     _save(fig, "sph_density_2d.png")
 

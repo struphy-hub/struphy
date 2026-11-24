@@ -905,14 +905,15 @@ In Struphy, kernel density estimates are computed in position space only:
 
 .. math::
 
-    n_h(t, \boldsymbol\eta) = \sum_{p=1}^N w_p\, W_h\big(\boldsymbol\eta - \boldsymbol\eta_p(t)\big)
-    \approx \int f^\textrm{vol}(t, \boldsymbol\eta, \mathbf v)\,\textrm d \mathbf v\,,
+    n_h(t, F(\boldsymbol\eta)) = \sum_{p=1}^N w_p\, W_h\big(F(\boldsymbol\eta) - F(\boldsymbol\eta_p(t))\big)
+    \approx \int f(t, F(\boldsymbol\eta), \mathbf v)\,\textrm d \mathbf v\,,
 
-the number density as a 3-form in logical coordinates (divide by :math:`|\det DF|` to get the physical density).
-It uses the sorting boxes (``boxes_per_dim`` in :class:`~struphy.particles.parameters.SortingParameters`) and the
-smoothing kernels in ``struphy.pic.sph_smoothing_kernels`` (trigonometric, Gaussian, linear; 1D, 2D, 3D). As a
-diagnostic, it is switched on with :class:`~struphy.particles.parameters.KernelDensityPlot` in the saving
-parameters; the kernel is then a Gaussian with a width of one sorting box in each direction. With the control
+the physical density (a 0-form) at logical points, with a radial kernel :math:`W_h` normalized in physical space
+(see :ref:`sph_smoothing`). It uses the sorting boxes (``boxes_per_dim`` in
+:class:`~struphy.particles.parameters.SortingParameters`); the kernel and its width are set per species with
+:class:`~struphy.particles.parameters.SPHParameters` (default: a Gaussian with the largest width :math:`h_\max` for
+which the neighbours lie in the 27 adjacent boxes, see :ref:`sph_neighbours`). As a diagnostic, it is switched on with
+:class:`~struphy.particles.parameters.KernelDensityPlot` in the saving parameters. With the control
 variate or delta-f markers, the current weights are used, so the estimate is that of :math:`\delta f`. The same technique is the basis of
 :ref:`smoothed particle hydrodynamics <sph_method>`.
 

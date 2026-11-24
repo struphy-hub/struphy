@@ -211,15 +211,17 @@ def setup_sph_kernel(
         period[i] = diff[:, 0]
 
     # --- largest width with the support in the 27 neighbour boxes ---
-    with np.errstate(divide="ignore", invalid="ignore"):
-        jac_inv = np.linalg.inv(jac)  # (M, 3, 3), rows = grad eta_i
+    # singular points (e.g. the axis of a polar mapping) have an unbounded DF^{-1}: infinite row norms
+    det = np.linalg.det(jac)
+    singular = np.abs(det) <= 1e-12 * length**3
+    jac_reg = np.where(singular[:, None, None], np.eye(3), jac)
+    jac_inv = np.linalg.inv(jac_reg)  # (M, 3, 3), rows = grad eta_i
     h_max = np.inf
     limit = None
     for i in res:
         rows = jac_inv[:, i, :] @ proj  # gradient of eta_i projected on the resolved directions
         norms = np.linalg.norm(rows, axis=1)
-        if not np.all(np.isfinite(norms)):
-            norms = np.where(np.isfinite(norms), norms, np.inf)
+        norms = np.where(singular | ~np.isfinite(norms), np.inf, norms)
         worst = int(np.argmax(norms))
         h_i = 1.0 / (boxes_per_dim[i] * norms[worst])
         if h_i < h_max:
@@ -228,7 +230,7 @@ def setup_sph_kernel(
     h_max *= SAFETY
 
     # --- lower bound from the mean marker spacing ---
-    det = np.abs(np.linalg.det(jac))
+    det = np.abs(det)
     volume = float(np.mean(det[np.isfinite(det)]))  # volume of the unit cube under F (sampling average)
     spacing = (volume / area_perp / n_markers) ** (1.0 / dim)
     h_min = min_width_spacings * spacing

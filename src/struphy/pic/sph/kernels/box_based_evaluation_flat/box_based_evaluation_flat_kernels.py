@@ -84,13 +84,22 @@ def box_based_evaluation_flat(
         0 for the value, 1, 2, 3 for the components of the physical gradient.
 
     out : float[:]
-        Output, same length as ``eta1``; points outside the local domain are left at zero.
+        Output, same length as ``eta1``; points outside the MPI sub-domain of this process are left at zero (each
+        point is evaluated on exactly one process, so the results can be summed over the processes).
     """
     res = zeros(4, dtype=float)
 
     n_eval = len(eta1)
     out[:] = 0.0
     for i in range(n_eval):
+        # only points owned by this process (half-open sub-domain, eta = 1 belongs to the last process); find_box
+        # also accepts points in the ghost-box layer, which would be evaluated on two processes
+        if eta1[i] < domain_array[0] or (eta1[i] >= domain_array[1] and eta1[i] != 1.0):
+            continue
+        if eta2[i] < domain_array[3] or (eta2[i] >= domain_array[4] and eta2[i] != 1.0):
+            continue
+        if eta3[i] < domain_array[6] or (eta3[i] >= domain_array[7] and eta3[i] != 1.0):
+            continue
         loc_box = sorting_kernels.find_box(eta1[i], eta2[i], eta3[i], n1, n2, n3, domain_array)
         if loc_box == -1:
             continue

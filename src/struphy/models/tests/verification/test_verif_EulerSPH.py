@@ -86,7 +86,7 @@ def test_soundwave_1d(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
-    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kernel_type="gaussian_1d")
+    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options()
 
     # background, perturbations and initial conditions
     background = equils.ConstantVelocity()

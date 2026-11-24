@@ -88,8 +88,8 @@ def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot:
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
-    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kernel_type="gaussian_1d")
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=mu)
+    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options()
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=mu)
 
     # background and initial conditions: velocity perturbation excites the sound wave
     background = equils.ConstantVelocity()
@@ -288,10 +288,10 @@ def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, n0: flo
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
 
     mu = 1.0
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=mu)
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=mu)
 
     # no pressure force (pressureless fluid): kappa=0
-    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kernel_type="gaussian_1d", kappa=0.0)
+    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kappa=0.0)
 
     # background, perturbations and initial conditions
     ux_mean = 0.0
@@ -503,11 +503,9 @@ def test_hagen_poiseuille(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(
-        kernel_type="gaussian_2d",
         gravity=(g_x, 0.0, 0.0),
     )
     model.propagators.push_viscous.options = model.propagators.push_viscous.Options(
-        kernel_type="gaussian_2d",
         mu=mu,
     )
 
@@ -753,12 +751,10 @@ def test_dam_break(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(
-        kernel_type="gaussian_2d",
         gravity=(0.0, -g_y, 0.0),
         kappa=kappa,
     )
     model.propagators.push_viscous.options = model.propagators.push_viscous.Options(
-        kernel_type="gaussian_2d",
         mu=mu,
     )
 

@@ -81,7 +81,7 @@ def test_chorin_projection_periodic_1d(mpi_out_folder: str, nx: int, do_plot: bo
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     # inviscid (incompressible Euler): no viscous force
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.0)
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=0.0)
 
     U0 = 0.0
     A = 0.5
@@ -189,7 +189,7 @@ def test_chorin_projection_reflect_1d(mpi_out_folder: str, nx: int, do_plot: boo
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     # inviscid (incompressible Euler): no viscous force
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.0)
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=0.0)
 
     A = 0.5
     background = equils.ConstantVelocity()
@@ -299,7 +299,7 @@ def test_channel_noslip_shear_relaxation(mpi_out_folder: str, nx: int, do_plot: 
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_2d", mu=mu)
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=mu)
 
     U = 0.5
     background = equils.ConstantVelocity()
