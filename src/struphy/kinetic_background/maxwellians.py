@@ -201,7 +201,13 @@ class GyroMaxwellian2D(Maxwellian):
         return "vpara_mu"
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, v_para, mu):
-        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, mu)`, is :math:`B_0`.
+        r"""Jacobian determinant of the velocity coordinate transformation to :math:`(v_\parallel, \mu)`, is :math:`B_0`.
+
+        This is the Jacobian of the velocity coordinates at fixed position. The guiding-center flow, however,
+        conserves the phase-space volume with :math:`B^*_\parallel = B_\parallel + O(\epsilon)` instead of
+        :math:`B_0`. Initial marker weights computed with :math:`B_0` therefore represent the initial
+        distribution function up to the factor :math:`B_0/B^*_\parallel`, an :math:`O(\epsilon)` error of the
+        initial condition that is not amplified in time, see :ref:`pic_phase_space`.
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords)
 
