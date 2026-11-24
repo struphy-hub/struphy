@@ -20,7 +20,8 @@ def charge_density_0form(
 
         B_p = w_p \,,
 
-    where :math:`w_p` is the marker weight.
+    where :math:`w_p` is the marker weight, so that the accumulated vector is
+    :math:`V_{ijk} = \sum_p w_p\, \Lambda^0_{ijk}(\boldsymbol \eta_p)`.
     """
 
     markers = args_markers.markers

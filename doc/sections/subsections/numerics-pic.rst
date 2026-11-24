@@ -793,7 +793,9 @@ with a *filling* :math:`B_p` depending on the marker (e.g. its velocity and the 
 the basis functions that are non-zero at :math:`\boldsymbol\eta_p` contribute, the cost is :math:`O(N)`. These sums
 are computed by the accumulators (:class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
 :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` and the matrix-free
-:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), see the :ref:`dev_reference` for details. The weights
+:class:`~struphy.pic.accumulation.particles_to_grid.MarkerOperator`), see the :ref:`dev_reference` for details. In the
+code, the accumulation kernels compute the product :math:`w_p B_p` per marker and call it the filling (in the class
+and kernel docstrings, the filling therefore includes the weight). The weights
 already contain the factor :math:`1/N`; with the control variate or the delta-f method, :math:`w_p` is the delta-f
 weight. The opposite direction, fields evaluated at the marker positions in the pushers, uses the same basis
 functions.
