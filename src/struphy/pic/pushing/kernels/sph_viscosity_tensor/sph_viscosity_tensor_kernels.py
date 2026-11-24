@@ -31,7 +31,7 @@ def sph_viscosity_tensor(
     r"""For each particle, evaluate the smoothed SPH density :math:`\rho^{N,h}(\boldsymbol \eta_i)` and the
     deviatoric strain rate, and store the 9 coefficients
 
-    * :math:`- w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
+    * :math:`w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
       / \rho^{N,h}(\boldsymbol \eta_i)` at ``markers[output_indices[3*j + k], :]`` for :math:`j, k = 0, 1, 2`
 
     where :math:`\sqrt g = \det DF`, the smoothed SPH density is given by
@@ -40,12 +40,13 @@ def sph_viscosity_tensor(
 
         \rho^{N,h}(\boldsymbol \eta_i) = \sum_l w_l \, W_h(\boldsymbol \eta_i - \boldsymbol \eta_l)\,,
 
-    and the deviatoric strain rate is the traceless symmetric part of the Cartesian mean velocity gradient,
+    and the viscous stress (momentum flux) is minus :math:`\mu` times twice the traceless symmetric part of the
+    Cartesian mean velocity gradient,
 
     .. math::
 
         \sigma_{jm}(\boldsymbol \eta_i)
-        = \mu\bigl[ \partial_{x_m} v_j^{N,h}(\boldsymbol \eta_i) + \partial_{x_j} v_m^{N,h}(\boldsymbol \eta_i)
+        = -\mu\bigl[ \partial_{x_m} v_j^{N,h}(\boldsymbol \eta_i) + \partial_{x_j} v_m^{N,h}(\boldsymbol \eta_i)
         - \tfrac{2}{3}\delta_{jm} \, \partial_{x_l} v_l^{N,h}(\boldsymbol \eta_i)\bigr]\,,
         \qquad
         \partial_{x_m} v_j^{N,h} = \sum_k \partial_{\eta_k} v_j^{N,h} \, (DF^{-1})_{km}\,.
@@ -56,8 +57,8 @@ def sph_viscosity_tensor(
 
     .. math::
 
-        (-\nabla \cdot \Pi_{\textrm{vis}})^{N,h}_j(\boldsymbol \eta_i)
-        = -\frac{1}{\sqrt g(\boldsymbol \eta_i)} \sum_l \frac{ w_l \, \sqrt g(\boldsymbol \eta_l) \,
+        (\nabla \cdot \sigma)^{N,h}_j(\boldsymbol \eta_i)
+        = \frac{1}{\sqrt g(\boldsymbol \eta_i)} \sum_l \frac{ w_l \, \sqrt g(\boldsymbol \eta_l) \,
           \sigma_{jm}(\boldsymbol \eta_l) \, (DF^{-1})_{km}(\boldsymbol \eta_l)}{\rho^{N,h}(\boldsymbol \eta_l)} \,
           (\nabla W_h)_k(\boldsymbol \eta_i - \boldsymbol \eta_l)\,.
 
