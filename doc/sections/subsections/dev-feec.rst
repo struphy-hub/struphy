@@ -40,6 +40,11 @@ Quadrature
 Projection of spline functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. automodule:: struphy.feec.projectors
+    :members:
+    :show-inheritance:
+    :exclude-members: __init__
+
 .. automodule:: struphy.feec.basis_projection_ops
     :members:
     :special-members:
@@ -64,12 +69,27 @@ Preconditioners
     :show-inheritance:
     :exclude-members: __init__
 
-Polar 2D x 1D Kronecker solvers used by the polar preconditioners:
+Polar 2D x 1D Kronecker solvers used by the polar preconditioners (see :ref:`polar_splines`):
 
 .. automodule:: struphy.polar.kron_2dx1d
     :members:
     :show-inheritance:
     :exclude-members: __init__
+
+.. _polar_gpu:
+
+GPU backend of the polar operators
+""""""""""""""""""""""""""""""""""
+
+On the CuPy backend, extraction, derivatives, Kronecker operators and the polar solves keep their
+coefficients on the device. Factorization and mass-preconditioner assembly run once on the host;
+cached device factors apply subsequent solves. Identical factors are shared across polar spaces
+and projector/preconditioner instances of the same Derham. Matrix contents and solver settings
+are matched exactly; updated weights use new factors, and unused entries are released. Polar MPI collectives support CUDA-aware device
+buffers or host staging through ``cunumpy.mpi.mpi_buffer``. The feectools halo exchanges require
+CUDA-aware MPI on real GPUs. ``SplineFunction.__call__`` dispatches CUDA kernels for marker
+and dense/sparse grid evaluation. The fixed local-grid helper ``eval_tp_fixed_loc`` remains
+host-only; distributed field-evaluation MPI handling and coverage are separate follow-ups.
 
 Geometric multigrid preconditioner:
 
