@@ -156,7 +156,7 @@ def test_sph_evaluation_2d(kernel, derivative, bc_xy, show_plot=False):
     domain = domains.Cuboid(l1=0.0, r1=Lx, l2=0.0, r2=Ly, l3=0.0, r3=Lz)
     sqrt_g = Lx * Ly * Lz
 
-    # square boxes of width 1/12 with 6 x 6 markers: h = h_max is about 4 marker spacings
+    # square boxes of width 1/12 with 6 x 6 markers: h = h_max = 0.99 box widths is about 6 marker spacings
     loading_params = LoadingParameters(ppb=36, loading="tesselation")
     background = ConstantVelocity(n=1.5, density_profile="constant")
     pert = {"n": perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(1.0,))}
@@ -397,7 +397,7 @@ def test_evaluation_SPH_Np_convergence_2d(bc_xy, tesselation):
     exact_eval = 1.5 - sx(ee1) * sy(ee2)
 
     if tesselation:
-        # ppb >= 8: with 4 markers per box h_min = 2 / 48 > h_max = 0.99 / 24
+        # 8 to 64 markers per box (lower bound of the kernel width relaxed to one spacing below)
         xvec = [8, 16, 32, 64]
         loadings = [LoadingParameters(ppb=ppb, loading="tesselation") for ppb in xvec]
     else:

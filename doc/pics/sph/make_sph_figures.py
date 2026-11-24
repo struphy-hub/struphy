@@ -179,7 +179,7 @@ def density_1d_figure():
 
 
 def density_2d_figure():
-    """SPH density estimate in 2D on the Colella mapping (tesselation on 12 x 12 boxes with 16 markers each,
+    """SPH density estimate in 2D on the Colella mapping (tesselation on 12 x 12 boxes with 49 markers each,
     gaussian kernel, h = h_max); the exact physical density is n^3 / sqrt(g)."""
     from struphy import domains, equils, perturbations
 
