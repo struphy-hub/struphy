@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 
 import cunumpy as xp
 import pytest
@@ -112,118 +113,125 @@ def test_damped_sound_wave(mpi_out_folder: str, nx: int, plot_pts: int, do_plot:
     run.pproc()
 
     # diagnostics
+    # checks on rank 0; a failure is broadcast, so that all ranks fail (no hang in the collective teardown)
+    failure = None
     if MPI.COMM_WORLD.Get_rank() == 0:
-        e1_binned = run.distributions.fluid.e1_density.f.eta1.values
-        n_binned = run.distributions.fluid.e1_density.delta_f.values
-        j1_binned = run.distributions.fluid.e1_current_1.f.values
-        density = run.densities.fluid.view_0.n
-        ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
-        n_sph = density.values
+        try:
+            e1_binned = run.distributions.fluid.e1_density.f.eta1.values
+            n_binned = run.distributions.fluid.e1_density.delta_f.values
+            j1_binned = run.distributions.fluid.e1_current_1.f.values
+            density = run.densities.fluid.view_0.n
+            ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
+            n_sph = density.values
 
-        print(f"{e1_binned.shape = }")
-        print(f"{n_binned.shape = }")
-        print(f"{j1_binned.shape = }")
-        print(f"{n_sph.shape = }")
+            print(f"{e1_binned.shape = }")
+            print(f"{n_binned.shape = }")
+            print(f"{j1_binned.shape = }")
+            print(f"{n_sph.shape = }")
 
-        import numpy as np
+            import numpy as np
 
-        dt = time_opts.dt
-        Nt = j1_binned.shape[0] - 1
-        times = np.linspace(0.0, time_opts.Tend, Nt + 1)
+            dt = time_opts.dt
+            Nt = j1_binned.shape[0] - 1
+            times = np.linspace(0.0, time_opts.Tend, Nt + 1)
 
-        # velocity antinode: sin(2*pi*x/r1) peaks closest to x=0.25*r1
-        e1_np = np.asarray(e1_binned).flatten()
-        idx_max = int(np.argmin(np.abs(e1_np - 0.25 * r1)))
-        amplitude = np.asarray(j1_binned[:, idx_max]).flatten()
+            # velocity antinode: sin(2*pi*x/r1) peaks closest to x=0.25*r1
+            e1_np = np.asarray(e1_binned).flatten()
+            idx_max = int(np.argmin(np.abs(e1_np - 0.25 * r1)))
+            amplitude = np.asarray(j1_binned[:, idx_max]).flatten()
 
-        # analytical decay rate: gamma = -(2/3) mu k^2 for the acoustic mode
-        k = 2.0 * np.pi / r1
-        gamma_analytical = -mu * 4 / 3 * k**2 / 2
+            # analytical decay rate: gamma = -(2/3) mu k^2 for the acoustic mode
+            k = 2.0 * np.pi / r1
+            gamma_analytical = -mu * 4 / 3 * k**2 / 2
 
-        A0 = amplitude[0]
-        amplitude_analytical = A0 * np.exp(gamma_analytical * times)
+            A0 = amplitude[0]
+            amplitude_analytical = A0 * np.exp(gamma_analytical * times)
 
-        # mode amplitudes from all bins: u = a(t) sin(k x) (current, rho0 = 1), dn = b(t) cos(k x).
-        # For the isothermal wave with c_s^2 = kappa = 1, the mode energy E = a^2 + b^2 is constant without
-        # viscosity and decays like exp(2 gamma t) with viscosity; fitting log E avoids the noisy detection of
-        # the local maxima of a single bin.
-        x_bins = e1_np * r1
-        j1_np = np.asarray(j1_binned).reshape(Nt + 1, -1)
-        n_np = np.asarray(run.distributions.fluid.e1_density.f.values).reshape(Nt + 1, -1)
-        dn_np = n_np - n_np.mean(axis=1, keepdims=True)
-        a_mode = 2.0 * np.mean(j1_np * np.sin(k * x_bins), axis=1)
-        b_mode = 2.0 * np.mean(dn_np * np.cos(k * x_bins), axis=1)
-        log_energy = np.log(a_mode**2 + b_mode**2)
-        energy_fit = np.polyfit(times, log_energy, 1)
-        gamma_numerical = energy_fit[0] / 2.0
+            # mode amplitudes from all bins: u = a(t) sin(k x) (current, rho0 = 1), dn = b(t) cos(k x).
+            # For the isothermal wave with c_s^2 = kappa = 1, the mode energy E = a^2 + b^2 is constant without
+            # viscosity and decays like exp(2 gamma t) with viscosity; fitting log E avoids the noisy detection of
+            # the local maxima of a single bin.
+            x_bins = e1_np * r1
+            j1_np = np.asarray(j1_binned).reshape(Nt + 1, -1)
+            n_np = np.asarray(run.distributions.fluid.e1_density.f.values).reshape(Nt + 1, -1)
+            dn_np = n_np - n_np.mean(axis=1, keepdims=True)
+            a_mode = 2.0 * np.mean(j1_np * np.sin(k * x_bins), axis=1)
+            b_mode = 2.0 * np.mean(dn_np * np.cos(k * x_bins), axis=1)
+            log_energy = np.log(a_mode**2 + b_mode**2)
+            energy_fit = np.polyfit(times, log_energy, 1)
+            gamma_numerical = energy_fit[0] / 2.0
 
-        logger.info(f"Analytical decay rate: gamma = -(2/3) mu k^2 = {gamma_analytical:.4f}")
-        logger.info(f"Numerical  decay rate: gamma             = {gamma_numerical:.4f}")
+            logger.info(f"Analytical decay rate: gamma = -(2/3) mu k^2 = {gamma_analytical:.4f}")
+            logger.info(f"Numerical  decay rate: gamma             = {gamma_numerical:.4f}")
 
-        if do_plot:
-            Nt_snap = int(1.0 / dt)
-            snapshot_inds = np.round(np.linspace(0, Nt_snap, 12)).astype(int)
-            x_sph = np.asarray(ee1).flatten() * r1
-            dn_sph = np.asarray(n_sph[:, :, 0, 0]) - 1.0  # shape (Nt+1, plot_pts)
-            dn_snap = dn_sph[snapshot_inds, :]
-            ylim = 1.5 * np.max(np.abs(dn_snap))
-            fig, axes = plt.subplots(4, 3, figsize=(12, 12), sharex=True, sharey=True)
-            for ax, idx in zip(axes.flatten(), snapshot_inds):
-                ax.plot(x_sph, dn_sph[idx, :])
-                ax.set_title(f"$t = {times[idx]:.2f}$")
-                ax.set_ylim(-ylim, ylim)
-                ax.axhline(0, color="k", linewidth=0.5)
-                ax.grid(True, linestyle="--", alpha=0.5)
-            for ax in axes[-1, :]:
-                ax.set_xlabel("$x$")
-            for ax in axes[:, 0]:
-                ax.set_ylabel(r"$\delta\rho$")
-            fig.suptitle(r"Density fluctuations $\delta\rho = \rho - 1$ (KDE)", fontsize=13)
-            plt.tight_layout()
-            plt.show()
+            if do_plot:
+                Nt_snap = int(1.0 / dt)
+                snapshot_inds = np.round(np.linspace(0, Nt_snap, 12)).astype(int)
+                x_sph = np.asarray(ee1).flatten() * r1
+                dn_sph = np.asarray(n_sph[:, :, 0, 0]) - 1.0  # shape (Nt+1, plot_pts)
+                dn_snap = dn_sph[snapshot_inds, :]
+                ylim = 1.5 * np.max(np.abs(dn_snap))
+                fig, axes = plt.subplots(4, 3, figsize=(12, 12), sharex=True, sharey=True)
+                for ax, idx in zip(axes.flatten(), snapshot_inds):
+                    ax.plot(x_sph, dn_sph[idx, :])
+                    ax.set_title(f"$t = {times[idx]:.2f}$")
+                    ax.set_ylim(-ylim, ylim)
+                    ax.axhline(0, color="k", linewidth=0.5)
+                    ax.grid(True, linestyle="--", alpha=0.5)
+                for ax in axes[-1, :]:
+                    ax.set_xlabel("$x$")
+                for ax in axes[:, 0]:
+                    ax.set_ylabel(r"$\delta\rho$")
+                fig.suptitle(r"Density fluctuations $\delta\rho = \rho - 1$ (KDE)", fontsize=13)
+                plt.tight_layout()
+                plt.show()
 
-            fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+                fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-            ax = axes[0]
-            ax.plot(times, amplitude, label=f"numerical j1 at x={e1_np[idx_max]:.3f}")
-            ax.plot(times, amplitude_analytical, "--", label=f"analytical envelope (gamma={gamma_analytical:.3f})")
-            ax.set_xlabel("time")
-            ax.set_ylabel("velocity amplitude")
-            ax.set_title("Damped sound wave: velocity at antinode")
-            ax.legend()
-            ax.grid(True)
+                ax = axes[0]
+                ax.plot(times, amplitude, label=f"numerical j1 at x={e1_np[idx_max]:.3f}")
+                ax.plot(times, amplitude_analytical, "--", label=f"analytical envelope (gamma={gamma_analytical:.3f})")
+                ax.set_xlabel("time")
+                ax.set_ylabel("velocity amplitude")
+                ax.set_title("Damped sound wave: velocity at antinode")
+                ax.legend()
+                ax.grid(True)
 
-            ax = axes[1]
-            ax.plot(times, log_energy / 2.0, label="log(sqrt(a^2 + b^2)) of the mode")
-            ax.plot(
-                times,
-                np.polyval(energy_fit, times) / 2.0,
-                "--",
-                label=f"fit: gamma={gamma_numerical:.3f}",
+                ax = axes[1]
+                ax.plot(times, log_energy / 2.0, label="log(sqrt(a^2 + b^2)) of the mode")
+                ax.plot(
+                    times,
+                    np.polyval(energy_fit, times) / 2.0,
+                    "--",
+                    label=f"fit: gamma={gamma_numerical:.3f}",
+                )
+                ax.axline(
+                    (0, log_energy[0] / 2.0),
+                    slope=gamma_analytical,
+                    color="k",
+                    linestyle=":",
+                    label=f"analytical: gamma={gamma_analytical:.3f}",
+                )
+                ax.set_xlabel("time")
+                ax.set_ylabel("log(mode amplitude)")
+                ax.set_title("Decay rate: numerical vs analytical")
+                ax.legend()
+                ax.grid(True)
+
+                plt.tight_layout()
+                plt.show()
+
+            rel_error = abs(gamma_numerical - gamma_analytical) / abs(gamma_analytical)
+            logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
+            assert rel_error < 0.05, (
+                f"Numerical decay rate {gamma_numerical:.4f} deviates {rel_error * 100:.1f}% "
+                f"from analytical {gamma_analytical:.4f} (tolerance 5%)"
             )
-            ax.axline(
-                (0, log_energy[0] / 2.0),
-                slope=gamma_analytical,
-                color="k",
-                linestyle=":",
-                label=f"analytical: gamma={gamma_analytical:.3f}",
-            )
-            ax.set_xlabel("time")
-            ax.set_ylabel("log(mode amplitude)")
-            ax.set_title("Decay rate: numerical vs analytical")
-            ax.legend()
-            ax.grid(True)
-
-            plt.tight_layout()
-            plt.show()
-
-        rel_error = abs(gamma_numerical - gamma_analytical) / abs(gamma_analytical)
-        logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
-        assert rel_error < 0.05, (
-            f"Numerical decay rate {gamma_numerical:.4f} deviates {rel_error * 100:.1f}% "
-            f"from analytical {gamma_analytical:.4f} (tolerance 5%)"
-        )
-        logger.info("Damped sound wave decay rate assertion passed.")
+            logger.info("Damped sound wave decay rate assertion passed.")
+        except Exception:  # noqa: BLE001
+            failure = traceback.format_exc()
+    failure = MPI.COMM_WORLD.bcast(failure, root=0)
+    assert failure is None, failure
 
 
 @pytest.mark.parametrize("nx", [8])
@@ -316,126 +324,137 @@ def test_velocity_diffusion(mpi_out_folder: str, nx: int, plot_pts: int, n0: flo
     run.pproc()
 
     # diagnostics
+    # checks on rank 0; a failure is broadcast, so that all ranks fail (no hang in the collective teardown)
+    failure = None
     if MPI.COMM_WORLD.Get_rank() == 0:
-        density = run.densities.fluid.view_0.n
-        ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
-        n_sph = density.values
-        e1_binned = run.distributions.fluid.e1_density.f.eta1.values
-        n_binned = run.distributions.fluid.e1_density.f.values
-        j1_binned = run.distributions.fluid.e1_current_1.f.values
-        print(f"{e1_binned.shape = }")
-        print(f"{n_binned.shape = }")
-        print(f"{j1_binned.shape = }")
+        try:
+            density = run.densities.fluid.view_0.n
+            ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
+            n_sph = density.values
+            e1_binned = run.distributions.fluid.e1_density.f.eta1.values
+            n_binned = run.distributions.fluid.e1_density.f.values
+            j1_binned = run.distributions.fluid.e1_current_1.f.values
+            print(f"{e1_binned.shape = }")
+            print(f"{n_binned.shape = }")
+            print(f"{j1_binned.shape = }")
 
-        import numpy as np
+            import numpy as np
 
-        dt = time_opts.dt
-        Nt = int(time_opts.Tend // dt)
-        times = np.linspace(0.0, time_opts.Tend, Nt + 1)
-
-        # sin(2*pi*x/r1) for mode l=1 peaks at x = 0.25*r1
-        e1_np = np.asarray(e1_binned).flatten()
-        idx_max = int(np.argmin(np.abs(e1_np - 0.25 * r1)))
-
-        # amplitude time series at the peak bin
-        amplitude = np.asarray(j1_binned[:, idx_max]).flatten()
-
-        # analytical decay rate: gamma = (4/3) mu k^2 / n0, k = 2*pi/r1 for mode l=1
-        k = 2.0 * np.pi / r1
-        gamma_analytical = mu * 4 / 3 * k**2 / n0
-
-        A0 = amplitude[0]
-        amplitude_analytical = A0 * np.exp(-gamma_analytical * times)
-
-        # numerical decay rate via linear fit to log(amplitude)
-        log_amp = np.log(np.abs(amplitude) + 1e-15)
-        coeffs = np.polyfit(times, log_amp, 1)
-        gamma_numerical = -coeffs[0]
-
-        logger.info(f"Analytical decay rate: gamma = mu*k^2 = {gamma_analytical:.4f}")
-        logger.info(f"Numerical  decay rate: gamma           = {gamma_numerical:.4f}")
-
-        if do_plot:
             dt = time_opts.dt
-            end_time = time_opts.Tend
-            Nt = int(end_time // dt)
-            x = ee1 * r1
+            Nt = int(time_opts.Tend // dt)
+            times = np.linspace(0.0, time_opts.Tend, Nt + 1)
 
-            plt.figure(figsize=(20, 40))
+            # sin(2*pi*x/r1) for mode l=1 peaks at x = 0.25*r1
+            e1_np = np.asarray(e1_binned).flatten()
+            idx_max = int(np.argmin(np.abs(e1_np - 0.25 * r1)))
 
-            plot_interval = 4
-            n_rows = 8
-            plot_ct = 0
-            time = 0.0
-            for i in range(Nt + 1):
-                time = dt * i
-                if i % plot_interval == 0:
-                    logger.info(f"{i =}, {time =:.4f}, {plot_ct =}")
-                    plt.subplot(n_rows, 3, plot_ct + 1)
-                    plt.plot(x.squeeze(), n_sph[i, :, 0, 0], label=f"n_sph at time={time:.4f}", linewidth=2)
-                    plt.xlim(0, r1)
-                    plt.grid(c="k", linestyle="--")
-                    plt.xlabel("x")
-                    plt.ylim([0.8, 1.2])
-                    # plt.title(f"n_sph at time={time:.4f}")
-                    plt.legend()
+            # amplitude time series at the peak bin
+            amplitude = np.asarray(j1_binned[:, idx_max]).flatten()
 
-                    plt.subplot(n_rows, 3, plot_ct + 2)
-                    plt.plot(e1_binned, n_binned[i, :], label=f"n_binned at time={i * dt:4.2f}", linewidth=2)
-                    plt.xlim(0, r1)
-                    plt.grid(c="k", linestyle="--")
-                    plt.xlabel("x")
-                    plt.ylim([0.8, 1.2])
-                    # plt.title(f"n_binned at time={i * dt:4.2f}")
-                    plt.legend()
+            # analytical decay rate: gamma = (4/3) mu k^2 / n0, k = 2*pi/r1 for mode l=1
+            k = 2.0 * np.pi / r1
+            gamma_analytical = mu * 4 / 3 * k**2 / n0
 
-                    plt.subplot(n_rows, 3, plot_ct + 3)
-                    plt.plot(e1_binned, j1_binned[i, :], label=f"j1_binned at time={i * dt:4.2f}", linewidth=2)
-                    plt.xlim(0, r1)
-                    plt.grid(c="k", linestyle="--")
-                    plt.xlabel("x")
-                    plt.ylim([ux_mean - 0.5, ux_mean + 0.5])
-                    # plt.title(f"j1_binned at time={i * dt:4.2f}")
-                    plt.legend()
+            A0 = amplitude[0]
+            amplitude_analytical = A0 * np.exp(-gamma_analytical * times)
 
-                    plot_ct += 3
-                    if plot_ct == n_rows * 3:
-                        break
+            # numerical decay rate via linear fit to log(amplitude)
+            log_amp = np.log(np.abs(amplitude) + 1e-15)
+            coeffs = np.polyfit(times, log_amp, 1)
+            gamma_numerical = -coeffs[0]
 
-            plt.show()
+            logger.info(f"Analytical decay rate: gamma = mu*k^2 = {gamma_analytical:.4f}")
+            logger.info(f"Numerical  decay rate: gamma           = {gamma_numerical:.4f}")
 
-            fig, ax = plt.subplots(figsize=(8, 5))
-            ax.semilogy(
-                times, np.abs(amplitude), "o-", markersize=3, label=f"Numerical (fitted rate = {gamma_numerical:.3f})"
+            if do_plot:
+                dt = time_opts.dt
+                end_time = time_opts.Tend
+                Nt = int(end_time // dt)
+                x = ee1 * r1
+
+                plt.figure(figsize=(20, 40))
+
+                plot_interval = 4
+                n_rows = 8
+                plot_ct = 0
+                time = 0.0
+                for i in range(Nt + 1):
+                    time = dt * i
+                    if i % plot_interval == 0:
+                        logger.info(f"{i =}, {time =:.4f}, {plot_ct =}")
+                        plt.subplot(n_rows, 3, plot_ct + 1)
+                        plt.plot(x.squeeze(), n_sph[i, :, 0, 0], label=f"n_sph at time={time:.4f}", linewidth=2)
+                        plt.xlim(0, r1)
+                        plt.grid(c="k", linestyle="--")
+                        plt.xlabel("x")
+                        plt.ylim([0.8, 1.2])
+                        # plt.title(f"n_sph at time={time:.4f}")
+                        plt.legend()
+
+                        plt.subplot(n_rows, 3, plot_ct + 2)
+                        plt.plot(e1_binned, n_binned[i, :], label=f"n_binned at time={i * dt:4.2f}", linewidth=2)
+                        plt.xlim(0, r1)
+                        plt.grid(c="k", linestyle="--")
+                        plt.xlabel("x")
+                        plt.ylim([0.8, 1.2])
+                        # plt.title(f"n_binned at time={i * dt:4.2f}")
+                        plt.legend()
+
+                        plt.subplot(n_rows, 3, plot_ct + 3)
+                        plt.plot(e1_binned, j1_binned[i, :], label=f"j1_binned at time={i * dt:4.2f}", linewidth=2)
+                        plt.xlim(0, r1)
+                        plt.grid(c="k", linestyle="--")
+                        plt.xlabel("x")
+                        plt.ylim([ux_mean - 0.5, ux_mean + 0.5])
+                        # plt.title(f"j1_binned at time={i * dt:4.2f}")
+                        plt.legend()
+
+                        plot_ct += 3
+                        if plot_ct == n_rows * 3:
+                            break
+
+                plt.show()
+
+                fig, ax = plt.subplots(figsize=(8, 5))
+                ax.semilogy(
+                    times,
+                    np.abs(amplitude),
+                    "o-",
+                    markersize=3,
+                    label=f"Numerical (fitted rate = {gamma_numerical:.3f})",
+                )
+                ax.semilogy(
+                    times,
+                    np.abs(amplitude_analytical),
+                    "--",
+                    label=rf"Analytical: $\gamma = (4/3) \mu k^2 = {gamma_analytical:.3f}$",
+                )
+                ax.set_xlabel("time")
+                ax.set_ylabel(rf"velocity amplitude at $x = {e1_np[idx_max]:.3f}$")
+                ax.set_title("Velocity diffusion: amplitude decay over time")
+                ax.legend()
+                ax.grid(True, which="both")
+                plt.tight_layout()
+                plt.show()
+
+            # final current n0 u against the analytic solution n0 * 0.5 * exp(-gamma T) * sin(k x)
+            j1_exact = n0 * 0.5 * np.exp(-gamma_analytical * time_opts.Tend) * np.sin(k * e1_np * r1)
+            error = np.max(np.abs(np.asarray(j1_binned[-1]).flatten() - ux_mean - j1_exact)) / n0
+            logger.info(f"Velocity diffusion: max error of the final velocity {error = :.2e}.")
+            assert error < 0.005  # 1% of the initial amplitude 0.5
+            logger.info("Assertion passed.")
+
+            rel_error = abs(gamma_numerical - gamma_analytical) / gamma_analytical
+            logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
+            assert rel_error < 0.04, (
+                f"Numerical decay rate {gamma_numerical:.4f} deviates {rel_error * 100:.1f}% "
+                f"from analytical {gamma_analytical:.4f} (tolerance 4%)"
             )
-            ax.semilogy(
-                times,
-                np.abs(amplitude_analytical),
-                "--",
-                label=rf"Analytical: $\gamma = (4/3) \mu k^2 = {gamma_analytical:.3f}$",
-            )
-            ax.set_xlabel("time")
-            ax.set_ylabel(rf"velocity amplitude at $x = {e1_np[idx_max]:.3f}$")
-            ax.set_title("Velocity diffusion: amplitude decay over time")
-            ax.legend()
-            ax.grid(True, which="both")
-            plt.tight_layout()
-            plt.show()
-
-        # final current n0 u against the analytic solution n0 * 0.5 * exp(-gamma T) * sin(k x)
-        j1_exact = n0 * 0.5 * np.exp(-gamma_analytical * time_opts.Tend) * np.sin(k * e1_np * r1)
-        error = np.max(np.abs(np.asarray(j1_binned[-1]).flatten() - ux_mean - j1_exact)) / n0
-        logger.info(f"Velocity diffusion: max error of the final velocity {error = :.2e}.")
-        assert error < 0.005  # 1% of the initial amplitude 0.5
-        logger.info("Assertion passed.")
-
-        rel_error = abs(gamma_numerical - gamma_analytical) / gamma_analytical
-        logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
-        assert rel_error < 0.04, (
-            f"Numerical decay rate {gamma_numerical:.4f} deviates {rel_error * 100:.1f}% "
-            f"from analytical {gamma_analytical:.4f} (tolerance 4%)"
-        )
-        logger.info("Decay rate assertion passed.")
+            logger.info("Decay rate assertion passed.")
+        except Exception:  # noqa: BLE001
+            failure = traceback.format_exc()
+    failure = MPI.COMM_WORLD.bcast(failure, root=0)
+    assert failure is None, failure
 
 
 @pytest.mark.parametrize("nx", [8])
@@ -525,161 +544,178 @@ def test_hagen_poiseuille(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: 
     run = sim.run()
     run.pproc()
 
+    # checks on rank 0; a failure is broadcast, so that all ranks fail (no hang in the collective teardown)
+    failure = None
     if MPI.COMM_WORLD.Get_rank() == 0:
-        e2_grid = run.distributions.fluid.e2_current_1.f.eta2.values  # logical y in [0, 1]
-        j1_binned = run.distributions.fluid.e2_current_1.f.values  # shape (Nt+1, n_bins)
+        try:
+            e2_grid = run.distributions.fluid.e2_current_1.f.eta2.values  # logical y in [0, 1]
+            j1_binned = run.distributions.fluid.e2_current_1.f.values  # shape (Nt+1, n_bins)
 
-        import numpy as np
+            import numpy as np
 
-        dt = time_opts.dt
-        Nt = int(time_opts.Tend / dt)
-        times = np.linspace(0.0, time_opts.Tend, Nt + 1)
+            dt = time_opts.dt
+            Nt = int(time_opts.Tend / dt)
+            times = np.linspace(0.0, time_opts.Tend, Nt + 1)
 
-        e2_np = np.asarray(e2_grid).flatten()
-        y_np = e2_np * H  # physical y coordinate
+            e2_np = np.asarray(e2_grid).flatten()
+            y_np = e2_np * H  # physical y coordinate
 
-        # analytical Hagen-Poiseuille: u_x(y) = g_x/(2*mu) * y*(H - y)
-        u_exact = g_x / (2.0 * mu) * y_np * (H - y_np)
-        u_max_exact = np.max(u_exact)
+            # analytical Hagen-Poiseuille: u_x(y) = g_x/(2*mu) * y*(H - y)
+            u_exact = g_x / (2.0 * mu) * y_np * (H - y_np)
+            u_max_exact = np.max(u_exact)
 
-        u_num_final = np.asarray(j1_binned[-1, :]).flatten()
-        u_max_num = np.max(u_num_final)
+            # Steady state (relaxation time H^2 / (pi^2 nu) ~ 1): average the binned profile over the second half of the
+            # run. The marker lattice of the shear flow becomes disordered (velocity noise of about 15%, issue #964),
+            # so the profile at one time and its maximum depend on the noise (and on the MPI decomposition).
+            steady = times >= 0.5 * time_opts.Tend
+            u_num_final = np.asarray(j1_binned)[steady].mean(axis=0).flatten()
+            # least-squares fit of a y (H - y) to the interior bins, peak velocity a H^2 / 4
+            basis = y_np * (H - y_np)
+            a_fit = np.sum(basis[1:-1] * u_num_final[1:-1]) / np.sum(basis[1:-1] ** 2)
+            u_max_num = a_fit * H**2 / 4.0
+            u_peak_exact = g_x * H**2 / (8.0 * mu)
 
-        # velocity at channel centre (y=H/2) as function of time
-        idx_centre = int(np.argmin(np.abs(e2_np - 0.5)))
-        u_centre = np.asarray(j1_binned[:, idx_centre]).flatten()
-        u_centre_exact = u_max_exact  # peak at y=H/2
+            # velocity at channel centre (y=H/2) as function of time
+            idx_centre = int(np.argmin(np.abs(e2_np - 0.5)))
+            u_centre = np.asarray(j1_binned[:, idx_centre]).flatten()
+            u_centre_exact = u_max_exact  # peak at y=H/2
 
-        logger.info(f"Hagen-Poiseuille: analytical U_max = {u_max_exact:.6f}")
-        logger.info(f"Hagen-Poiseuille: numerical  U_max = {u_max_num:.6f}")
+            logger.info(f"Hagen-Poiseuille: analytical U_max = {u_peak_exact:.6f}")
+            logger.info(f"Hagen-Poiseuille: numerical  U_max = {u_max_num:.6f}")
 
-        abs_err = np.abs(u_num_final - u_exact)
-        # pointwise relative error (avoid division by zero at the walls)
-        rel_err_pointwise = abs_err / u_max_exact
-        # exclude wall bins where the exact value is effectively zero
-        rel_error_interior = rel_err_pointwise[1:-1]  # exclude first and last bins
-        rel_error_umax = abs(u_max_num - u_max_exact) / u_max_exact
+            abs_err = np.abs(u_num_final - u_exact)
+            # pointwise relative error (avoid division by zero at the walls)
+            rel_err_pointwise = abs_err / u_max_exact
+            # exclude wall bins where the exact value is effectively zero
+            rel_error_interior = rel_err_pointwise[1:-1]  # exclude first and last bins
+            rel_error_umax = abs(u_max_num - u_peak_exact) / u_peak_exact
 
-        logger.info(f"Hagen-Poiseuille: mean interior relative error = {np.mean(rel_error_interior) * 100:.2f}%")
-        logger.info(f"Hagen-Poiseuille: relative error in U_max = {rel_error_umax * 100:.2f}%")
+            logger.info(f"Hagen-Poiseuille: mean interior relative error = {np.mean(rel_error_interior) * 100:.2f}%")
+            logger.info(f"Hagen-Poiseuille: relative error in U_max = {rel_error_umax * 100:.2f}%")
 
-        if do_plot:
-            fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+            if do_plot:
+                fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-            # velocity profile: numerical vs analytical
-            ax = axes[0]
-            ax.plot(u_num_final, y_np, "o-", markersize=4, label="Numerical (SPH)")
-            ax.plot(u_exact, y_np, "--", color="k", label="Analytical (Hagen-Poiseuille)")
-            ax.set_xlabel(r"$u_x$")
-            ax.set_ylabel(r"$y$")
-            ax.set_title("Steady-state velocity profile")
-            ax.legend()
-            ax.grid(True)
+                # velocity profile: numerical vs analytical
+                ax = axes[0]
+                ax.plot(u_num_final, y_np, "o-", markersize=4, label="Numerical (SPH)")
+                ax.plot(u_exact, y_np, "--", color="k", label="Analytical (Hagen-Poiseuille)")
+                ax.set_xlabel(r"$u_x$")
+                ax.set_ylabel(r"$y$")
+                ax.set_title("Steady-state velocity profile")
+                ax.legend()
+                ax.grid(True)
 
-            # pointwise relative error
-            ax = axes[1]
-            ax.plot(rel_err_pointwise * 100, y_np, "r-o", markersize=4)
-            ax.set_xlabel(r"$|u_x^{num} - u_x^{exact}| \,/\, u_x^{exact}$ [%]")
-            ax.set_ylabel(r"$y$")
-            ax.set_title(f"Pointwise relative error (mean = {np.mean(rel_error_interior) * 100:.1f}%)")
-            ax.grid(True)
+                # pointwise relative error
+                ax = axes[1]
+                ax.plot(rel_err_pointwise * 100, y_np, "r-o", markersize=4)
+                ax.set_xlabel(r"$|u_x^{num} - u_x^{exact}| \,/\, u_x^{exact}$ [%]")
+                ax.set_ylabel(r"$y$")
+                ax.set_title(f"Pointwise relative error (mean = {np.mean(rel_error_interior) * 100:.1f}%)")
+                ax.grid(True)
 
-            # time evolution of centreline velocity
-            ax = axes[2]
-            ax.plot(times, u_centre, label=r"Numerical $u_x(y=H/2)$")
-            ax.axhline(u_centre_exact, color="k", linestyle="--", label=rf"Exact $U_{{max}} = {u_centre_exact:.4f}$")
-            ax.set_xlabel("time")
-            ax.set_ylabel(r"$u_x(y=H/2)$")
-            ax.set_title("Centreline velocity relaxation to steady state")
-            ax.legend()
-            ax.grid(True)
+                # time evolution of centreline velocity
+                ax = axes[2]
+                ax.plot(times, u_centre, label=r"Numerical $u_x(y=H/2)$")
+                ax.axhline(
+                    u_centre_exact, color="k", linestyle="--", label=rf"Exact $U_{{max}} = {u_centre_exact:.4f}$"
+                )
+                ax.set_xlabel("time")
+                ax.set_ylabel(r"$u_x(y=H/2)$")
+                ax.set_title("Centreline velocity relaxation to steady state")
+                ax.legend()
+                ax.grid(True)
 
-            plt.suptitle(
-                rf"Hagen-Poiseuille: $\mu={mu}$, $g_x={g_x}$, $H={H}$, {nx}×{nx} boxes",
-                fontsize=12,
-            )
-            plt.tight_layout()
-            plt.show()
+                plt.suptitle(
+                    rf"Hagen-Poiseuille: $\mu={mu}$, $g_x={g_x}$, $H={H}$, {nx}×{nx} boxes",
+                    fontsize=12,
+                )
+                plt.tight_layout()
+                plt.show()
 
-        if create_png:
-            from matplotlib.colors import LinearSegmentedColormap
-            from tqdm import tqdm as _tqdm
+            if create_png:
+                from matplotlib.colors import LinearSegmentedColormap
+                from tqdm import tqdm as _tqdm
 
-            orbits = run.orbits.fluid
-            x_orb = orbits.x.values  # (Nt_orb, n_markers)
-            y_orb = orbits.y.values
+                orbits = run.orbits.fluid
+                x_orb = orbits.x.values  # (Nt_orb, n_markers)
+                y_orb = orbits.y.values
 
-            Nt_orb = orbits.sizes["t"]
-            t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
+                Nt_orb = orbits.sizes["t"]
+                t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
 
-            # colormap: blue at walls (y=0, y=H), red at channel centre (y=H/2)
-            # c_val = 1 - 2*|y/H - 0.5| maps walls→0 (blue) and centre→1 (red)
-            cmap_pos = LinearSegmentedColormap.from_list("wall_centre", ["blue", "red"])
-            norm = plt.Normalize(0.0, 1.0)
+                # colormap: blue at walls (y=0, y=H), red at channel centre (y=H/2)
+                # c_val = 1 - 2*|y/H - 0.5| maps walls→0 (blue) and centre→1 (red)
+                cmap_pos = LinearSegmentedColormap.from_list("wall_centre", ["blue", "red"])
+                norm = plt.Normalize(0.0, 1.0)
 
-            # 250 equally spaced snapshot indices
-            n_snaps = np.min([250, Nt_orb])
-            snap_inds = np.round(np.linspace(0, Nt_orb - 1, n_snaps)).astype(int)
+                # 250 equally spaced snapshot indices
+                n_snaps = np.min([250, Nt_orb])
+                snap_inds = np.round(np.linspace(0, Nt_orb - 1, n_snaps)).astype(int)
 
-            png_dir = os.path.join(out_folders, "hagen_poiseuille_pngs")
-            os.makedirs(png_dir, exist_ok=True)
+                png_dir = os.path.join(out_folders, "hagen_poiseuille_pngs")
+                os.makedirs(png_dir, exist_ok=True)
 
-            for i, idx in _tqdm(enumerate(snap_inds), total=n_snaps, desc="saving PNGs"):
-                c_val = 1.0 - 2.0 * np.abs(y_orb[idx] / H - 0.5)
-                fig_png, ax_png = plt.subplots(figsize=(8, 6))
-                sc_png = ax_png.scatter(
-                    x_orb[idx],
-                    y_orb[idx],
-                    c=c_val,
+                for i, idx in _tqdm(enumerate(snap_inds), total=n_snaps, desc="saving PNGs"):
+                    c_val = 1.0 - 2.0 * np.abs(y_orb[idx] / H - 0.5)
+                    fig_png, ax_png = plt.subplots(figsize=(8, 6))
+                    sc_png = ax_png.scatter(
+                        x_orb[idx],
+                        y_orb[idx],
+                        c=c_val,
+                        cmap=cmap_pos,
+                        norm=norm,
+                        s=10,
+                    )
+                    ax_png.axhline(0.0, color="k", linewidth=6)
+                    ax_png.axhline(H, color="k", linewidth=6)
+                    ax_png.set_xlim(0.0, 1.0)
+                    ax_png.set_ylim(-0.05 * H, 1.05 * H)
+                    ax_png.set_xlabel("x")
+                    ax_png.set_ylabel("y")
+                    ax_png.set_title(rf"Hagen-Poiseuille markers, $t = {t_orbit[idx]:.2f}$")
+                    plt.colorbar(sc_png, ax=ax_png, label="steady-state velocity [a.u.]")
+                    plt.tight_layout()
+                    fig_png.savefig(os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80)
+                    plt.close(fig_png)
+
+                # show last snapshot in a new figure
+                fig_last, ax_last = plt.subplots(figsize=(8, 6))
+                idx_last = snap_inds[-1]
+                c_val_last = 1.0 - 2.0 * np.abs(y_orb[idx_last] / H - 0.5)
+                sc_last = ax_last.scatter(
+                    x_orb[idx_last],
+                    y_orb[idx_last],
+                    c=c_val_last,
                     cmap=cmap_pos,
                     norm=norm,
-                    s=10,
+                    s=4,
                 )
-                ax_png.axhline(0.0, color="k", linewidth=6)
-                ax_png.axhline(H, color="k", linewidth=6)
-                ax_png.set_xlim(0.0, 1.0)
-                ax_png.set_ylim(-0.05 * H, 1.05 * H)
-                ax_png.set_xlabel("x")
-                ax_png.set_ylabel("y")
-                ax_png.set_title(rf"Hagen-Poiseuille markers, $t = {t_orbit[idx]:.2f}$")
-                plt.colorbar(sc_png, ax=ax_png, label="steady-state velocity [a.u.]")
+                ax_last.axhline(0.0, color="k", linewidth=3, label="no-slip boundary")
+                ax_last.axhline(H, color="k", linewidth=3)
+                ax_last.set_xlim(0.0, 1.0)
+                ax_last.set_ylim(-0.05 * H, 1.05 * H)
+                ax_last.set_xlabel("x")
+                ax_last.set_ylabel("y")
+                ax_last.set_title(rf"Last snapshot: $t = {t_orbit[idx_last]:.2f}$")
+                ax_last.legend()
+                plt.colorbar(sc_last, ax=ax_last, label="steady-state velocity [a.u.]")
                 plt.tight_layout()
-                fig_png.savefig(os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80)
-                plt.close(fig_png)
+                plt.show()
 
-            # show last snapshot in a new figure
-            fig_last, ax_last = plt.subplots(figsize=(8, 6))
-            idx_last = snap_inds[-1]
-            c_val_last = 1.0 - 2.0 * np.abs(y_orb[idx_last] / H - 0.5)
-            sc_last = ax_last.scatter(
-                x_orb[idx_last],
-                y_orb[idx_last],
-                c=c_val_last,
-                cmap=cmap_pos,
-                norm=norm,
-                s=4,
+            assert np.mean(rel_error_interior) < 0.05, (
+                f"Hagen-Poiseuille mean relative error {np.mean(rel_error_interior) * 100:.1f}% exceeds tolerance 5%"
             )
-            ax_last.axhline(0.0, color="k", linewidth=3, label="no-slip boundary")
-            ax_last.axhline(H, color="k", linewidth=3)
-            ax_last.set_xlim(0.0, 1.0)
-            ax_last.set_ylim(-0.05 * H, 1.05 * H)
-            ax_last.set_xlabel("x")
-            ax_last.set_ylabel("y")
-            ax_last.set_title(rf"Last snapshot: $t = {t_orbit[idx_last]:.2f}$")
-            ax_last.legend()
-            plt.colorbar(sc_last, ax=ax_last, label="steady-state velocity [a.u.]")
-            plt.tight_layout()
-            plt.show()
+            logger.info("Hagen-Poiseuille profile assertion passed.")
 
-        assert np.mean(rel_error_interior) < 0.05, (
-            f"Hagen-Poiseuille mean relative error {np.mean(rel_error_interior) * 100:.1f}% exceeds tolerance 5%"
-        )
-        logger.info("Hagen-Poiseuille profile assertion passed.")
-
-        assert rel_error_umax < 0.05, (
-            f"Hagen-Poiseuille U_max relative error {rel_error_umax * 100:.1f}% exceeds tolerance 10%"
-        )
-        logger.info("Hagen-Poiseuille U_max assertion passed.")
+            assert rel_error_umax < 0.05, (
+                f"Hagen-Poiseuille U_max relative error {rel_error_umax * 100:.1f}% exceeds tolerance 5%"
+            )
+            logger.info("Hagen-Poiseuille U_max assertion passed.")
+        except Exception:  # noqa: BLE001
+            failure = traceback.format_exc()
+    failure = MPI.COMM_WORLD.bcast(failure, root=0)
+    assert failure is None, failure
 
 
 @pytest.mark.parametrize("nx", [8])
@@ -781,113 +817,124 @@ def test_dam_break(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool = 
     run = sim.run()
     run.pproc()
 
+    # checks on rank 0; a failure is broadcast, so that all ranks fail (no hang in the collective teardown)
+    failure = None
     if MPI.COMM_WORLD.Get_rank() == 0:
-        import numpy as np
+        try:
+            import numpy as np
 
-        dt = time_opts.dt
-        Nt = int(time_opts.Tend / dt)
-        times = np.linspace(0.0, time_opts.Tend, Nt + 1)
+            dt = time_opts.dt
+            Nt = int(time_opts.Tend / dt)
+            times = np.linspace(0.0, time_opts.Tend, Nt + 1)
 
-        density = run.densities.fluid.view_0.n
-        ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
-        n_sph = density.values  # (Nt+1, pts_e1, pts_e2, 1)
+            density = run.densities.fluid.view_0.n
+            ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
+            n_sph = density.values  # (Nt+1, pts_e1, pts_e2, 1)
 
-        X = np.asarray(ee1)[:, :, 0] * r1  # physical x, shape (pts_e1, pts_e2)
-        Y = np.asarray(ee2)[:, :, 0] * r2  # physical y, shape (pts_e1, pts_e2)
-        n_arr = np.asarray(n_sph)  # (Nt+1, pts_e1, pts_e2, 1)
+            X = np.asarray(ee1)[:, :, 0] * r1  # physical x, shape (pts_e1, pts_e2)
+            Y = np.asarray(ee2)[:, :, 0] * r2  # physical y, shape (pts_e1, pts_e2)
+            n_arr = np.asarray(n_sph)  # (Nt+1, pts_e1, pts_e2, 1)
 
-        # orbits needed for both do_plot scatter overlay and create_png
-        orbits = run.orbits.fluid
-        x_orb = orbits.x.values  # (Nt_orb, n_markers)
-        y_orb = orbits.y.values
-        Nt_orb = orbits.sizes["t"]
-        t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
+            # orbits needed for both do_plot scatter overlay and create_png
+            orbits = run.orbits.fluid
+            x_orb = orbits.x.values  # (Nt_orb, n_markers)
+            y_orb = orbits.y.values
+            Nt_orb = orbits.sizes["t"]
+            t_orbit = np.linspace(0.0, time_opts.Tend, Nt_orb)
 
-        # color each marker by its initial x (gradient across the left column)
-        x_init = x_orb[0]
-        c_val = x_init / (r1 / 2)  # 0 = left wall, 1 = dam face
+            # color each marker by its initial x (gradient across the left column)
+            x_init = x_orb[0]
+            c_val = x_init / (r1 / 2)  # 0 = left wall, 1 = dam face
 
-        if do_plot:
-            snapshot_inds = np.round(np.linspace(0, Nt, 12)).astype(int)
-            # index into orbits at the same times (Nt_orb == Nt + 1 when n_markers=1.0)
-            orb_inds = np.round(np.linspace(0, Nt_orb - 1, 12)).astype(int)
+            if do_plot:
+                snapshot_inds = np.round(np.linspace(0, Nt, 12)).astype(int)
+                # index into orbits at the same times (Nt_orb == Nt + 1 when n_markers=1.0)
+                orb_inds = np.round(np.linspace(0, Nt_orb - 1, 12)).astype(int)
 
-            vmax_plot = float(np.max(n_arr))  # density can pile above n_high as fluid collects
+                vmax_plot = float(np.max(n_arr))  # density can pile above n_high as fluid collects
 
-            fig, axes = plt.subplots(4, 3, figsize=(15, 10), sharex=True, sharey=True)
-            im = None
-            for ax, idx, oidx in zip(axes.flatten(), snapshot_inds, orb_inds):
-                n_2d = n_arr[idx, :, :, 0]
-                im = ax.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot / 2, cmap="Blues", shading="auto")
-                ax.scatter(
-                    x_orb[oidx],
-                    y_orb[oidx],
-                    c=c_val,
-                    cmap="autumn",
-                    s=2,
-                    vmin=0.0,
-                    vmax=1.0,
-                    alpha=0.6,
+                fig, axes = plt.subplots(4, 3, figsize=(15, 10), sharex=True, sharey=True)
+                im = None
+                for ax, idx, oidx in zip(axes.flatten(), snapshot_inds, orb_inds):
+                    n_2d = n_arr[idx, :, :, 0]
+                    im = ax.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot / 2, cmap="Blues", shading="auto")
+                    ax.scatter(
+                        x_orb[oidx],
+                        y_orb[oidx],
+                        c=c_val,
+                        cmap="autumn",
+                        s=2,
+                        vmin=0.0,
+                        vmax=1.0,
+                        alpha=0.6,
+                    )
+                    ax.set_title(f"$t = {times[idx]:.2f}$")
+                    ax.set_aspect("equal")
+                for ax in axes[-1, :]:
+                    ax.set_xlabel("$x$")
+                for ax in axes[:, 0]:
+                    ax.set_ylabel("$y$")
+                if im is not None:
+                    fig.colorbar(im, ax=axes.ravel().tolist(), label=r"$\rho$", shrink=0.6)
+                fig.suptitle(
+                    rf"2D dam break: $\rho$ (KDE) + markers, $\kappa={kappa}$, $g_y={g_y}$, $\mu={mu}$, {nx}×{nx} boxes",
+                    fontsize=12,
                 )
-                ax.set_title(f"$t = {times[idx]:.2f}$")
-                ax.set_aspect("equal")
-            for ax in axes[-1, :]:
-                ax.set_xlabel("$x$")
-            for ax in axes[:, 0]:
-                ax.set_ylabel("$y$")
-            if im is not None:
-                fig.colorbar(im, ax=axes.ravel().tolist(), label=r"$\rho$", shrink=0.6)
-            fig.suptitle(
-                rf"2D dam break: $\rho$ (KDE) + markers, $\kappa={kappa}$, $g_y={g_y}$, $\mu={mu}$, {nx}×{nx} boxes",
-                fontsize=12,
+                plt.tight_layout()
+                plt.show()
+
+            if create_png:
+                from tqdm import tqdm as _tqdm
+
+                n_snaps = 300
+                snap_inds = np.round(np.linspace(0, Nt_orb - 1, n_snaps)).astype(int)
+                n_snap_inds = np.round(np.linspace(0, Nt, n_snaps)).astype(int)
+
+                vmax_plot = float(np.max(n_arr))
+
+                png_dir = os.path.join(out_folders, "dam_break_pngs")
+                os.makedirs(png_dir, exist_ok=True)
+
+                for i, (idx, n_idx) in _tqdm(enumerate(zip(snap_inds, n_snap_inds)), total=n_snaps, desc="saving PNGs"):
+                    fig_png, ax_png = plt.subplots(figsize=(10, 5))
+                    n_2d = n_arr[n_idx, :, :, 0]
+                    im = ax_png.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot / 2, cmap="Blues", shading="auto")
+                    ax_png.scatter(
+                        x_orb[idx],
+                        y_orb[idx],
+                        c=c_val,
+                        cmap="autumn",
+                        s=1,
+                        vmin=0.0,
+                        vmax=1.0,
+                        alpha=0.6,
+                    )
+                    ax_png.set_xlim(0.0, r1)
+                    ax_png.set_ylim(0.0, r2)
+                    ax_png.set_xlabel("x")
+                    ax_png.set_ylabel("y")
+                    ax_png.set_title(rf"Dam break (compressible), $t = {t_orbit[idx]:.3f}$")
+                    ax_png.set_aspect("equal")
+                    plt.colorbar(im, ax=ax_png, label=r"$\rho$")
+                    fig_png.savefig(
+                        os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80, bbox_inches="tight", pad_inches=0.02
+                    )
+                    plt.close(fig_png)
+
+            # sanity: no markers should escape the closed box (allow 1% tolerance)
+            x_all = x_orb
+            y_all = y_orb
+            assert np.all(x_all >= -0.01 * r1) and np.all(x_all <= 1.01 * r1), (
+                "Markers escaped x-domain in dam break test"
             )
-            plt.tight_layout()
-            plt.show()
-
-        if create_png:
-            from tqdm import tqdm as _tqdm
-
-            n_snaps = 300
-            snap_inds = np.round(np.linspace(0, Nt_orb - 1, n_snaps)).astype(int)
-            n_snap_inds = np.round(np.linspace(0, Nt, n_snaps)).astype(int)
-
-            vmax_plot = float(np.max(n_arr))
-
-            png_dir = os.path.join(out_folders, "dam_break_pngs")
-            os.makedirs(png_dir, exist_ok=True)
-
-            for i, (idx, n_idx) in _tqdm(enumerate(zip(snap_inds, n_snap_inds)), total=n_snaps, desc="saving PNGs"):
-                fig_png, ax_png = plt.subplots(figsize=(10, 5))
-                n_2d = n_arr[n_idx, :, :, 0]
-                im = ax_png.pcolormesh(X, Y, n_2d, vmin=0.0, vmax=vmax_plot / 2, cmap="Blues", shading="auto")
-                ax_png.scatter(
-                    x_orb[idx],
-                    y_orb[idx],
-                    c=c_val,
-                    cmap="autumn",
-                    s=1,
-                    vmin=0.0,
-                    vmax=1.0,
-                    alpha=0.6,
-                )
-                ax_png.set_xlim(0.0, r1)
-                ax_png.set_ylim(0.0, r2)
-                ax_png.set_xlabel("x")
-                ax_png.set_ylabel("y")
-                ax_png.set_title(rf"Dam break (compressible), $t = {t_orbit[idx]:.3f}$")
-                ax_png.set_aspect("equal")
-                plt.colorbar(im, ax=ax_png, label=r"$\rho$")
-                fig_png.savefig(
-                    os.path.join(png_dir, f"snap_{i:04d}.png"), dpi=80, bbox_inches="tight", pad_inches=0.02
-                )
-                plt.close(fig_png)
-
-        # sanity: no markers should escape the closed box (allow 1% tolerance)
-        x_all = x_orb
-        y_all = y_orb
-        assert np.all(x_all >= -0.01 * r1) and np.all(x_all <= 1.01 * r1), "Markers escaped x-domain in dam break test"
-        assert np.all(y_all >= -0.01 * r2) and np.all(y_all <= 1.01 * r2), "Markers escaped y-domain in dam break test"
-        logger.info("Dam break domain bounds assertion passed.")
+            assert np.all(y_all >= -0.01 * r2) and np.all(y_all <= 1.01 * r2), (
+                "Markers escaped y-domain in dam break test"
+            )
+            logger.info("Dam break domain bounds assertion passed.")
+        except Exception:  # noqa: BLE001
+            failure = traceback.format_exc()
+    failure = MPI.COMM_WORLD.bcast(failure, root=0)
+    assert failure is None, failure
 
 
 if __name__ == "__main__":
