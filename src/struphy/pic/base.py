@@ -37,6 +37,7 @@ from struphy.particles.parameters import (
     LoadingParameters,
     SavingParameters,
     SortingParameters,
+    SPHParameters,
     WeightsParameters,
 )
 from struphy.pic import sampling_kernels, sobol_seq
@@ -46,16 +47,12 @@ from struphy.pic.kernels.fill_boxes import fill_boxes
 from struphy.pic.kernels.sort_and_fill_boxes import sort_and_fill_boxes
 from struphy.pic.marker_layout import marker_array, padded_n_markers
 from struphy.pic.pushing.kernels.reflect import reflect
-from struphy.pic.pushing.kernels.sph_mean_velocity_coeffs import sph_mean_velocity_coeffs
-from struphy.pic.pushing.kernels.sph_viscosity_tensor import sph_viscosity_tensor
 from struphy.pic.sorting import SortingBoxes
 from struphy.pic.sph.kernels.box_based_evaluation_flat import box_based_evaluation_flat
-from struphy.pic.sph.kernels.box_based_evaluation_meshgrid import box_based_evaluation_meshgrid
 from struphy.pic.sph.kernels.naive_evaluation_flat import naive_evaluation_flat
-from struphy.pic.sph.kernels.naive_evaluation_meshgrid import naive_evaluation_meshgrid
-from struphy.pic.sph_eval_kernels import (
-    distance,
-)
+from struphy.pic.sph.kernels.sph_physical_positions import sph_physical_positions
+from struphy.pic.sph_eval_kernels import distance
+from struphy.pic.sph_setup import SPHKernelSetup, setup_sph_kernel
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.cuda_arguments import check_mapping_on_device
@@ -207,6 +204,7 @@ class Particles(metaclass=ABCMeta):
         boundary_params: BoundaryParameters = None,
         sorting_params: SortingParameters = None,
         saving_params: SavingParameters = None,
+        sph_params: SPHParameters = None,
         bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
@@ -256,6 +254,7 @@ class Particles(metaclass=ABCMeta):
         self._weights_params = weights_params
         self._boundary_params = boundary_params
         self._sorting_params = sorting_params
+        self._sph_params = SPHParameters() if sph_params is None else sph_params
         self._saving_params = saving_params
         self._domain = domain
         self._equil = equil
@@ -2264,314 +2263,174 @@ class Particles(metaclass=ABCMeta):
         self._update_ghost_particles()
         self._update_valid_mks()
 
-    def eval_density(
-        self,
-        eta1,
-        eta2,
-        eta3,
-        h1,
-        h2,
-        h3,
-        kernel_type="gaussian_1d",
-        derivative=0,
-        fast=True,
-    ):
-        """Evaluate the particle number density as a 3-form in logical space (sum of the marker weights times an
-        SPH smoothing kernel), see :ref:`pic_kde`. Divide by the Jacobian determinant of the mapping to obtain
-        the density in physical space.
+    @property
+    def x_idx(self):
+        r"""First of the three marker columns holding the physical positions :math:`\mathbf x_p = F(\boldsymbol\eta_p)`
+        for kernel density estimates (the last three auxiliary columns, filled before each evaluation; overridden by
+        :class:`~struphy.pic.particles.ParticlesSPH`)."""
+        return self.first_free_idx + self.n_cols_aux - 3
+
+    @property
+    def sph_kernel(self) -> SPHKernelSetup:
+        """The physical smoothing kernel of this species (:class:`~struphy.particles.parameters.SPHParameters`) and
+        the data of the neighbour search in the sorting boxes, see :func:`~struphy.pic.sph_setup.setup_sph_kernel`.
+        Set up at the first call (for :class:`~struphy.pic.particles.ParticlesSPH` at construction)."""
+        if not hasattr(self, "_sph_kernel"):
+            if self.boxes_per_dim is None:
+                raise ValueError(
+                    "SPH sums and kernel density estimates need sorting boxes (SortingParameters.boxes_per_dim)."
+                )
+            sph = self._sph_params
+            self._sph_kernel = setup_sph_kernel(
+                self.domain,
+                self.boxes_per_dim,
+                self.bc_sph,
+                self.Np,
+                sph.kernel,
+                sph.kernel_width,
+                sph.min_width_spacings,
+                self.x_idx,
+            )
+            logger.info(f"SPH kernel of {type(self).__name__}: {self._sph_kernel}")
+        return self._sph_kernel
+
+    @property
+    def sph_kernel_args(self) -> tuple:
+        """Kernel arguments ``(boxes, neighbours, holes, periodic1, periodic2, periodic3, period, proj, x_idx,
+        kernel, dim, h, scale)`` of the SPH Pyccel kernels, see
+        :func:`~struphy.pic.sph_eval_kernels.box_based_physical`."""
+        k = self.sph_kernel
+        return (
+            self.sorting_boxes.boxes,
+            self.sorting_boxes.neighbours,
+            self.holes,
+            *k.periodic,
+            k.period,
+            k.proj,
+            k.x_idx,
+            k.kernel_id,
+            k.dim,
+            k.h,
+            k.scale,
+        )
+
+    def update_physical_positions(self):
+        r"""Store :math:`\mathbf x_p = F(\boldsymbol\eta_p)` in the columns :attr:`x_idx` for all markers, including
+        the ghost particles, see :func:`~struphy.pic.sph_eval_kernels.physical_positions`."""
+        sph_physical_positions(self.args_markers, self.domain.args_domain, self.holes, self.x_idx)
+
+    def eval_density(self, eta1, eta2, eta3, derivative: int = 0, fast: bool = True):
+        r"""Evaluate the SPH density in physical space at logical points (a 0-form),
+
+        .. math::
+
+            \hat\rho_h(\boldsymbol\eta) = \rho_h(F(\boldsymbol\eta)) = \sum_j w_j\, W_h(F(\boldsymbol\eta) - \mathbf x_j)\,,
+
+        with the physical smoothing kernel of the species (:attr:`sph_kernel`), see :ref:`pic_kde`. With the masses as
+        weights (SPH) this is the mass density; for kinetic species with :math:`w_p \approx f/(N s)` the number density
+        (of :math:`\delta f` for delta-f and control variate markers). Only SPH species have ghost particles at the domain
+        and MPI boundaries; for kinetic species the estimate misses the markers beyond them (reliable at a distance h).
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
-            Logical evaluation points. Inputs may be 1-D arrays (flat evaluation) or
-            broadcastable meshgrid arrays; the output will match the shape of `eta1`.
+            Logical evaluation points, of the same shape (flat arrays or meshgrids); the output has this shape.
 
-        h1, h2, h3 : float
-            Support radius of the smoothing kernel in each logical dimension.
+        derivative : int
+            0 for the density, 1, 2, 3 for the components of its physical gradient :math:`\partial_{x_k} \rho_h`.
 
-        kernel_type : str, optional
-            Name of the smoothing kernel (must be a key in `self.ker_dct()`).
-
-        derivative : int, optional
-            Selects whether to evaluate the kernel derivative along a coordinate
-            direction: 0 (default) returns the scalar density, 1/2/3 returns the
-            corresponding component of the density gradient with respect to
-            logical coordinates.
-
-        fast : bool, optional
-            If True, use the box-based neighbor search (faster for many particles);
-            if False, use the naive all-pairs evaluation (simpler, slower).
+        fast : bool
+            If True, use the box-based neighbour search; if False, the naive sum over all markers (for testing).
 
         Returns
         -------
         out : xp.ndarray
-            Estimated number density (or requested derivative component) at the
-            provided evaluation points. The array uses the same shape as `eta1`
-            and is returned as a `cunumpy` (`xp`) array.
-
-        Notes
-        -----
-        This method is a thin wrapper around :meth:`eval_sph` and internally
-        evaluates the column given by `self.index['weights']` (particle weights).
+            The density (or the gradient component) at the evaluation points. With the box-based search, points
+            outside the MPI sub-domain of this process are zero.
         """
-        return self._eval_sph(
-            eta1,
-            eta2,
-            eta3,
-            self.index["weights"],
-            kernel_type=kernel_type,
-            derivative=derivative,
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            fast=fast,
-        )
+        return self._eval_sph(eta1, eta2, eta3, self.index["weights"], derivative=derivative, fast=fast)
 
-    def eval_velocity(
-        self,
-        eta1,
-        eta2,
-        eta3,
-        h1,
-        h2,
-        h3,
-        kernel_type="gaussian_1d",
-        derivative=0,
-        fast=True,
-    ) -> tuple:
-        """Estimate mean velocity components using SPH smoothing.
+    def _eval_sph(self, eta1, eta2, eta3, index: int, derivative: int = 0, fast: bool = True):
+        r"""SPH evaluation of the coefficients :math:`c_j` = ``markers[index, j]`` at logical points,
+
+        .. math::
+
+            \sum_j c_j\, W_h(F(\boldsymbol\eta) - \mathbf x_j) \quad (\textnormal{derivative} = 0)\,,
+            \qquad
+            \sum_j c_j\, \partial_{x_k} W_h(F(\boldsymbol\eta) - \mathbf x_j) \quad (\textnormal{derivative} = k)\,,
+
+        with the physical kernel of the species (:attr:`sph_kernel`). The boxes and ghost particles are updated first.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
-            Logical evaluation points. May be 1-D arrays or broadcastable meshgrid
-            arrays; the returned component arrays match the shape of `eta1`.
+            Logical evaluation points, of the same shape.
 
-        h1, h2, h3 : float
-            Support radius of the smoothing kernel in each logical dimension.
+        index : int
+            Marker column of the coefficients.
 
-        kernel_type : str, optional
-            Name of the smoothing kernel (must be a key in `self.ker_dct()`).
+        derivative : int
+            0 for the value, 1, 2, 3 for the components of the physical gradient.
 
-        derivative : int, optional
-            If 0 (default) evaluate the mean velocity; if 1/2/3 return the
-            corresponding component of the spatial derivative of the velocity.
-
-        fast : bool, optional
-            If True use the box-based neighbor search (faster for many particles);
-            if False use the naive all-pairs evaluation.
+        fast : bool
+            If True, use the box-based neighbour search; if False, the naive sum over all markers.
 
         Returns
         -------
-        (v1, v2, v3) : tuple of xp.ndarray
-            Three arrays containing the estimated velocity components at the
-            provided evaluation points. Each array has the same shape as `eta1`.
-
-        Notes
-        -----
-        This method first computes SPH coefficients by calling
-        the Pyccel kernel `sph_mean_velocity_coeffs` to
-        assemble mean-velocity coefficients into the markers array, then calls
-        :meth:`eval_sph` for each velocity component.
+        out : xp.ndarray
+            The result, of the shape of ``eta1``.
         """
+        shp = xp.shape(eta1)
+        assert shp == xp.shape(eta2) == xp.shape(eta3)
+        assert derivative in {0, 1, 2, 3}, f"derivative must be 0, 1, 2 or 3, but is {derivative}."
 
-        first_free_idx = self.args_markers.first_free_idx
+        e1 = xp.ascontiguousarray(xp.ravel(eta1), dtype=float)
+        e2 = xp.ascontiguousarray(xp.ravel(eta2), dtype=float)
+        e3 = xp.ascontiguousarray(xp.ravel(eta3), dtype=float)
+        x = xp.asarray(self.domain(xp.stack((e1, e2, e3)), remove_outside=False), dtype=float).reshape(3, -1)
+        x1 = xp.ascontiguousarray(x[0])
+        x2 = xp.ascontiguousarray(x[1])
+        x3 = xp.ascontiguousarray(x[2])
+        out = xp.zeros(e1.size, dtype=float)
 
+        k = self.sph_kernel
         self.put_particles_in_boxes()
+        self.update_physical_positions()
 
-        sph_mean_velocity_coeffs(
-            xp.array((0.0, 0.0, 0.0)),
-            xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
-            self.args_markers,
-            self.domain.args_domain,
-            self.sorting_boxes.boxes,
-            self.sorting_boxes.neighbours,
+        args = (
             self.holes,
-            self.boundary_params.bc_sph[0] == "periodic",
-            self.boundary_params.bc_sph[1] == "periodic",
-            self.boundary_params.bc_sph[2] == "periodic",
-            self.ker_dct()[kernel_type],
-            h1,
-            h2,
-            h3,
+            *k.periodic,
+            k.period,
+            k.proj,
+            k.x_idx,
+            index,
+            k.kernel_id,
+            k.dim,
+            k.h,
+            k.scale,
+            derivative,
+            out,
         )
-
-        v1 = self._eval_sph(
-            eta1,
-            eta2,
-            eta3,
-            first_free_idx,
-            kernel_type=kernel_type,
-            derivative=derivative,
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            fast=fast,
-        )
-
-        v2 = self._eval_sph(
-            eta1,
-            eta2,
-            eta3,
-            first_free_idx + 1,
-            kernel_type=kernel_type,
-            derivative=derivative,
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            fast=fast,
-        )
-
-        v3 = self._eval_sph(
-            eta1,
-            eta2,
-            eta3,
-            first_free_idx + 2,
-            kernel_type=kernel_type,
-            derivative=derivative,
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            fast=fast,
-        )
-
-        return v1, v2, v3
-
-    def eval_div_viscosity(
-        self,
-        eta1,
-        eta2,
-        eta3,
-        h1,
-        h2,
-        h3,
-        kernel_type="gaussian_1d",
-        mu: float = 1.0,
-        fast=True,
-    ) -> tuple:
-        """Compute divergence of the viscous stress (mu * viscosity tensor).
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points where the divergence is evaluated.
-
-        h1, h2, h3 : float
-            Support radius of the smoothing kernel in each logical dimension.
-
-        kernel_type : str, optional
-            Name of the smoothing kernel (must be a key in `self.ker_dct()`).
-
-        mu : float, optional
-            Dynamic viscosity coefficient used in the viscosity kernel.
-
-        fast : bool, optional
-            If True use the box-based neighbor search; if False use naive
-            evaluation.
-
-        Returns
-        -------
-        (gamma_x, gamma_y, gamma_z) : tuple of xp.ndarray
-            Components of the divergence of the viscous stress evaluated at the
-            provided points. Each array matches the shape of `eta1`.
-
-        Notes
-        -----
-        The routine populates intermediate marker columns using two Pyccel
-        kernels: `sph_mean_velocity_coeffs` (mean velocity) and
-        `sph_viscosity_tensor` (viscosity tensor components in Piola form). It then
-        evaluates the necessary logical derivatives via :meth:`eval_sph`, sums
-        contributions and divides by the Jacobian determinant to produce the three
-        Cartesian divergence components.
-        """
-
-        first_free_idx = self.args_markers.first_free_idx
-        self.put_particles_in_boxes()
-
-        # 1st kernel
-        sph_mean_velocity_coeffs(
-            xp.array((0.0, 0.0, 0.0)),
-            xp.array((first_free_idx, first_free_idx + 1, first_free_idx + 2), dtype=int),
-            self.args_markers,
-            self.domain.args_domain,
-            self.sorting_boxes.boxes,
-            self.sorting_boxes.neighbours,
-            self.holes,
-            self.boundary_params.bc_sph[0] == "periodic",
-            self.boundary_params.bc_sph[1] == "periodic",
-            self.boundary_params.bc_sph[2] == "periodic",
-            self.ker_dct()[kernel_type],
-            h1,
-            h2,
-            h3,
-        )
-
-        # 2nd kernel
-        sph_viscosity_tensor(
-            xp.array((0.0, 0.0, 0.0)),
-            xp.arange(first_free_idx + 3, first_free_idx + 12, dtype=int),
-            self.args_markers,
-            self.domain.args_domain,
-            self.sorting_boxes.boxes,
-            self.sorting_boxes.neighbours,
-            self.holes,
-            self.boundary_params.bc_sph[0] == "periodic",
-            self.boundary_params.bc_sph[1] == "periodic",
-            self.boundary_params.bc_sph[2] == "periodic",
-            self.ker_dct()[kernel_type],
-            h1,
-            h2,
-            h3,
-            mu,
-        )
-
-        # grid evaluation
-        gamma = []
-        for j in range(3):
-            gamma += [[]]
-            for k in range(3):
-                gamma[-1] += [
-                    self._eval_sph(
-                        eta1,
-                        eta2,
-                        eta3,
-                        first_free_idx + 3 * (j + 1) + k,
-                        kernel_type=kernel_type,
-                        derivative=k + 1,
-                        h1=h1,
-                        h2=h2,
-                        h3=h3,
-                        fast=fast,
-                    )
-                ]
-
-        # the stored tensor is in Piola form, divide by the Jacobian determinant at the evaluation points
-        etas = xp.stack([xp.ravel(eta1), xp.ravel(eta2), xp.ravel(eta3)], axis=0)
-        det_df = self.domain.jacobian_det(etas, remove_outside=False).reshape(xp.shape(eta1))
-
-        gamma_x = (gamma[0][0] + gamma[0][1] + gamma[0][2]) / det_df
-        gamma_y = (gamma[1][0] + gamma[1][1] + gamma[1][2]) / det_df
-        gamma_z = (gamma[2][0] + gamma[2][1] + gamma[2][2]) / det_df
-
-        return gamma_x, gamma_y, gamma_z
-
-    @classmethod
-    def ker_dct(self):
-        """Dict mapping the name of each available SPH smoothing kernel (e.g. ``"gaussian_1d"``)
-        to its integer kernel ID, used in the Pyccel kernels.
-        Kernel IDs must have three digits, see :meth:`~struphy.pic.smoothing_kernels.smoothing_kernel`."""
-        return {
-            "trigonometric_1d": 100,
-            "gaussian_1d": 110,
-            "linear_1d": 120,
-            "trigonometric_2d": 340,
-            "gaussian_2d": 350,
-            "linear_2d": 360,
-            "trigonometric_3d": 670,
-            "gaussian_3d": 680,
-            "linear_isotropic_3d": 690,
-            "linear_3d": 700,
-        }
+        if fast:
+            box_based_evaluation_flat(
+                self.args_markers,
+                e1,
+                e2,
+                e3,
+                x1,
+                x2,
+                x3,
+                self.sorting_boxes.nx,
+                self.sorting_boxes.ny,
+                self.sorting_boxes.nz,
+                self.domain_array[self.mpi_rank],
+                self.sorting_boxes.boxes,
+                self.sorting_boxes.neighbours,
+                *args,
+            )
+        else:
+            naive_evaluation_flat(self.args_markers, e1, e2, e3, x1, x2, x3, *args)
+        return out.reshape(shp)
 
     def gather_scalar_in_subcomm_array(self, scalar: int, out: xp.ndarray = None):
         """Return an array of length sub_comm.size, where the i-th entry corresponds to the value
@@ -2976,6 +2835,7 @@ class Particles(metaclass=ABCMeta):
 
             _density = None
             _u1 = None
+            _u1_comp = 0
 
             if self.perturbations is not None:
                 for (
@@ -3001,6 +2861,7 @@ class Particles(metaclass=ABCMeta):
                     elif moment == "u1":
                         if pert.given_in_basis is None:
                             pert.given_in_basis = "v"
+                        _u1_comp = pert.comp
                         _u1 = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
@@ -3038,10 +2899,14 @@ class Particles(metaclass=ABCMeta):
                 return out
 
             def _u_init(*etas, flat_eval=False):
+                """Initial Cartesian velocity of the SPH markers (the marker velocities are Cartesian): the
+                contra-variant components (background plus perturbation u1) mapped with DF."""
                 if len(etas) == 1:
-                    out = self.f0.uv(etas[0])
+                    out = xp.array(self.f0.uv(etas[0]), dtype=float)
                     if _u1 is not None:
-                        out[0] += _u1(*etas[0])
+                        out[_u1_comp] += _u1(*etas[0])
+                    jac = self.domain.jacobian(etas[0], remove_outside=False)
+                    return xp.einsum("ij...,j...->i...", jac, out)
                 else:
                     assert len(etas) == 3
                     E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
@@ -3051,12 +2916,15 @@ class Particles(metaclass=ABCMeta):
                         flat_eval=flat_eval,
                     )
 
-                    out = self.f0.uv(E1, E2, E3)
+                    out = xp.array(self.f0.uv(E1, E2, E3), dtype=float)
 
                     if _u1 is not None:
                         out1 = _u1(E1, E2, E3)
-                        assert out[0].shape == out1.shape
-                        out[0] += out1
+                        assert out[_u1_comp].shape == out1.shape
+                        out[_u1_comp] += out1
+
+                    jac = xp.array(self.domain.jacobian(E1, E2, E3, remove_outside=False), dtype=float)
+                    out = xp.einsum("ij...,j...->i...", jac, out)
 
                     if flat_eval:
                         out = xp.squeeze(out)
@@ -4532,138 +4400,6 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         #     n_holes = xp.count_nonzero(self.holes)
         #     n_ghosts = xp.count_nonzero(self.ghost_particles)
         #     logger.info(f"after communicate_boxes: {self.mpi_rank = }, {n_valid = }, {n_holes = }, {n_ghosts = }")
-
-    def _eval_sph(
-        self,
-        eta1: xp.ndarray,
-        eta2: xp.ndarray,
-        eta3: xp.ndarray,
-        index: int,
-        out: xp.ndarray = None,
-        fast: bool = True,
-        kernel_type: str = "gaussian_1d",
-        derivative: int = 0,
-        h1: float = 0.1,
-        h2: float = 0.1,
-        h3: float = 0.1,
-    ):
-        r"""Perform a (meshgrid) SPH evaluation of a function :math:`\rho: [0, 1]^3 \to \mathbb R` in the following sense:
-
-        .. math::
-
-            \rho(\boldsymbol \eta_i) = \sum_{j=0}^{N-1} \rho_j\, W_h(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
-
-        The coefficients :math:`\rho_j` must be available in the marker array, stored at some index ``self.markers[index, j]``.
-        In case that `derivative=k` where `k` is not zero, the `k`-th component of the gradient of :math:`\rho` is computed:
-
-        .. math::
-
-            \textrm{derivative}=k:\qquad [\nabla \rho(\boldsymbol \eta_i)]_k = \sum_{j=0}^{N-1} \rho_j \frac{\partial W_h}{\partial \eta_k}(\boldsymbol \eta_i - \boldsymbol \eta_j)\,.
-
-        The possible choices for :math:`W_h` are listed in :ref:`smoothing_kernels`
-        and in :meth:`~struphy.pic.base.Particles.ker_dct`.
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        index : int
-            At which index of the markers array are located the coefficients :math:`\rho_j`.
-
-        out : array_like
-            Output will be store in this array. A new array is created if not provided.
-
-        fast : bool
-            If true, uses an optimized evaluation algorithm taking advantage of the box structure.
-            This assume that the boxes are bigger then the radius used for the smoothing kernel.
-
-        kernel_type : str
-            Name of the smoothing kernel, see :mod:`~struphy.pic.sph_smoothing_kernels`
-            and :meth:`~struphy.pic.base.Particles.ker_dct`.
-
-        derivative: int
-            0: no kernel derivative
-            1: first component of grad
-            2: second component of grad
-            3: third component of grad
-
-        h1, h2, h3 : float
-            Radius of the smoothing kernel in each dimension.
-        """
-        _shp = xp.shape(eta1)
-        assert _shp == xp.shape(eta2) == xp.shape(eta3)
-        if out is not None:
-            assert _shp == xp.shape(out)
-        else:
-            out = xp.zeros_like(eta1)
-
-        assert derivative in {0, 1, 2, 3}, f"derivative must be 0, 1, 2 or 3, but is {derivative}."
-
-        ker_id = self.ker_dct()[kernel_type]
-        ker_id += derivative
-
-        # for the moment we always assume periodicity for the evaluation near the boundary, TODO: fill ghost boxes with suitable markers for other bcs?
-        periodic1, periodic2, periodic3 = [True] * 3  # [bci == "periodic" for bci in self.bc]
-
-        self.put_particles_in_boxes()
-
-        if fast:
-            if len(_shp) == 1:
-                func = box_based_evaluation_flat
-            elif len(_shp) == 3:
-                if _shp[0] > 1:
-                    assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
-                if _shp[1] > 1:
-                    assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
-                if _shp[2] > 1:
-                    assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                func = box_based_evaluation_meshgrid
-
-            func(
-                self.args_markers,
-                eta1,
-                eta2,
-                eta3,
-                self.sorting_boxes.nx,
-                self.sorting_boxes.ny,
-                self.sorting_boxes.nz,
-                self.domain_array[self.mpi_rank],
-                self.sorting_boxes.boxes,
-                self.sorting_boxes.neighbours,
-                self.holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                index,
-                ker_id,
-                h1,
-                h2,
-                h3,
-                out,
-            )
-        else:
-            if len(_shp) == 1:
-                func = naive_evaluation_flat
-            elif len(_shp) == 3:
-                func = naive_evaluation_meshgrid
-            func(
-                self.args_markers,
-                eta1,
-                eta2,
-                eta3,
-                self.holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                index,
-                ker_id,
-                h1,
-                h2,
-                h3,
-                out,
-            )
-        return out
 
     ### MPI comm for domain decomposition ###
 

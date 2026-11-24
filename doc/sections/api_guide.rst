@@ -81,6 +81,8 @@ Particle parameters
 
 .. autoclass:: struphy.particles.parameters.SortingParameters
 
+.. autoclass:: struphy.particles.parameters.SPHParameters
+
 .. autoclass:: struphy.particles.parameters.SavingParameters
 
 .. autoclass:: struphy.particles.parameters.BinningPlot

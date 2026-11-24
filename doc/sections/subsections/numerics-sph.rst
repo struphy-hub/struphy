@@ -281,7 +281,8 @@ Smoothing kernels
 ^^^^^^^^^^^^^^^^^
 
 A smoothing kernel :math:`W_h` is a non-negative, even function with :math:`\int W_h\, \textrm d \mathbf x = 1` that
-vanishes outside a neighbourhood of size :math:`h` of the origin (a box of half-widths :math:`h_i` for the tensor-product kernels of Struphy) and tends to the delta distribution as :math:`h \to 0`. Then
+vanishes outside the ball of radius :math:`h` around the origin and tends to the delta distribution as
+:math:`h \to 0`. Then
 
 .. math::
 
@@ -301,19 +302,58 @@ the smoothed velocity
 and derivatives are obtained by differentiating the kernel,
 :math:`\nabla \mathbf u_h(\mathbf x) = \sum_j \frac{w_j}{\rho_j} \nabla W_h(\mathbf x - \mathbf x_j) \otimes \mathbf v_j`.
 
-Struphy provides three kernel shapes in :mod:`struphy.pic.sph_smoothing_kernels`
-(:ref:`figure <fig:sph_kernels>`). In one dimension, with support :math:`|x| \leq h`,
+Struphy uses **radial kernels in physical space**, :math:`W_h(\mathbf x) = \frac{\sigma_d}{h^d}\, w(|\mathbf x|/h)`
+with :math:`w(q) = 0` for :math:`q \geq 1`, normalized in :math:`d` dimensions by :math:`\sigma_d`
+(:mod:`struphy.pic.sph_radial_kernels`, :ref:`figure <fig:sph_kernels>`). The kernel is chosen per species with
+``kernel`` in :class:`~struphy.particles.parameters.SPHParameters`:
+
+.. list-table::
+    :header-rows: 1
+    :widths: 20 45 35
+
+    * - ``kernel``
+      - :math:`w(q)`, :math:`0 \leq q < 1`
+      - :math:`\sigma_1,\ \sigma_2,\ \sigma_3`
+    * - ``"gaussian"`` (default)
+      - :math:`e^{-9 q^2}` (truncated at :math:`q = 1`, renormalized)
+      - :math:`1.6926,\ 2.8651,\ 4.8510`
+    * - ``"wendland_c2"``
+      - :math:`(1 - q)^3 (1 + 3q)` (1D), :math:`(1 - q)^4 (1 + 4q)` (2D, 3D)
+      - :math:`\frac 54,\ \frac 7\pi,\ \frac{21}{2\pi}`
+    * - ``"cubic_spline"`` (M4)
+      - :math:`1 - 6q^2 + 6q^3` for :math:`q \leq \frac 12`, :math:`2(1 - q)^3` for :math:`q > \frac 12`
+      - :math:`\frac 43,\ \frac{40}{7\pi},\ \frac 8\pi`
+
+The truncated Gaussian has standard deviation :math:`h/(3\sqrt 2) \approx 0.24\, h`; Wendland :math:`C^2` kernels
+avoid the pairing instability of regular marker lattices :footcite:p:`Price2012`. The gradient is
+:math:`\nabla W_h(\mathbf x) = \frac{\sigma_d}{h^{d+1}}\, w'(|\mathbf x|/h)\, \mathbf x/|\mathbf x|`.
+
+**On a mapped domain.** The markers carry logical positions :math:`\boldsymbol\eta_j`, but the kernel is evaluated at
+the physical distances, i.e. pulled back to the logical unit cube as a 0-form:
 
 .. math::
+    :label: sph:density_logical
 
-    W^\textnormal{trig}_h(x) = \frac{\pi}{4h} \cos\left(\frac{\pi x}{2h}\right)\,, \qquad
-    W^\textnormal{gauss}_h(x) = \frac{3}{\sqrt\pi\, h} \exp\left(-\frac{9 x^2}{h^2}\right)\,, \qquad
-    W^\textnormal{lin}_h(x) = \frac 1h \left(1 - \frac{|x|}{h}\right)\,.
+    \hat\rho_h(\boldsymbol\eta) := \rho_h(F(\boldsymbol\eta))
+    = \sum_{j=1}^N w_j\, W_h\big(F(\boldsymbol\eta) - F(\boldsymbol\eta_j)\big)\,.
 
-The Gaussian has standard deviation :math:`h/(3\sqrt 2)` and is cut off at :math:`|x| = h`. Kernels in 2D and 3D
-(``"*_2d"``, ``"*_3d"``) are tensor products of these, with a width :math:`h_i` per direction; ``"linear_isotropic_3d"``
-is the radial kernel :math:`\frac{3}{\pi h^3}(1 - |\mathbf x|/h)`. The kernels and their gradients are evaluated in
-logical coordinates :math:`\boldsymbol \eta`; gradients are mapped to physical space with :math:`DF^{-\top}`.
+With the masses :math:`w_j` as weights, :math:`\hat\rho_h` approximates the physical density on any mapping (no
+factor :math:`\sqrt g`), and gradients are physical gradients, :math:`\nabla_{\mathbf x} W_h`. Struphy stores
+:math:`\mathbf x_j = F(\boldsymbol\eta_j)` of all markers (also of the ghost particles) after each sorting, and
+computes the distance vector with periodic images,
+:math:`\mathbf r = \mathbf x - \mathbf x_j - \sum_{i} k_i \mathbf P_i`, where
+:math:`\mathbf P_i = F(\boldsymbol\eta + \mathbf e_i) - F(\boldsymbol\eta)` is the period vector of a periodic logical
+direction :math:`i` (it must be constant) and :math:`k_i = \textnormal{round}(\eta_i - \eta_{j,i})`. Ghost particles
+mirrored at a wall get the mirror image :math:`F(\boldsymbol\eta_f) + DF(\boldsymbol\eta_w)(\boldsymbol\eta_g -
+\boldsymbol\eta_f)` of the marker :math:`\boldsymbol\eta_f`, with the foot point :math:`\boldsymbol\eta_w` on the
+wall (the exact mirror image for planar walls when the logical normal column of :math:`DF` is orthogonal to the
+wall, e.g. on a :class:`~struphy.geometry.domains.Cuboid`).
+
+**1D and 2D kernels.** Logical directions with a single sorting box are not resolved by the kernel (e.g.
+``boxes_per_dim=(12, 12, 1)`` gives a 2D kernel). The mapping must then be affine in these directions, with constant
+columns of :math:`DF` orthogonal to the resolved ones; the distance vector is projected onto the resolved directions,
+and the kernel is divided by the physical length (area) :math:`A_\perp` of the unresolved directions, so that
+:math:`\hat\rho_h` is still the physical (volume) density.
 
 .. _fig:sph_kernels:
 
@@ -321,12 +361,12 @@ logical coordinates :math:`\boldsymbol \eta`; gradients are mapped to physical s
     :align: center
     :width: 90%
 
-    The 1D smoothing kernels of Struphy (``trigonometric_1d``, ``gaussian_1d``, ``linear_1d``), scaled with the
-    width :math:`h`.
+    The radial smoothing kernels of Struphy (``gaussian``, ``wendland_c2``, ``cubic_spline``) and their derivatives
+    in 1D, scaled with the width :math:`h`.
 
-:ref:`Figures <fig:sph_density_1d>` below show the smoothed density :math:numref:`sph:density` of tessellated markers
-(4 per box, :math:`h` = box size) for :math:`\rho(\eta_1) = 1.5 + \cos(2\pi\eta_1)` and, in 2D, with 16 markers in each of
-:math:`12 \times 12` boxes; all kernels recover the density well.
+:ref:`Figures <fig:sph_density_1d>` below show the smoothed density :math:numref:`sph:density_logical` of tessellated
+markers for :math:`\rho(\eta_1) = 1.5 + \cos(2\pi\eta_1)` and, in 2D, on the curved
+:class:`~struphy.geometry.domains.Colella` mapping; all kernels recover the density well.
 
 .. _fig:sph_density_1d:
 
@@ -334,15 +374,15 @@ logical coordinates :math:`\boldsymbol \eta`; gradients are mapped to physical s
     :align: center
     :width: 100%
 
-    Smoothed density in 1D with the three kernels (tessellation, 4 markers per box, :math:`h = 1/24`), computed
-    with :meth:`~struphy.pic.base.Particles.eval_density`.
+    Smoothed density in 1D with the three kernels (tessellation, :math:`h = h_\max`), computed
+    with :meth:`~struphy.pic.particles.ParticlesSPH.eval_density`.
 
 .. figure:: ../../pics/sph/sph_density_2d.png
     :align: center
     :width: 80%
 
-    Smoothed density in 2D, :math:`\rho = 1.5 + \cos(2\pi\eta_1)\cos(2\pi\eta_2)`, with the ``gaussian_2d`` kernel
-    (tessellation, 16 markers in each of :math:`12 \times 12` boxes, :math:`h = 1/12`).
+    Smoothed physical density in 2D on the Colella mapping, plotted in physical coordinates, with the ``gaussian``
+    kernel (tessellation, :math:`h = h_\max`).
 
 **Convergence.** Two errors compete (:ref:`figure <fig:sph_convergence>`): the *smoothing bias* grows with
 :math:`h` (the kernel is too wide and smooths out features), and the *sampling noise* grows when too few markers lie
@@ -428,31 +468,15 @@ The constant :math:`\kappa` is the option ``kappa`` (:math:`\kappa = 0` gives a 
 index :math:`\gamma > 1` the option ``gamma`` (default :math:`5/3`). A constant acceleration :math:`\mathbf g`
 (option ``gravity``) plays the role of :math:`-\nabla V/m`.
 
-**In logical coordinates.** Struphy evaluates the kernels in :math:`\boldsymbol\eta`, with
-:math:`\nabla_{\mathbf x} W_h = DF^{-\top} \nabla_{\boldsymbol\eta} W_h`. With the masses :math:`w_j` as weights, the sum
-:math:numref:`sph:density` with a kernel normalized in :math:`\boldsymbol\eta` approximates the density as a 3-form
-in logical space, :math:`\rho^\eta_p \approx \rho \sqrt g` (see :meth:`~struphy.pic.base.Particles.eval_density`),
-and the physical density is :math:`\rho_p = \rho^\eta_p / \sqrt g(\boldsymbol\eta_p)`. Using :math:`\rho_p` in the
-internal energy of the Lagrangian, the Euler-Lagrange equations become
-
-.. math::
-    :label: sph:pressure_force_logical
-
-    \dot{\mathbf v}_p = \mathbf g - DF^{-\top}(\boldsymbol\eta_p) \Bigg[
-    \sum_{j=1}^N w_j \left( \frac{\mathcal U'(\rho_p)}{\sqrt g(\boldsymbol\eta_p)} + \frac{\mathcal U'(\rho_j)}{\sqrt g(\boldsymbol\eta_j)} \right)
-    \nabla_{\boldsymbol\eta} W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)
-    - \mathcal U'(\rho_p)\, \rho_p\, \nabla_{\boldsymbol\eta} \ln \sqrt g(\boldsymbol\eta_p) \Bigg]\,,
-
-because :math:`\rho_p` depends on :math:`\boldsymbol\eta_p` also through :math:`\sqrt g(\boldsymbol\eta_p)`. The last
-term vanishes for mappings with constant :math:`\sqrt g` (e.g. :class:`~struphy.geometry.domains.Cuboid`); in general
-it is needed so that a fluid with uniform physical density and pressure is at rest. In the continuum limit, with
-:math:`\sum_j w_j A_j \nabla W_h(\boldsymbol\eta_p - \boldsymbol\eta_j) \approx \nabla_{\boldsymbol\eta} (A \rho^\eta)`, the
-bracket tends to :math:`\nabla_{\boldsymbol\eta} p / \rho`, as it should. Struphy computes
-:math:`\nabla_{\boldsymbol\eta} \ln \sqrt g` by finite differences of :math:`\det DF`
-(:mod:`struphy.pic.sph_metric_kernels`), only in the directions resolved by the kernel (e.g. only
-:math:`\eta_1` for ``"*_1d"`` kernels): in the other directions the fields are assumed to be constant, which is
-consistent only if :math:`\sqrt g` does not depend on these coordinates. Mappings with a singular axis are not
-supported.
+**On a mapped domain.** Since the kernel is radial in physical space (:ref:`sph_smoothing`), the pressure force
+:math:numref:`sph:pressure_force` holds as it stands for any mapping, with :math:`\mathbf x_p = F(\boldsymbol\eta_p)`
+and the physical density :math:`\rho_p = \hat\rho_h(\boldsymbol\eta_p)` of :math:numref:`sph:density_logical`: the
+logical coordinates only serve to store the markers and to find the neighbours. A fluid with uniform density and
+pressure is at rest up to the SPH discretization error, which depends on the number of markers per kernel width
+:math:`h/\Delta x`. On curved mappings the tessellated markers form a distorted lattice, and :math:`h/\Delta x \gtrsim 5`
+is recommended (on :class:`~struphy.geometry.domains.Colella` with :math:`\alpha = 0.1`, the spurious acceleration of
+a gas at rest drops from about :math:`0.1\, \kappa/h` at :math:`h/\Delta x = 3` to :math:`2 \cdot 10^{-3}\, \kappa/h`
+at :math:`h/\Delta x = 6`).
 
 
 .. _sph_conservation:
@@ -469,10 +493,10 @@ The semi-discrete equations :math:numref:`sph:pressure_force` inherit the struct
   and the force of :math:`p` on :math:`j` is its negative (antisymmetry of :math:`\nabla W_h`).
 * **Energy** :math:`H_N = \sum_p w_p \big( \frac 12 |\mathbf v_p|^2 + \mathcal U(\rho_p) + V(\mathbf x_p)/m \big)` is
   conserved, because :math:`L_N` does not depend explicitly on time.
-* **Angular momentum** is conserved for radial kernels, for which :math:`\nabla W_h(\mathbf x_p - \mathbf x_j)` is
-  parallel to :math:`\mathbf x_p - \mathbf x_j`. Most kernels of Struphy are tensor products and not radial;
-  ``"linear_isotropic_3d"`` is radial in :math:`\boldsymbol\eta`, hence in :math:`\mathbf x` only for mappings whose
-  Jacobian is a multiple of an orthogonal matrix.
+* **Angular momentum** :math:`\sum_p w_p\, \mathbf x_p \times \mathbf v_p` is conserved, since the kernels of Struphy
+  are radial in physical space: :math:`\nabla W_h(\mathbf x_p - \mathbf x_j)` is parallel to
+  :math:`\mathbf x_p - \mathbf x_j` (central pair forces). This holds without boundaries and periodic images; walls and
+  periodic directions break the rotational symmetry.
 
 **Time discretization.** The pressure step keeps the positions fixed, so its right-hand side is constant during the
 step and the forward Euler update is exact; the same holds for the position step
@@ -512,9 +536,8 @@ minus its divergence, divided by the density:
 
     \dot{\mathbf v}_p = -\frac{1}{\rho_p} (\nabla \cdot \boldsymbol\sigma)_h(\mathbf x_p) = -\frac{1}{\rho_p} \sum_{i=1}^N \frac{w_i}{\rho_i}\, \boldsymbol\sigma_i\, \nabla W_h(\mathbf x_p - \mathbf x_i)\,.
 
-This is implemented in :class:`~struphy.propagators.push_v_in_viscous_potential.PushVinViscousPotential` (in logical
-coordinates in Piola form, with the physical density :math:`\rho_p = \rho^\eta_p/\sqrt g` and forward Euler time
-stepping). The force :math:numref:`sph:viscous_force` is not pairwise antisymmetric, so momentum is conserved only
+This is implemented in :class:`~struphy.propagators.push_v_in_viscous_potential.PushVinViscousPotential` (with the
+physical kernel, Cartesian velocity gradients on any mapping, and forward Euler time stepping). The force :math:numref:`sph:viscous_force` is not pairwise antisymmetric, so momentum is conserved only
 approximately by the viscous step.
 
 
@@ -563,10 +586,26 @@ Neighbour search and parallelization
 
 The sums over :math:`j` in :math:numref:`sph:density` and :math:numref:`sph:pressure_force` only include markers within
 distance :math:`h` of :math:`\mathbf x_p`. Struphy sorts the markers into a regular grid of **sorting boxes** in the
-logical unit cube (``boxes_per_dim`` in :class:`~struphy.particles.parameters.SortingParameters`), and the kernel width
-in direction :math:`i` is at most one box, :math:`h_i \leq 1/n_i` (default :math:`h_i = 1/n_i`). The neighbours of a
-marker are then in its own box and the 26 adjacent boxes (3 x 3 x 3 boxes in 3D), see the
-:ref:`figure on kernel density estimation <fig:pic_kernel_boxes>`. Each SPH step
+logical unit cube (``boxes_per_dim`` :math:`= (n_1, n_2, n_3)` in
+:class:`~struphy.particles.parameters.SortingParameters`) and searches the neighbours of a marker in its own box and
+the 26 adjacent boxes (3 x 3 x 3 boxes in 3D), see the
+:ref:`figure on kernel density estimation <fig:pic_kernel_boxes>`. The physical ball of radius :math:`h` must
+therefore lie within one box width in each logical direction. A physical displacement :math:`\Delta \mathbf x`
+changes :math:`\eta_i` by at most :math:`\|(DF^{-1})_{i,:}\|\, |\Delta\mathbf x|`, so the kernel width is limited by
+
+.. math::
+
+    h \leq h_\max = 0.99\, \min_{i\ \textnormal{resolved}} \frac{1}{n_i\, \max_{\boldsymbol\eta} \|(DF^{-1})_{i,:}(\boldsymbol\eta)\|}\,,
+
+with the maximum over a sampling grid finer than the boxes (:func:`~struphy.pic.sph_setup.setup_sph_kernel`). The
+default width is :math:`h = h_\max`; a smaller width can be set with ``kernel_width``. To ensure enough markers per
+kernel, :math:`h` must be at least :math:`h_\min` = ``min_width_spacings`` (default 4) times the mean marker spacing
+:math:`\Delta x = (V/N)^{1/d}`; otherwise the setup raises an error that names the limiting direction, with the
+remedies: fewer sorting boxes in that direction, more markers, a smaller ``min_width_spacings``, or a less distorted
+mapping. Strongly distorted mappings reduce :math:`h_\max`. Mappings with a **polar axis** (e.g.
+:class:`~struphy.geometry.domains.HollowCylinder` with :math:`a_1 = 0`) have :math:`h_\max = 0`, since the angular
+box width vanishes at the axis: SPH needs an annulus, with the inner radius :math:`a_1` large enough that the
+angular box width :math:`2\pi a_1/n_2` admits :math:`h \geq h_\min`. Each SPH step
 
 1. puts the markers into their boxes (:meth:`~struphy.pic.base.Particles.put_particles_in_boxes`);
 2. fills a layer of ghost boxes around the boxes of each MPI process with copies of the markers of the neighbouring

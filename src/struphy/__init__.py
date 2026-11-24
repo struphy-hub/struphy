@@ -168,6 +168,7 @@ _LAZY_API = {
     "LoadingParameters": "struphy.api.particles",
     "SavingParameters": "struphy.api.particles",
     "SortingParameters": "struphy.api.particles",
+    "SPHParameters": "struphy.api.particles",
     "WeightsParameters": "struphy.api.particles",
     "perturbations": "struphy.api.perturbations",
     "Output": "struphy.api.post_processing",
@@ -198,6 +199,7 @@ if TYPE_CHECKING:  # static analysis and IDEs see the eager imports
         LoadingParameters,
         SavingParameters,
         SortingParameters,
+        SPHParameters,
         WeightsParameters,
     )
     from struphy.api.perturbations import perturbations
@@ -219,6 +221,7 @@ __all__ = [
     "WeightsParameters",
     "BoundaryParameters",
     "SortingParameters",
+    "SPHParameters",
     "SavingParameters",
     "BinningPlot",
     "KernelDensityPlot",

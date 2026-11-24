@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 
 import cunumpy as xp
 import pytest
@@ -86,7 +87,7 @@ def test_soundwave_1d(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
-    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options(kernel_type="gaussian_1d")
+    model.propagators.push_sph_p.options = model.propagators.push_sph_p.Options()
 
     # background, perturbations and initial conditions
     background = equils.ConstantVelocity()
@@ -109,50 +110,57 @@ def test_soundwave_1d(mpi_out_folder: str, nx: int, plot_pts: int, do_plot: bool
     run.pproc()
 
     # diagnostics
+    # checks on rank 0; a failure is broadcast, so that all ranks fail (no hang in the collective teardown)
+    failure = None
     if MPI.COMM_WORLD.Get_rank() == 0:
-        density = run.densities.fluid.view_0.n
-        ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
-        n_sph = density.values
+        try:
+            density = run.densities.fluid.view_0.n
+            ee1, ee2, ee3 = xp.meshgrid(density.eta1.values, density.eta2.values, density.eta3.values, indexing="ij")
+            n_sph = density.values
 
-        if do_plot:
-            ppb = 8
-            dt = time_opts.dt
-            end_time = time_opts.Tend
-            Nt = int(end_time // dt)
-            x = ee1 * r1
+            if do_plot:
+                ppb = 8
+                dt = time_opts.dt
+                end_time = time_opts.Tend
+                Nt = int(end_time // dt)
+                x = ee1 * r1
 
-            plt.figure(figsize=(10, 8))
-            interval = Nt / 10
-            plot_ct = 0
-            for i in range(0, Nt + 1):
-                if i % interval == 0:
-                    logger.info(f"{i =}")
-                    plot_ct += 1
-                    ax = plt.gca()
+                plt.figure(figsize=(10, 8))
+                interval = Nt / 10
+                plot_ct = 0
+                for i in range(0, Nt + 1):
+                    if i % interval == 0:
+                        logger.info(f"{i =}")
+                        plot_ct += 1
+                        ax = plt.gca()
 
-                    if plot_ct <= 6:
-                        style = "-"
-                    else:
-                        style = "."
-                    plt.plot(x.squeeze(), n_sph[i, :, 0, 0], style, label=f"time={i * dt:4.2f}")
-                    plt.xlim(0, 2.5)
-                    plt.legend()
-                    ax.set_xticks(xp.linspace(0, 2.5, nx + 1))
-                    ax.xaxis.set_major_formatter(FormatStrFormatter("%.2f"))
-                    plt.grid(c="k")
-                    plt.xlabel("x")
-                    plt.ylabel(r"$\rho$")
+                        if plot_ct <= 6:
+                            style = "-"
+                        else:
+                            style = "."
+                        plt.plot(x.squeeze(), n_sph[i, :, 0, 0], style, label=f"time={i * dt:4.2f}")
+                        plt.xlim(0, 2.5)
+                        plt.legend()
+                        ax.set_xticks(xp.linspace(0, 2.5, nx + 1))
+                        ax.xaxis.set_major_formatter(FormatStrFormatter("%.2f"))
+                        plt.grid(c="k")
+                        plt.xlabel("x")
+                        plt.ylabel(r"$\rho$")
 
-                    plt.title(f"standing sound wave ($c_s = 1$) for {nx =} and {ppb =}")
-                if plot_ct == 11:
-                    break
+                        plt.title(f"standing sound wave ($c_s = 1$) for {nx =} and {ppb =}")
+                    if plot_ct == 11:
+                        break
 
-            plt.show()
+                plt.show()
 
-        error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
-        logger.info(f"SPH sound wave {error =}.")
-        assert error < 6e-4
-        logger.info("Assertion passed.")
+            error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
+            logger.info(f"SPH sound wave {error =}.")
+            assert error < 6e-4
+            logger.info("Assertion passed.")
+        except Exception:  # noqa: BLE001
+            failure = traceback.format_exc()
+    failure = MPI.COMM_WORLD.bcast(failure, root=0)
+    assert failure is None, failure
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 
 import cunumpy as xp
 import numpy as np
@@ -81,7 +82,7 @@ def test_chorin_projection_periodic_1d(mpi_out_folder: str, nx: int, do_plot: bo
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     # inviscid (incompressible Euler): no viscous force
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.0)
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=0.0)
 
     U0 = 0.0
     A = 0.5
@@ -102,40 +103,47 @@ def test_chorin_projection_periodic_1d(mpi_out_folder: str, nx: int, do_plot: bo
     run = sim.run()
     run.pproc()
 
+    # checks on rank 0; a failure is broadcast, so that all ranks fail (no hang in the collective teardown)
+    failure = None
     if MPI.COMM_WORLD.Get_rank() == 0:
-        j1 = run.evaluate("fluid/current_1", dataset="e1_current_1/f")
-        e1_grid = j1.eta1.values.flatten()
-        j1_binned = j1.values  # (Nt+1, n_bins)
+        try:
+            j1 = run.evaluate("fluid/current_1", dataset="e1_current_1/f")
+            e1_grid = j1.eta1.values.flatten()
+            j1_binned = j1.values  # (Nt+1, n_bins)
 
-        amp_initial = 0.5 * (np.max(j1_binned[0]) - np.min(j1_binned[0]))
-        amp_final = 0.5 * (np.max(j1_binned[-1]) - np.min(j1_binned[-1]))
-        mean_final = np.mean(j1_binned[-1])
+            amp_initial = 0.5 * (np.max(j1_binned[0]) - np.min(j1_binned[0]))
+            amp_final = 0.5 * (np.max(j1_binned[-1]) - np.min(j1_binned[-1]))
+            mean_final = np.mean(j1_binned[-1])
 
-        logger.info(f"Chorin projection (periodic 1D): {amp_initial =:.4f}, {amp_final =:.4f}, {mean_final =:.4f}")
+            logger.info(f"Chorin projection (periodic 1D): {amp_initial =:.4f}, {amp_final =:.4f}, {mean_final =:.4f}")
 
-        if do_plot:
-            plt.figure(figsize=(8, 5))
-            plt.plot(e1_grid, j1_binned[0], label="t=0")
-            plt.plot(e1_grid, j1_binned[-1], label=f"t={time_opts.Tend}")
-            plt.axhline(U0, color="k", linestyle="--", label=f"U0={U0}")
-            plt.xlabel("x")
-            plt.ylabel(r"$u_x$ (current_1)")
-            plt.title("Chorin projection: periodic 1D divergence cleaning")
-            plt.legend()
-            plt.grid(True)
-            plt.show()
+            if do_plot:
+                plt.figure(figsize=(8, 5))
+                plt.plot(e1_grid, j1_binned[0], label="t=0")
+                plt.plot(e1_grid, j1_binned[-1], label=f"t={time_opts.Tend}")
+                plt.axhline(U0, color="k", linestyle="--", label=f"U0={U0}")
+                plt.xlabel("x")
+                plt.ylabel(r"$u_x$ (current_1)")
+                plt.title("Chorin projection: periodic 1D divergence cleaning")
+                plt.legend()
+                plt.grid(True)
+                plt.show()
 
-        rel_amp_reduction = 1.0 - amp_final / amp_initial
-        logger.info(f"Relative amplitude reduction: {rel_amp_reduction * 100:.1f}%")
-        assert rel_amp_reduction > 0.9, (
-            f"Chorin projection did not sufficiently flatten the velocity profile: "
-            f"amplitude reduced by only {rel_amp_reduction * 100:.1f}% (expected >90%)"
-        )
+            rel_amp_reduction = 1.0 - amp_final / amp_initial
+            logger.info(f"Relative amplitude reduction: {rel_amp_reduction * 100:.1f}%")
+            assert rel_amp_reduction > 0.9, (
+                f"Chorin projection did not sufficiently flatten the velocity profile: "
+                f"amplitude reduced by only {rel_amp_reduction * 100:.1f}% (expected >90%)"
+            )
 
-        assert abs(mean_final - U0) < 0.05, (
-            f"Mean flow after projection {mean_final:.4f} deviates from expected U0={U0}"
-        )
-        logger.info("Chorin projection (periodic 1D) assertions passed.")
+            assert abs(mean_final - U0) < 0.05, (
+                f"Mean flow after projection {mean_final:.4f} deviates from expected U0={U0}"
+            )
+            logger.info("Chorin projection (periodic 1D) assertions passed.")
+        except Exception:  # noqa: BLE001
+            failure = traceback.format_exc()
+    failure = MPI.COMM_WORLD.bcast(failure, root=0)
+    assert failure is None, failure
 
 
 @pytest.mark.parametrize("nx", [8])
@@ -189,7 +197,7 @@ def test_chorin_projection_reflect_1d(mpi_out_folder: str, nx: int, do_plot: boo
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
     # inviscid (incompressible Euler): no viscous force
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_1d", mu=0.0)
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=0.0)
 
     A = 0.5
     background = equils.ConstantVelocity()
@@ -209,35 +217,42 @@ def test_chorin_projection_reflect_1d(mpi_out_folder: str, nx: int, do_plot: boo
     run = sim.run()
     run.pproc()
 
+    # checks on rank 0; a failure is broadcast, so that all ranks fail (no hang in the collective teardown)
+    failure = None
     if MPI.COMM_WORLD.Get_rank() == 0:
-        j1 = run.evaluate("fluid/current_1", dataset="e1_current_1/f")
-        e1_grid = j1.eta1.values.flatten()
-        j1_binned = j1.values  # (Nt+1, n_bins)
+        try:
+            j1 = run.evaluate("fluid/current_1", dataset="e1_current_1/f")
+            e1_grid = j1.eta1.values.flatten()
+            j1_binned = j1.values  # (Nt+1, n_bins)
 
-        amp_initial = np.max(np.abs(j1_binned[0]))
-        amp_final = np.max(np.abs(j1_binned[-1]))
+            amp_initial = np.max(np.abs(j1_binned[0]))
+            amp_final = np.max(np.abs(j1_binned[-1]))
 
-        logger.info(f"Chorin projection (reflect 1D): {amp_initial =:.4f}, {amp_final =:.4f}")
+            logger.info(f"Chorin projection (reflect 1D): {amp_initial =:.4f}, {amp_final =:.4f}")
 
-        if do_plot:
-            plt.figure(figsize=(8, 5))
-            plt.plot(e1_grid, j1_binned[0], label="t=0")
-            plt.plot(e1_grid, j1_binned[-1], label=f"t={time_opts.Tend}")
-            plt.axhline(0.0, color="k", linestyle="--", label="u_x=0")
-            plt.xlabel("x")
-            plt.ylabel(r"$u_x$ (current_1)")
-            plt.title("Chorin projection: closed (reflecting) 1D box")
-            plt.legend()
-            plt.grid(True)
-            plt.show()
+            if do_plot:
+                plt.figure(figsize=(8, 5))
+                plt.plot(e1_grid, j1_binned[0], label="t=0")
+                plt.plot(e1_grid, j1_binned[-1], label=f"t={time_opts.Tend}")
+                plt.axhline(0.0, color="k", linestyle="--", label="u_x=0")
+                plt.xlabel("x")
+                plt.ylabel(r"$u_x$ (current_1)")
+                plt.title("Chorin projection: closed (reflecting) 1D box")
+                plt.legend()
+                plt.grid(True)
+                plt.show()
 
-        rel_amp = amp_final / amp_initial
-        logger.info(f"Final/initial amplitude ratio: {rel_amp * 100:.1f}%")
-        assert rel_amp < 0.1, (
-            f"Chorin projection did not drive the closed-box velocity field to zero: "
-            f"final amplitude is {rel_amp * 100:.1f}% of the initial amplitude (expected <10%)"
-        )
-        logger.info("Chorin projection (reflect 1D) assertion passed.")
+            rel_amp = amp_final / amp_initial
+            logger.info(f"Final/initial amplitude ratio: {rel_amp * 100:.1f}%")
+            assert rel_amp < 0.1, (
+                f"Chorin projection did not drive the closed-box velocity field to zero: "
+                f"final amplitude is {rel_amp * 100:.1f}% of the initial amplitude (expected <10%)"
+            )
+            logger.info("Chorin projection (reflect 1D) assertion passed.")
+        except Exception:  # noqa: BLE001
+            failure = traceback.format_exc()
+    failure = MPI.COMM_WORLD.bcast(failure, root=0)
+    assert failure is None, failure
 
 
 @pytest.mark.parametrize("nx", [8])
@@ -269,7 +284,7 @@ def test_channel_noslip_shear_relaxation(mpi_out_folder: str, nx: int, do_plot: 
 
     model = IncompressibleNavierStokesSPH()
 
-    loading_params = LoadingParameters(ppb=16, loading="tesselation")
+    loading_params = LoadingParameters(ppb=25, loading="tesselation")
     weights_params = WeightsParameters()
     boundary_params = BoundaryParameters(
         bc=("periodic", "reflect", "periodic"),
@@ -299,7 +314,7 @@ def test_channel_noslip_shear_relaxation(mpi_out_folder: str, nx: int, do_plot: 
 
     butcher = ButcherTableau(algo="forward_euler")
     model.propagators.push_eta.options = model.propagators.push_eta.Options(butcher=butcher)
-    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(kernel_type="gaussian_2d", mu=mu)
+    model.propagators.push_viscous.options = model.propagators.push_viscous.Options(mu=mu)
 
     U = 0.5
     background = equils.ConstantVelocity()
@@ -319,158 +334,169 @@ def test_channel_noslip_shear_relaxation(mpi_out_folder: str, nx: int, do_plot: 
     run = sim.run()
     run.pproc()
 
+    # checks on rank 0; a failure is broadcast, so that all ranks fail (no hang in the collective teardown)
+    failure = None
     if MPI.COMM_WORLD.Get_rank() == 0:
-        j1 = run.evaluate("fluid/current_1", dataset="e2_current_1/f")
-        j2 = run.evaluate("fluid/current_2", dataset="e2_current_2/f")
-        e2_grid = j1.eta2.values.flatten()
-        j1_binned = j1.values  # (Nt+1, n_bins)
-        j2_binned = j2.values  # (Nt+1, n_bins)
+        try:
+            j1 = run.evaluate("fluid/current_1", dataset="e2_current_1/f")
+            j2 = run.evaluate("fluid/current_2", dataset="e2_current_2/f")
+            e2_grid = j1.eta2.values.flatten()
+            j1_binned = j1.values  # (Nt+1, n_bins)
+            j2_binned = j2.values  # (Nt+1, n_bins)
 
-        # Analytische Profile
-        U = 0.5
-        H = 1.0
-        u1_analytic = U * np.sin(np.pi * e2_grid / H)
-        u2_analytic = np.zeros_like(e2_grid)
+            # Analytische Profile
+            U = 0.5
+            H = 1.0
+            u1_analytic = U * np.sin(np.pi * e2_grid / H)
+            u2_analytic = np.zeros_like(e2_grid)
 
-        if do_plot:
-            # Zwei Subplots: u1 und u2
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+            if do_plot:
+                # Zwei Subplots: u1 und u2
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
-            # Linker Plot: u1 (longitudinal)
-            ax1.plot(e2_grid, j1_binned[0], "o-", label="Numerisch t=0", markersize=3)
-            ax1.plot(e2_grid, j1_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3)
-            ax1.plot(e2_grid, u1_analytic, "k--", linewidth=2, label="Analytisch t=0")
-            ax1.set_xlabel("y")
-            ax1.set_ylabel(r"$u_1$ (current_1)")
-            ax1.set_title("Longitudinale Geschwindigkeit")
-            ax1.legend()
-            ax1.grid(True)
+                # Linker Plot: u1 (longitudinal)
+                ax1.plot(e2_grid, j1_binned[0], "o-", label="Numerisch t=0", markersize=3)
+                ax1.plot(e2_grid, j1_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3)
+                ax1.plot(e2_grid, u1_analytic, "k--", linewidth=2, label="Analytisch t=0")
+                ax1.set_xlabel("y")
+                ax1.set_ylabel(r"$u_1$ (current_1)")
+                ax1.set_title("Longitudinale Geschwindigkeit")
+                ax1.legend()
+                ax1.grid(True)
 
-            # Rechter Plot: u2 (transversal)
-            ax2.plot(e2_grid, j2_binned[0], "o-", label="Numerisch t=0", markersize=3, color="red")
-            ax2.plot(e2_grid, j2_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3, color="orange")
-            ax2.plot(e2_grid, u2_analytic, "k--", linewidth=2, label="Analytisch t=0 (sollte 0 sein)")
-            ax2.set_xlabel("y")
-            ax2.set_ylabel(r"$u_2$ (current_2)")
-            ax2.set_title("Transversale Geschwindigkeit (sollte 0 sein)")
-            ax2.legend()
-            ax2.grid(True)
+                # Rechter Plot: u2 (transversal)
+                ax2.plot(e2_grid, j2_binned[0], "o-", label="Numerisch t=0", markersize=3, color="red")
+                ax2.plot(
+                    e2_grid, j2_binned[-1], "o-", label=f"Numerisch t={time_opts.Tend}", markersize=3, color="orange"
+                )
+                ax2.plot(e2_grid, u2_analytic, "k--", linewidth=2, label="Analytisch t=0 (sollte 0 sein)")
+                ax2.set_xlabel("y")
+                ax2.set_ylabel(r"$u_2$ (current_2)")
+                ax2.set_title("Transversale Geschwindigkeit (sollte 0 sein)")
+                ax2.legend()
+                ax2.grid(True)
 
-            plt.tight_layout()
-            plt.show()
+                plt.tight_layout()
+                plt.show()
 
-        # --- DEBUG: Check marker velocities ---
-        markers = model.fluid.var.particles.markers
-        # markers rows: 0:eta1, 1:eta2, 2:eta3, 3:v1, 4:v2, 5:v3, 6:weight, ...
-        logger.debug(
-            f"Marker velocity v1: min = {markers[3].min()}, max = {markers[3].max()}, mean = {markers[3].mean()}",
-        )
-        logger.debug(
-            f"Marker velocity v2: min = {markers[4].min()}, max = {markers[4].max()}, mean = {markers[4].mean()}",
-        )
-        logger.debug(
-            f"Marker velocity v3: min = {markers[5].min()}, max = {markers[5].max()}, mean = {markers[5].mean()}",
-        )
-
-        max_j2_initial = np.max(np.abs(j2_binned[0]))
-
-        max_j2_final = np.max(np.abs(j2_binned[-1]))
-
-        logger.info(f"current_2 initial max = {max_j2_initial:.6e}, final max = {max_j2_final:.6e}")
-
-        logger.info(f"initial transverse/longitudinal = {max_j2_initial / np.max(np.abs(j1_binned[0])):.6e}")
-
-        logger.info(f"final transverse/longitudinal = {max_j2_final / np.max(np.abs(j1_binned[-1])):.6e}")
-
-        if do_plot:
-            plt.figure()
-
-            plt.plot(e2_grid, j2_binned[0], label="j2 t=0")
-
-            plt.plot(e2_grid, j2_binned[-1], label="j2 final")
-
-            plt.axhline(0.0, linestyle="--")
-
-            plt.legend()
-
-            plt.show()
-
-        dt = time_opts.dt
-        Nt = j1_binned.shape[0] - 1
-        times = np.linspace(0.0, time_opts.Tend, Nt + 1)
-
-        # probe at channel centre y=H/2, where sin(pi*y/H) peaks
-        idx_centre = int(np.argmin(np.abs(e2_grid - 0.5 * H)))
-        amplitude = j1_binned[:, idx_centre]
-
-        gamma_analytical = mu * (np.pi / H) ** 2
-
-        log_amp = np.log(np.abs(amplitude) + 1e-15)
-        coeffs = np.polyfit(times, log_amp, 1)
-        gamma_numerical = -coeffs[0]
-
-        logger.info(f"Channel shear relaxation: analytical gamma = mu*(pi/H)^2 = {gamma_analytical:.4f}")
-        logger.info(f"Channel shear relaxation: numerical  gamma             = {gamma_numerical:.4f}")
-
-        if do_plot:
-            fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-            ax = axes[0]
-            ax.semilogy(times, np.abs(amplitude), "o-", markersize=3, label=f"numerical (rate={gamma_numerical:.3f})")
-            ax.semilogy(
-                times,
-                np.abs(amplitude[0]) * np.exp(-gamma_analytical * times),
-                "--",
-                label=f"analytical (rate={gamma_analytical:.3f})",
+            # --- DEBUG: Check marker velocities ---
+            markers = model.fluid.var.particles.markers
+            # markers rows: 0:eta1, 1:eta2, 2:eta3, 3:v1, 4:v2, 5:v3, 6:weight, ...
+            logger.debug(
+                f"Marker velocity v1: min = {markers[3].min()}, max = {markers[3].max()}, mean = {markers[3].mean()}",
             )
-            ax.set_xlabel("time")
-            ax.set_ylabel(r"$u_x(y=H/2)$")
-            ax.set_title("Centreline velocity decay")
-            ax.legend()
-            ax.grid(True, which="both")
+            logger.debug(
+                f"Marker velocity v2: min = {markers[4].min()}, max = {markers[4].max()}, mean = {markers[4].mean()}",
+            )
+            logger.debug(
+                f"Marker velocity v3: min = {markers[5].min()}, max = {markers[5].max()}, mean = {markers[5].mean()}",
+            )
 
-            ax = axes[1]
-            ax.plot(e2_grid, j1_binned[0], label="t=0")
-            ax.plot(e2_grid, j1_binned[-1], label=f"t={time_opts.Tend}")
-            ax.set_xlabel("y")
-            ax.set_ylabel(r"$u_x$ (current_1)")
-            ax.set_title("Shear profile relaxation")
-            ax.legend()
-            ax.grid(True)
+            max_j2_initial = np.max(np.abs(j2_binned[0]))
 
-            plt.tight_layout()
-            plt.show()
+            max_j2_final = np.max(np.abs(j2_binned[-1]))
 
-        rel_error = abs(gamma_numerical - gamma_analytical) / gamma_analytical
-        logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
-        assert rel_error < 0.2, (
-            f"Numerical decay rate {gamma_numerical:.4f} deviates {rel_error * 100:.1f}% "
-            f"from analytical {gamma_analytical:.4f} (tolerance 20%)"
-        )
-        logger.info("Channel shear relaxation decay rate assertion passed.")
-        max_j2_initial = np.max(np.abs(j2_binned[0]))
-        max_j1_initial = np.max(np.abs(j1_binned[0]))
+            logger.info(f"current_2 initial max = {max_j2_initial:.6e}, final max = {max_j2_final:.6e}")
 
-        max_j2_final = np.max(np.abs(j2_binned[-1]))
-        max_j1_final = np.max(np.abs(j1_binned[-1]))
+            logger.info(f"initial transverse/longitudinal = {max_j2_initial / np.max(np.abs(j1_binned[0])):.6e}")
 
-        initial_ratio = max_j2_initial / max_j1_initial
-        final_ratio = max_j2_final / max_j1_final
+            logger.info(f"final transverse/longitudinal = {max_j2_final / np.max(np.abs(j1_binned[-1])):.6e}")
 
-        logger.info(f"Initial |current_2|/|current_1| = {initial_ratio:.6e}")
-        logger.info(f"Final   |current_2|/|current_1| = {final_ratio:.6e}")
+            if do_plot:
+                plt.figure()
 
-        assert final_ratio < 0.1
-        # Chorin projection should not spuriously inject transverse velocity
-        # into this already-divergence-free flow.
-        # max_j2 = np.max(np.abs(j2_binned))
-        ##max_j1 = np.max(np.abs(j1_binned))
-        # logger.info(f"Max |current_2| / max |current_1| = {max_j2 / max_j1:.4f}")
-        # assert max_j2 / max_j1 < 0.1, (
-        #    f"Chorin projection induced significant transverse velocity: "
-        #    f"max|current_2|/max|current_1| = {max_j2 / max_j1:.4f} (expected <0.1)"
-        # )
-        logger.info("Transverse-velocity assertion passed.")
+                plt.plot(e2_grid, j2_binned[0], label="j2 t=0")
+
+                plt.plot(e2_grid, j2_binned[-1], label="j2 final")
+
+                plt.axhline(0.0, linestyle="--")
+
+                plt.legend()
+
+                plt.show()
+
+            dt = time_opts.dt
+            Nt = j1_binned.shape[0] - 1
+            times = np.linspace(0.0, time_opts.Tend, Nt + 1)
+
+            # probe at channel centre y=H/2, where sin(pi*y/H) peaks
+            idx_centre = int(np.argmin(np.abs(e2_grid - 0.5 * H)))
+            amplitude = j1_binned[:, idx_centre]
+
+            gamma_analytical = mu * (np.pi / H) ** 2
+
+            log_amp = np.log(np.abs(amplitude) + 1e-15)
+            coeffs = np.polyfit(times, log_amp, 1)
+            gamma_numerical = -coeffs[0]
+
+            logger.info(f"Channel shear relaxation: analytical gamma = mu*(pi/H)^2 = {gamma_analytical:.4f}")
+            logger.info(f"Channel shear relaxation: numerical  gamma             = {gamma_numerical:.4f}")
+
+            if do_plot:
+                fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+                ax = axes[0]
+                ax.semilogy(
+                    times, np.abs(amplitude), "o-", markersize=3, label=f"numerical (rate={gamma_numerical:.3f})"
+                )
+                ax.semilogy(
+                    times,
+                    np.abs(amplitude[0]) * np.exp(-gamma_analytical * times),
+                    "--",
+                    label=f"analytical (rate={gamma_analytical:.3f})",
+                )
+                ax.set_xlabel("time")
+                ax.set_ylabel(r"$u_x(y=H/2)$")
+                ax.set_title("Centreline velocity decay")
+                ax.legend()
+                ax.grid(True, which="both")
+
+                ax = axes[1]
+                ax.plot(e2_grid, j1_binned[0], label="t=0")
+                ax.plot(e2_grid, j1_binned[-1], label=f"t={time_opts.Tend}")
+                ax.set_xlabel("y")
+                ax.set_ylabel(r"$u_x$ (current_1)")
+                ax.set_title("Shear profile relaxation")
+                ax.legend()
+                ax.grid(True)
+
+                plt.tight_layout()
+                plt.show()
+
+            rel_error = abs(gamma_numerical - gamma_analytical) / gamma_analytical
+            logger.info(f"Relative error in decay rate: {rel_error * 100:.2f}%")
+            assert rel_error < 0.2, (
+                f"Numerical decay rate {gamma_numerical:.4f} deviates {rel_error * 100:.1f}% "
+                f"from analytical {gamma_analytical:.4f} (tolerance 20%)"
+            )
+            logger.info("Channel shear relaxation decay rate assertion passed.")
+            max_j2_initial = np.max(np.abs(j2_binned[0]))
+            max_j1_initial = np.max(np.abs(j1_binned[0]))
+
+            max_j2_final = np.max(np.abs(j2_binned[-1]))
+            max_j1_final = np.max(np.abs(j1_binned[-1]))
+
+            initial_ratio = max_j2_initial / max_j1_initial
+            final_ratio = max_j2_final / max_j1_final
+
+            logger.info(f"Initial |current_2|/|current_1| = {initial_ratio:.6e}")
+            logger.info(f"Final   |current_2|/|current_1| = {final_ratio:.6e}")
+
+            assert final_ratio < 0.1
+            # Chorin projection should not spuriously inject transverse velocity
+            # into this already-divergence-free flow.
+            # max_j2 = np.max(np.abs(j2_binned))
+            ##max_j1 = np.max(np.abs(j1_binned))
+            # logger.info(f"Max |current_2| / max |current_1| = {max_j2 / max_j1:.4f}")
+            # assert max_j2 / max_j1 < 0.1, (
+            #    f"Chorin projection induced significant transverse velocity: "
+            #    f"max|current_2|/max|current_1| = {max_j2 / max_j1:.4f} (expected <0.1)"
+            # )
+            logger.info("Transverse-velocity assertion passed.")
+        except Exception:  # noqa: BLE001
+            failure = traceback.format_exc()
+    failure = MPI.COMM_WORLD.bcast(failure, root=0)
+    assert failure is None, failure
 
 
 if __name__ == "__main__":

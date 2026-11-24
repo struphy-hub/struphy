@@ -3,13 +3,12 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
 
 
-@stack_array("tmp1")
+@stack_array("rho_val", "rho_grad", "s_val", "s_grad")
 def push_v_viscosity(
     dt: float,
     stage: int,
@@ -21,67 +20,47 @@ def push_v_viscosity(
     periodic1: "bool",
     periodic2: "bool",
     periodic3: "bool",
-    kernel_type: "int",
-    h1: "float",
-    h2: "float",
-    h3: "float",
+    period: "float[:,:]",
+    proj: "float[:,:]",
+    x_idx: "int",
+    kernel: "int",
+    dim: "int",
+    h: "float",
+    scale: "float",
 ):
     r"""Update each marker :math:`p` according to
 
     .. math::
 
         \frac{v_{p,j}^{n+1} - v_{p,j}^n}{\Delta t}
-        = -\frac{1}{\rho_p \sqrt g(\boldsymbol \eta_p)} \sum_{i=1}^N
-          \frac{w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \,
-          (DF^{-1})_{km}(\boldsymbol \eta_i)}{\rho^{N,h}(\boldsymbol \eta_i)} \,
-          (\nabla W_h)_k(\boldsymbol \eta_p - \boldsymbol \eta_i)\,,
+        = -\frac{1}{\rho_p} \sum_{l} \frac{w_l \, \sigma_{jm,l}}{\rho_l} \, \partial_m W_h(\mathbf x_p - \mathbf x_l)\,,
 
-    where :math:`\sigma_{jm} = -\mu \left[(\partial_{x_m} v_j^{N,h} + \partial_{x_j} v_m^{N,h}) - \tfrac{2}{3}\delta_{jm}\partial_{x_l} v_l^{N,h}\right]`
-    is the (Cartesian) viscous stress (momentum flux), :math:`\sqrt g = \det DF` and
-    :math:`\rho_p = \rho^{N,h}(\boldsymbol \eta_p) / |\det DF(\boldsymbol \eta_p)|` is the physical density,
-    with the SPH density :math:`\rho^{N,h}` evaluated at the marker. This is the SPH discretization of
-    :math:`-\frac{1}{\rho} \nabla_x \cdot \sigma`, with the divergence written in logical coordinates (Piola form),
-    :math:`(\nabla_x \cdot \sigma)_j = \frac{1}{\sqrt g} \partial_{\eta_k} \bigl(\sqrt g \, (DF^{-1})_{km} \sigma_{jm}\bigr)`,
-    with the gradient of the smoothing kernel :math:`W_h` chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    the SPH discretization of :math:`-\frac{1}{\rho} \nabla \cdot \sigma` with the viscous stress (momentum flux)
+    :math:`\sigma_{jm} = -\mu \left[\partial_m v_j^{N,h} + \partial_j v_m^{N,h} - \tfrac{2}{3}\delta_{jm}\nabla \cdot
+    \mathbf v^{N,h}\right]`, the physical kernel :math:`W_h` and the SPH density
+    :math:`\rho_p = \sum_l w_l W_h(\mathbf x_p - \mathbf x_l)`.
 
-    This kernel requires the 9 coefficients
-
-    * :math:`w_i \, \sqrt g(\boldsymbol \eta_i) \, \sigma_{jm}(\boldsymbol \eta_i) \, (DF^{-1})_{km}(\boldsymbol \eta_i)
-      / \rho^{N,h}(\boldsymbol \eta_i)` to be
-      pre-computed for each particle and stored at ``markers[first_free_idx + 3*(j+1) + k, :]``
-      for :math:`j, k = 0, 1, 2`
-
-    This is accomplished by the kernel
-    :func:`~struphy.pic.pushing.eval_kernels_sph.sph_viscosity_tensor`, which itself requires
-    the mean velocity coefficients
-    :math:`w_i v_{k,i} / \rho^{N,h}(\boldsymbol \eta_i)` to be stored at
-    ``markers[first_free_idx:first_free_idx + 3, :]`` via
-    :func:`~struphy.pic.pushing.eval_kernels_sph.sph_mean_velocity_coeffs`.
-    Both kernels must be passed as ``init_kernel`` entries to the
-    :class:`~struphy.pic.pushing.pusher.Pusher`.
+    This kernel requires the 9 coefficients :math:`w_l \sigma_{jm,l}/\rho_l` at
+    ``markers[first_free_idx + 3*(j+1) + m, :]`` for :math:`j, m = 0, 1, 2`, computed by the init kernel
+    :func:`~struphy.pic.pushing.kernels.sph_viscosity_tensor.sph_viscosity_tensor_kernels.sph_viscosity_tensor`,
+    which itself requires the mean-velocity coefficients at ``markers[first_free_idx:first_free_idx + 3, :]``
+    (:func:`~struphy.pic.pushing.kernels.sph_mean_velocity_coeffs.sph_mean_velocity_coeffs_kernels.sph_mean_velocity_coeffs`).
 
     Parameters
     ----------
-    boxes : 2d array
-        Box array of the sorting boxes structure.
-
-    neighbours : 2d array
-        Array containing the 27 neighbouring boxes of each box.
+    boxes, neighbours : 2d array
+        Sorting-box arrays.
 
     holes : bool
         1D array of length markers.shape[1]. True if markers[:, i] is a hole.
 
-    periodic1, periodic2, periodic3 : bool
-        True if periodic in that dimension.
-
-    kernel_type : int
-        Number of the smoothing kernel.
-
-    h1, h2, h3 : float
-        Kernel width in respective dimension.
+    periodic1, periodic2, periodic3, period, proj, x_idx, kernel, dim, h, scale
+        Kernel arguments, see :func:`~struphy.pic.sph_eval_kernels.box_based_physical`.
     """
-    # allocate arrays
-    tmp1 = zeros((3, 3), dtype=float)
+    rho_val = zeros(1, dtype=float)
+    rho_grad = zeros((1, 3), dtype=float)
+    s_val = zeros(9, dtype=float)
+    s_grad = zeros((9, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -90,75 +69,26 @@ def push_v_viscosity(
     weight_idx = args_markers.weight_idx
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[0]
-    f_visc = zeros(3, dtype=float)
 
     # fmt: off
-    #$ omp parallel private(coeff_idx, detdf, eta1, eta2, eta3, f_visc, ip, j, k, loc_box, n_at_eta, rho_p, tmp1)
+    #$ omp parallel firstprivate(rho_val, rho_grad, s_val, s_grad) private(ip, loc_box, j, div_s)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[0, ip]
-        eta2 = markers[1, ip]
-        eta3 = markers[2, ip]
         loc_box = int(markers[n_cols - 2, ip])
 
-        f_visc[:] = 0.0
-        for j in range(3):  # row of viscosity tensor
-            for k in range(3):  # column = derivative direction
-                coeff_idx = first_free_idx + 3 * (j + 1) + k
-
-                # if k == 0:
-                #     deriv_type = kernel_type + 1
-                #     use_component = True
-                # elif k == 1 and kernel_type >= 340:
-                #     deriv_type = kernel_type + 2
-                #     use_component = True
-                # elif k == 2 and kernel_type >= 670:
-                #     deriv_type = kernel_type + 3
-                #     use_component = True
-                # else:
-                #     use_component = False
-
-                # if use_component:
-                f_visc[j] += sph_eval_kernels.box_based_kernel(
-                    args_markers,
-                    eta1,
-                    eta2,
-                    eta3,
-                    loc_box,
-                    boxes,
-                    neighbours,
-                    holes,
-                    periodic1,
-                    periodic2,
-                    periodic3,
-                    coeff_idx,
-                    kernel_type + 1 + k,
-                    h1,
-                    h2,
-                    h3,
-                )
-
-        # Cartesian divergence from Piola form: divide by the Jacobian determinant
-        detdf = evaluation_kernels.det_df(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            tmp1,
-        )
-
-        # update velocities
-        # momentum equation rho du/dt = -div(sigma) (the stored coefficients contain sigma, hence -=):
-        # divide by the physical density rho_p = rho^eta_p / |det DF|
-        n_at_eta = sph_eval_kernels.box_based_kernel(
+        # density
+        sph_eval_kernels.box_based_columns(
             args_markers,
-            eta1,
-            eta2,
-            eta3,
+            markers[x_idx, ip],
+            markers[x_idx + 1, ip],
+            markers[x_idx + 2, ip],
+            markers[0, ip],
+            markers[1, ip],
+            markers[2, ip],
             loc_box,
             boxes,
             neighbours,
@@ -166,14 +96,52 @@ def push_v_viscosity(
             periodic1,
             periodic2,
             periodic3,
+            period,
+            proj,
+            x_idx,
             weight_idx,
-            kernel_type,
-            h1,
-            h2,
-            h3,
+            1,
+            kernel,
+            dim,
+            h,
+            scale,
+            rho_val,
+            rho_grad,
         )
-        rho_p = n_at_eta / abs(detdf)
-        markers[3:6, ip] -= dt * f_visc / detdf / rho_p
+
+        # gradients of the 9 stress coefficients
+        sph_eval_kernels.box_based_columns(
+            args_markers,
+            markers[x_idx, ip],
+            markers[x_idx + 1, ip],
+            markers[x_idx + 2, ip],
+            markers[0, ip],
+            markers[1, ip],
+            markers[2, ip],
+            loc_box,
+            boxes,
+            neighbours,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            period,
+            proj,
+            x_idx,
+            first_free_idx + 3,
+            9,
+            kernel,
+            dim,
+            h,
+            scale,
+            s_val,
+            s_grad,
+        )
+
+        # momentum equation rho du/dt = -div(sigma)
+        for j in range(3):
+            div_s = s_grad[3 * j, 0] + s_grad[3 * j + 1, 1] + s_grad[3 * j + 2, 2]
+            markers[3 + j, ip] -= dt * div_s / rho_val[0]
 
     # fmt: off
     #$ omp end parallel

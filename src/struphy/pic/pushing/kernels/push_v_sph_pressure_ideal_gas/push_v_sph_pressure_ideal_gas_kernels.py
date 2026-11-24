@@ -3,15 +3,12 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
-import struphy.pic.sph_metric_kernels as sph_metric_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments, MarkerArguments
 
 
-@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT", "glsg")
+@stack_array("val_w", "grad_w", "val_c", "grad_c")
 def push_v_sph_pressure_ideal_gas(
     dt: float,
     stage: int,
@@ -23,10 +20,13 @@ def push_v_sph_pressure_ideal_gas(
     periodic1: "bool",
     periodic2: "bool",
     periodic3: "bool",
-    kernel_type: "int",
-    h1: "float",
-    h2: "float",
-    h3: "float",
+    period: "float[:,:]",
+    proj: "float[:,:]",
+    x_idx: "int",
+    kernel: "int",
+    dim: "int",
+    h: "float",
+    scale: "float",
     gravity: "float[:]",
     kappa: "float",
     gamma: "float",
@@ -35,66 +35,41 @@ def push_v_sph_pressure_ideal_gas(
 
     .. math::
 
-        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mathbf g - DF^{-\top} \left[ \sum_{i=1}^N w_i \left( \frac{\kappa \rho_p^{\gamma - 2}}{\sqrt g(\boldsymbol\eta_p)} + \frac{\kappa \rho_i^{\gamma - 2}}{\sqrt g(\boldsymbol\eta_i)} \right) \nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) - \kappa \rho_p^{\gamma - 1} \nabla \ln \sqrt g(\boldsymbol\eta_p) \right] \,,
+        \frac{\mathbf v_p^{n+1} - \mathbf v_p^n}{\Delta t} = \mathbf g - \kappa \sum_{j} w_j \left( \rho_p^{\gamma - 2}
+        + \rho_j^{\gamma - 2} \right) \nabla W_h(\mathbf x_p - \mathbf x_j)\,,
 
-    with the physical density :math:`\rho_p = \rho^{N,h}(\boldsymbol \eta_p) / \sqrt g(\boldsymbol\eta_p)`,
-    :math:`\sqrt g = |\det DF|` (see :class:`~struphy.propagators.push_v_in_sph_pressure.PushVinSPHpressure`),
-    where :math:`\mathbf g` is a constant acceleration, the second term corresponds to the pressure gradient
-    in the polytropic closure (with constant :math:`\kappa` and adiabatic index :math:`\gamma`),
-    and :math:`DF^{-\top}` denotes the inverse transpose Jacobian
-    arising in the pull back of the gradient of the smoothing kernel :math:`W_h`
-    chosen from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    the pressure force of the polytropic closure (constant :math:`\kappa`, adiabatic index :math:`\gamma`) plus a
+    constant acceleration :math:`\mathbf g`, with the physical kernel :math:`W_h` and the SPH density
+    :math:`\rho_p = \sum_j w_j W_h(\mathbf x_p - \mathbf x_j)`.
 
-    The smoothed SPH density is given by
-
-    .. math::
-
-        \rho^{N,h}(\boldsymbol \eta_p) = \sum_j w_j \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_j)\,.
-
-    This kernel requires:
-
-    * The density :math:`\rho^{N,h}(\boldsymbol \eta_p)` to be pre-computed for each particle and stored at ``markers[first_free_idx, :]``)
-    * The coefficient :math:`w_i \rho_i^{\gamma - 2} / \sqrt g(\boldsymbol\eta_i)` to be pre-computed for each particle and stored at ``markers[first_free_idx + 2, :]``)
-
-    This is accomplished by the kernel :func:`~struphy.pic.pushing.kernels.sph_pressure_coeffs.sph_pressure_coeffs_kernels.sph_pressure_coeffs`, which needs
-    to be passed as an ``init_kernel`` to the :class:`~struphy.pic.pushing.pusher.Pusher`.
+    This kernel requires :math:`\rho_p` at ``markers[first_free_idx, :]`` and :math:`w_j \rho_j^{\gamma - 2}` at
+    ``markers[first_free_idx + 2, :]``, computed by the init kernel
+    :func:`~struphy.pic.pushing.kernels.sph_pressure_coeffs.sph_pressure_coeffs_kernels.sph_pressure_coeffs`.
 
     Parameters
     ----------
-    boxes : 2d array
-        Box array of the sorting boxes structure.
-
-    neighbours : 2d array
-        Array containing the 27 neighbouring boxes of each box.
+    boxes, neighbours : 2d array
+        Sorting-box arrays.
 
     holes : bool
         1D array of length markers.shape[1]. True if markers[:, i] is a hole.
 
-    periodic1, periodic2, periodic3 : bool
-        True if periodic in that dimension.
-
-    kernel_type : int
-        Number of the smoothing kernel.
-
-    h1, h2, h3 : float
-        Kernel width in respective dimension.
+    periodic1, periodic2, periodic3, period, proj, x_idx, kernel, dim, h, scale
+        Kernel arguments, see :func:`~struphy.pic.sph_eval_kernels.box_based_physical`.
 
     gravity: xp.ndarray
-        Constant gravitational force as 3-vector.
+        Constant acceleration as 3-vector.
 
     kappa: float
-        Polytropic coefficient in the ideal gas closure.
+        Polytropic coefficient.
 
     gamma: float
         Adiabatic index of the polytropic closure.
     """
-    # allocate arrays
-    grad_u = zeros(3, dtype=float)
-    grad_u_cart = zeros(3, dtype=float)
-    tmp1 = zeros((3, 3), dtype=float)
-    dfinv = zeros((3, 3), dtype=float)
-    dfinvT = zeros((3, 3), dtype=float)
-    glsg = zeros(3, dtype=float)
+    val_w = zeros(1, dtype=float)
+    grad_w = zeros((1, 3), dtype=float)
+    val_c = zeros(1, dtype=float)
+    grad_c = zeros((1, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -104,36 +79,26 @@ def push_v_sph_pressure_ideal_gas(
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[0]
 
-    # number of logical directions resolved by the kernel
-    n_dirs = 1
-    if kernel_type >= 340:
-        n_dirs = 2
-    if kernel_type >= 670:
-        n_dirs = 3
-
     # fmt: off
-    #$ omp parallel firstprivate(grad_u) private(dfinv, dfinvT, eta1, eta2, eta3, glsg, k, grad_u_cart, ip, loc_box, n_at_eta, rho_p, sg_p, corr, sum2, sum4, sum6, tmp1)
+    #$ omp parallel firstprivate(val_w, grad_w, val_c, grad_c) private(ip, loc_box, rho_fac, k)
     #$ omp for
     # fmt: on
     for ip in range(n_markers):
         if not valid_mks[ip]:
             continue
 
-        eta1 = markers[0, ip]
-        eta2 = markers[1, ip]
-        eta3 = markers[2, ip]
-        n_at_eta = markers[first_free_idx, ip]
-        # physical density rho_p = rho^eta_p / sqrt(g)
-        sg_p = sph_metric_kernels.sqrt_g(eta1, eta2, eta3, args_domain)
-        rho_p = n_at_eta / sg_p
+        rho_fac = markers[first_free_idx, ip] ** (gamma - 2.0)
         loc_box = int(markers[n_cols - 2, ip])
 
-        # first component
-        grad_u[0] = sph_eval_kernels.box_based_kernel(
+        # sum_j w_j grad W
+        sph_eval_kernels.box_based_columns(
             args_markers,
-            eta1,
-            eta2,
-            eta3,
+            markers[x_idx, ip],
+            markers[x_idx + 1, ip],
+            markers[x_idx + 2, ip],
+            markers[0, ip],
+            markers[1, ip],
+            markers[2, ip],
             loc_box,
             boxes,
             neighbours,
@@ -141,19 +106,28 @@ def push_v_sph_pressure_ideal_gas(
             periodic1,
             periodic2,
             periodic3,
+            period,
+            proj,
+            x_idx,
             weight_idx,
-            kernel_type + 1,
-            h1,
-            h2,
-            h3,
+            1,
+            kernel,
+            dim,
+            h,
+            scale,
+            val_w,
+            grad_w,
         )
-        grad_u[0] *= kappa * rho_p ** (gamma - 2) / sg_p
 
-        sum2 = sph_eval_kernels.box_based_kernel(
+        # sum_j w_j rho_j^(gamma - 2) grad W
+        sph_eval_kernels.box_based_columns(
             args_markers,
-            eta1,
-            eta2,
-            eta3,
+            markers[x_idx, ip],
+            markers[x_idx + 1, ip],
+            markers[x_idx + 2, ip],
+            markers[0, ip],
+            markers[1, ip],
+            markers[2, ip],
             loc_box,
             boxes,
             neighbours,
@@ -161,123 +135,22 @@ def push_v_sph_pressure_ideal_gas(
             periodic1,
             periodic2,
             periodic3,
+            period,
+            proj,
+            x_idx,
             first_free_idx + 2,
-            kernel_type + 1,
-            h1,
-            h2,
-            h3,
+            1,
+            kernel,
+            dim,
+            h,
+            scale,
+            val_c,
+            grad_c,
         )
-        sum2 *= kappa
-        grad_u[0] += sum2
-
-        if kernel_type >= 340:
-            # second component
-            grad_u[1] = sph_eval_kernels.box_based_kernel(
-                args_markers,
-                eta1,
-                eta2,
-                eta3,
-                loc_box,
-                boxes,
-                neighbours,
-                holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                weight_idx,
-                kernel_type + 2,
-                h1,
-                h2,
-                h3,
-            )
-            grad_u[1] *= kappa * rho_p ** (gamma - 2) / sg_p
-
-            sum4 = sph_eval_kernels.box_based_kernel(
-                args_markers,
-                eta1,
-                eta2,
-                eta3,
-                loc_box,
-                boxes,
-                neighbours,
-                holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                first_free_idx + 2,
-                kernel_type + 2,
-                h1,
-                h2,
-                h3,
-            )
-            sum4 *= kappa
-            grad_u[1] += sum4
-
-        if kernel_type >= 670:
-            # third component
-            grad_u[2] = sph_eval_kernels.box_based_kernel(
-                args_markers,
-                eta1,
-                eta2,
-                eta3,
-                loc_box,
-                boxes,
-                neighbours,
-                holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                weight_idx,
-                kernel_type + 3,
-                h1,
-                h2,
-                h3,
-            )
-            grad_u[2] *= kappa * rho_p ** (gamma - 2) / sg_p
-
-            sum6 = sph_eval_kernels.box_based_kernel(
-                args_markers,
-                eta1,
-                eta2,
-                eta3,
-                loc_box,
-                boxes,
-                neighbours,
-                holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                first_free_idx + 2,
-                kernel_type + 3,
-                h1,
-                h2,
-                h3,
-            )
-            sum6 *= kappa
-            grad_u[2] += sum6
-
-        # metric correction of the variational force, -U'(rho_p) rho_p grad ln sqrt(g) (U' rho = kappa rho^(gamma-1)),
-        # in the directions resolved by the kernel
-        sph_metric_kernels.grad_log_sqrt_g(eta1, eta2, eta3, args_domain, n_dirs, glsg)
-        corr = kappa * rho_p ** (gamma - 1)
-        for k in range(n_dirs):
-            grad_u[k] -= corr * glsg[k]
-
-        # push to Cartesian coordinates
-        evaluation_kernels.df_inv(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            tmp1,
-            False,
-            dfinv,
-        )
-        linalg_kernels.transpose(dfinv, dfinvT)
-        linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
 
         # update velocities
-        markers[3:6, ip] -= dt * (grad_u_cart - gravity)
+        for k in range(3):
+            markers[3 + k, ip] -= dt * (kappa * (rho_fac * grad_w[0, k] + grad_c[0, k]) - gravity[k])
 
     # fmt: off
     #$ omp end parallel
