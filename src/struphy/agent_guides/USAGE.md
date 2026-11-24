@@ -49,8 +49,10 @@ mpirun -n 4 python params_<name>.py     # MPI (needs `pip install mpi4py`); the 
 
 - Keep `sim.run()` under `if __name__ == "__main__":` so that importing the script doesn't start a run.
 - Start with a small grid and a short end time to check the setup, then scale up.
-- When timing MPI runs, set `OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1`; oversubscribed threaded BLAS
-  makes timings meaningless.
+- With more than one MPI rank, `sim.run()` limits threaded BLAS (OpenBLAS/MKL) to one thread per rank,
+  since oversubscribed BLAS threads make runs and timings much slower; setting `OPENBLAS_NUM_THREADS`
+  (or `MKL_NUM_THREADS`) overrides this. Scripts that use the data structures without `Simulation`
+  should call `struphy.utils.threads.limit_blas_threads(comm)` once.
 
 ## Ground rules
 
