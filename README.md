@@ -57,6 +57,8 @@ python pproc_two_stream.py
 
 To look at finished examples and their results without running anything, browse the [examples gallery](https://struphy-hub.github.io/examples/) on the Struphy website.
 
+Numerical studies with Struphy (convergence studies, verifications, comparisons of models and discretizations, with the runs to reproduce them and their figures and videos) are collected on [Struphy studies](https://struphy-hub.github.io/struphy-studies/). To share your own studies only with collaborators, create a private repository from the template [struphy-studies-template](https://github.com/struphy-hub/struphy-studies-template); single studies can be published on Struphy studies later.
+
 ## AI coding agents
 
 Struphy ships a usage guide for AI coding agents (Claude Code, Codex, Copilot, Cursor, ...) that matches your installed version. It explains how to set up, run and post-process simulations. Print it with

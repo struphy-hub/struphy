@@ -36,7 +36,10 @@ Before adding or changing a profiling case (a `submit_*.py` script next to an ex
 ## Studies
 
 Studies (pages with runs, findings and videos on https://struphy-hub.github.io/struphy-studies/) are made in the
-repository struphy-hub/struphy-studies, see the skill `.claude/skills/create-study/SKILL.md`.
+repository struphy-hub/struphy-studies, see the skill `.claude/skills/create-study/SKILL.md`. Studies shared only with
+chosen collaborators go into a private repository created from the template struphy-hub/struphy-studies-template
+(same tools; single studies can be published into struphy-studies later). Each published study shows as its author
+the GitHub account that opened the pull request adding it.
 
 ## Code style
 
