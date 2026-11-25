@@ -1,19 +1,26 @@
 ---
 name: create-study
-description: Use when creating, extending or publishing a study in struphy-studies (a page of the public site with Struphy runs, their figures and videos, findings and the commands to reproduce them) - planning the runs, post-processing, comparison figures, tools/study.py create/link/check, study.yaml, the local preview and the media upload to MPCDF DataShare. Triggers on requests like "make a study out of these runs", "add the runs to the study", "draft the study page", "publish the study".
+description: Use when creating, extending, sharing or publishing a study in a Struphy studies repository (struphy-studies or a private copy of struphy-studies-template; a page with Struphy runs, their figures and videos, findings and the commands to reproduce them) - planning the runs, post-processing, comparison figures, tools/study.py create/link/check, study.yaml, the local preview and the media upload to MPCDF DataShare. Triggers on requests like "make a study out of these runs", "add the runs to the study", "draft the study page", "publish the study".
 ---
 
 # Creating a Struphy study
 
 Studies live in the repository struphy-hub/struphy-studies (https://github.com/struphy-hub/struphy-studies, site
 https://struphy-hub.github.io/struphy-studies/), not in struphy: clone it (`git clone
-git@github.com:struphy-hub/struphy-studies.git`) and run the commands of this skill in that clone. This skill is the
-same as `.claude/skills/create-study/SKILL.md` of struphy-studies; keep the two in sync.
+git@github.com:struphy-hub/struphy-studies.git`) and run the commands of this skill in that clone. Studies that are
+shared only with chosen collaborators go into a **private** repository created from the template
+struphy-hub/struphy-studies-template (https://github.com/struphy-hub/struphy-studies-template, same tools and study
+format; see its README): its site is not deployed but shared with the collaborators (CI artifact `studies-site`, or
+`python tools/build_site.py --drafts --offline`), and single studies can later be published into struphy-studies
+(section 8). Never copy material of a private copy into public places unless the user asks to publish.
+
+This skill is the same as `.claude/skills/create-study/SKILL.md` of struphy-studies and struphy-studies-template,
+apart from this introduction; keep them in sync.
 
 A study is a folder `studies/<yyyy-mm>-<slug>/` with `study.yaml` (texts, runs, commands), `params/` (the parameter,
 post-processing and comparison scripts) and `thumbnail.png`. Figures and videos are **not in git**: they live in a
 media folder on MPCDF DataShare, shared with a public link, and the site embeds them from there. Read the `README.md`
-of struphy-studies first; `studies/2026-11-lowmode-tae-shear-alfven/` there is a complete example.
+of the studies repository first; `studies/2026-11-lowmode-tae-shear-alfven/` of struphy-studies is a complete example.
 
 ## 1. Plan the study with the user
 
@@ -106,3 +113,18 @@ PR: `mkdocs build --strict` and the media check),
 python tools/build_site.py --drafts && mkdocs build --strict && python tools/study.py check <slug>
 ```
 and open a pull request into `main`. After the merge, the site is rebuilt.
+The study page names the GitHub account that opened the pull request which added the study as its author (without a
+pull request: the author of the commit), so the author of the study opens it.
+
+In a private copy, "publish" means: push to `main` (or merge the pull request) so that the collaborators get it, see
+the README, *Share the site with collaborators*.
+
+## 8. Publish a study of a private copy
+
+Only when the user asks. Clone the public repository (or the user's fork) next to this one and run
+```bash
+python tools/study.py publish <slug> ../struphy-studies
+```
+It checks the media and the TODOs, copies the study folder with `draft: false` and prints the next steps (branch,
+`build_site.py && mkdocs build --strict`, commit, pull request into `main` of struphy-studies). Before the pull
+request, go through `study.yaml` and `params/` with the user for unpublished material, local paths and names.

@@ -15,7 +15,10 @@ Check the topics below for detailed information on a subject.
 
 The Struphy website `<https://struphy-hub.github.io/>`_ gives an overview of the models, the numerical methods
 and a gallery of examples. Ready-to-run simulations are in `struphy-examples <https://github.com/struphy-hub/struphy-examples>`_,
-see :ref:`quickstart_examples`.
+see :ref:`quickstart_examples`. Numerical studies with Struphy (with the runs to reproduce them) are on
+`Struphy studies <https://struphy-hub.github.io/struphy-studies/>`_; private study collections, shared with
+collaborators, can be created from the template
+`struphy-studies-template <https://github.com/struphy-hub/struphy-studies-template>`_.
 
 This documentation is published on `GitHub pages <https://struphy-hub.github.io/struphy/index.html>`_ and on
 `Read the Docs <https://struphy.readthedocs.io/en/latest/>`_. Read the Docs also has the doc pages of older Struphy
