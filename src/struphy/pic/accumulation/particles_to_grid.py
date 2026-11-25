@@ -38,7 +38,7 @@ class Accumulator:
         \\[2mm]
         I_B &= \int_\Omega \int_{\mathbb R^3} \Lambda^\mu_{ijk}(\boldsymbol \eta) \, B^\mu(\boldsymbol \eta, \mathbf v) \, f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v)\,\mathrm d\mathbf v \textrm d \boldsymbol \eta\,,
 
-    for given weight functions :math:`A^{\mu,\nu}` and :math:`B^\mu` by Monte-Carlo quadrature through the particle distribution function :math:`f^{\textrm{vol}}`:
+    for given functions :math:`A^{\mu,\nu}` and :math:`B^\mu` by Monte-Carlo quadrature through the particle distribution function :math:`f^{\textrm{vol}}`:
 
     .. math::
 
@@ -59,12 +59,16 @@ class Accumulator:
 
     .. math::
 
-        M^{\mu,\nu}_{ijk,mno} &= \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, A^{\mu,\nu}_p \, \Lambda^\nu_{mno}(\boldsymbol \eta_p) \,,
+        M^{\mu,\nu}_{ijk,mno} &= \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, A^{\mu,\nu}_p \, \Lambda^\nu_{mno}(\boldsymbol \eta_p) \,,
+        \qquad && A^{\mu,\nu}_p = w_p\, A^{\mu,\nu}(\boldsymbol \eta_p, \mathbf v_p)\,,
         \\[2mm]
-        V^\mu_{ijk} &= \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
+        V^\mu_{ijk} &= \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,,
+        \qquad && B^\mu_p = w_p\, B^\mu(\boldsymbol \eta_p, \mathbf v_p)\,.
 
     Here, :math:`\Lambda^\mu_{ijk}(\boldsymbol \eta_p)` denotes the :math:`ijk`-th basis function
-    of the :math:`\mu`-th component of a Derham space.
+    of the :math:`\mu`-th component of a Derham space. The **filling functions** :math:`A^{\mu,\nu}_p` and
+    :math:`B^\mu_p` are computed per marker by the accumulation kernel and include the marker weight
+    :math:`w_p` (see the kernel docstrings, e.g. ``B_p = w_p`` for the charge density).
 
     Parameters
     ----------
@@ -420,7 +424,7 @@ class AccumulatorVector:
 
         I_B = \int_\Omega \int_{\mathbb R^3} \Lambda^\mu_{ijk}(\boldsymbol \eta) \, B^\mu(\boldsymbol \eta, \mathbf v) \, f^{\textrm{vol}}(\boldsymbol \eta, \mathbf v)\,\mathrm d\mathbf v \textrm d \boldsymbol \eta\,,
 
-    for a given weight function and :math:`B^\mu` by Monte-Carlo quadrature through the particle distribution function :math:`f^{\textrm{vol}}`:
+    for a given function :math:`B^\mu` by Monte-Carlo quadrature through the particle distribution function :math:`f^{\textrm{vol}}`:
 
     .. math::
 
@@ -439,10 +443,12 @@ class AccumulatorVector:
 
     .. math::
 
-        V^\mu_{ijk} = \sum_{p=0}^{N-1} w_p\, \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
+        V^\mu_{ijk} = \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,,
+        \qquad B^\mu_p = w_p\, B^\mu(\boldsymbol \eta_p, \mathbf v_p)\,.
 
     Here, :math:`\Lambda^\mu_{ijk}(\boldsymbol \eta_p)` denotes the :math:`ijk`-th basis function
-    of the :math:`\mu`-th component of a Derham space.
+    of the :math:`\mu`-th component of a Derham space. The **filling function** :math:`B^\mu_p` is computed
+    per marker by the accumulation kernel and includes the marker weight :math:`w_p` (e.g. ``B_p = w_p`` in the kernel ``charge_density_0form``).
 
     Similar to :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` but only for vectors :math:`V`.
 

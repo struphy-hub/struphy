@@ -78,7 +78,7 @@ def test_draw(ppb, nx, ny, nz):
 @pytest.mark.parametrize("ny", [1, 16, 10])
 @pytest.mark.parametrize("nz", [1, 14, 11])
 @pytest.mark.parametrize("n_quad", [1, 2, 3])
-def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
+def test_tile_integrals(ppb, nx, ny, nz, n_quad, show_plot=False):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
@@ -186,4 +186,4 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
 
 if __name__ == "__main__":
     test_draw(8, 16, 1, 1)
-    test_cell_average(8, 6, 16, 14, n_quad=2, show_plot=True)
+    test_tile_integrals(8, 6, 16, 14, n_quad=2, show_plot=True)

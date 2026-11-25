@@ -1548,8 +1548,8 @@ class Particles(metaclass=ABCMeta):
                 fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
             else:
                 fvol = self.f_init
-            cell_avg = self.tesselation.cell_averages(fvol, n_quad=self.loading_params.n_quad)
-            self.weights0 = cell_avg.flatten()
+            tile_ints = self.tesselation.tile_integrals(fvol, n_quad=self.loading_params.n_quad)
+            self.weights0 = tile_ints.flatten()
         else:
             assert self.domain is not None, "A domain is needed to initialize weights."
 
@@ -3000,14 +3000,12 @@ class Particles(metaclass=ABCMeta):
         )
         self._markers[:, :n_common] = saved[:, :n_common]
 
-    def _load_tesselation(self, n_quad: int = 1):
+    def _load_tesselation(self):
         """
         Load markers on a grid defined by the center-of-mass points of a tesselation.
 
-        Parameters
-        ----------
-        n_quad: int
-            Number of quadrature points for the Gauss-Legendre quadrature for cell averages.
+        The quadrature order of the tile integrals (the weights) is set by ``loading_params.n_quad``
+        in :meth:`initialize_weights`.
         """
         self._tesselation = Tesselation(
             self.ppb,
@@ -4960,9 +4958,9 @@ class Tesselation:
     The tesselation gives a deterministic, evenly spaced set of points inside the process
     domain: :meth:`draw_markers` places one marker at the midpoint of each tile (used for
     ``loading="tesselation"``, e.g. deterministic SPH marker loading with ``ppb`` markers per
-    box), and :meth:`cell_averages` integrates a given function over each tile via
-    Gauss-Legendre quadrature (used to initialize marker weights from cell averages of the
-    background distribution).
+    box), and :meth:`tile_integrals` integrates a given function over each tile via
+    Gauss-Legendre quadrature (used to initialize the marker weights as the tile integrals of
+    the initial distribution function, a volume form).
 
     The number of tiles per direction is chosen by factorizing ``tiles_pb`` and greedily
     assigning factors to whichever direction currently has the fewest tiles (see
@@ -5146,14 +5144,18 @@ class Tesselation:
             self._tile_quad_pts += [pts[0]]
             self._tile_quad_wts += [wts[0]]
 
-    def cell_averages(self, fun, n_quad=None):
-        """Compute the cell average of ``fun`` over every tile on the current process,
+    def tile_integrals(self, fun, n_quad=None):
+        """Compute the integral of ``fun`` over every tile on the current process,
         via Gauss-Legendre quadrature of the given order in each direction.
+
+        The integrals are taken in logical coordinates and are not divided by the tile
+        volume: for a volume form ``fun``, they are the weights of the markers at the tile
+        midpoints (``loading="tesselation"``).
 
         Parameters
         ----------
         fun : callable
-            Function of (eta1, eta2, eta3) to be averaged; called once per sorting box
+            Function of (eta1, eta2, eta3) to be integrated; called once per sorting box
             with meshgrid-shaped arrays of quadrature points.
 
         n_quad : int | list[int]
@@ -5165,7 +5167,7 @@ class Tesselation:
         -------
         out : xp.ndarray
             3d array of shape ``n_tiles_per_dim * boxes_per_dim`` (one entry per tile on
-            the current process) holding the cell average of ``fun`` over each tile.
+            the current process) holding the integral of ``fun`` over each tile.
         """
         self._get_quad_pts(n_quad=n_quad)
         # logger.info(f'{self.tile_quad_pts = }')
@@ -5196,8 +5198,6 @@ class Tesselation:
                         single_box_out,
                     )
 
-                    # single_box_out /= self.tile_volume
-
                     out[
                         i * nt_x : (i + 1) * nt_x,
                         j * nt_y : (j + 1) * nt_y,
@@ -5207,7 +5207,7 @@ class Tesselation:
 
     def _tile_output_arrays(self):
         """Allocate two 3d arrays filled with zeros, to be filled tile-by-tile and
-        box-by-box in :meth:`draw_markers` and :meth:`cell_averages`:
+        box-by-box in :meth:`draw_markers` and :meth:`tile_integrals`:
 
         * the first, of shape :attr:`nt_per_dim`, holds one entry per tile within a
           single sorting box;
@@ -5241,7 +5241,7 @@ class Tesselation:
         return xl + self.tile_midpoints[dim]
 
     def _get_box_quad_pts(self, i: int, dim: int):
-        """Compute all quadrature points for cell averages within the i-th sorting box in direction dim.
+        """Compute all quadrature points for the tile integrals within the i-th sorting box in direction dim.
 
         Parameters
         ----------

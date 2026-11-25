@@ -581,6 +581,10 @@ class Particles5D(Particles):
         (:math:`B_0`) Jacobian factor divided back out,
         leaving a density that is a volume form in :math:`\\boldsymbol \\eta` only.
 
+        The velocity Jacobian is :math:`B_0`, not the :math:`B^*_\\parallel` of the phase-space volume
+        conserved by the guiding-center flow; the resulting :math:`O(\\epsilon + |\\delta B_\\parallel|/B_0)`
+        error of the initial condition is discussed in :ref:`pic_phase_space`.
+
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
@@ -604,6 +608,7 @@ class Particles5D(Particles):
         Sampling density function as 0-form, i.e. :meth:`s3` pushed forward to a pointwise density by
         dividing out the spatial metric Jacobian determinant. This is the quantity stored in each marker's
         ``s0`` column and used to compute initial weights ``w0 = f_init / s0 / Np``.
+        As in :meth:`s3`, the velocity Jacobian is :math:`B_0` (see :ref:`pic_phase_space`).
 
         Parameters
         ----------
